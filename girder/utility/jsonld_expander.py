@@ -111,10 +111,7 @@ def formatLdObject(obj, mesoPrefix='folder', user=None, keepUndefined=False):
         objID = str(obj.get('_id', 'undefined'))
         if objID=='undefined':
             raise ResourcePathNotFound()
-        newObj['_id'] = "/".join([
-            "activity_set" if mesoPrefix=='activitySet' else mesoPrefix,
-            objID
-        ])
+        newObj['_id'] = "/".join([snake_case(mesoPrefix), objID])
     if mesoPrefix in ['activitySet', 'applet']:
         applet = {
             'applet': newObj,
@@ -334,3 +331,25 @@ def keyExpansion(keys):
     ] + [
         k for k in keys if (':' not in k and '/' not in k)
     ])))
+
+
+def snake_case(camelCase):
+    """
+    Function to convert a camelCaseString to a snake_case_string
+
+    :param camelCase: camelCaseString
+    :type camelCase: str
+    :returns: snake_case_string
+    """
+    import re
+    first_cap_re = re.compile('(.)([A-Z][a-z]+)')
+    all_cap_re = re.compile('([a-z0-9])([A-Z])')
+    return(
+        all_cap_re.sub(
+            r'\1_\2',
+            first_cap_re.sub(
+                r'\1_\2',
+                camelCase
+            )
+        ).lower()
+    )
