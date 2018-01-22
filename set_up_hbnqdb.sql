@@ -36,13 +36,6 @@ CREATE TABLE question_group_question (
     dependency     text
 );
 
-CREATE TABLE question_response_sequence (
-    question       bigint references question(key),
-    option_number  int,
-    option         bigint references response_option(key),
-    dependency     text
-);
-
 CREATE TABLE questionnaire (
     key            bigserial primary key,
     name           text,
@@ -63,6 +56,13 @@ CREATE TABLE response_option (
     option_audio   bytea,
     option_image   bytea,
     option_value   text
+);
+
+CREATE TABLE question_response_sequence (
+    question       bigint references question(key),
+    option_number  int,
+    option         bigint references response_option(key),
+    dependency     text
 );
 
 CREATE TABLE response_type (
