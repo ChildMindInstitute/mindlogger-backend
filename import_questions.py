@@ -3,7 +3,15 @@ import psycopg2
 import urllib.request
 
 
-class Agent:
+class Indexed:
+    def _get_index(self):
+        return(self.__index)
+    def _set_index(self, index):
+        self.__index = int(index)
+    index = property(_get_index, _set_index)
+
+
+class Agent(Indexed):
     """Agent object for postgres DB."""
     def __init__(
         self,
@@ -19,7 +27,6 @@ class Agent:
             description,
             str
         ) else None
-        self.index = None
 
 
 class Instruction:
@@ -35,7 +42,7 @@ class Instruction:
         self.image_instruction = image_instruction
 
 
-class Question:
+class Question(Indexed):
     """Question object for postgres DB."""
     def __init__(
         self,
@@ -56,10 +63,9 @@ class Question:
             )
         )
         self.instruction = instruction
-        self.index = None
 
 
-class QuestionGroup:
+class QuestionGroup(Indexed):
     """Question Group object for postgres DB."""
     def __init__(
         self,
@@ -70,10 +76,9 @@ class QuestionGroup:
         self.group_name = group_name
         self.sort_name = sort_name if sort_name else group_name
         self.instruction = instruction
-        self.index = None
 
 
-class Questionnaire:
+class Questionnaire(Indexed):
     """Questionnaire object for postgres DB."""
     def __init__(
         self,
@@ -82,10 +87,9 @@ class Questionnaire:
     ):
         self.questionnaire_name = questionnaire_name
         self.sort_name = sort_name if sort_name else questionnaire_name
-        self.index = None
 
 
-class ResponseOption:
+class ResponseOption(Indexed):
     """Response Option object for postgres DB."""
     def __init__(
         self,
@@ -100,10 +104,9 @@ class ResponseOption:
         self.option_audio = option_audio
         self.option_image = option_image
         self.option_value = option_value if option_value else option_text
-        self.index = None
 
 
-class Rights:
+class Rights(Indexed):
     """Rights object for postgres DB."""
     def __init__(
         self,
@@ -119,7 +122,6 @@ class Rights:
             description,
             str
         ) else None
-        self.index = None
 
 
 def connect_postgres(postgres_db, postgres_user, postgres_pass):
@@ -473,8 +475,8 @@ def generate_sql(cur, row):
                 ],
                 "INSERT INTO response_option (option_text, option_value)\n"
                 "\tVALUES\n\t(\'{0}\', {1});\n\n".format(
-                    response_option.option_text.replace("'", "''"),
-                    response_option.option_value.replace("'", "''")
+                    str(response_option.option_text).replace("'", "''"),
+                    str(response_option.option_value).replace("'", "''")
                 )
             )
             lookup_key(
@@ -511,7 +513,7 @@ def generate_sql(cur, row):
         ],
         [
             question_group.index,
-            row["Question Sequence"]
+            int(row["Question Sequence"])
         ],
         key_column=[
            "qg",
@@ -521,7 +523,7 @@ def generate_sql(cur, row):
         "(qg, qsn, question)\n\tVALUES\n"
         "\t({0}, {1}, {2});\n\n".format(
             question_group.index,
-            row["Question Sequence"],
+            int(row["Question Sequence"]),
             question.index
         )
     )
@@ -667,7 +669,10 @@ def lookup_key(
     )
     key = cur.fetchone()
     if key:
-        return(key[0])
+        try:
+            return(int(key[0]))
+        except:
+            return(key[0])
     else:
         print(insert_command)
         cur.execute(insert_command)
