@@ -14,8 +14,11 @@ class Agent:
     ):
         self.agent_name = agent_name
         self.sort_name = sort_name if sort_name else agent_name
-        self.URL = URL
-        self.description = description
+        self.URL = URL if isinstance(URL, str) else None
+        self.description = description if isinstance(
+            description,
+            str
+        ) else None
         self.index = None
 
 
@@ -111,8 +114,11 @@ class Rights:
     ):
         self.long_name = long_name
         self.short_name = short_name if short_name else long_name
-        self.URL = URL
-        self.description = description
+        self.URL = URL if isinstance(URL, str) else None
+        self.description = description if isinstance(
+            description,
+            str
+        ) else None
         self.index = None
 
 
@@ -209,8 +215,153 @@ def disconnect_postgres(cur, conn, commit=True):
     conn.close()
 
 
+def generate_rights(cur, row):
+    """
+    Function to generate and execute queries to port intellectual property
+    rights information from CSV tables to postgres db.
+
+    Parameters
+    ----------
+    cur: cursor
+        cursor connected to postgres db
+
+    row: Series
+        row[1] from DataFrame.iterrows()
+
+    Returns
+    -------
+    None
+    """
+    # Read from spreadsheet
+    rights = Rights(
+        long_name=row["Rights Long"],
+        short_name=row["Rights Short"],
+        URL=row["Rights URL"],
+        description=row["Rights Description"]
+    )
+    agent = Agent(
+        agent_name = row["Rights Holder Name"],
+        sort_name = row["Rights Holder Sort Name"],
+        URL = row["Rights Holder URL"],
+        description = row["Rights Holder Description"]
+    )
+    # Agent
+    agent.index = lookup_key(
+        cur,
+        "agent",
+        "sort_name",
+        agent.sort_name,
+        "INSERT INTO agent (name, sort_name, URL, description)\n"
+        "\tVALUES (\'{0}\', \'{1}\', \'{2}\', \'{3}\');\n\n".format(
+            agent.agent_name.replace("'", "''"),
+            agent.sort_name.replace("'", "''"),
+            str(agent.URL).replace("'", "''"),
+            str(agent.description).replace("'", "''")
+        ) if (
+            agent.URL and agent.description
+        ) else "INSERT INTO agent (name, sort_name, URL)\n"
+        "\tVALUES (\'{0}\', \'{1}\', \'{2}\');\n\n".format(
+            agent.agent_name.replace("'", "''"),
+            agent.sort_name.replace("'", "''"),
+            str(agent.URL).replace("'", "''")
+        ) if (
+            agent.URL
+        ) else "INSERT INTO agent (name, sort_name, description)\n"
+        "\tVALUES (\'{0}\', \'{1}\', \'{2}\');\n\n".format(
+            agent.agent_name.replace("'", "''"),
+            agent.sort_name.replace("'", "''"),
+            str(agent.description).replace("'", "''")
+        ) if (
+            agent.description
+        ) else "INSERT INTO agent (name, sort_name)\n"
+        "\tVALUES (\'{0}\', \'{1}\');\n\n".format(
+            agent.agent_name.replace("'", "''"),
+            agent.sort_name.replace("'", "''")
+        )
+    )
+    # Rights
+    rights.index = lookup_key(
+        cur,
+        "rights",
+        "short_name",
+        rights.short_name,
+        "INSERT INTO rights (name, short_name, URL, description)\n"
+        "\tVALUES (\'{0}\', \'{1}\', \'{2}\', \'{3}\');\n\n".format(
+            rights.long_name.replace("'", "''"),
+            rights.short_name.replace("'", "''"),
+            str(rights.URL).replace("'", "''"),
+            str(rights.description).replace("'", "''")
+        ) if (
+            rights.URL and rights.description
+        ) else "INSERT INTO rights (name, short_name, URL)\n"
+        "\tVALUES (\'{0}\', \'{1}\', \'{2}\');\n\n".format(
+            rights.long_name.replace("'", "''"),
+            rights.short_name.replace("'", "''"),
+            str(rights.URL).replace("'", "''")
+        ) if (
+            rights.URL
+        ) else "INSERT INTO rights (name, short_name, description)\n"
+        "\tVALUES (\'{0}\', \'{1}\', \'{2}\');\n\n".format(
+            rights.long_name.replace("'", "''"),
+            rights.short_name.replace("'", "''"),
+            str(rights.description).replace("'", "''")
+        ) if (
+            rights.description
+        ) else "INSERT INTO rights (name, short_name)\n"
+        "\tVALUES (\'{0}\', \'{1}\');\n\n".format(
+            rights.long_name.replace("'", "''"),
+            rights.short_name.replace("'", "''")
+        )
+    )
+    # Rights Holder
+    lookup_key(
+        cur,
+        "rights_holder",
+        [
+            "entity",
+            "entity_index",
+            "rights_index",
+            "rights_holder"
+        ],
+        [
+             row["Entity Table"],
+             lookup_key(
+                 cur,
+                 row["Entity Table"],
+                 row["Entity Column"],
+                 row["Entity"]
+             ),
+             rights.index,
+             agent.index
+        ],
+        key_column=[
+            "entity",
+            "entity_index",
+            "rights_index",
+            "rights_holder"
+        ],
+        insert_command="INSERT INTO rights_holder "
+        "(entity, entity_index, rights_index, rights_holder)\n"
+        "\tVALUES (\'{0}\', {1}, {2}, {3});\n\n".format(
+            row["Entity Table"],
+            lookup_key(
+                cur,
+                row["Entity Table"],
+                row["Entity Column"],
+                row["Entity"]
+            ),
+            rights.index,
+            agent.index
+        )
+    )
+    return
+
+
 def generate_sql(cur, row):
     """
+    Function to generate and execute queries to port questionnaires from
+    CSV tables to postgres db.
+
     Parameters
     ----------
     cur: cursor
@@ -225,10 +376,6 @@ def generate_sql(cur, row):
     """
     # Setup variables
     has_options = ["Choice", "Multiple"]
-    sql_commands = list()
-    questionnaires = set()
-    question_groups = set()
-    questions = set()
     # Read from spreadsheet
     questionnaire = Questionnaire(
         row["Questionnaire"].strip(),
@@ -405,14 +552,17 @@ def generate_sql(cur, row):
     return
 
 
-def google_sheet(docid):
+def google_sheet(docid, gid=None):
     """
     Function to download and use shared Google Sheet
 
-    Parameter
+    Parameters
     ---------
     docid: str
-        Google Sheet identifier string
+        Google Sheet document identifier string
+
+    gid: str
+        Google Sheet sheet identifier string
 
     Returns
     -------
@@ -420,8 +570,12 @@ def google_sheet(docid):
         Google sheet downloaded as csv
     """
     return(urllib.request.urlopen(
-        "https://docs.google.com/spreadsheets/d/{0}/export?format=csv".format(
-            docid
+        "https://docs.google.com/spreadsheets/d/{0}/export"
+        "?format=csv{1}".format(
+            docid,
+            "&gid={0}".format(
+                gid
+            ) if gid else ""
         )
     ))
 
@@ -526,6 +680,7 @@ def lookup_key(
             key_column
         ))
 
+
 def main():
     cur, conn = connect_postgres(
         "hbnqdb",
@@ -534,11 +689,26 @@ def main():
     )
     sql_commands = list()
     for spreadsheet in [
-        google_sheet("1nT03l7oDWKcfA20x3R8zvtG1w2TvKmrwaD1s5uM9tPw")
+        google_sheet(
+            "1nT03l7oDWKcfA20x3R8zvtG1w2TvKmrwaD1s5uM9tPw",
+            "1911345128"
+        )
     ]:
         sheet = pd.read_csv(spreadsheet)
         for row in sheet.iterrows():
             generate_sql(
+                cur,
+                row[1]
+            )
+    for spreadsheet in [
+        google_sheet(
+            "1nT03l7oDWKcfA20x3R8zvtG1w2TvKmrwaD1s5uM9tPw",
+            "444712839"
+        )
+    ]:
+        sheet = pd.read_csv(spreadsheet)
+        for row in sheet.iterrows():
+            generate_rights(
                 cur,
                 row[1]
             )
