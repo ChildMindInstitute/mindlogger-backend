@@ -1,5 +1,6 @@
 import pandas as pd
 import psycopg2
+import urllib.request
 
 
 class Agent:
@@ -404,6 +405,27 @@ def generate_sql(cur, row):
     return
 
 
+def google_sheet(docid):
+    """
+    Function to download and use shared Google Sheet
+
+    Parameter
+    ---------
+    docid: str
+        Google Sheet identifier string
+
+    Returns
+    -------
+    sheet: csv file
+        Google sheet downloaded as csv
+    """
+    return(urllib.request.urlopen(
+        "https://docs.google.com/spreadsheets/d/{0}/export?format=csv".format(
+            docid
+        )
+    ))
+
+
 def lookup_key(
     cur,
     table,
@@ -512,7 +534,7 @@ def main():
     )
     sql_commands = list()
     for spreadsheet in [
-        "nonproprietary.csv"
+        google_sheet("1nT03l7oDWKcfA20x3R8zvtG1w2TvKmrwaD1s5uM9tPw")
     ]:
         sheet = pd.read_csv(spreadsheet)
         for row in sheet.iterrows():
