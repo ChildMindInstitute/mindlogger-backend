@@ -15,6 +15,7 @@ class Agent:
         self.sort_name = sort_name if sort_name else agent_name
         self.URL = URL
         self.description = description
+        self.index = None
 
 
 class Instruction:
@@ -34,11 +35,24 @@ class Question:
     """Question object for postgres DB."""
     def __init__(
         self,
+        variable_name,
         activity_type,
-        instruction
+        instruction,
+        cursor
     ):
-        self.activity_type = activity_type
+        self.variable_name = variable_name
+        self.activity_type = lookup_key(
+            cursor,
+            table="activity_type",
+            column="activity_type",
+            value=activity_type,
+            insert_command="INSERT INTO activity_type (activity_type)\n"
+            "\tVALUES (\'{0}\');\n\n".format(
+                activity_type
+            )
+        )
         self.instruction = instruction
+        self.index = None
 
 
 class QuestionGroup:
@@ -52,6 +66,7 @@ class QuestionGroup:
         self.group_name = group_name
         self.sort_name = sort_name if sort_name else group_name
         self.instruction = instruction
+        self.index = None
 
 
 class Questionnaire:
@@ -63,6 +78,7 @@ class Questionnaire:
     ):
         self.questionnaire_name = questionnaire_name
         self.sort_name = sort_name if sort_name else questionnaire_name
+        self.index = None
 
 
 class ResponseOption:
@@ -80,6 +96,7 @@ class ResponseOption:
         self.option_audio = option_audio
         self.option_image = option_image
         self.option_value = option_value if option_value else option_text
+        self.index = None
 
 
 class Rights:
@@ -95,32 +112,7 @@ class Rights:
         self.short_name = short_name if short_name else long_name
         self.URL = URL
         self.description = description
-
-
-def add_question(
-    q_group,
-    q,
-    sequence_no=None,
-    dependency=None
-):
-    """
-
-    Parameters
-    ----------
-    q_group: QuestionGroup
-
-    q: Question
-
-    sequence_no: int, optional
-
-    dependency: string, optional
-
-    Returns
-    -------
-    q_index: int
-        index of question
-    """
-    pass
+        self.index = None
 
 
 def connect_postgres(postgres_db, postgres_user, postgres_pass):
@@ -228,34 +220,40 @@ def generate_sql(cur, row):
 
     Returns
     -------
-    sql_commands: list
-        list of SQL strings
+    None
     """
+    # Setup variables
+    has_options = ["Choice", "Multiple"]
     sql_commands = list()
     questionnaires = set()
     question_groups = set()
     questions = set()
+    # Read from spreadsheet
     questionnaire = Questionnaire(
-        row["Questionnaire"],
-        row["Questionnaire Sort Name"]
+        row["Questionnaire"].strip(),
+        row["Questionnaire Sort Name"].strip()
     ) if row["Questionnaire Sort Name"] else Questionnaire(
-        row["Questionnaire"]
+        row["Questionnaire"].strip()
     )
-    question_group_sequence = row["Question Group Sequence"]
     question_group = QuestionGroup(
-        row["Question Group"],
-        instruction=row["Question Group Instruction"]
+        row["Question Group"][:80],
+        sort_name=": ".join([
+            questionnaire.sort_name,
+            row["Question Group"].strip()
+        ])[:80],
+        instruction=str(row["Question Group Instruction"]).strip()
     ) if row["Question Group Instruction"] else QuestionGroup(
-        row["Question Group"]
+        str(row["Question Group"]).strip()
     )
-    question_sequence = row["Question Sequence"]
     question = Question(
-        row["Activity Type"],
-        row["Question"]
+        variable_name=row["Variable Name"].strip(),
+        activity_type=row["Activity Type"].strip(),
+        instruction=row["Question"].strip(),
+        cursor=cur
     )
     responses = define_values(
-        row["Value Labels"]
-    ) if row["Activity Type"] in ["Choice", "Multiple"] else None
+        row["Value Labels"].strip()
+    ) if row["Activity Type"] in has_options else None
     vrange = row["Values"].split("-") if isinstance(
         row["Values"],
         str
@@ -265,34 +263,155 @@ def generate_sql(cur, row):
             int(vrange[0]),
             int(vrange[1])
         ):
-            if v not in responses:
-                responses[v] = v
-    questionnaire_index = lookup_key(
+            if str(v) not in responses:
+                responses[str(v)] = v
+    # Questionnaire
+    questionnaire.index = lookup_key(
         cur,
         "questionnaire",
         "name",
-        questionnaire.questionnaire_name
+        questionnaire.questionnaire_name,
+        "INSERT INTO questionnaire (name, sort_name)\n"
+        "\tVALUES (\'{0}\', \'{1}\');\n\n".format(
+            questionnaire.questionnaire_name.replace("'", "''"),
+            questionnaire.sort_name.replace("'", "''")
+        )
     )
-    if not questionnaire_index:
-        cur.execute(
-            "INSERT INTO questionnaire\n"
-            "\t(name, sort_name)\n"
-            "\tVALUES\n"
-            "\t(\'{0}\', \'{1}\');\n\n".format(
-                questionnaire.questionnaire_name,
-                questionnaire.sort_name
+    # Question Group
+    question_group.index = lookup_key(
+        cur,
+        "question_group",
+        "qg_sort",
+        question_group.sort_name,
+        "INSERT INTO question_group (qg_name, qg_sort, qg_text)\n"
+        "\tVALUES (\'{0}\', \'{1}\', \'{2}\');\n\n".format(
+            question_group.group_name.replace("'", "''"),
+            question_group.sort_name.replace("'", "''"),
+            str(question_group.instruction).replace("'", "''")
+        )
+    )
+    # Question
+    question.index = lookup_key(
+        cur,
+        "question",
+        "variable_name",
+        question.variable_name,
+        "INSERT INTO question (activity_type, variable_name, q_text)\n"
+        "\tVALUES ({0}, \'{1}\', \'{2}\');\n\n".format(
+            question.activity_type,
+            question.variable_name.replace("'", "''"),
+            question.instruction.replace("'", "''")
+        )
+    )
+    # Question Response Sequence
+    if row["Activity Type"] in has_options:
+        response_number = 1
+        for response in responses:
+            response_option = ResponseOption(
+                option_type=0,
+                option_text=responses[response],
+                option_value=response
             )
+            response_option.index = lookup_key(
+                cur,
+                "response_option",
+                [
+                    "option_text",
+                    "option_value"
+                ],
+                [
+                    response_option.option_text,
+                    response_option.option_value
+                ],
+                "INSERT INTO response_option (option_text, option_value)\n"
+                "\tVALUES\n\t(\'{0}\', {1});\n\n".format(
+                    response_option.option_text.replace("'", "''"),
+                    response_option.option_value.replace("'", "''")
+                )
+            )
+            lookup_key(
+                cur,
+                "question_response_sequence",
+                [
+                    "question",
+                    "option_number"
+                ],
+                [
+                    question.index,
+                    response_number
+                ],
+                key_column=[
+                    "question",
+                    "option_number"
+                ],
+                insert_command="INSERT INTO question_response_sequence "
+                "(question, option_number, option)\n\tVALUES\n"
+                "\t({0}, {1}, {2});\n\n".format(
+                    question.index,
+                    response_number,
+                    response_option.index
+                )
+            )
+            response_number = response_number + 1
+    # Question Group Questions Sequence
+    lookup_key(
+        cur,
+        "question_group_question",
+        [
+            "qg",
+            "qsn"
+        ],
+        [
+            question_group.index,
+            row["Question Sequence"]
+        ],
+        key_column=[
+           "qg",
+           "qsn"
+        ],
+        insert_command="INSERT INTO question_group_question "
+        "(qg, qsn, question)\n\tVALUES\n"
+        "\t({0}, {1}, {2});\n\n".format(
+            question_group.index,
+            row["Question Sequence"],
+            question.index
         )
-        questionnaire_index = lookup_key(
-            cur,
+    )
+    # Questionnaire Question Group Sequence
+    lookup_key(
+        cur,
+        "questionnaire_sequence",
+        [
             "questionnaire",
-            "name",
-            questionnaire.questionnaire_name
+            "qg_sequence"
+        ],
+        [
+            questionnaire.index,
+            row["Question Group Sequence"]
+        ],
+        key_column=[
+            "questionnaire",
+            "qg_sequence"
+        ],
+        insert_command="INSERT INTO questionnaire_sequence "
+        "(questionnaire, qg_sequence, q_group)\n\tVALUES\n"
+        "\t({0}, {1}, {2});\n\n".format(
+            questionnaire.index,
+            row["Question Group Sequence"],
+            question_group.index
         )
-    return([str(questionnaire_index)])
+    )
+    return
 
 
-def lookup_key(cur, table, column, value, key_column="key"):
+def lookup_key(
+    cur,
+    table,
+    column,
+    value,
+    insert_command=None,
+    key_column="key"
+):
     """
     Function to lookup a key for a specified object.
 
@@ -304,32 +423,86 @@ def lookup_key(cur, table, column, value, key_column="key"):
     table: str
         name of db table to lookup in
 
-    column: str
-        name of table column to lookup in
+    column: str or list
+        name(s) of table column(s) to lookup in
 
-    value: str
-        value to lookup
+    value: str or list
+        value(s) to lookup
+        if a list, must be the same length as column or will search for each
+        value in each column
 
-    key_column: str, default "key"
+    insert_command: SQL str
+        command to insert missing entity into relevant table
+
+    key_column: str or list, default "key"
         name of key column
 
     Returns
     -------
-    key: str, int, float or None
+    key: str, int, float, list or None
         first result of lookup
     """
-    cur.execute(
-        "SELECT {3} FROM\n"
-        "\t{1}\n"
-        "\tWHERE {2}='{0}'".format(
-            value,
-            table,
+    insert_command = insert_command if insert_command else "INSERT INTO {0}\n"
+    "\t({1})\n\tVALUES\n\t(\'{2}\');\n\n".format(
+        table,
+        column,
+        value
+    )
+    key_column = ", ".join(
+        key_column
+    ) if isinstance(
+        key_column,
+        list
+    ) else key_column
+    if isinstance(column, list):
+        if len(column) == len(value):
+            parameters = " AND ".join([
+                "{0}=\'{1}\'".format(
+                    column[x],
+                    str(value[x]).replace("'", "''")
+                ) for x in range(
+                    len(column)
+                )
+            ])
+        else:
+            parameters = " AND ".join([
+                "{0}=\'{1}\'".format(
+                    column[x],
+                    value[y]
+                ) for x in range(
+                    len(column)
+                ) for y in range(
+                    len(value)
+                )
+            ])
+    else:
+        parameters = "{0}=\'{1}\'".format(
             column,
+            str(value).replace("'", "''")
+        )
+    cur.execute(
+        "SELECT {2} FROM\n"
+        "\t{1}\n"
+        "\tWHERE {0};\n\n".format(
+            parameters,
+            table,
             key_column
         )
     )
     key = cur.fetchone()
-    return(key[0] if key else None)
+    if key:
+        return(key[0])
+    else:
+        print(insert_command)
+        cur.execute(insert_command)
+        return(lookup_key(
+            cur,
+            table,
+            column,
+            value,
+            insert_command,
+            key_column
+        ))
 
 def main():
     cur, conn = connect_postgres(
@@ -343,16 +516,10 @@ def main():
     ]:
         sheet = pd.read_csv(spreadsheet)
         for row in sheet.iterrows():
-            sql_commands = [
-                *sql_commands,
-                *generate_sql(
-                    cur,
-                    row[1]
-                )
-            ]
-    print(
-        ";\n\n".join(sql_commands),
-        end=";\n\n")
+            generate_sql(
+                cur,
+                row[1]
+            )
     disconnect_postgres(cur, conn)
 
 

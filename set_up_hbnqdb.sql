@@ -31,7 +31,7 @@ CREATE TABLE question_group (
 
 CREATE TABLE question_group_question (
     qg             bigint references question_group(key),
-    qsn            int,
+    qsn            int, -- question sequence number
     question       bigint references question(key),
     dependency     text
 );
