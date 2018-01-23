@@ -1,86 +1,111 @@
 CREATE TABLE activity_type (
-    key            serial primary key,
-    activity_type  varchar(80)
+    key            SERIAL PRIMARY KEY,
+    activity_type  VARCHAR(80)
 );
 
 CREATE TABLE agent (
-    key            bigserial primary key,
-    name           text,
-    sort_name      text,
-    URL            text,
-    description    text
+    key            BIGSERIAL PRIMARY KEY,
+    name           TEXT,
+    sort_name      TEXT,
+    URL            TEXT,
+    description    TEXT
+);
+
+CREATE TABLE instruction_type (
+    key            SERIAL PRIMARY KEY,
+    type           VARCHAR(80)
+);
+
+CREATE TABLE instruction (
+    key            BIGSERIAL PRIMARY KEY,
+    type           INT REFERENCES instruction_type(key),
+    language       VARCHAR(8),
+    content        TEXT
 );
 
 CREATE TABLE question (
-    key            bigserial primary key,
-    activity_type  int,
-    variable_name  varchar(32),
-    q_text         text,
-    q_audio        bytea,
-    q_image        bytea
+    key            BIGSERIAL PRIMARY KEY,
+    activity_type  INT,
+    variable_name  VARCHAR(32)
+);
+
+CREATE TABLE question_instruction (
+    question       BIGINT REFERENCES question(key),
+    instruction    BIGINT REFERENCES instruction(key),
+    PRIMARY KEY(question, instruction)
 );
 
 CREATE TABLE question_group (
-    key            bigserial primary key,
-    qg_name        varchar(80),
-    qg_sort        varchar(80),
-    qg_text        text,
-    qg_audio       bytea,
-    qg_image       bytea
+    key            BIGSERIAL PRIMARY KEY,
+    qg_name        VARCHAR(80),
+    qg_sort        VARCHAR(80)
+);
+
+CREATE TABLE question_group_instruction (
+    qg             BIGINT REFERENCES question_group(key),
+    instruction    BIGINT REFERENCES instruction(key),
+    PRIMARY KEY(qg, instruction)
 );
 
 CREATE TABLE question_group_question (
-    qg             bigint references question_group(key),
-    qsn            int, -- question sequence number
-    question       bigint references question(key),
-    dependency     text
+    qg             BIGINT REFERENCES question_group(key),
+    qsn            INT, -- question sequence number
+    question       BIGINT REFERENCES question(key),
+    dependency     TEXT,
+    PRIMARY KEY(qg, qsn)
 );
 
 CREATE TABLE questionnaire (
-    key            bigserial primary key,
-    name           text,
-    sort_name      text
+    key            BIGSERIAL PRIMARY KEY,
+    name           TEXT,
+    sort_name      TEXT
 );
 
 CREATE TABLE questionnaire_sequence (
-    questionnaire  bigint references questionnaire(key),
-    qg_sequence    int,
-    q_group        bigint references question_group(key),
-    dependency     text
+    questionnaire  BIGINT REFERENCES questionnaire(key),
+    qg_sequence    INT,
+    q_group        BIGINT REFERENCES question_group(key),
+    dependency     TEXT,
+    PRIMARY KEY(questionnaire, qg_sequence)
 );
 
 CREATE TABLE response_option (
-    key            bigserial primary key,
-    response_type  int,
-    option_text    text,
-    option_audio   bytea,
-    option_image   bytea,
-    option_value   text
+    key            BIGSERIAL PRIMARY KEY,
+    response_type  INT,
+    option_value   TEXT
+);
+
+CREATE TABLE response_option_instruction (
+    option         BIGINT REFERENCES response_option(key),
+    instruction    BIGINT REFERENCES instruction(key),
+    PRIMARY KEY(option, instruction)
 );
 
 CREATE TABLE question_response_sequence (
-    question       bigint references question(key),
-    option_number  int,
-    option         bigint references response_option(key),
-    dependency     text
+    question       BIGINT REFERENCES question(key),
+    option_number  INT,
+    option         BIGINT REFERENCES response_option(key),
+    dependency     TEXT,
+    PRIMARY KEY(question, option_number)
 );
 
 CREATE TABLE response_type (
-    key            int,
-    response_type  text
+    key            SERIAL PRIMARY KEY,
+    response_type  TEXT
 );
 
 CREATE TABLE rights (
-    key             bigserial,
-    name            text,
-    short_name      varchar(80),
-    URL             text,
-    description     text
+    key             BIGSERIAL PRIMARY KEY,
+    name            TEXT,
+    short_name      VARCHAR(80),
+    URL             TEXT,
+    description     TEXT
 );
 
 CREATE TABLE rights_holder (
-    entity         varchar(80),
-    entity_index   bigint,
-    rights_index   bigint,
-    rights_holder  bigint
+    entity         VARCHAR(80),
+    entity_index   BIGINT,
+    rights_index   BIGINT,
+    rights_holder  BIGINT,
+    PRIMARY KEY(entity, entity_index, rights_index, rights_holder)
 );

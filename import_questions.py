@@ -2,7 +2,6 @@ import pandas as pd
 import psycopg2
 import urllib.request
 
-
 class Indexed:
     def _get_index(self):
         return(self.__index)
@@ -29,17 +28,41 @@ class Agent(Indexed):
         ) else None
 
 
-class Instruction:
+class Instruction(Indexed):
     """Instruction object for postgres DB."""
     def __init__(
         self,
-        text_instruction=None,
-        audio_instruction=None,
-        image_instruction=None
+        cursor,
+        instruction_type,
+        instruction_content=None,
+        instruction_link=None,
+        instruction_language=None
     ):
-        self.text_instruction = text_instruction
-        self.audio_instruction = audio_instruction
-        self.image_instruction = image_instruction
+        self.instruction_type = lookup_key(
+            cursor,
+            table="instruction_type",
+            column="type",
+            value=instruction_type,
+            insert_command="INSERT INTO instruction_type (type)\n"
+            "\tVALUES (\'{0}\');\n\n".format(
+                instruction_type
+            )
+        )
+        self.instruction_content = instruction_content.strip().replace(
+            "'",
+            "''"
+        ) if isinstance(
+            instruction_content,
+            str
+        ) else None
+        self.instruction_link = instruction_link if isinstance(
+            instruction_link,
+            str
+        ) else None
+        self.instruction_language = instruction_language if isinstance(
+            instruction_language,
+            str
+        ) else "en-us"
 
 
 class Question(Indexed):
@@ -94,16 +117,12 @@ class ResponseOption(Indexed):
     def __init__(
         self,
         option_type,
-        option_text=None,
-        option_audio=None,
-        option_image=None,
+        option_instruction=None,
         option_value=None
     ):
-        self.option_type = option_type
-        self.option_text = option_text
-        self.option_audio = option_audio
-        self.option_image = option_image
-        self.option_value = option_value if option_value else option_text
+        self.type = option_type
+        self.instruction = option_instruction
+        self.value = option_value if option_value else option_text
 
 
 class Rights(Indexed):
@@ -391,14 +410,22 @@ def generate_sql(cur, row):
             questionnaire.sort_name,
             row["Question Group"].strip()
         ])[:80],
-        instruction=str(row["Question Group Instruction"]).strip()
+        instruction=Instruction(
+            instruction_type="text",
+            instruction_content=str(row["Question Group Instruction"]).strip(),
+            cursor=cur
+        )
     ) if row["Question Group Instruction"] else QuestionGroup(
         str(row["Question Group"]).strip()
     )
     question = Question(
         variable_name=row["Variable Name"].strip(),
         activity_type=row["Activity Type"].strip(),
-        instruction=row["Question"].strip(),
+        instruction=Instruction(
+            instruction_type="text",
+            instruction_content=row["Question"].strip(),
+            cursor=cur
+        ),
         cursor=cur
     )
     responses = define_values(
@@ -433,12 +460,17 @@ def generate_sql(cur, row):
         "question_group",
         "qg_sort",
         question_group.sort_name,
-        "INSERT INTO question_group (qg_name, qg_sort, qg_text)\n"
-        "\tVALUES (\'{0}\', \'{1}\', \'{2}\');\n\n".format(
+        "INSERT INTO question_group (qg_name, qg_sort)\n"
+        "\tVALUES (\'{0}\', \'{1}\');\n\n".format(
             question_group.group_name.replace("'", "''"),
-            question_group.sort_name.replace("'", "''"),
-            str(question_group.instruction).replace("'", "''")
+            question_group.sort_name.replace("'", "''")
         )
+    )
+    question_group = map_instruction(
+        question_group,
+        cur,
+        "question_group_instruction",
+        "qg"
     )
     # Question
     question.index = lookup_key(
@@ -446,12 +478,17 @@ def generate_sql(cur, row):
         "question",
         "variable_name",
         question.variable_name,
-        "INSERT INTO question (activity_type, variable_name, q_text)\n"
-        "\tVALUES ({0}, \'{1}\', \'{2}\');\n\n".format(
+        "INSERT INTO question (activity_type, variable_name)\n"
+        "\tVALUES ({0}, \'{1}\');\n\n".format(
             question.activity_type,
-            question.variable_name.replace("'", "''"),
-            question.instruction.replace("'", "''")
+            question.variable_name.replace("'", "''")
         )
+    )
+    question = map_instruction(
+        question,
+        cur,
+        "question_instruction",
+        "question"
     )
     # Question Response Sequence
     if row["Activity Type"] in has_options:
@@ -459,25 +496,38 @@ def generate_sql(cur, row):
         for response in responses:
             response_option = ResponseOption(
                 option_type=0,
-                option_text=responses[response],
+                option_instruction=Instruction(
+                    instruction_type="text",
+                    instruction_content=responses[response],
+                    cursor=cur
+                ),
                 option_value=response
             )
             response_option.index = lookup_key(
                 cur,
-                "response_option",
+                "response_option INNER JOIN response_option_instruction ON "
+                "response_option.key=response_option_instruction.option "
+                "INNER JOIN instruction ON "
+                "response_option_instruction.instruction=instruction.key",
                 [
-                    "option_text",
-                    "option_value"
+                    "instruction.content",
+                    "response_option.option_value"
                 ],
                 [
-                    response_option.option_text,
-                    response_option.option_value
+                    response_option.instruction.instruction_content,
+                    response_option.value
                 ],
-                "INSERT INTO response_option (option_text, option_value)\n"
-                "\tVALUES\n\t(\'{0}\', {1});\n\n".format(
-                    str(response_option.option_text).replace("'", "''"),
-                    str(response_option.option_value).replace("'", "''")
-                )
+                "INSERT INTO response_option (option_value)\n"
+                "\tVALUES (\'{0}\') RETURNING key;\n\n".format(
+                    str(response_option.value).replace("'", "''")
+                ),
+                key_column="response_option.key"
+            )
+            response_option = map_instruction(
+                response_option,
+                cur,
+                "response_option_instruction",
+                "option"
             )
             lookup_key(
                 cur,
@@ -676,15 +726,97 @@ def lookup_key(
     else:
         print(insert_command)
         cur.execute(insert_command)
-        return(lookup_key(
-            cur,
-            table,
-            column,
-            value,
-            insert_command,
-            key_column
-        ))
+        if "RETURNING" in insert_command:
+            key = cur.fetchone()
+            try:
+                return(int(key[0]))
+            except:
+                return(key[0])
+        else:
+            return(lookup_key(
+                cur,
+                table,
+                column,
+                value,
+                insert_command,
+                key_column
+            ))
 
+
+def map_instruction(item, cur, table, column):
+    """
+    Function to perform SQL queries to map instruction text.
+
+    Parameters
+    ----------
+    item: Indexed
+        Question, Question Group, Response Option to be instructed
+
+    cur: cursor
+        connection to postgres db
+
+    table: str
+        name of SQL table mapping item to instruction
+
+    column: str
+        name of column in table mapping to item's key
+
+    Returns
+    -------
+    item: Indexed
+        original item with instruction.index included
+    """
+    item.instruction.index = lookup_key(
+        cur,
+        "instruction",
+        [
+            "language",
+            "content"
+        ],
+        [
+            "en-us",
+            item.instruction.instruction_content
+        ],
+        "INSERT INTO instruction (type, language, content)\n"
+        "\tVALUES (\'{0}\', \'{1}\', \'{2}\') RETURNING key;\n\n".format(
+            lookup_key(
+                cur,
+                table="instruction_type",
+                column="type",
+                value="text",
+            insert_command="INSERT INTO instruction_type (type)\n"
+                "\tVALUES (\'{0}\');\n\n".format(
+                    "text"
+                )
+            ),
+            "en-us",
+            item.instruction.instruction_content
+        )
+    )
+    lookup_key(
+        cur,
+        table,
+        [
+            column,
+            "instruction"
+        ],
+        [
+            item.index,
+            item.instruction.index
+        ],
+        "INSERT INTO {2} ({3}, instruction)\n"
+        "\tVALUES ({0}, {1});\n\n".format(
+            item.index,
+            item.instruction.index,
+            table,
+            column
+        ),
+        [
+            column,
+            "instruction"
+        ]
+    )
+    return(item)
 
 def main():
     cur, conn = connect_postgres(
