@@ -3,17 +3,11 @@ import logo from './logo.svg';
 import './App.css';
 import Papa from 'papaparse';
 
+
 class App extends Component {
   render() {
     return (
       <div className="App">
-        <header className="App-header">
-          <img src={logo} className="App-logo" alt="logo" />
-          <h1 className="App-title">Welcome to React</h1>
-        </header>
-        <p className="App-intro">
-          To get started, edit <code>src/App.js</code> and save to reload.
-        </p>
       </div>
     );
   }
@@ -96,26 +90,50 @@ function json_restructure(file_json_array) {
   return(dbs_json);
 }
 
+function json_link(object){
+  var li = document.createElement("li");
+  var link = document.createElement("a");
+  var text = document.createTextNode(object.title);
+  link.setAttribute("href", "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(object, null, '  ')));
+  link.setAttribute("download", encodeURIComponent(object.title.replace(/ /g,'_')) + ".json");
+  link.appendChild(text);
+  li.appendChild(link);
+  return(li);
+}
+
+var papa_results = function(results, file){
+  var object = json_restructure(results.data);
+  console.log(object);
+  console.log(object.length + " questionnaires extracted from " + file.name);
+  var out_area = document.getElementById("json_out");
+  var out_list = document.createElement("ul");
+  out_area.appendChild(out_list);
+  for (var i=0; i < object.length; i++){
+    out_list.appendChild(json_link(object[i]));
+  }
+}
+
+var re = /(?:\.([^.]+))?$/;
 var control = document.getElementById("your-files-selector");
 control.addEventListener("change", function(event) {
-
   // When the control has changed, there are new files
-
   var i = 0,
-    files = control.files,
-    len = files.length;
+      files = control.files,
+      len = files.length;
 
   for (; i < len; i++){
-    console.log("Filename: " + files[i].name);
-    console.log("Type: " + files[i].type);
-    console.log("Size: " + files[i].size + " bytes");
-    Papa.parse(files[i], {
-    	complete: function(results) {
-    		console.log(json_restructure(results.data));
-    	},
-      header: true,
-      skipEmptyLines: true,
-    });
+    var file = files[i];
+    var ext = re.exec(file.name)[1];
+    console.log("Ext: " + ext);
+    if(ext !== "csv"){
+      alert("Please upload a CSV worksheet based on our template, not a " + ext + " file.");
+    } else {
+      Papa.parse(file, {
+      	complete: papa_results,
+        header: true,
+        skipEmptyLines: true,
+      });
+    }
   }
 
 }, false);
