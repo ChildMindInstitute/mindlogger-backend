@@ -1,9 +1,8 @@
 import React, { Component } from 'react';
-import logo from './logo.svg';
 import './App.css';
 import Papa from 'papaparse';
 
-
+// React
 class App extends Component {
   render() {
     return (
@@ -15,6 +14,8 @@ class App extends Component {
 
 export default App;
 
+// Keys are question types as displayed in the app's frontend.
+// Values are question types as encoded in the app's backend.
 var question_types = {
   "Choice": "single_sel",
   "Image": "image_sel",
@@ -22,29 +23,31 @@ var question_types = {
   "Text": "text",
 };
 
+// Test for Array find to check for an existing questionnaire.
+// Returns Boolean.
 function questionnaire_exists(questionnaire_array){
   return(this === questionnaire_array["title"]);
 }
 
+// Function to generate JSON for a question with responses iff responses are provided.
+// Returns JSON object
 function questions_responses(test, question_title, question_types, file_json_array_i, response_json){
   return(
-    test ? [
-      {
-        "title": question_title,
-        "type": question_types[file_json_array_i["Activity Type"]],
-        "rows": response_json,
-        "variable name": file_json_array_i["Variable Name"],
-      }
-    ] : [
-      {
-        "title": question_title,
-        "type": question_types[file_json_array_i["Activity Type"]],
-        "variable name": file_json_array_i["Variable Name"],
-      }
-    ]
+    test ? {
+      "title": question_title,
+      "type": question_types[file_json_array_i["Activity Type"]],
+      "rows": response_json,
+      "variable name": file_json_array_i["Variable Name"],
+    } : {
+      "title": question_title,
+      "type": question_types[file_json_array_i["Activity Type"]],
+      "variable name": file_json_array_i["Variable Name"],
+    }
   )
 }
 
+// Function to restructure results of Papaparse into specific JSON format.
+// Returns Array of JSON objects.
 function json_restructure(file_json_array) {
   var dbs_json = [];
   for (var i=0; i<file_json_array.length; i++){
@@ -77,11 +80,13 @@ function json_restructure(file_json_array) {
     } else {
       dbs_json.push(
         {
-        "activity_type": "survey",
-        "title": questionnaire_title,
-        "date": Date.now(),
-        "updated_at": Date.now(),
-        "questions": questions_responses(responses.length, question_title, question_types, file_json_array[i], response_json),
+          "activity_type": "survey",
+          "title": questionnaire_title,
+          "date": Date.now(),
+          "updated_at": Date.now(),
+          "questions": [
+            questions_responses(responses.length, question_title, question_types, file_json_array[i], response_json),
+          ],
         }
       );
     };
@@ -90,6 +95,8 @@ function json_restructure(file_json_array) {
   return(dbs_json);
 }
 
+// Function to create a list item link to download a created JSON object.
+// Returns HTML <li>
 function json_link(object){
   var li = document.createElement("li");
   var link = document.createElement("a");
@@ -101,6 +108,8 @@ function json_link(object){
   return(li);
 }
 
+// Function to parse CSV
+// Returns list of JSON objects
 var papa_results = function(results, file){
   var object = json_restructure(results.data);
   console.log(object);
@@ -111,9 +120,12 @@ var papa_results = function(results, file){
   for (var i=0; i < object.length; i++){
     out_list.appendChild(json_link(object[i]));
   }
+  return(object);
 }
 
+// prepare to look for file extensions
 var re = /(?:\.([^.]+))?$/;
+// get file(s)
 var control = document.getElementById("your-files-selector");
 control.addEventListener("change", function(event) {
   // When the control has changed, there are new files
