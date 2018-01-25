@@ -1,4 +1,4 @@
-This project was bootstrapped with [Create React App](https://github.com/facebookincubator/create-react-app).
+This project was bootstrapped with [Create React App](https://github.com/facebookincubator/create-react-app) and requires Node, Papaparse and React.
 
 [Try it!](http://68.66.205.123:5000)
 
