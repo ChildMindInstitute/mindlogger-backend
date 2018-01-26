@@ -116,6 +116,7 @@ var papa_results = function(results, file){
   console.log(object.length + " questionnaires extracted from " + file.name);
   var out_area = document.getElementById("json_out");
   var out_list = document.createElement("ul");
+  out_list.setAttribute("style", "list-style:none;");
   out_area.appendChild(out_list);
   for (var i=0; i < object.length; i++){
     out_list.appendChild(json_link(object[i]));

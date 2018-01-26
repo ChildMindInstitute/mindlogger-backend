@@ -19,7 +19,7 @@
     "predeploy": "npm run build",
     "deploy": "gh-pages -d build"
   },
-  "homepage": "http://childmindintstitute.github.io/ab2cd-app-backend/import_csv_to_json",
+  "homepage": "http://childmindintstitute.github.io/ab2cd-app-backend-import-csv-to-json",
   "devDependencies": {
     "gh-pages": "^1.1.0"
   }
