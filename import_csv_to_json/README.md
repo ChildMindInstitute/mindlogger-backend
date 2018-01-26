@@ -1,6 +1,6 @@
 This project was bootstrapped with [Create React App](https://github.com/facebookincubator/create-react-app) and requires Node, Papaparse and React.
 
-[Try it!](http://68.66.205.123:5000)
+[Try it!](http://mentalhealth.io:5000)
 
 #### How to use this page
 This webapp converts CSV files from [a templated format](https://docs.google.com/spreadsheets/d/1Jh0t6_TVLR59DZvZepSaxbb1E4ZHib3BzZVbHLZXTQc/export?gid=1911345128&format=csv) into a JSON format usable by AB2CD.

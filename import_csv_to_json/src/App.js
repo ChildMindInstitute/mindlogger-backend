@@ -37,11 +37,11 @@ function questions_responses(test, question_title, question_types, file_json_arr
       "title": question_title,
       "type": question_types[file_json_array_i["Activity Type"]],
       "rows": response_json,
-      "variable name": file_json_array_i["Variable Name"],
+      "variable_name": file_json_array_i["Variable Name"],
     } : {
       "title": question_title,
       "type": question_types[file_json_array_i["Activity Type"]],
-      "variable name": file_json_array_i["Variable Name"],
+      "variable_name": file_json_array_i["Variable Name"],
     }
   )
 }
