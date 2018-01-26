@@ -76,14 +76,13 @@ function json_restructure(file_json_array) {
     var existing_questionnaire = dbs_json.find(questionnaire_exists, questionnaire_title);
     if (existing_questionnaire) {
       existing_questionnaire["questions"].push(questions_responses(responses.length, question_title, question_types, file_json_array[i], response_json));
-      existing_questionnaire["updated_at"] = Date.now();
     } else {
       dbs_json.push(
         {
           "activity_type": "survey",
+          "mode": "basic",
+          "frequency": "1",
           "title": questionnaire_title,
-          "date": Date.now(),
-          "updated_at": Date.now(),
           "questions": [
             questions_responses(responses.length, question_title, question_types, file_json_array[i], response_json),
           ],
@@ -121,6 +120,16 @@ var papa_results = function(results, file){
   for (var i=0; i < object.length; i++){
     out_list.appendChild(json_link(object[i]));
   }
+  var file_link = document.createElement("a");
+  file_link.setAttribute("href", "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(object, null, '  ')));
+  var object_name = file.name.replace(/.csv/g,'_csv') + ".json";
+  var bold = document.createElement("b");
+  file_link.setAttribute("download", encodeURIComponent(object_name));
+  file_link.appendChild(document.createTextNode(object_name));
+  bold.appendChild(file_link);
+  var li = document.createElement("li");
+  li.appendChild(bold);
+  out_list.appendChild(li);
   return(object);
 }
 
