@@ -17,16 +17,16 @@ export default App;
 // Keys are question types as displayed in the app's frontend.
 // Values are question types as encoded in the app's backend.
 var question_types = {
-  "Choice": "single_sel",
+  "Single Choice": "single_sel",
   "Image": "image_sel",
-  "Multiple": "multi_sel",
-  "Text": "text",
+  "Multiple Choice": "multi_sel",
+  "Text Entry": "text",
 };
 
 // Test for Array find to check for an existing questionnaire.
 // Returns Boolean.
 function questionnaire_exists(questionnaire_array){
-  return(this === questionnaire_array["title"]);
+  return(this == questionnaire_array["title"]);
 }
 
 // Function to generate JSON for a question with responses iff responses are provided.
@@ -35,13 +35,13 @@ function questions_responses(test, question_title, question_types, file_json_arr
   return(
     test ? {
       "title": question_title,
-      "type": question_types[file_json_array_i["Activity Type"]],
+      "type": question_types[file_json_array_i["Response Type"]],
       "rows": response_json,
-      "variable_name": file_json_array_i["Variable Name"],
+      "variable_name": file_json_array_i["Question Abbreviation"],
     } : {
       "title": question_title,
-      "type": question_types[file_json_array_i["Activity Type"]],
-      "variable_name": file_json_array_i["Variable Name"],
+      "type": question_types[file_json_array_i["Response Type"]],
+      "variable_name": file_json_array_i["Question Abbreviation"],
     }
   )
 }
@@ -51,12 +51,12 @@ function questions_responses(test, question_title, question_types, file_json_arr
 function json_restructure(file_json_array) {
   var dbs_json = [];
   for (var i=0; i<file_json_array.length; i++){
-    var questionnaire_title = file_json_array[i]["Questionnaire"] === file_json_array[i]["Questionnaire Sort Name"] ? file_json_array[i]["Questionnaire"] : file_json_array[i]["Questionnaire Sort Name"] + " (" + file_json_array[i]["Questionnaire"] + ")";
+    var questionnaire_title = file_json_array[i]["Questionnaire Name"] === file_json_array[i]["Questionnaire Abbreviation"] ? file_json_array[i]["Questionnaire Name"] : file_json_array[i]["Questionnaire Abbreviation"] + " (" + file_json_array[i]["Questionnaire Name"] + ")";
     var responses = [];
-    if (file_json_array[i]["Activity Type"] !== "Text"){
-      responses = file_json_array[i]["Value Labels"].split("\n");
+    if (file_json_array[i]["Response Type"] !== "Text Entry"){
+      responses = file_json_array[i]["Response Options"].split("\n");
       if (responses.length < 2){
-        responses = file_json_array[i]["Value Labels"].split(",");
+        responses = file_json_array[i]["Response Options"].split(",");
       };
       var response_json = [];
       for (var j=0; j<responses.length; j++){
