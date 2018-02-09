@@ -1,15 +1,17 @@
 'use strict';
 
 import { Router } from 'express';
+import path from 'path';
 import auth from './auth';
 import act from './act';
 import answer from './answer';
+import user from './user';
 let router = new Router();
 
 let register = app => {
-    router.use('/api', [auth, act, answer]);
+    router.use('/api', [auth, act, answer, user]);
     router.use('/', (req, res) => {
-        res.send('Backend service for the AB2CD platform.');
+        res.sendFile(path.join(__dirname+'/client/build/index.html'));
     });
     app.use(router);
     app.use((req,res,next)=> {

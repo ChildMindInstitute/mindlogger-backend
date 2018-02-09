@@ -36,5 +36,15 @@ export default {
             message
         }
         return emailer.sendEmail(options);
+    },
+
+    addNewUser(data) {
+        let message = `<p>${data.name} invited you to AB2CD admin panel.<br/> Email: ${data.email} <br/> Password: ${data.password} <a href="${config.app.basePath}">Login here</a> </p>`
+        let options = {
+            to: data.email,
+            subject: 'Invitation from AB2CD',
+            message
+        }
+        return emailer.sendEmail(options);
     }
 };
