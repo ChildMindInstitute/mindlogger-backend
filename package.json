@@ -31,6 +31,7 @@
   "scripts": {
     "start:dev": "nodemon ./bin/www",
     "test": "echo \"Error: no test specified\" && exit 1",
-    "start": "node app.js"
+    "start": "node app.js",
+    "post-build": "cd client && npm install --only=dev && npm install && npm run build"
   }
 }
