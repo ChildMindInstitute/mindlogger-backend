@@ -16,8 +16,8 @@ let register = app => {
         res.status(error.status || 500).json({success: false, data: null, error, message: error.message})
     });
 
-    app.get('*', (req,res) => {
-        res.sendFIle(path.join(__dirname, '../../client/build/index.html'))
+    app.get('/*', (req,res) => {
+        res.sendFile(path.join(__dirname, '../../client/build/index.html'))
     })
 }
 
