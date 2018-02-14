@@ -11,7 +11,7 @@ let router = new Router();
 let register = app => {
     router.use('/api', [auth, act, answer, user]);
     router.use('/', (req, res) => {
-        res.sendFile(path.join(__dirname+'/client/build/index.html'));
+        res.sendFile(path.join(__dirname+'../../client/build/index.html'));
     });
     app.use(router);
     app.use((req,res,next)=> {
