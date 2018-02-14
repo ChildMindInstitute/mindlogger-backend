@@ -28,9 +28,11 @@ let actController = {
     },
 
     getAssignedActs(req, res, next) {
-        UserAct.findAll({
-            where:{user_id: req.params.id},
-            include: [Act]
+        Act.findAll({
+            include: [{
+                model: UserAct,
+                where:{user_id: req.params.id}
+            }]
         }).then(results => {
             console.log(results)
             res.json({ success: true, assigned_acts: results, message: '' });
@@ -72,7 +74,13 @@ let actController = {
                 next(error)
             })
         } else {
-            UserAct.findOrCreate({where:{user_id: userId, act_id: actId}, defaults: {}}).spread( (result, created) => {
+            UserAct.find({where:{user_id: userId, act_id: actId}, defaults: {}}).then( result => {
+                if (result){
+                    return result
+                } else {
+                    return UserAct.create({user_id: userId, act_id: actId})
+                }
+            }).then(result => {
                 res.json({success: true, message: 'success'})
             }).catch( error => {
                 next(error)
