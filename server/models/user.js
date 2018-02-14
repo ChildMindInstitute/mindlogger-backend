@@ -20,6 +20,7 @@ module.exports = (sequelize, DataTypes) => {
   User.associate = (models) => {
     User.hasMany(models.Act, {as: 'ownActs', foreignKey: 'user_id'})
     User.belongsToMany(models.Act, { through: 'UserAct', foreignKey:'user_id'})
+    User.hasMany(models.Answer, { as: 'answers', foreignKey:'user_id'})
   }
   
   User.generateToken = () => {

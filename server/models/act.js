@@ -17,6 +17,7 @@ module.exports = (sequelize, DataTypes) => {
     // associations can be defined here
     Act.belongsTo(models.User, {as: 'author', foreignKey:'user_id'})
     Act.belongsToMany(models.User, {through: 'UserAct', foreignKey:'act_id'})
+    Act.hasMany(models.Answer, { as: 'answers', foreignKey:'act_id'})
   }
   return Act;
 };

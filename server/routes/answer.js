@@ -8,7 +8,8 @@ let router = Router();
 let {auth, answer} = controllers;
 let validation = middleware.validation;
 router.use(auth.checkUserAuthenticated);
-router.get('/answers', answer.getAnswers);
+router.get('/users/:userId/answers', answer.getAnswers);
+router.get('/users/:userId/answered_acts', answer.getActsAndAnswers);
 router.post('/answers', answer.addAnswer);
 router.get('/answers/:id', answer.getAnswer)
 
