@@ -1,6 +1,6 @@
 'use strict';
 
-import { Router } from 'express';
+import express, { Router } from 'express';
 import path from 'path';
 import auth from './auth';
 import act from './act';
@@ -10,9 +10,7 @@ let router = new Router();
 
 let register = app => {
     router.use('/api', [auth, act, answer, user]);
-    router.use('/', (req, res) => {
-        res.sendFile(path.join(__dirname, '../../client/build/index.html'));
-    });
+    router.use(express.static(path.join(__dirname, '../../client/build')));
     app.use(router);
     app.use((req,res,next)=> {
         let error =new Error('Not Found');
