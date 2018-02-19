@@ -2,16 +2,16 @@
 var bcrypt = require('bcrypt');
 module.exports = {
   up: (queryInterface, Sequelize) => {
-    let hash = bcrypt.hashSync('password', 10)
+    let hash = bcrypt.hashSync('admin2mindlogger', 10)
     return queryInterface.bulkInsert('Users', [{
-      first_name: 'Admin',
+      first_name: 'Super Admin',
       last_name: '',
       role: 'super_admin',
-      email: 'admin@ab2cd.com',
-      status: 'active', 
+      email: 'admin@mindlogger.org',
+      status: 'active',
       password: hash,
       createdAt : new Date(),
-      updatedAt : new Date(),
+      updatedAt : new Date()
     }], {})
     if(process.env.NODE_ENV != 'production' ) {
       queryInterface.bulkInsert('Users', [{
