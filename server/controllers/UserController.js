@@ -23,7 +23,7 @@ let userController = {
     },
     
     inviteUser(req, res, next) {
-        const password = randomString(10)
+        let password = req.body.password && req.body.password.length > 0 ? req.body.password : randomString(10)
         bcrypt.hash(password, 10).then(hash => {
             let userData = {
                 email: req.body.email,
@@ -33,14 +33,14 @@ let userController = {
                 role: req.body.role,
                 newsletter: req.body.newsletter
             }
-            User.create(userData).then(newUser => {
+            return User.create(userData).then(newUser => {
                 let user = Object.assign({}, newUser.get());
                 delete user.password;
-                return Email.addNewUser({email: userData.email, name: req.user.first_name + ' ' + req.user.last_name, password});
-            }).catch(error => {
-                next(error)
-            });
-            
+                user.password = password
+                return Email.addNewUser({email: userData.email, name: req.user.first_name + ' ' + req.user.last_name, password}).then(result => {
+                    res.json({success: true, user: newUser, message:'New user created'})
+                })
+            })
         }).catch(error => {
             return next(error);
         });

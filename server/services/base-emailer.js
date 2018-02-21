@@ -25,6 +25,11 @@ export default {
             subject: options.subject,
             html: options.message
         };
-        return transport.sendMail(mailOptions);
+        if(smtpConfig.auth.user)
+            return transport.sendMail(mailOptions);
+        else
+            return new Promise((resolve, reject) => {
+                resolve(true)
+            });
     }
 }

@@ -11,4 +11,7 @@ export default {
             isSecure: true
         }
     },
+    app: {
+        basePath: 'http://mindlogger.childmind.org'
+    }
 }
