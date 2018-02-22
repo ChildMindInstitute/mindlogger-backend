@@ -39,10 +39,10 @@ function score_label_lookup(score_value, score_key_i, score_label){
  */
 function calculate_score(score_key, answers, score_results){
   var score_i=0;
-  var all_scores=new Array;
+  var all_scores=[];
   for (score_i=0; score_i<score_key.scores.length; score_i++){
     eval(score_key.scores[score_i].formula);
-    var final_score = new Number();
+    var final_score = 0;
     eval(score_key.scores[score_i].short_label)(answers, function(final_score) {
       var score_value = final_score;
       score_label_lookup(score_value, score_key.scores[score_i], function(score_label) {
