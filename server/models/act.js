@@ -12,6 +12,16 @@ module.exports = (sequelize, DataTypes) => {
           this.setDataValue('act_data', JSON.stringify(value || {}));
       },
     },
+    status:{
+      type: DataTypes.STRING, 
+      defaultValue:'active'
+    }
+  },{
+    defaultScope: {
+      where: {
+        status: 'active'
+      }
+    }
   });
   Act.associate = function(models) {
     // associations can be defined here

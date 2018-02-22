@@ -113,7 +113,11 @@ let actController = {
     },
 
     deleteAct(req, res, next) {
-        Act.destroy({where: {user_id: req.user.id, id: req.params.id}}).then(result => {
+        let params = { id: req.params.id}
+        if(req.user.role != 'super_admin') {
+            params.user_id = req.user.id;
+        }
+        Act.update({status: 'inactive'},{where: params}).then(result => {
             res.json({ success: true, message: 'success'})
         }).catch(error => {
             next(error)

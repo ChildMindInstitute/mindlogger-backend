@@ -27,7 +27,7 @@ let answerController = {
         }
         Answer.findAndCountAll({ 
             where: query,
-            include: [{ model: Act, as: 'act'}, { model: User, as: 'user'}],
+            include: [{ model: Act, as: 'act', required: true}, { model: User, as: 'user'}],
             order: [['updatedAt', 'DESC']],
             limit: parseInt(req.query.limit || 10),
             offset: parseInt(req.query.offset || 0)
