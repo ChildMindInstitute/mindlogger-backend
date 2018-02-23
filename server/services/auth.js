@@ -90,12 +90,12 @@ passport.use('login', loginLocalStrategy);
 passport.serializeUser((user, done) => {
     let createAccessToken = () => {
         let token = User.generateToken();
-        User.findOne({ where: { access_token: token }, attributes: ['access_token'] }).then(data => {
+        return User.findOne({ where: { access_token: token }, attributes: ['access_token'] }).then(data => {
             let existingUser = data ? data.get() : null;
             if (existingUser) {
-                createAccessToken();
+                return createAccessToken();
             } else {
-                User.update({ access_token: token }, { where: { id: user.id } }).then(afftectedRows => {
+                return User.update({ access_token: token }, { where: { id: user.id } }).then(afftectedRows => {
                     user.access_token = token;
                     return done(null, token);
                 }).catch(error => {
@@ -108,7 +108,12 @@ passport.serializeUser((user, done) => {
     };
 
     if (user && user.id) {
-        createAccessToken();
+        if (user.access_token && user.access_token.length>0) {
+            return done(null, user.access_token);
+        } else {
+            return createAccessToken();
+        }
+        
     }
 });
 
