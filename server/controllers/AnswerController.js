@@ -70,7 +70,7 @@ let answerController = {
         })
     },
     getAnswer(req, res, next) {
-        Answer.findOne({id: req.params.id}).then(res => {
+        Answer.findOne({id: req.params.id}).then(result => {
             res.json({success: true, answer: result, message: 'success' })
         }).catch(error => {
             next(error)
