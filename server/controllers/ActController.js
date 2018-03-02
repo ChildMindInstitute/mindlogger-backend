@@ -90,6 +90,10 @@ let actController = {
 
     addAct(req, res, next) {
         let {title, type, act_data} = req.body
+        let audio = req.files && req.files.audio && req.files.audio[0].location;
+        if (audio) {
+            act_data.audio_url = audio;
+        }
         Act.create({
             user_id: req.user.id,
             title,
@@ -105,6 +109,10 @@ let actController = {
 
     updateAct(req, res, next) {
         let {title, act_data} = req.body
+        let audio = req.files && req.files.audio && req.files.audio[0].location;
+        if (audio) {
+            act_data.audio_url = audio;
+        }
         Act.update({ act_data, title }, { where:{user_id: req.user.id, id: req.params.id} }).then(result => {
             res.json({ success: true, act: result, message: 'success'})
         }).catch(error => {
