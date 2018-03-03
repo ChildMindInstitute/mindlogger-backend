@@ -13,5 +13,11 @@ export default {
     },
     app: {
         basePath: 'http://mindlogger.childmind.org'
+    },
+    s3: {
+        bucket: "mindloggerimages",
+        region: "us-east-1",
+        accessKeyId: "AKIAJSKJBTHX7RPQNMRQ",
+        secretAccesskey: "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",
     }
 }

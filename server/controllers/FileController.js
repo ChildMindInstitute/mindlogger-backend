@@ -1,6 +1,6 @@
 'use strict';
 import models from '../models';
-import {listPath, newImage, newFolder} from '../services/s3';
+import s3Storage from '../services/s3';
 
 let {User, Act, UserAct, Sequelize:{Op}} = models;
 /**
@@ -16,7 +16,7 @@ let fileController = {
      * 
      */
     getList(req, res, next) {
-        listPath(`images/${req.query.path}`).then( contents => {
+        s3Storage.listPath(`images/${req.query.path || ''}`).then( contents => {
             let files = contents.map(content => content.Key)
             res.json({success:true, files})
         }).catch(err => {
@@ -27,7 +27,7 @@ let fileController = {
     postFile(req, res, next) {
         let bodyData= req.body
         if(bodyData.is_folder) {
-            return newFolder(bodyData.path).then(result => {
+            return s3Storage.newFolder(bodyData.path).then(result => {
                 res.json({success: true, path: bodyData.path})
             }).catch(err => {
                 next(err)
@@ -35,6 +35,15 @@ let fileController = {
         } else {
             res.json({success: true, file: req.files[0]})
         }
+    },
+
+    deleteFile(req,res, next) {
+        let {path} = req.query
+        s3Storage.deleteFile(path).then(result => {
+            res.json({success: true})
+        }).catch(err => {
+            next(err)
+        })
     }
 
 }

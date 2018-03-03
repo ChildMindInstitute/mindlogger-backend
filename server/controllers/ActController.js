@@ -91,8 +91,16 @@ let actController = {
     addAct(req, res, next) {
         let {title, type, act_data} = req.body
         let audio = req.files && req.files.audio && req.files.audio[0].location;
+        let image = req.files && req.files.image && req.files.image[0].location;
+        let contentType = req.headers['content-type'];
+        if (!contentType || contentType.indexOf('application/json') !== 0) {
+            act_data = JSON.parse(act_data)
+        }
         if (audio) {
             act_data.audio_url = audio;
+        }
+        if (image) {
+            act_data.image_url = image
         }
         Act.create({
             user_id: req.user.id,
@@ -110,8 +118,16 @@ let actController = {
     updateAct(req, res, next) {
         let {title, act_data} = req.body
         let audio = req.files && req.files.audio && req.files.audio[0].location;
+        let image = req.files && req.files.image && req.files.image[0].location;
+        let contentType = req.headers['content-type'];
+        if (!contentType || contentType.indexOf('application/json') !== 0) {
+            act_data = JSON.parse(act_data)
+        }
         if (audio) {
             act_data.audio_url = audio;
+        }
+        if (image) {
+            act_data.image_url = image
         }
         Act.update({ act_data, title }, { where:{user_id: req.user.id, id: req.params.id} }).then(result => {
             res.json({ success: true, act: result, message: 'success'})

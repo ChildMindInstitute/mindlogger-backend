@@ -22,7 +22,7 @@ var bucketParams = {
    ServerSideEncryption: 'AES256'  // encryption
 };
 
-const audioBucket = 'cmi-dataapp'
+const CMI_BUCKET = 'cmi-dataapp'
 
 
 // Create image if not exists with verbose callback
@@ -48,29 +48,6 @@ export function newImage(path, image) {
 }
 
 
-// Create folder if not exists with verbose callback
-export function newFolder(folder) {
-  return new Promise((resolve, reject) => {
-    var folderParams = bucketParams;
-    folderParams.Key = folder + "/";
-    checkPath(folderParams.Key, function(exists){
-      if (exists) {
-        reject(new Error(folder + " already exists!"));
-      } else {
-        s3.putObject(folderParams, function(err, data) {
-          if (err) 
-            reject(err); // an error occurred
-          else {                        // successful response
-            resolve(data)
-          };
-        });
-      }
-    });
-  })
-  
-}
-
-
 // Check if file or folder exists with Boolean callback
 function checkPath(path, inBucket) {
   var pathParams = new Object;
@@ -91,60 +68,107 @@ function checkPath(path, inBucket) {
   });
 }
 
-export function listPath(path) {
-  return new Promise((resolve, reject) => {
-    var pathParams = new Object;
-    pathParams.Bucket = bucketParams.Bucket;
-    pathParams.Prefix = path
-    var pathInBucket = false;
-    return s3.listObjects(pathParams, function(err, data) {
-      if (err) {
-        console.log(err, err.stack); // an error occurred
-        reject(err)
-      } else {                           // successful response
-        var listContents = data.Contents;
-        console.log(listContents)
-        resolve(listContents)
-      };
-      //inBucket(pathInBucket);
+export default {
+  uploadImage() {
+    let storage = multerS3({
+      s3: s3,
+      bucket: bucketParams.Bucket,
+      acl: 'public-read',
+      metadata: function(req,file,cb) {
+        cb(null, {fieldName: file.fieldname});
+      },
+      key: function(req,file, callback) {
+        callback(null,`${req.body.path}${req.body.filename+path.extname(file.originalname).toLowerCase()}`);
+      }
     });
-  })
-}
+    return multer({
+      storage,
+      limits: {
+      fieldSize: 1000000
+      }
+    });
+  },
 
-export function uploadImage() {
-  let storage = multerS3({
-    s3: s3,
-    bucket: bucketParams.Bucket,
-    metadata: function(req,file,cb) {
-      cb(null, {fieldName: file.fieldname});
-    },
-    key: function(req,file, callback) {
-      callback(null,`${req.bodyData.path}${req.bodyData.filename+path.extname(file.originalname).toLowerCase()}`);
-    }
-  });
-  return multer({
-    storage,
-    limits: {
-    fieldSize: 1000000
-    }
-  });
-}
+  uploadFile() {
+    let storage = multerS3({
+      s3: s3,
+      bucket: CMI_BUCKET,
+      acl: 'public-read',
+      metadata: function(req,file,cb) {
+        cb(null, {fieldName: file.fieldname});
+      },
+      key: function(req,file, callback) {
+        let obj = path.parse(file.originalname)
+        let dir = req.body.path || 'other/'
+        let filename = req.body.filename || `${obj.name}-${Math.random().toString(36).substring(2,15)}-${(new Date()).getTime()}`
+        callback(null,`${dir}${filename+obj.ext.toLowerCase()}`);
+      }
+    });
+    return multer({
+      storage,
+      limits: {
+        fieldSize: 1000000
+      }
+    });
+  },
 
-export function uploadAudio() {
-  let storage = multerS3({
-    s3: s3,
-    bucket: audioBucket,
-    metadata: function(req,file,cb) {
-      cb(null, {fieldName: file.fieldname});
-    },
-    key: function(req,file, callback) {
-      callback(null,`${req.bodyData.path}${req.bodyData.filename+path.extname(file.originalname).toLowerCase()}`);
-    }
-  });
-  return multer({
-    storage,
-    limits: {
-    fieldSize: 1000000
-    }
-  });
+  // Create folder if not exists with verbose callback
+  newFolder(folder) {
+    return new Promise((resolve, reject) => {
+      var folderParams = bucketParams;
+      folderParams.Key = folder + "/";
+      checkPath(folderParams.Key, function(exists){
+        if (exists) {
+          reject(new Error(folder + " already exists!"));
+        } else {
+          s3.putObject(folderParams, function(err, data) {
+            if (err) 
+              reject(err); // an error occurred
+            else {                        // successful response
+              resolve(data)
+            };
+          });
+        }
+      });
+    })
+  },
+
+  listPath(path) {
+    return new Promise((resolve, reject) => {
+      var pathParams = new Object;
+      pathParams.Bucket = bucketParams.Bucket;
+      pathParams.Prefix = path
+      var pathInBucket = false;
+      return s3.listObjects(pathParams, function(err, data) {
+        if (err) {
+          console.log(err, err.stack); // an error occurred
+          reject(err)
+        } else {                           // successful response
+          var listContents = data.Contents;
+          console.log(listContents)
+          resolve(listContents)
+        };
+        //inBucket(pathInBucket);
+      });
+    })
+  },
+
+  deleteFile(path) {
+    return new Promise((resolve, reject) => {
+      var fileParams = {
+        Bucket:bucketParams.Bucket,
+        Key: path
+      }
+      return s3.deleteObject(fileParams, function(err, data) {
+        if (err) {
+          console.log(err, err.stack); // an error occurred
+          reject(err)
+        } else {                           // successful response
+          resolve(data)
+        };
+        //inBucket(pathInBucket);
+      });
+    })
+  }
+
 }
