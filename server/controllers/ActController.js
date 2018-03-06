@@ -15,12 +15,27 @@ let actController = {
      * 
      */
     getActs(req, res, next) {
-        Act.findAndCountAll({ 
-            where: {user_id: req.user.id},
+        let param = {
+            include: [{
+                model: User,
+                as: 'author'
+            }],
             order: [['updatedAt', 'DESC']],
-            limit: parseInt(req.query.limit || 10),
-            offset: parseInt(req.query.offset || 0)
-        }).then(results => {
+        }
+        if (req.query.user_id) {
+            param.where = {user_id: req.query.user_id}
+        }
+        if (req.user.role != 'super_admin') {
+            param.where = {user_id: req.user.id}
+        }
+        if (req.query.limit) {
+            param = {
+                ...param,
+                limit: parseInt(req.query.limit || 10),
+                offset: parseInt(req.query.offset || 0)
+            }
+        }
+        Act.findAndCountAll(param).then(results => {
             res.json({ success: true, acts: results.rows, paging:{ total: results.count }, message: '' });
         }).catch(error => {
             next(error);
@@ -32,6 +47,9 @@ let actController = {
             include: [{
                 model: UserAct,
                 where:{user_id: req.params.id}
+            }, {
+                model: User,
+                as: 'author'
             }]
         }).then(results => {
             console.log(results)
