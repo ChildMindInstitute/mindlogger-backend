@@ -57,12 +57,13 @@ let answerController = {
     },
 
     addAnswer(req, res, next) {
-        let {act_id, act_data, answer_data} = req.body
+        let {act_id, act_data, answer_data, platform} = req.body
         Answer.create({
             user_id: req.user.id,
-            act_id: act_id,
+            act_id,
             act_data,
-            answer_data
+            answer_data,
+            platform
         }).then(result => {
             res.json({ success: true, answer: result, message: 'success'})
         }).catch(error => {
