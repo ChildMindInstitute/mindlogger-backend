@@ -21,6 +21,8 @@ module.exports = (sequelize, DataTypes) => {
           this.setDataValue('answer_data', JSON.stringify(value || {}));
       },
     },
+    platform: DataTypes.STRING,
+    score: DataTypes.FLOAT,
   });
   Answer.associate = function(models) {
     // associations can be defined here
