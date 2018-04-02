@@ -7,7 +7,7 @@
 function score_label_lookup(score_value, score_key_i, score_label){
   label_for_score = ""
   for (var label_range in score_key_i.values){
-    if label_range.includes("-"){
+    if (label_range.includes("-")){
       var l_range = label_range.split("-");
       if (score_value >= Number(l_range[0]) && score_value <= Number(l_range[1])){
         if (label_for_score.length){
