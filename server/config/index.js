@@ -1,7 +1,8 @@
+require('dotenv').config();
 export default {
     mail: {
         from_name: 'Child Mind Institute',
-        from_email: 'noreply@childmindinstitute.com',
+        from_email: 'mindlogger@childmind.org',
         is_smtp: true,
         smtp: {
             host: 'email-smtp.us-east-1.amazonaws.com',
@@ -17,7 +18,7 @@ export default {
     s3: {
         bucket: "mindloggerimages",
         region: "us-east-1",
-        accessKeyId: "AKIAJSKJBTHX7RPQNMRQ",
-        secretAccesskey: "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",
+        accessKeyId: process.env.AWS_KEY_ID,
+        secretAccesskey: process.env.AWS_SECRET_KEY,
     }
 }
