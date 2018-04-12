@@ -2,10 +2,10 @@
 
 module.exports = {
   up: (queryInterface, Sequelize) => {
-    return queryInterface.addColumn("Acts", "status",{type: Sequelize.STRING, defaultValue: 'active'});
+    return queryInterface.addColumn("acts", "status",{type: Sequelize.STRING, defaultValue: 'active'});
   },
 
   down: (queryInterface, Sequelize) => {
-    return queryInterface.removeColumn("Acts","status");
+    return queryInterface.removeColumn("acts","status");
   }
 };

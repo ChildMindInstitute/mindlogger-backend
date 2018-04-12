@@ -2,7 +2,7 @@
 import bcrypt from 'bcrypt';
 
 module.exports = (sequelize, DataTypes) => {
-  var User = sequelize.define('User', {
+  var User = sequelize.define('user', {
     first_name: DataTypes.STRING,
     last_name: DataTypes.STRING,
     email: DataTypes.STRING,
@@ -15,7 +15,7 @@ module.exports = (sequelize, DataTypes) => {
         type: DataTypes.STRING,
         defaultValue: 'active'
     }
-  });
+  }, {underscored: true});
 
   User.associate = (models) => {
     User.hasMany(models.Act, {as: 'ownActs', foreignKey: 'user_id'})

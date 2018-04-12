@@ -11,8 +11,8 @@ module.exports = {
     */
     let ar = []
     ar.push(
-      queryInterface.sequelize.query('UPDATE "Users" SET role=\'admin\' where role = \'clinician\''),
-      queryInterface.sequelize.query('UPDATE "Users" SET role=\'user\' where role = \'patient\'')
+      queryInterface.sequelize.query('UPDATE "users" SET role=\'admin\' where role = \'clinician\''),
+      queryInterface.sequelize.query('UPDATE "users" SET role=\'user\' where role = \'patient\'')
     )
     return Promise.all(ar)
   },
@@ -27,8 +27,8 @@ module.exports = {
     */
     let ar = []
     ar.push(
-      queryInterface.sequelize.query('UPDATE "Users" SET role=\'clinician\' where role = \'admin\''),
-      queryInterface.sequelize.query('UPDATE "Users" SET role=\'patient\' where role = \'user\'')
+      queryInterface.sequelize.query('UPDATE "users" SET role=\'clinician\' where role = \'admin\''),
+      queryInterface.sequelize.query('UPDATE "users" SET role=\'patient\' where role = \'user\'')
     )
     return Promise.all(ar)
   }

@@ -11,7 +11,7 @@ let {User} = models;
 let userController = {
     getUsers(req, res, next) {
         User.findAndCountAll({ 
-            order: [['createdAt', 'DESC']],
+            order: [['created_at', 'DESC']],
             limit: parseInt(req.query.limit || 10),
             offset: parseInt(req.query.offset || 0)
         }).then(results => {

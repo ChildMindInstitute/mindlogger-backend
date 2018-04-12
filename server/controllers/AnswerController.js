@@ -20,7 +20,7 @@ let answerController = {
             query.user_id = req.params.userId
         }
         if(req.query.start_date) {
-            query.createdAt = {
+            query.created_at = {
                 [Op.gt]:new Date(req.query.start_date),
                 [Op.lt]:new Date(req.query.end_date)
             }
@@ -28,7 +28,7 @@ let answerController = {
         Answer.findAndCountAll({ 
             where: query,
             include: [{ model: Act, as: 'act', required: true}, { model: User, as: 'user'}],
-            order: [['updatedAt', 'DESC']],
+            order: [['updated_at', 'DESC']],
             limit: parseInt(req.query.limit || 10),
             offset: parseInt(req.query.offset || 0)
         }).then(results => {
@@ -45,7 +45,7 @@ let answerController = {
                     model: Answer,
                     as: 'answers',
                     where: req.params.userId ? {user_id: req.params.userId} : {},
-                    order: [['updatedAt', 'DESC']],
+                    order: [['updated_at', 'DESC']],
                     required: true,
                 }
             ],

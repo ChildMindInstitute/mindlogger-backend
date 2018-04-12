@@ -14,7 +14,9 @@ if (dbConfig.use_env_variable) {
 } else {
   var sequelize = new Sequelize(dbConfig.database, dbConfig.username, dbConfig.password, dbConfig);
 }
-
+function capitalize(s) {
+  return s && ("_"+s).replace(/_([a-z])/g, function(g){return g[1].toUpperCase();})
+}
 fs
   .readdirSync(__dirname)
   .filter(file => {
@@ -22,7 +24,7 @@ fs
   })
   .forEach(file => {
     var model = sequelize.import(path.join(__dirname, file));
-    db[model.name] = model;
+    db[capitalize(model.name)] = model;
   });
 
 Object.keys(db).forEach(modelName => {

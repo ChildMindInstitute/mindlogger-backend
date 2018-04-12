@@ -3,15 +3,15 @@
 module.exports = {
   up: (queryInterface, Sequelize) => {
     return [
-      queryInterface.addColumn("Answers", "platform",{type: Sequelize.STRING}),
-      queryInterface.addColumn("Answers", "score",{type: Sequelize.FLOAT})
+      queryInterface.addColumn("answers", "platform",{type: Sequelize.STRING}),
+      queryInterface.addColumn("answers", "score",{type: Sequelize.FLOAT})
     ];
   },
 
   down: (queryInterface, Sequelize) => {
     return [
-      queryInterface.removeColumn("Answers","platform"),
-      queryInterface.removeColumn("Answers","score")
+      queryInterface.removeColumn("answers","platform"),
+      queryInterface.removeColumn("answers","score")
     ];
   }
 };

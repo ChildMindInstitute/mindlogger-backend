@@ -20,7 +20,7 @@ let actController = {
                 model: User,
                 as: 'author'
             }],
-            order: [['updatedAt', 'DESC']],
+            order: [['updated_at', 'DESC']],
         }
         if (req.query.user_id) {
             param.where = {user_id: req.query.user_id}
@@ -73,7 +73,7 @@ let actController = {
         }
         Act.findAndCountAll({
             where: whereParam,
-            order:[['updatedAt', 'DESC']],
+            order:[['updated_at', 'DESC']],
             limit: parseInt(limit || 10),
             offset: parseInt(offset || 0),
         }).then(results => {

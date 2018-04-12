@@ -1,6 +1,6 @@
 'use strict';
 module.exports = (sequelize, DataTypes) => {
-  var Act = sequelize.define('Act', {
+  var Act = sequelize.define('act', {
     title: DataTypes.STRING,
     type: DataTypes.STRING,
     act_data: {
@@ -21,13 +21,14 @@ module.exports = (sequelize, DataTypes) => {
       where: {
         status: 'active'
       }
-    }
+    },
+    underscored: true
   });
   Act.associate = function(models) {
     // associations can be defined here
     Act.belongsTo(models.User, {as: 'author', foreignKey:'user_id'})
     Act.hasMany(models.UserAct, {foreignKey:'act_id'})
-    Act.belongsToMany(models.User, {through: 'UserAct', foreignKey:'act_id'})
+    Act.belongsToMany(models.User, {through: 'user_act', foreignKey:'act_id'})
     Act.hasMany(models.Answer, { as: 'answers', foreignKey:'act_id'})
   }
   return Act;

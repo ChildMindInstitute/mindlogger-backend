@@ -1,6 +1,6 @@
 'use strict';
 module.exports = (sequelize, DataTypes) => {
-  var Answer = sequelize.define('Answer', {
+  var Answer = sequelize.define('answer', {
     act_id: DataTypes.INTEGER,
     user_id: DataTypes.INTEGER,
     act_data: {
@@ -23,11 +23,11 @@ module.exports = (sequelize, DataTypes) => {
     },
     platform: DataTypes.STRING,
     score: DataTypes.FLOAT,
-  });
+  }, {underscored: true});
   Answer.associate = function(models) {
     // associations can be defined here
-    Answer.belongsTo(models.User,{as: 'user', foreignKey: 'user_id'})
-    Answer.belongsTo(models.Act, { as: 'act', foreignKey:'act_id'})
+    Answer.belongsTo(models.User)
+    Answer.belongsTo(models.Act)
   }
   return Answer;
 };
