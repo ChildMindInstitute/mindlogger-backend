@@ -26,10 +26,11 @@ module.exports = (sequelize, DataTypes) => {
   });
   Act.associate = function(models) {
     // associations can be defined here
-    Act.belongsTo(models.User, {as: 'author', foreignKey:'user_id'})
-    Act.hasMany(models.UserAct, {foreignKey:'act_id'})
-    Act.belongsToMany(models.User, {through: 'user_act', foreignKey:'act_id'})
-    Act.hasMany(models.Answer, { as: 'answers', foreignKey:'act_id'})
+    Act.belongsTo(models.User, {as: 'author', foreignKey:'user_id'});
+    Act.hasMany(models.UserAct, {foreignKey:'act_id'});
+    Act.belongsToMany(models.User, {through: 'user_act', foreignKey:'act_id'});
+    Act.hasMany(models.Answer, { as: 'answers', foreignKey:'act_id'});
+    Act.belongsTo(models.Organization);
   }
   return Act;
 };

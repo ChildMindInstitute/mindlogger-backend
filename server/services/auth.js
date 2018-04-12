@@ -5,7 +5,7 @@ import LocalStrategy from 'passport-local';
 import bcrypt from 'bcrypt';
 import models from '../models';
 
-let User = models.User;
+const { User, Organization} = models;
 let signupLocalStrategy = new LocalStrategy({
     usernameField: 'email',
     passReqToCallback: true,
@@ -118,7 +118,10 @@ passport.serializeUser((user, done) => {
 });
 
 passport.deserializeUser((token, done) => {
-    User.findOne({ where: { access_token: token } }).then(data => {
+    User.findOne({ 
+        where: { access_token: token },
+        include: { model: Organization, required: false}
+    }).then(data => {
         let user = data ? data.get() : null;
         return done(error, user);
     }).then(error => {

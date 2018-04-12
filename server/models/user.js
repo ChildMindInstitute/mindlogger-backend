@@ -18,9 +18,10 @@ module.exports = (sequelize, DataTypes) => {
   }, {underscored: true});
 
   User.associate = (models) => {
-    User.hasMany(models.Act, {as: 'ownActs', foreignKey: 'user_id'})
-    User.belongsToMany(models.Act, { through: 'UserAct', foreignKey:'user_id'})
-    User.hasMany(models.Answer, { as: 'answers', foreignKey:'user_id'})
+    User.hasMany(models.Act, {as: 'ownActs'});
+    User.belongsToMany(models.Act, { through: 'UserAct'});
+    User.hasMany(models.Answer);
+    User.belongsTo(models.Organization);
   }
   
   User.generateToken = () => {

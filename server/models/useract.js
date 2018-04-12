@@ -6,8 +6,8 @@ module.exports = (sequelize, DataTypes) => {
   }, {underscored: true});
   UserAct.associate = function(models) {
     // associations can be defined here
-    UserAct.belongsTo(models.User, {foreignKey: 'user_id'})
-    UserAct.belongsTo(models.Act, {foreignKey: 'act_id'})
+    UserAct.belongsTo(models.User);
+    UserAct.belongsTo(models.Act);
   }
   return UserAct;
 };
