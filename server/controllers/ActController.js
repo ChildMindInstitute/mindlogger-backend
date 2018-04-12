@@ -23,10 +23,10 @@ let actController = {
             order: [['updated_at', 'DESC']],
         }
         if (req.query.user_id) {
-            param.where = {user_id: req.query.user_id}
+            param.where = {user_id: req.query.user_id};
         }
         if (req.user.role != 'super_admin') {
-            param.where = {user_id: req.user.id}
+            param.where = {user_id: req.user.id, organization_id: null};
         }
         if (req.query.limit) {
             param = {
@@ -52,7 +52,6 @@ let actController = {
                 as: 'author'
             }]
         }).then(results => {
-            console.log(results)
             res.json({ success: true, assigned_acts: results, message: '' });
         }).catch(error => {
             next(error);
@@ -71,6 +70,7 @@ let actController = {
                     }}]
             }
         }
+        whereParam.organization_id = req.user.organization_id;
         Act.findAndCountAll({
             where: whereParam,
             order:[['updated_at', 'DESC']],
@@ -124,7 +124,8 @@ let actController = {
             user_id: req.user.id,
             title,
             type,
-            act_data
+            act_data,
+            organization_id: req.user.organization_id,
         }).then(result => {
             console.log(result)
             res.json({ success: true, act: result, message: 'success'})

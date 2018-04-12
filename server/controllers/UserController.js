@@ -10,8 +10,12 @@ let { User, Organization } = models;
  */
 let userController = {
     getUsers(req, res, next) {
-        let org = req.user.organization;
-        let queryParam = org && { organization_id: org.id };
+        let queryParam = {};
+        if (req.user.role === 'super_admin') {
+            queryParam = { role: 'admin' };
+        } else {
+            queryParam = { organization_id: req.user.organization_id };
+        }
         User.findAndCountAll({ 
             where: queryParam,
             include: [
@@ -42,8 +46,10 @@ let userController = {
                 role: req.body.role,
                 newsletter: req.body.newsletter,
             }
-            if (req.body.organization_id) {
+            if (req.body.organization_id && req.user.role == 'super_admin') {
                 userData.organization_id = req.body.organization_id;
+            } else {
+                userData.organization_id = req.user.organization_id;
             }
             return User.create(userData).then(newUser => {
                 let user = Object.assign({}, newUser.get());
