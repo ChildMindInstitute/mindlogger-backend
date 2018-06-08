@@ -1,2 +1,4 @@
+girder
 pandas
 psycopg2-binary
+requests
