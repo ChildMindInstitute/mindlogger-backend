@@ -8,6 +8,8 @@ pgsql
 
 # testing
 /coverage
+.coverage
+*/sample.json
 
 # production
 /build
@@ -21,6 +23,8 @@ pgsql
 .env.production.local
 postgres_to_girder/config.json
 *checkpoints*
+*__pycache__*
+.pytest_cache
 
 npm-debug.log*
 yarn-debug.log*
