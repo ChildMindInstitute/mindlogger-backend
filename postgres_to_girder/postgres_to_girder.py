@@ -1,5 +1,6 @@
 import girder_client as gc
 import json
+import urllib
 
 def get_girder_id_by_name(
     girder_connection,
@@ -59,28 +60,28 @@ def get_girder_id_by_name(
     ... )
     '55706aa58d777f649a9ba164'
     """
-    print(parent)
+    query = "".join([
+        entity,
+        "?text=" if entity=="collection" else "?name=",
+        name,
+        "&parentType={0}&parentId={1}".format(
+            *parent
+        ) if parent else "",
+        "&limit=",
+        str(limit),
+        "&sortdir=",
+        str(sortdir)
+    ])
     j = json.loads(
         girder_connection.get(
-            "".join([
-                entity,
-                "?text=" if entity=="collection" else "?name=",
-                name,
-                "&parentType={0}&parentId={1}".format(
-                    *parent
-                ) if parent else "",
-                "&limit=",
-                str(limit),
-                "&sortdir=",
-                str(sortdir)
-            ]),
+            query,
             jsonResp=False
         ).content.decode(
             "UTF8"
         )
-    )[0]["_id"]
+    )
     return(
-        j if len(
+        j[0]["_id"] if len(
             j
         ) else None
     )
