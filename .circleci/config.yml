@@ -52,7 +52,7 @@ jobs:
           name: run tests
           command: |
             . venv/bin/activate
-            pytest --doctest-modules --cov-report html:coverage --cov=.
+            pytest --doctest-modules --cov-report html:coverage --cov . --cov-config .circleci/.coveragerc
 
       - store_artifacts:
           path: coverage
