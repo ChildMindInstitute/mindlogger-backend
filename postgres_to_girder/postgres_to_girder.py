@@ -1,6 +1,5 @@
 import girder_client as gc
 import json
-import urllib
 
 def get_girder_id_by_name(
     girder_connection,
