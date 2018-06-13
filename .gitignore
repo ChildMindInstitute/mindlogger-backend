@@ -10,6 +10,7 @@ pgsql
 /coverage
 .coverage
 */sample.json
+*.ods
 
 # production
 /build
