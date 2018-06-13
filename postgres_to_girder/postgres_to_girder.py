@@ -1,5 +1,11 @@
 import girder_client as gc
 import json
+import os
+import pandas as pd
+import psycopg2
+import postgres_to_girder
+import urllib
+from datetime import date
 
 def get_girder_id_by_name(
     girder_connection,
@@ -113,6 +119,7 @@ def get_user_id_by_email(girder_connection, email):
     ...     email="test@example.com"
     ... )
     """
+    email = email.lower()
     user_ids = [user["_id"] for user in girder_connection.get(
         "".join([
             "user?text=",
@@ -121,4 +128,239 @@ def get_user_id_by_email(girder_connection, email):
     ) if "email" in user and user["email"]==email]
     return(
         user_ids[0] if len(user_ids) else None
+    )
+  
+  
+def main():
+    """
+    Function to execute from commandline to transfer a running
+    Postgres DB to a running Girder DB.
+    
+    "config.json" needs to have its values filled in first.
+    """
+    # Configuration
+    with open ("config.json", "r") as j:
+        config = json.load(j)
+    with open ("context.json", "r") as j:
+        context = json.load(j)
+    api_url = "".join([
+        "http://",
+        config["girder"]["host"],
+        "/api/v1"
+    ])
+    
+    # Connect to Girder
+    try:
+        girder_connection = gc.GirderClient(
+            apiUrl=api_url
+        ) 
+        girder_connection.authenticate(
+            config["girder"]["user"],
+            config["girder"]["password"])
+        print("Connected to the Girder database 🏗🍃")
+    except:
+        print(
+            "I am unable to connect to the "
+            "Girder database 🏗🍃"
+        )
+        raise
+        
+    # Connect to Postgres
+    try:
+        conn = psycopg2.connect(
+            " ".join(
+                [
+                    "=".join([
+                        key,
+                        config["postgres"][key]
+                    ]) for key in config["postgres"]
+                ]
+            )
+        )
+        print("Connected to the Postgres database 🐘")
+    except:
+        print(
+            "I am unable to connect to the "
+            "Postgres database 🐘"
+        )
+        raise
+        
+    # Get or create activities Collection
+    activities_id = postgres_to_girder.get_girder_id_by_name(
+        entity="collection",
+        name="activities",
+        girder_connection=girder_connection
+    )
+    activities_id = gc.createCollection(
+        name="activities",
+        public=True
+    ) if not activities_id else activities_id
+    
+    # Get activities and users from Postgres
+    acts = pd.io.sql.read_sql_query(
+        "SELECT * FROM acts;",
+        conn
+    )
+    users = pd.io.sql.read_sql_query(
+        "SELECT * FROM users;",
+        conn
+    )
+    
+    # Load users into Girder
+    for i in range(users.shape[0]):
+        user_id = get_user_id_by_email(
+            gc,
+            users.loc[i,"email"]
+        )
+        if user_id:
+            print(user_id)
+        else:
+            gc.post(
+                "".join([
+                    "user?login=",
+                    users.loc[i,"email"].replace(
+                        "@",
+                        "at"
+                    ),
+                    "&firstName=",
+                    config["missing_persons"]["first_name"] if not users.loc[
+                        i,
+                        "first_name"
+                    ] else users.loc[
+                        i,
+                        "first_name"
+                    ] if not " " in users.loc[
+                        i,
+                        "first_name"
+                    ] else users.loc[
+                        i,
+                        "first_name"
+                    ].split(" ")[0],
+                    "&lastName=",
+                    users.loc[
+                        i,
+                        "last_name"
+                    ] if users.loc[
+                        i,
+                        "last_name"
+                    ] else config[
+                        "missing_persons"
+                    ][
+                        "last_name"
+                    ] if not users.loc[
+                        i,
+                        "first_name"
+                    ] else users.loc[
+                        i,
+                        "first_name"
+                    ].split(" ")[1] if " " in users.loc[
+                        i,
+                        "first_name"
+                    ] else users.loc[
+                        i,
+                        "first_name"
+                    ],
+                    "&password=",
+                    users.loc[i,"password"],
+                    "&admin=",
+                    "true" if "admin" in str(users.loc[
+                        i,
+                        "role"
+                    ]) else "false",
+                    "&email=",
+                    users.loc[
+                        i,
+                        "email"
+                    ]
+                ])
+            )
+    
+    # Pull respondents out of titles in DataFrame from Postgres
+    acts["Respondent"] = acts["title"].apply(
+        lambda x: x.split(
+            " - "
+        )[
+            1
+        ].split(
+            " "
+        )[
+            0
+        ] if " - " in x else x.split(
+            " – "
+        )[
+            1
+        ].split(
+            " "
+        )[
+            0
+        ] if " – " in x else x.split(
+            "-"
+        )[
+            1
+        ].split(
+            " "
+        )[
+            0
+        ] if "Scale-" in x else x.split(
+            " ― "
+        )[
+            1
+        ].split(
+            "-"
+        )[
+            0
+        ] if "―" in x else x.split(
+            "-"
+        )[
+            1
+        ].split(
+            ")"
+        )[
+            0
+        ] if "Index-" in x else "Self" if (
+            (
+                "_SR" in x
+            ) or (
+                "-SR" in x
+            )
+        ) else "Parent" if (
+            "_P" in x
+        ) else ""
+    )
+    acts["title"] = acts["title"].apply(
+        lambda x: x.split(
+            " - "
+        )[
+            0
+        ] if " - " in x else x.split(
+            " – "
+        )[
+            0
+        ] if " – " in x else x.split(
+            "-"
+        )[
+            0
+        ] if "Scale-" in x else x.split(
+            " ― "
+        )[
+            0
+        ] if "―" in x else x.split(
+            "-"
+        )[
+            0
+        ] if "Index-" in x else x.replace(
+            " Self Report",
+            ""
+        ).replace(
+            " Parent Report",
+            ""
+        )
+    ).apply(
+        lambda x: "{0})".format(
+            x
+        ) if (
+            "(" in x
+        ) and (
+            ")"
+        ) not in x else x
     )
