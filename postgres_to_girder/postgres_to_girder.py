@@ -84,3 +84,41 @@ def get_girder_id_by_name(
             j
         ) else None
     )
+
+
+def get_user_id_by_email(girder_connection, email):
+    """
+    Function to get the `_id` of a single User in a Girder database.
+    
+    Parameters
+    ----------
+    girder_connection: GirderClient
+        an active `GirderClient <http://girder.readthedocs.io/en/latest/python-client.html#girder_client.GirderClient>`_
+    
+    email: string
+        email address
+        
+    Returns
+    -------
+    _id: string or None
+        Girder _id of requested User, or None if not found
+        
+    Example
+    -------
+    >>> import girder_client as gc
+    >>> get_user_id_by_email(
+    ...     girder_connection=gc.GirderClient(
+    ...         apiUrl="https://data.kitware.com/api/v1/"
+    ...     ),
+    ...     email="test@example.com"
+    ... )
+    """
+    user_ids = [user["_id"] for user in girder_connection.get(
+        "".join([
+            "user?text=",
+            email
+        ])
+    ) if "email" in user and user["email"]==email]
+    return(
+        user_ids[0] if len(user_ids) else None
+    )
