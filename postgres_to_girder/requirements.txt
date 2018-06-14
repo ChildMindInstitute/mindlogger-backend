@@ -1,3 +1,4 @@
 girder-client
+numpydoc
 pandas
 psycopg2-binary
