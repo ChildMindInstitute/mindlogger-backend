@@ -35,11 +35,12 @@ def config(
     Example
     -------
     >>> import json
+    >>> config_file = os.path.join(
+    ...    os.path.dirname(__file__),
+    ...    "config.json.template"
+    ... )
     >>> config, context, api_url = config(
-    ...     config_file=os.path.join(
-    ...         os.path.dirname(__file__),
-    ...         "config.json.template"
-    ...     )
+    ...     config_file=config_file
     ... )
     >>> config["girder"]["user"]
     'wong'
@@ -52,7 +53,7 @@ def config(
     if context_file is None:
         context_file = os.path.join(
             os.path.dirname(__file__),
-            "config.json"
+            "context.json"
         )
     with open (config_file, "r") as j:
         config = json.load(j)
@@ -165,12 +166,13 @@ def connect_to_postgres(postgres_config):
     
     Examples
     --------
+    >>> config_file = os.path.join(
+    ...    os.path.dirname(__file__),
+    ...    "config.json.template"
+    ... )
     >>> connect_to_postgres(
     ...     config(
-    ...         config_file=os.path.join(
-    ...             os.path.dirname(__file__),
-    ...             "config.json.template"
-    ...         )
+    ...         config_file=config_file
     ...     )[0]["postgres"]
     ... )
     I am unable to connect to the Postgres database 🐘
@@ -195,7 +197,8 @@ def connect_to_postgres(postgres_config):
         psycopg2.DatabaseError
     ):
         print(
-            "I am unable to connect to the "            "Postgres database 🐘"
+            "I am unable to connect to the "
+            "Postgres database 🐘"
         )
         return(None)
 
