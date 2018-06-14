@@ -91,6 +91,62 @@ def get_girder_id_by_name(
         ) else None
     )
 
+  
+def get_files_in_item(
+    girder_connection,
+    item_id,
+    sort="created",
+    sortdir=-1
+):
+    """
+    Function to get a dictionary of Files in an Item in
+    a Girder database.
+    
+    Parameters
+    ----------
+    girder_connection: GirderClient
+        an active `GirderClient <http://girder.readthedocs.io/en/latest/python-client.html#girder_client.GirderClient>`_
+    
+    item_id: string
+        Girder _id of Item.
+        
+    sort: string, optional
+        Field to sort the result set by.
+        default = "created"
+    
+    sortdir: int, optional
+        Sort order: 1 for ascending, -1 for descending.
+        default = -1
+    
+    Returns
+    -------
+    files: dictionary or None
+        metadata of files in Girder Item
+        
+    Example
+    -------
+    >>> import girder_client as gc
+    >>> get_files_in_item(
+    ...     girder_connection=gc.GirderClient(
+    ...         apiUrl="https://data.kitware.com/api/v1/"
+    ...     ),
+    ...     item_id="58a372f38d777f0721a64df3"
+    ... )[0]["name"]
+    'Normal001-T1-Flash.mha'
+    """
+    return(
+      girder_connection.get(
+        "".join([
+          "item/",
+          item_id,
+          "/files?",
+          "sort=",
+          sort,
+          "&sortdir=",
+          str(sortdir)
+        ])
+      )
+    )
 
 def get_user_id_by_email(girder_connection, email):
     """
