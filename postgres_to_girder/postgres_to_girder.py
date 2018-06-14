@@ -41,7 +41,7 @@ def config(
     Example
     -------
     >>> import json
-    >>> config, context, api_url = _config(
+    >>> config, context, api_url = config(
     ...     config_file=os.path.join(
     ...         os.path.dirname(__file__),
     ...         "config.json.template"
@@ -94,14 +94,14 @@ def connect_to_girder(
     Examples
     --------
     >>> import girder_client as gc
-    >>> g = _connect_to_girder()
+    >>> g = connect_to_girder()
     >>> g.getItem(
     ...     "58cb124c8d777f0aef5d79ff"
     ... )["name"]
     'LARGE_PtCu_NanoParticles-stride-5.html'
-    >>> g = _connect_to_girder(authentication=("a", "b"))
+    >>> g =connect_to_girder(authentication=("a", "b"))
     Connected to the Girder database 🏗🍃 but could not authenticate.
-    >>> g = _connect_to_girder(authentication="ab")
+    >>> g =connect_to_girder(authentication="ab")
     Connected to the Girder database 🏗🍃 but could not authenticate.
     """
     try:
@@ -161,8 +161,8 @@ def connect_to_postgres(postgres_config):
     
     Examples
     --------
-    >>> _connect_to_postgres(
-    ...     _config(
+    >>> connect_to_postgres(
+    ...     config(
     ...         config_file=os.path.join(
     ...             os.path.dirname(__file__),
     ...             "config.json.template"
