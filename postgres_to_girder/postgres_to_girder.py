@@ -3,7 +3,6 @@ import json
 import os
 import pandas as pd
 import psycopg2
-import postgres_to_girder
 import urllib
 from datetime import date
 
@@ -148,6 +147,7 @@ def get_files_in_item(
       )
     )
 
+
 def get_user_id_by_email(girder_connection, email):
     """
     Function to get the `_id` of a single User in a Girder database.
@@ -186,7 +186,7 @@ def get_user_id_by_email(girder_connection, email):
         user_ids[0] if len(user_ids) else None
     )
   
-  
+
 def main():
     """
     Function to execute from commandline to transfer a running
@@ -194,52 +194,22 @@ def main():
     
     "config.json" needs to have its values filled in first.
     """
-    # Configuration
-    with open ("config.json", "r") as j:
-        config = json.load(j)
-    with open ("context.json", "r") as j:
-        context = json.load(j)
-    api_url = "".join([
-        "http://",
-        config["girder"]["host"],
-        "/api/v1"
-    ])
+    # Load configuration
+    config, context, api_url = _config() # pragma: no cover
     
     # Connect to Girder
-    try:
-        girder_connection = gc.GirderClient(
-            apiUrl=api_url
-        ) 
-        girder_connection.authenticate(
+    girder_connection=_connect_to_girder(
+        api_url=api_url,
+        authentication=(
             config["girder"]["user"],
-            config["girder"]["password"])
-        print("Connected to the Girder database 🏗🍃")
-    except:
-        print(
-            "I am unable to connect to the "
-            "Girder database 🏗🍃"
+            config["girder"]["password"]
         )
-        raise
-        
+    ) # pragma: no cover
+    
     # Connect to Postgres
-    try:
-        conn = psycopg2.connect(
-            " ".join(
-                [
-                    "=".join([
-                        key,
-                        config["postgres"][key]
-                    ]) for key in config["postgres"]
-                ]
-            )
-        )
-        print("Connected to the Postgres database 🐘")
-    except:
-        print(
-            "I am unable to connect to the "
-            "Postgres database 🐘"
-        )
-        raise
+    postgres_connection=_connect_to_postgres(
+        config["postgres"]
+    ) # pragma: no cover
         
     # Get or create activities Collection
     activities_id = postgres_to_girder.get_girder_id_by_name(
@@ -420,3 +390,193 @@ def main():
             ")"
         ) not in x else x
     )
+    
+    
+def _config(
+    config_file=os.path.join(
+      os.path.dirname(__file__),
+      "config.json"
+    ),
+    context_file=os.path.join(
+      os.path.dirname(__file__),
+      "config.json"
+    )
+):
+    """
+    Function to set configuration variables.
+    
+    Parameters
+    ----------
+    config_file: string, optional
+        path to configuration file
+        default = "config.json"
+        
+    context_file: string, optional
+        path to context file
+        default = "context.json"
+        
+    Returns
+    -------
+    config: dictionary
+    
+    context: dictionary
+    
+    api_url: string
+    
+    Example
+    -------
+    >>> import json
+    >>> config, context, api_url = _config(
+    ...     config_file=os.path.join(
+    ...         os.path.dirname(__file__),
+    ...         "config.json.template"
+    ...     )
+    ... )
+    >>> config["girder"]["user"]
+    'wong'
+    """
+    with open (config_file, "r") as j:
+        config = json.load(j)
+    with open (context_file, "r") as j:
+        context = json.load(j)
+    api_url = "".join([
+        "http://",
+        config["girder"]["host"],
+        "/api/v1"
+    ])
+    return(config, context, api_url)
+  
+  
+def _connect_to_girder(
+    api_url="https://data.kitware.com/api/v1/",
+    authentication=None
+):
+    """
+    Function to connect to a Girder DB.
+    
+    Parameters
+    ----------
+    api_url: string, optional
+        path to running Girder DB API endpoint.
+        Default is Kitware Data API
+        
+    authentication: tuple or string, optional
+        (username, password) or APIkey
+        (
+            username: string
+            password: string
+        )
+        default=None
+        
+        APIkey: string
+            default=None
+        
+        
+    Returns
+    -------
+    girder_connection: GirderClient
+    
+    Examples
+    --------
+    >>> import girder_client as gc
+    >>> g = _connect_to_girder()
+    >>> g.getItem(
+    ...     "58cb124c8d777f0aef5d79ff"
+    ... )["name"]
+    'LARGE_PtCu_NanoParticles-stride-5.html'
+    >>> g = _connect_to_girder(authentication=("a", "b"))
+    Connected to the Girder database 🏗🍃 but could not authenticate.
+    >>> g = _connect_to_girder(authentication="ab")
+    Connected to the Girder database 🏗🍃 but could not authenticate.
+    """
+    try:
+        girder_connection = gc.GirderClient(
+            apiUrl=api_url
+        ) 
+        if authentication:
+            if isinstance(
+                authentication,
+                tuple
+            ):
+                girder_connection.authenticate(
+                    *authentication
+                )
+            else:
+                girder_connection.authenticate(
+                    apiKey=authentication
+                )
+            print(
+              "Connected to the Girder database 🏗🍃 and "
+              "authenticated."
+            )
+    except (gc.AuthenticationError, gc.HttpError) as AuthError:
+        print(
+            "Connected to the Girder database 🏗🍃 but "
+            "could not authenticate."
+        )
+    except:
+        print(
+            "I am unable to connect to the "
+            "Girder database 🏗🍃"
+        )
+        return(None)
+    return(girder_connection)
+  
+  
+def _connect_to_postgres(postgres_config):
+    """
+    Function to connect to a Girder DB.
+    
+    Parameters
+    ----------
+    postgres_config: dictionary
+        "dbname": string
+            Postgres DB name
+        "user": string
+            Postgres username
+        "host": string
+            active Postgres IP (no protocol, ie, without "https://")
+        "password": string
+            password for Postgres user
+        
+    Returns
+    -------
+    postgres_connection: connection
+        http://initd.org/psycopg/docs/connection.html#connection
+    
+    Examples
+    --------
+    >>> _connect_to_postgres(
+    ...     _config(
+    ...         config_file=os.path.join(
+    ...             os.path.dirname(__file__),
+    ...             "config.json.template"
+    ...         )
+    ...     )[0]["postgres"]
+    ... )
+    I am unable to connect to the Postgres database 🐘
+    """
+    try:
+        postgres_connection = psycopg2.connect(
+            " ".join(
+                [
+                    "=".join([
+                        key,
+                        postgres_config[
+                            key
+                        ]
+                    ]) for key in postgres_config
+                ]
+            )
+        )
+        print("Connected to the Postgres database 🐘")
+        return(postgres_connection)
+    except (
+        psycopg2.OperationalError,
+        psycopg2.DatabaseError
+    ):
+        print(
+            "I am unable to connect to the "
+            "Postgres database 🐘"
+        )
+        return(None)

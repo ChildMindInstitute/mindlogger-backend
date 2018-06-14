@@ -1,0 +1,18 @@
+{
+  "postgres": {
+    "dbname":"SanctumSanctorum",
+    "user":"wong",
+    "host":"127.0.0.1",
+    "password":"jectorsefulatedistrologicat"
+  },
+  "girder": {
+    "user":"wong",
+    "host":"127.0.0.1:8080",
+    "password":"parionistersenestionlityper",
+    "APIkey":"zv9hkfzz8kwebc59h7iyVpfG4KCFhorKKfQ7537p"
+  },
+  "missing_persons": {
+    "first_name": "Steven",
+    "last_name": "Strange"
+  }
+}
