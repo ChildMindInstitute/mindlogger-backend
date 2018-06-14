@@ -8,14 +8,8 @@ from datetime import date
 
 
 def config(
-    config_file=os.path.join(
-      os.path.dirname(__file__),
-      "config.json"
-    ),
-    context_file=os.path.join(
-      os.path.dirname(__file__),
-      "config.json"
-    )
+    config_file=None,
+    context_file=None
 ):
     """
     Function to set configuration variables.
@@ -50,6 +44,16 @@ def config(
     >>> config["girder"]["user"]
     'wong'
     """
+    if config_file is None:
+        config_file = os.path.join(
+            os.path.dirname(__file__),
+            "config.json"
+        )
+    if context_file is None:
+        context_file = os.path.join(
+            os.path.dirname(__file__),
+            "config.json"
+        )
     with open (config_file, "r") as j:
         config = json.load(j)
     with open (context_file, "r") as j:
