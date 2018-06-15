@@ -49,12 +49,12 @@ def config(
         config_file = os.path.join(
             os.path.dirname(__file__),
             "config.json"
-        )
+        ) # pragma: no cover 
     if context_file is None:
         context_file = os.path.join(
             os.path.dirname(__file__),
             "context.json"
-        )
+        ) # pragma: no cover
     with open (config_file, "r") as j:
         config = json.load(j)
     with open (context_file, "r") as j:
@@ -128,7 +128,7 @@ def connect_to_girder(
             print(
               "Connected to the Girder database 🏗🍃 and "
               "authenticated."
-            )
+            ) # pragma: no cover
     except (gc.AuthenticationError, gc.HttpError) as AuthError:
         print(
             "Connected to the Girder database 🏗🍃 but "
@@ -190,8 +190,8 @@ def connect_to_postgres(postgres_config):
                 ]
             )
         )
-        print("Connected to the Postgres database 🐘")
-        return(postgres_connection)
+        print("Connected to the Postgres database 🐘") # pragma: no cover 
+        return(postgres_connection) # pragma: no cover 
     except (
         psycopg2.OperationalError,
         psycopg2.DatabaseError
@@ -373,15 +373,161 @@ def get_user_id_by_email(girder_connection, email):
     ... )
     """
     email = email.lower()
-    user_ids = [user["_id"] for user in girder_connection.get(
-        "".join([
-            "user?text=",
-            email
-        ])
-    ) if "email" in user and user["email"]==email]
+    user_ids = [
+      user["_id"] for user in girder_connection.get(
+            "".join([
+                "user?text=",
+                email
+            ])
+        ) if (
+            (
+                 "email" in user 
+            ) and (
+                 user["email"]==email
+            )
+        ) or (
+            (
+                 "login" in user 
+            ) and (
+                 user["login"]==email
+            )
+        )
+    ]
     return(
         user_ids[0] if len(user_ids) else None
     )
+  
+  
+def postgres_users_to_girder_users(
+    users,
+    girder_connection,
+    unknown_person={
+        "first_name": "Notname",
+        "last_name": "Anonymous"
+    }
+):
+    """
+    Function to transfer users from Postgres table to
+    Girder collection.
+    
+    Parameters
+    ----------
+    users: DataFrame
+        users table from Postgres DB
+        
+    girder_connection: GirderClient
+        active GirderClient in which to add the users
+        
+    unknown_person: dictionary
+        unknown_person["first_name"]: string
+        unknown_person["last_name"]: string
+    
+    Returns
+    -------
+    users_by_email: dictionary
+        key: string
+            email address
+        value: string
+            Girder User_id
+    
+    Example
+    -------
+    >>> import girder_client as gc
+    >>> import pandas as pd
+    >>> postgres_users_to_girder_users(
+    ...     pd.DataFrame(
+    ...         {
+    ...             'first_name': ['Packages,'],
+    ...             'last_name': ['TravisCI'],
+    ...             'email': ['travis-packages'],
+    ...             'password': [
+    ...                 '$2b$12$jchNQFK2jj7UZ/papXfWsu1'
+    ...                 '6enEeCUjk2gUxWJ/n6iYPYmejcmNnq'
+    ...             ],
+    ...             'role': ['user']
+    ...         }
+    ...     ),
+    ...     girder_connection=gc.GirderClient(
+    ...         apiUrl="https://data.kitware.com/api/v1/"
+    ...     )
+    ... )
+    {'travis-packages': '55535d828d777f082b592f54'}
+    """
+    users_by_email = {}
+    for i in range(users.shape[0]):
+        user_id = get_user_id_by_email(
+            girder_connection,
+            users.loc[i,"email"]
+        )
+        if user_id:
+            users_by_email[
+                users.loc[i,"email"]
+            ] = user_id
+        else: # pragma: no test
+            users_by_email[
+                users.loc[i,"email"]
+            ] = girder_connection.post(
+                "".join([
+                    "user?login=",
+                    users.loc[i,"email"].replace(
+                        "@",
+                        "at"
+                    ),
+                    "&firstName=",
+                    unknown_person[
+                        "first_name"
+                    ] if not users.loc[
+                        i,
+                        "first_name"
+                    ] else users.loc[
+                        i,
+                        "first_name"
+                    ] if not " " in users.loc[
+                        i,
+                        "first_name"
+                    ] else users.loc[
+                        i,
+                        "first_name"
+                    ].split(" ")[0],
+                    "&lastName=",
+                    users.loc[
+                        i,
+                        "last_name"
+                    ] if users.loc[
+                        i,
+                        "last_name"
+                    ] else unknown_person[
+                        "last_name"
+                    ] if not users.loc[
+                        i,
+                        "first_name"
+                    ] else users.loc[
+                        i,
+                        "first_name"
+                    ].split(" ")[1] if " " in users.loc[
+                        i,
+                        "first_name"
+                    ] else users.loc[
+                        i,
+                        "first_name"
+                    ],
+                    "&password=",
+                    users.loc[i,"password"],
+                    "&admin=",
+                    "true" if "admin" in str(
+                        users.loc[
+                            i,
+                            "role"
+                        ]
+                    ) else "false",
+                    "&email=",
+                    users.loc[
+                        i,
+                        "email"
+                    ]
+                ])
+            ) # pragma: no test
+    return(users_by_email)
   
 
 def _main():
@@ -419,15 +565,21 @@ def _main():
         public=True
     ) if not activities_id else activities_id
     
-    # Get activities and users from Postgres
-    acts = pd.io.sql.read_sql_query(
-        "SELECT * FROM acts;",
-        conn
-    )
-    users = pd.io.sql.read_sql_query(
-        "SELECT * FROM users;",
-        conn
-    )
+    # Get tables from Postgres
+    postgres_tables = {
+        table: pd.io.sql.read_sql_query(
+            "SELECT * FROM {0};".format(
+                table
+            ),
+            conn
+        ) for table in {
+            "acts",
+            "users",
+            "user_acts",
+            "organizations",
+            "answers"
+        }
+    }
     
     # Load users into Girder
     for i in range(users.shape[0]):
