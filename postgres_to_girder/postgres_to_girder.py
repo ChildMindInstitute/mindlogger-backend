@@ -201,6 +201,58 @@ def connect_to_postgres(postgres_config):
             "Postgres database 🐘"
         )
         return(None)
+      
+      
+def get_abbreviation(activity):
+    """
+    Function to extract abbreviation from
+    activity name if one is present
+    
+    Parameters
+    ----------
+    activity: string
+    
+    Returns
+    -------
+    activity_name: string
+    
+    abbreviation: string
+    
+    Example
+    -------
+    >>> get_abbreviation(
+    ...     "Corresponding parts of congruent "
+    ...     "triangles are congruent (CPCTC)"
+    ... )[1]
+    'CPCTC'
+    """
+    abbreviation = None
+    if "(" in activity:
+        anames = [
+            a.strip(
+                ")"
+            ).strip() for a in activity.split(
+                "("
+            )
+        ]
+        if (
+            len(anames)==2
+        ):
+            if (
+                len(anames[0])>len(anames[1])
+            ):
+                abbreviation = anames[1]
+                activity_name = anames[0]
+            else:
+                abbreviation = anames[0]
+                activity_name = anames[1]
+        else: # pragma: no cover
+            print(anames) # pragma: no cover
+    activity_name = activity if not abbreviation else activity_name
+    return(
+        activity_name,
+        abbreviation
+    )
 
 
 def get_girder_id_by_name(
@@ -343,6 +395,69 @@ def get_files_in_item(
         ])
       )
     )
+  
+  
+def get_postgres_item_version(
+    activity_name,
+    abbreviation=None,
+    activity_source=None,
+    respondent=None,
+    version=None
+):
+    """
+    Function to create an item version in `Mindlogger Item <https://github.com/ChildMindInstitute/mindlogger-app-backend/wiki/Data-Dictionary#activitiesfolderitem>`_ format:
+    `[Source] — [Activity] — [Respondent] Report ([Version])`.
+    
+    Parameters
+    ----------
+    activity_name: string
+    
+    abbreviation: string
+    
+    activity_source: string
+    
+    respondent: string
+    
+    version: string
+    
+    Returns
+    -------
+    item_version: string
+    
+    Example
+    -------
+    >>> activity_name, abbreviation = get_abbreviation(
+    ...     "EHQ (Edinburgh Handedness Questionnaire)"
+    ... )
+    >>> get_postgres_item_version(
+    ...     activity_name=activity_name,
+    ...     abbreviation=abbreviation,
+    ...     activity_source="MATTER Lab",
+    ...     respondent="Coworker",
+    ...     version="v0.1"
+    ... )
+    'MATTER Lab ― Edinburgh Handedness Questionnaire (EHQ) ― Coworker Report (v0.1)'
+    """
+    return(
+        "{0}{1}{2}".format(
+            "".join([
+                activity_source,
+                " ― "
+            ]) if activity_source else "", # {0}
+            "{0}{1}{2}".format(
+                activity_name,
+                " ({0})".format(
+                    abbreviation
+                ) if abbreviation else "",
+                " ― {0} Report".format(
+                        respondent
+                    ) if respondent else ""
+            ).strip(" "), # {1}
+            " ({0})".format(
+                version
+            ) if version else "" #{2}
+        )
+    )
 
 
 def get_user_id_by_email(girder_connection, email):
@@ -463,7 +578,7 @@ def postgres_users_to_girder_users(
             users_by_email[
                 users.loc[i,"email"]
             ] = user_id
-        else: # pragma: no test
+        else: # pragma: no cover
             users_by_email[
                 users.loc[i,"email"]
             ] = girder_connection.post(
@@ -526,7 +641,7 @@ def postgres_users_to_girder_users(
                         "email"
                     ]
                 ])
-            ) # pragma: no test
+            ) # pragma: no cover
     return(users_by_email)
   
 
@@ -555,15 +670,15 @@ def _main():
     ) # pragma: no cover
         
     # Get or create activities Collection
-    activities_id = postgres_to_girder.get_girder_id_by_name(
+    activities_id = get_girder_id_by_name(
         entity="collection",
         name="activities",
         girder_connection=girder_connection
-    )
+    ) # pragma: no cover
     activities_id = gc.createCollection(
         name="activities",
         public=True
-    ) if not activities_id else activities_id
+    ) if not activities_id else activities_id # pragma: no cover
     
     # Get tables from Postgres
     postgres_tables = {
@@ -579,79 +694,51 @@ def _main():
             "organizations",
             "answers"
         }
-    }
+    } # pragma: no cover
     
     # Load users into Girder
-    for i in range(users.shape[0]):
-        user_id = get_user_id_by_email(
-            gc,
-            users.loc[i,"email"]
-        )
-        if user_id:
-            print(user_id)
-        else:
-            gc.post(
-                "".join([
-                    "user?login=",
-                    users.loc[i,"email"].replace(
-                        "@",
-                        "at"
-                    ),
-                    "&firstName=",
-                    config["missing_persons"]["first_name"] if not users.loc[
-                        i,
-                        "first_name"
-                    ] else users.loc[
-                        i,
-                        "first_name"
-                    ] if not " " in users.loc[
-                        i,
-                        "first_name"
-                    ] else users.loc[
-                        i,
-                        "first_name"
-                    ].split(" ")[0],
-                    "&lastName=",
-                    users.loc[
-                        i,
-                        "last_name"
-                    ] if users.loc[
-                        i,
-                        "last_name"
-                    ] else config[
-                        "missing_persons"
-                    ][
-                        "last_name"
-                    ] if not users.loc[
-                        i,
-                        "first_name"
-                    ] else users.loc[
-                        i,
-                        "first_name"
-                    ].split(" ")[1] if " " in users.loc[
-                        i,
-                        "first_name"
-                    ] else users.loc[
-                        i,
-                        "first_name"
-                    ],
-                    "&password=",
-                    users.loc[i,"password"],
-                    "&admin=",
-                    "true" if "admin" in str(users.loc[
-                        i,
-                        "role"
-                    ]) else "false",
-                    "&email=",
-                    users.loc[
-                        i,
-                        "email"
-                    ]
-                ])
-            )
+    users = postgres_users_to_girder_users(
+        postgres_tables["users"],
+        girder_connection,
+        config["missing_persons"]
+    ) # pragma: no cover
     
     # Pull respondents out of titles in DataFrame from Postgres
-    acts["Respondent"] = acts["title"].apply(
+    postgres_tables["acts"] = _respondents(
+        postgres_tables["acts"]
+    ) # pragma: no cover
+    
+    
+def _respondents(acts):
+    """
+    Function to extract respondents from 
+    activity titles in Postgres table and
+    update relevat columns
+    
+    Parameters
+    ----------
+    acts: DataFrame
+    
+    Returns
+    -------
+    acts: DataFrame
+    
+    Example
+    -------
+    >>> import pandas as pd
+    >>> _respondents(
+    ...     pd.DataFrame(
+    ...         {
+    ...             "title": [
+    ...                 "Test - Self Report",
+    ...                 "Test - Parent Report"
+    ...             ]
+    ...         }
+    ...     )
+    ... ).loc[0, "respondent"]
+    'Self'
+    """
+    acts["respondent"] = acts["title"].apply(
         lambda x: x.split(
             " - "
         )[
@@ -739,3 +826,4 @@ def _main():
             ")"
         ) not in x else x
     )
+    return(acts)
