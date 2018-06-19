@@ -54,7 +54,7 @@ def config(
         context_file = os.path.join(
             os.path.dirname(__file__),
             "context.json"
-        ) # pragma: no cover
+        )
     with open (config_file, "r") as j:
         config = json.load(j)
     with open (context_file, "r") as j:
@@ -104,9 +104,9 @@ def connect_to_girder(
     ...     "58cb124c8d777f0aef5d79ff"
     ... )["name"]
     'LARGE_PtCu_NanoParticles-stride-5.html'
-    >>> g =connect_to_girder(authentication=("a", "b"))
+    >>> g = connect_to_girder(authentication=("a", "b"))
     Connected to the Girder database 🏗🍃 but could not authenticate.
-    >>> g =connect_to_girder(authentication="ab")
+    >>> g = connect_to_girder(authentication="ab")
     Connected to the Girder database 🏗🍃 but could not authenticate.
     """
     try:
@@ -134,12 +134,12 @@ def connect_to_girder(
             "Connected to the Girder database 🏗🍃 but "
             "could not authenticate."
         )
-    except:
+    except: # pragma: no cover
         print(
             "I am unable to connect to the "
             "Girder database 🏗🍃"
-        )
-        return(None)
+        ) # pragma: no cover
+        return(None) # pragma: no cover
     return(girder_connection)
   
   
@@ -253,6 +253,63 @@ def get_abbreviation(activity):
         activity_name,
         abbreviation
     )
+  
+
+def get_files_in_item(
+    girder_connection,
+    item_id,
+    sort="created",
+    sortdir=-1
+):
+    """
+    Function to get a dictionary of Files in an Item in
+    a Girder database.
+    
+    Parameters
+    ----------
+    girder_connection: GirderClient
+        an active `GirderClient <http://girder.readthedocs.io/en/latest/python-client.html#girder_client.GirderClient>`_
+    
+    item_id: string
+        Girder _id of Item.
+        
+    sort: string, optional
+        Field to sort the result set by.
+        default = "created"
+    
+    sortdir: int, optional
+        Sort order: 1 for ascending, -1 for descending.
+        default = -1
+    
+    Returns
+    -------
+    files: dictionary or None
+        metadata of files in Girder Item
+        
+    Example
+    -------
+    >>> import girder_client as gc
+    >>> get_files_in_item(
+    ...     girder_connection=gc.GirderClient(
+    ...         apiUrl="https://data.kitware.com/api/v1/"
+    ...     ),
+    ...     item_id="58a372f38d777f0721a64df3"
+    ... )[0]["name"]
+    'Normal001-T1-Flash.mha'
+    """
+    return(
+      girder_connection.get(
+        "".join([
+          "item/",
+          item_id,
+          "/files?",
+          "sort=",
+          sort,
+          "&sortdir=",
+          str(sortdir)
+        ])
+      )
+    )
 
 
 def get_girder_id_by_name(
@@ -337,63 +394,6 @@ def get_girder_id_by_name(
         j[0]["_id"] if len(
             j
         ) else None
-    )
-
-  
-def get_files_in_item(
-    girder_connection,
-    item_id,
-    sort="created",
-    sortdir=-1
-):
-    """
-    Function to get a dictionary of Files in an Item in
-    a Girder database.
-    
-    Parameters
-    ----------
-    girder_connection: GirderClient
-        an active `GirderClient <http://girder.readthedocs.io/en/latest/python-client.html#girder_client.GirderClient>`_
-    
-    item_id: string
-        Girder _id of Item.
-        
-    sort: string, optional
-        Field to sort the result set by.
-        default = "created"
-    
-    sortdir: int, optional
-        Sort order: 1 for ascending, -1 for descending.
-        default = -1
-    
-    Returns
-    -------
-    files: dictionary or None
-        metadata of files in Girder Item
-        
-    Example
-    -------
-    >>> import girder_client as gc
-    >>> get_files_in_item(
-    ...     girder_connection=gc.GirderClient(
-    ...         apiUrl="https://data.kitware.com/api/v1/"
-    ...     ),
-    ...     item_id="58a372f38d777f0721a64df3"
-    ... )[0]["name"]
-    'Normal001-T1-Flash.mha'
-    """
-    return(
-      girder_connection.get(
-        "".join([
-          "item/",
-          item_id,
-          "/files?",
-          "sort=",
-          sort,
-          "&sortdir=",
-          str(sortdir)
-        ])
-      )
     )
   
   
@@ -643,6 +643,101 @@ def postgres_users_to_girder_users(
                 ])
             ) # pragma: no cover
     return(users_by_email)
+  
+  
+def upload_applicable_files(
+    gc,
+    act_data,
+    item_id,
+    item_name,
+    api_url
+):
+    """
+    Function to find a File in a Girder Item if
+    such File exists, otherwise to upload said
+    File from Postgres pointer.
+    
+    Parameters
+    ----------
+    gc: GirderClient
+        active girder client
+    
+    act_data: dictionary
+        from JSON in Postgres
+        
+    item_id: string
+        Girder _id for Item
+    
+    item_name: string
+        name of Item
+        
+    api_url: string
+        path to running Girder DB API endpoint.
+        
+    Returns
+    -------
+    file_ids: dictionary
+        key: string
+            filename
+        value: string
+            Girder _id of File
+    """
+    file_ids = {}
+    for filetype in [
+        # TODO: "audio_path",
+        "image_url"
+    ]:
+        # Upload applicable file(s)
+        img = urllib.request.urlopen(
+            act_data[filetype]
+        ) if filetype in act_data else None
+        if img:
+            item_files = get_files_in_item(
+                gc,
+                item_id
+            )
+            img_name = ".".join([
+                ''.join([
+                    c for c in item_name if \
+                    c.isalnum()
+                ]),
+                act_data[
+                    "image_url"
+                ].split("?")[0].split(".")[-1]
+            ])
+            img_id = item_files[
+                0
+            ][
+                "_id"
+            ] if img_name in [
+                file[
+                    "name"
+                ] for file in item_files
+            ] else gc.uploadFile(
+                parentId=item_id,
+                stream=img,
+                name=img_name,
+                size=int(
+                    img.info()["Content-Length"]
+                )
+            )["_id"]
+            gc.addMetadataToItem(
+                itemId=item_id,
+                metadata={
+                    "image_url": "".join([
+                        api_url,
+                        "/file/",
+                        img_id,
+                        "/download?",
+                        "contentDisposition="
+                        "inline"
+                    ])
+                }
+            )
+            file_ids[
+                img_name
+            ] = img_id
+        return(file_ids)
   
 
 def _main():

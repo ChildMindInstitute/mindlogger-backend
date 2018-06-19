@@ -14,5 +14,13 @@
   "missing_persons": {
     "first_name": "Steven",
     "last_name": "Strange"
+  },
+  "firebase": {
+    "apiKey": "zv9hkfzz8kwebc59h7iyVpfG4KCFhorKKfQ7537p",
+    "authDomain": "",
+    "databaseURL": "",
+    "projectId": "",
+    "storageBucket": "",
+    "messagingSenderId": ""
   }
 }
