@@ -3,6 +3,7 @@ import json
 import os
 import pandas as pd
 import psycopg2
+import re
 import urllib
 from datetime import date
 
@@ -681,6 +682,28 @@ def upload_applicable_files(
             filename
         value: string
             Girder _id of File
+    Example
+    -------
+    >>> import girder_client
+    >>> upload_applicable_files(
+    ...     gc=girder_client.GirderClient(
+    ...         apiUrl="https://data.kitware.com/api/v1/" 
+    ...     ),
+    ...     act_data = {
+    ...         "image_url": "https://data.kitware.com/api/"
+    ...         "v1/file/596f64838d777f16d01e9c28/download/"
+    ...         "ensembl_vega_mart_88_drerio_gene_vega__"
+    ...         "gene__main.sql.gz"
+    ...     },
+    ...     item_id="596f64838d777f16d01e9c27",
+    ...     item_name="ensembl_vega_mart_88_drerio_gene_"
+    ...     "vega__gene__main.sql",
+    ...     api_url="https://data.kitware.com/api/v1/"
+    ... )[
+    ...     "ensembl_vega_mart_88_drerio_gene_"
+    ...     "vega__gene__main.sql.gz"
+    ... ]
+    '596f64838d777f16d01e9c28'
     """
     file_ids = {}
     for filetype in [
@@ -696,44 +719,48 @@ def upload_applicable_files(
                 gc,
                 item_id
             )
+            suffix = act_data[
+                "image_url"
+            ].split("?")[0].split(".")[-1]
+            alpha_num_un = re.sub(
+                pattern="[^A-Za-z0-9_\.]+",
+                repl="",
+                string=item_name
+            )
             img_name = ".".join([
-                ''.join([
-                    c for c in item_name if \
-                    c.isalnum()
-                ]),
-                act_data[
-                    "image_url"
-                ].split("?")[0].split(".")[-1]
-            ])
-            img_id = item_files[
-                0
-            ][
-                "_id"
-            ] if img_name in [
+                alpha_num_un,
+                suffix
+            ]) if not item_name.endswith(
+                suffix
+            ) else alpha_num_un
+            if img_name in [
                 file[
                     "name"
                 ] for file in item_files
-            ] else gc.uploadFile(
-                parentId=item_id,
-                stream=img,
-                name=img_name,
-                size=int(
-                    img.info()["Content-Length"]
-                )
-            )["_id"]
-            gc.addMetadataToItem(
-                itemId=item_id,
-                metadata={
-                    "image_url": "".join([
-                        api_url,
-                        "/file/",
-                        img_id,
-                        "/download?",
-                        "contentDisposition="
-                        "inline"
-                    ])
-                }
-            )
+            ]:
+                img_id = item_files[0]["_id"]
+            else:
+                gc.uploadFile(
+                    parentId=item_id,
+                    stream=img,
+                    name=img_name,
+                    size=int(
+                        img.info()["Content-Length"]
+                    )
+                )["_id"] # pragma: no cover
+                gc.addMetadataToItem(
+                    itemId=item_id,
+                    metadata={
+                        "image_url": "".join([
+                            api_url,
+                            "/file/",
+                            img_id,
+                            "/download?",
+                            "contentDisposition="
+                            "inline"
+                        ])
+                    }
+                ) # pragma: no cover
             file_ids[
                 img_name
             ] = img_id
