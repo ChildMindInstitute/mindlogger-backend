@@ -219,8 +219,8 @@ def get_abbreviation(activity):
     
     abbreviation: string
     
-    Example
-    -------
+    Examples
+    --------
     >>> get_abbreviation(
     ...     "Corresponding parts of congruent "
     ...     "triangles are congruent (CPCTC)"
@@ -287,8 +287,8 @@ def get_files_in_item(
     files: dictionary or None
         metadata of files in Girder Item
         
-    Example
-    -------
+    Examples
+    --------
     >>> import girder_client as gc
     >>> get_files_in_item(
     ...     girder_connection=gc.GirderClient(
@@ -339,7 +339,7 @@ def get_girder_id_by_name(
     parent: 2-tuple, optional, default=None
         (parentType, parent_id)
         parentType: string
-            "collection", "folder", or "user"
+            "Collection", "Folder", or "User"
         parendId: string
             Girder _id for parent
         
@@ -357,8 +357,8 @@ def get_girder_id_by_name(
     _id: string
         Girder _id of requested entity
         
-    Example
-    -------
+    Examples
+    --------
     >>> import girder_client as gc
     >>> get_girder_id_by_name(
     ...     girder_connection=gc.GirderClient(
@@ -371,9 +371,10 @@ def get_girder_id_by_name(
     ... )
     '55706aa58d777f649a9ba164'
     """
+    entity = entity.title()
     query = "".join([
-        entity,
-        "?text=" if entity=="collection" else "?name=",
+        entity.lower(),
+        "?text=" if entity=="Collection" else "?name=",
         name,
         "&parentType={0}&parentId={1}".format(
             *parent
@@ -394,7 +395,10 @@ def get_girder_id_by_name(
     return(
         j[0]["_id"] if len(
             j
-        ) else None
+        ) else girder_connection.createCollection(
+            name=name,
+            public=True
+        ) if entity=="Collection" else None
     )
   
   
@@ -425,8 +429,8 @@ def get_postgres_item_version(
     -------
     item_version: string
     
-    Example
-    -------
+    Examples
+    --------
     >>> activity_name, abbreviation = get_abbreviation(
     ...     "EHQ (Edinburgh Handedness Questionnaire)"
     ... )
@@ -478,8 +482,8 @@ def get_user_id_by_email(girder_connection, email):
     _id: string or None
         Girder _id of requested User, or None if not found
         
-    Example
-    -------
+    Examples
+    --------
     >>> import girder_client as gc
     >>> get_user_id_by_email(
     ...     girder_connection=gc.GirderClient(
@@ -514,6 +518,170 @@ def get_user_id_by_email(girder_connection, email):
     )
   
   
+def postgres_activities_to_girder_activities(
+    acts,
+    gc,
+    api_url,
+    users,
+    users_by_email,
+    context
+):
+    """
+    Function to transfer users from Postgres table to
+    Girder collection.
+
+    Parameters
+    ----------
+    users: DataFrame
+        users table from Postgres DB
+        
+    gc: GirderClient
+        active GirderClient in which to add the users
+        
+    api_url: string
+        path to running Girder DB API endpoint.
+        
+    users: DataFrame
+        users table from Postgres DB
+    
+    users_by_email: dictionary
+        key: string
+            email address
+        value: string
+            Girder User_id        
+    
+    context: dictionary
+        JSON-LD context
+    
+    Returns
+    -------
+    activities: DataFrame
+    """
+    activities = {}
+    activities_id = get_girder_id_by_name(
+        entity="collection",
+        name="activities",
+        girder_connection=gc
+    )
+    for i in range(acts.shape[0]):
+        activity = acts.loc[i, "title"]
+        activity_name, abbreviation = get_abbreviation(
+            activity
+        )
+        respondent = acts.loc[i ,"respondent"]
+        item_version = get_postgres_item_version(
+            activity_name,
+            abbreviation,
+            activity_source="Healthy Brain Network",
+            respondent=respondent,
+            version=date.strftime(
+                acts.loc[
+                    i,
+                    "updated_at"
+                ],
+                "%F"
+            )
+        )
+        user = {
+            "@id": "".join([
+                "user/",
+                users_by_email[
+                    users[
+                        users["id"]==acts.loc[
+                            i,
+                            "user_id"
+                        ]
+                    ]["email"].values[0]
+                ]
+            ])
+        }
+        act_data = json.loads(
+            acts.loc[
+                i,
+                "act_data"
+            ]
+        )
+
+        # Create or locate top-level folder and return _id
+        activity_folder_id = gc.createFolder(
+            name=activity_name,
+            parentId=activities_id,
+            parentType="collection",
+            public=True,
+            reuseExisting=True
+        )["_id"]
+
+        # Define metadata
+        metadata = {
+            **context,
+            "schema:name": {
+                "@value": activity_name,
+                "@language": "en-US"
+            },
+            "abbreviation": abbreviation if abbreviation else None,
+            "@type": acts.loc[
+                i,
+                "type"
+            ],
+            "status": acts.loc[
+                i,
+                "status"
+            ],
+            "pav:lastUpdatedOn": acts.loc[
+                i,
+                "updated_at"
+            ].isoformat(),
+            **{
+                prop: act_data[prop] for prop in 
+                act_data if prop not in [
+                    "questions",
+                    "instruction",
+                    "image_url"
+                ]
+            },
+            "instruction": {
+                "@value": act_data["instruction"],
+                "@language": "en-US"
+            } if (
+                (
+                    "instruction" in act_data
+                ) and len(
+                    act_data["instruction"]
+                )
+            ) else None,
+            "oslc:modifiedBy": user,
+            "pav:createdBy": user,
+            "respondent": respondent if respondent else None
+        }
+
+        # Create or locate Item
+        activity_item_id = gc.createItem(
+            name=item_version,
+            parentFolderId=activity_folder_id,
+            reuseExisting=True,
+            metadata=metadata
+        )["_id"]
+
+        ids = upload_applicable_files(
+            gc,
+            act_data,
+            activity_item_id,
+            activity_name,
+            api_url
+        )
+        
+        activities[
+            activity_item_id
+        ] = {
+            "name": activity_name,
+            "abbreviation": abbreviation if (
+                abbreviation
+            ) else None,
+            "files": ids
+        }
+    return(pd.DataFrame(activities).T)
+  
+  
 def postgres_users_to_girder_users(
     users,
     girder_connection,
@@ -546,8 +714,8 @@ def postgres_users_to_girder_users(
         value: string
             Girder User_id
     
-    Example
-    -------
+    Examples
+    --------
     >>> import girder_client as gc
     >>> import pandas as pd
     >>> postgres_users_to_girder_users(
@@ -682,8 +850,9 @@ def upload_applicable_files(
             filename
         value: string
             Girder _id of File
-    Example
-    -------
+            
+    Examples
+    --------
     >>> import girder_client
     >>> upload_applicable_files(
     ...     gc=girder_client.GirderClient(
@@ -845,8 +1014,8 @@ def _respondents(acts):
     -------
     acts: DataFrame
     
-    Example
-    -------
+    Examples
+    --------
     >>> import pandas as pd
     >>> _respondents(
     ...     pd.DataFrame(
