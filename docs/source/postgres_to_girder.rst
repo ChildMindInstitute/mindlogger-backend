@@ -9,15 +9,6 @@ postgres_to_girder (module)
 Submodules
 ----------
 
-import_questions
-^^^^^^^^^^^^^^^^
-
-.. automodule:: postgres_to_girder.import_questions
-  :members:
-  :undoc-members:
-  :inherited-members:
-  :show-inheritance:
-
 postgres_to_girder
 ^^^^^^^^^^^^^^^^^^
 
