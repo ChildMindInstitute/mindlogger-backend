@@ -1,5 +1,6 @@
 import girder_client as gc
 import json
+import numpy as np
 import os
 import pandas as pd
 import psycopg2
@@ -397,7 +398,7 @@ def get_girder_id_by_name(
             j
         ) else girder_connection.createCollection(
             name=name,
-            public=True
+            public=False
         ) if entity=="Collection" else None
     )
   
@@ -607,7 +608,7 @@ def postgres_activities_to_girder_activities(
             name=activity_name,
             parentId=activities_id,
             parentType="collection",
-            public=True,
+            public=False,
             reuseExisting=True
         )["_id"]
 
@@ -651,7 +652,10 @@ def postgres_activities_to_girder_activities(
             ) else None,
             "oslc:modifiedBy": user,
             "pav:createdBy": user,
-            "respondent": respondent if respondent else None
+            "respondent": respondent if respondent else None,
+            "questions": postgres_questions_to_JSONLD_questions(
+                act_data["questions"]
+            ) if "questions" in act_data else None
         }
 
         # Create or locate Item
@@ -677,10 +681,30 @@ def postgres_activities_to_girder_activities(
             "abbreviation": abbreviation if (
                 abbreviation
             ) else None,
-            "files": ids
+            "files": ids,
+            "metadata": metadata
         }
     return(pd.DataFrame(activities).T)
   
+  
+def postgres_questions_to_JSONLD_questions(
+    questions
+):
+    """
+    Function to 
+    
+    Parameters
+    ----------
+    questions: dictionary
+    
+    Returns
+    -------
+    questions: dictionary
+    
+    Examples
+    --------
+    """
+    return(questions)
   
 def postgres_users_to_girder_users(
     users,
@@ -748,69 +772,82 @@ def postgres_users_to_girder_users(
                 users.loc[i,"email"]
             ] = user_id
         else: # pragma: no cover
-            users_by_email[
-                users.loc[i,"email"]
-            ] = girder_connection.post(
-                "".join([
-                    "user?login=",
-                    users.loc[i,"email"].replace(
-                        "@",
-                        "at"
-                    ),
-                    "&firstName=",
-                    unknown_person[
-                        "first_name"
-                    ] if not users.loc[
-                        i,
-                        "first_name"
-                    ] else users.loc[
-                        i,
-                        "first_name"
-                    ] if not " " in users.loc[
-                        i,
-                        "first_name"
-                    ] else users.loc[
-                        i,
-                        "first_name"
-                    ].split(" ")[0],
-                    "&lastName=",
-                    users.loc[
-                        i,
-                        "last_name"
-                    ] if users.loc[
-                        i,
-                        "last_name"
-                    ] else unknown_person[
-                        "last_name"
-                    ] if not users.loc[
-                        i,
-                        "first_name"
-                    ] else users.loc[
-                        i,
-                        "first_name"
-                    ].split(" ")[1] if " " in users.loc[
-                        i,
-                        "first_name"
-                    ] else users.loc[
-                        i,
-                        "first_name"
-                    ],
-                    "&password=",
-                    users.loc[i,"password"],
-                    "&admin=",
-                    "true" if "admin" in str(
-                        users.loc[
-                            i,
-                            "role"
-                        ]
-                    ) else "false",
-                    "&email=",
-                    users.loc[
-                        i,
-                        "email"
-                    ]
-                ])
-            ) # pragma: no cover
+            original_login = users.loc[i,"email"].replace(
+                "@",
+                "at"
+            )
+            login = original_login
+            while True: # pragma: no cover
+                try: # pragma: no cover
+                    users_by_email[
+                        users.loc[i,"email"]
+                    ] = girder_connection.post(
+                        "".join([
+                            "user?login=",
+                            login,
+                            "&firstName=",
+                            unknown_person[
+                                "first_name"
+                            ] if not users.loc[
+                                i,
+                                "first_name"
+                            ] else users.loc[
+                                i,
+                                "first_name"
+                            ] if not " " in users.loc[
+                                i,
+                                "first_name"
+                            ] else users.loc[
+                                i,
+                                "first_name"
+                            ].split(" ")[0],
+                            "&lastName=",
+                            users.loc[
+                                i,
+                                "last_name"
+                            ] if users.loc[
+                                i,
+                                "last_name"
+                            ] else unknown_person[
+                                "last_name"
+                            ] if not users.loc[
+                                i,
+                                "first_name"
+                            ] else users.loc[
+                                i,
+                                "first_name"
+                            ].split(" ")[1] if " " in users.loc[
+                                i,
+                                "first_name"
+                            ] else users.loc[
+                                i,
+                                "first_name"
+                            ],
+                            "&password=",
+                            users.loc[i,"password"],
+                            "&admin=",
+                            "true" if "admin" in str(
+                                users.loc[
+                                    i,
+                                    "role"
+                                ]
+                            ) else "false",
+                            "&email=",
+                            users.loc[
+                                i,
+                                "email"
+                            ],
+                            "&public=false"
+                        ])
+                    ) # pragma: no cover
+                    break # pragma: no cover
+                except: # pragma: no cover
+                    username_i = 1 # pragma: no cover
+                    login = "{0}{1}".format(
+                        original_login,
+                        str(username_i)
+                    ) # pragma: no cover
+                    
     return(users_by_email)
   
   
@@ -934,8 +971,71 @@ def upload_applicable_files(
                 img_name
             ] = img_id
         return(file_ids)
-  
+ 
 
+def _delete_users(gc, except_user_ids):
+    """
+    Function to delete all users
+    except those user_ids specified
+    as exceptions.
+    
+    Parameters
+    ----------
+    gc: GirderClient
+    
+    except_user_ids: iterable
+        list, set, or tuple of user_ids to 
+        keep. Can be empty.
+        
+    Returns
+    -------
+    users_kept_and_deleted: DataFrame
+        DataFrame of Users kept and deleted
+    """
+    kept = pd.DataFrame(
+      [
+        {
+            **gc.getUser(
+                i["_id"]
+            ),
+            "deleted": False
+        } for i in gc.listUser(
+        ) if i["_id"] in except_user_ids
+      ]
+    )
+    deleted = pd.DataFrame(
+      [
+        {
+            **gc.getUser(
+                i["_id"]
+            ),
+            "deleted": True
+        } for i in gc.listUser(
+        ) if i["_id"] not in except_user_ids
+      ]
+    )
+    users_kept_and_deleted = pd.concat(
+            [
+                kept,
+                deleted
+            ],
+            ignore_index = True
+        )
+    for u in users_kept_and_deleted[
+        users_kept_and_deleted[
+            "deleted"
+        ]==True
+    ]["_id"]:
+        gc.delete(
+            "user/{0}".format(
+                u
+            )
+        )
+    return(
+        users_kept_and_deleted
+    )
+  
+  
 def _main():
     """
     Function to execute from commandline to transfer a running
@@ -968,7 +1068,7 @@ def _main():
     ) # pragma: no cover
     activities_id = gc.createCollection(
         name="activities",
-        public=True
+        public=False
     ) if not activities_id else activities_id # pragma: no cover
     
     # Get tables from Postgres
