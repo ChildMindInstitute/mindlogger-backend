@@ -522,7 +522,6 @@ def get_user_id_by_email(girder_connection, email):
 def postgres_activities_to_girder_activities(
     acts,
     gc,
-    api_url,
     users,
     users_by_email,
     context
@@ -538,9 +537,6 @@ def postgres_activities_to_girder_activities(
         
     gc: GirderClient
         active GirderClient in which to add the users
-        
-    api_url: string
-        path to running Girder DB API endpoint.
         
     users: DataFrame
         users table from Postgres DB
@@ -620,10 +616,6 @@ def postgres_activities_to_girder_activities(
                 "@language": "en-US"
             },
             "abbreviation": abbreviation if abbreviation else None,
-            "@type": acts.loc[
-                i,
-                "type"
-            ],
             "status": acts.loc[
                 i,
                 "status"
@@ -637,7 +629,8 @@ def postgres_activities_to_girder_activities(
                 act_data if prop not in [
                     "questions",
                     "instruction",
-                    "image_url"
+                    "image_url",
+                    "frequency"
                 ]
             },
             "instruction": {
@@ -653,9 +646,23 @@ def postgres_activities_to_girder_activities(
             "oslc:modifiedBy": user,
             "pav:createdBy": user,
             "respondent": respondent if respondent else None,
-            "questions": postgres_questions_to_JSONLD_questions(
-                act_data["questions"]
-            ) if "questions" in act_data else None
+            "screens": [
+                {
+                    "@id": "item/{0}".format(
+                        screen
+                    )
+                } for screen in postgres_questions_to_girder_screens(
+                        gc,
+                        act_data["questions"],
+                        abbreviation if abbreviation else activity_name,
+                        acts.loc[
+                            i,
+                            "type"
+                        ],
+                        item_version,
+                        context
+                    )
+              ] if "questions" in act_data else None
         }
 
         # Create or locate Item
@@ -670,8 +677,7 @@ def postgres_activities_to_girder_activities(
             gc,
             act_data,
             activity_item_id,
-            activity_name,
-            api_url
+            activity_name
         )
         
         activities[
@@ -687,24 +693,181 @@ def postgres_activities_to_girder_activities(
     return(pd.DataFrame(activities).T)
   
   
-def postgres_questions_to_JSONLD_questions(
-    questions
+def postgres_questions_to_girder_screens(
+    girder_connection,
+    questions,
+    short_name,
+    screen_type,
+    activity_version,
+    context,
+    language="en-US"
 ):
     """
-    Function to 
+    Function to convert Postgres questions
+    to Girder screens
     
     Parameters
     ----------
-    questions: dictionary
+    girder_connection: GirderClient
+
+    questions: list of dictionaries
+    
+    short_name: string
+    
+    screen_type: string
+    
+    activity_version: string
     
     Returns
     -------
-    questions: dictionary
+    screens: list
+        list of Girder screen _ids
     
     Examples
     --------
     """
-    return(questions)
+    screens_folder_id = girder_connection.createFolder(
+        name=activity_version,
+        parentId=get_girder_id_by_name(
+            entity="collection",
+            name="screens",
+            girder_connection=girder_connection
+        ),
+        parentType="collection",
+        public=False,
+        reuseExisting=True
+    )["_id"]
+    screens = []
+    for i, q in enumerate(questions):
+        question_text = q["title"] if "title" in q else None
+        variable_name = q["variable_name"] if "variable_name" in q else "_".join([
+            short_name,
+            str(i + 1)
+        ])
+        metadata={
+            **context,
+            "schema:name": {
+                "@value": variable_name,
+                "@language": language
+            },
+            "question_text": {
+                "@value": question_text,
+                "@language": language
+            },
+            "@type": "_".join([ 
+                q["type"],
+                screen_type
+            ])
+        }
+        screen = girder_connection.createItem(
+            name=": ".join([
+                variable_name,
+                question_text
+            ]),
+            parentFolderId=screens_folder_id,
+            reuseExisting=True,
+            metadata=metadata
+        )["_id"]
+        if q["type"] not in {
+            "camera",
+            "drawing",
+            "text"
+        }:
+            girder_connection.addMetadataToItem(
+                screen,
+                {
+                    **metadata,
+                    "options": postgres_options_to_JSONLD_options(
+                        girder_connection,
+                        q,
+                        screen
+                    )
+                }
+            )
+        if "image_url" in q:
+            girder_connection.addMetadataToItem(
+                screen,
+                {
+                    **metadata,
+                    "question_image": list(
+                        upload_applicable_files(
+                            girder_connection,
+                            {
+                                **q,
+                                "filetype": "image_url"
+                            },
+                            screen,
+                            q["title"]
+                        ).values()
+                    )[0] if "image_url" in q else None
+                }
+            )
+        screens.append(screen)
+    return(screens)
+  
+  
+def postgres_options_to_JSONLD_options(
+    gc,
+    q,
+    item_id,
+    language="en-US"
+):
+    """
+    Function to convert Postgres question
+    options to JSON-LD options
+    
+    Parameters
+    ----------
+    gc: GirderClient
+    
+    q: dictionary
+    
+    language: string, default en-US
+    
+    Returns
+    -------
+    j_options: list of dictionaries
+    
+    Examples
+    --------
+    """
+    if "images" in q and len(q["images"]):
+        return([
+            {
+              "option_image": list(
+                  upload_applicable_files(
+                      gc,
+                      {
+                          **option,
+                          "filetype": "image_url"
+                      },
+                      item_id,
+                      option["name"]
+                  ).values()
+              )[0] if "image_url" in option else None,
+              "option_text": {
+                  "@value": option["name"],
+                  "@language": language
+              },
+              "value": option[
+                  "key"
+              ] if "key" in option else option["name"]
+            } for option in q["images"]
+        ])
+    else:
+        return([
+            {
+              "option_text": {
+                  "@value": option["text"],
+                  "@language": language
+              } if "text" in option else None,
+              "value": option[
+                  "value"
+              ] if "value" in option else option[
+                  "text"
+              ]
+            } for option in q["rows"]
+        ])
   
 def postgres_users_to_girder_users(
     users,
@@ -779,9 +942,7 @@ def postgres_users_to_girder_users(
             login = original_login
             while True: # pragma: no cover
                 try: # pragma: no cover
-                    users_by_email[
-                        users.loc[i,"email"]
-                    ] = girder_connection.post(
+                    new_user = girder_connection.post(
                         "".join([
                             "user?login=",
                             login,
@@ -840,6 +1001,9 @@ def postgres_users_to_girder_users(
                             "&public=false"
                         ])
                     ) # pragma: no cover
+                    users_by_email[
+                        users.loc[i,"email"]
+                    ] = new_user["_id"] # pragma: no cover
                     break # pragma: no cover
                 except: # pragma: no cover
                     username_i = 1 # pragma: no cover
@@ -855,8 +1019,7 @@ def upload_applicable_files(
     gc,
     act_data,
     item_id,
-    item_name,
-    api_url
+    item_name
 ):
     """
     Function to find a File in a Girder Item if
@@ -877,16 +1040,14 @@ def upload_applicable_files(
     item_name: string
         name of Item
         
-    api_url: string
-        path to running Girder DB API endpoint.
-        
     Returns
     -------
     file_ids: dictionary
         key: string
             filename
-        value: string
-            Girder _id of File
+        value: dictionary
+            "@id": string
+                "file/[Girder _id of File]"
             
     Examples
     --------
@@ -903,13 +1064,12 @@ def upload_applicable_files(
     ...     },
     ...     item_id="596f64838d777f16d01e9c27",
     ...     item_name="ensembl_vega_mart_88_drerio_gene_"
-    ...     "vega__gene__main.sql",
-    ...     api_url="https://data.kitware.com/api/v1/"
+    ...     "vega__gene__main.sql"
     ... )[
     ...     "ensembl_vega_mart_88_drerio_gene_"
     ...     "vega__gene__main.sql.gz"
-    ... ]
-    '596f64838d777f16d01e9c28'
+    ... ]["@id"]
+    'file/596f64838d777f16d01e9c28'
     """
     file_ids = {}
     for filetype in [
@@ -946,7 +1106,7 @@ def upload_applicable_files(
             ]:
                 img_id = item_files[0]["_id"]
             else:
-                gc.uploadFile(
+                img_id = gc.uploadFile(
                     parentId=item_id,
                     stream=img,
                     name=img_name,
@@ -954,22 +1114,13 @@ def upload_applicable_files(
                         img.info()["Content-Length"]
                     )
                 )["_id"] # pragma: no cover
-                gc.addMetadataToItem(
-                    itemId=item_id,
-                    metadata={
-                        "image_url": "".join([
-                            api_url,
-                            "/file/",
-                            img_id,
-                            "/download?",
-                            "contentDisposition="
-                            "inline"
-                        ])
-                    }
-                ) # pragma: no cover
             file_ids[
                 img_name
-            ] = img_id
+            ] = {
+                "@id": "file/{0}".format(
+                    img_id
+                )
+            }
         return(file_ids)
  
 
