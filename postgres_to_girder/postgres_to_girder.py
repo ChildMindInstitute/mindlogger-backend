@@ -557,7 +557,12 @@ def postgres_activities_to_girder_activities(
     activities = {}
     activities_id = get_girder_id_by_name(
         entity="collection",
-        name="activities",
+        name="Activities",
+        girder_connection=gc
+    )
+    schedules_id = get_girder_id_by_name(
+        entity="collection",
+        name="Schedules",
         girder_connection=gc
     )
     for i in range(acts.shape[0]):
@@ -630,7 +635,8 @@ def postgres_activities_to_girder_activities(
                     "questions",
                     "instruction",
                     "image_url",
-                    "frequency"
+                    "frequency",
+                    "mode"
                 ]
             },
             "instruction": {
@@ -655,7 +661,13 @@ def postgres_activities_to_girder_activities(
                         gc,
                         act_data["questions"],
                         abbreviation if abbreviation else activity_name,
-                        acts.loc[
+                        " ".join([
+                            acts.loc[
+                                i,
+                                "type"
+                            ],
+                            act_data["mode"]
+                        ]) if "mode" in act_data else acts.loc[
                             i,
                             "type"
                         ],
@@ -690,6 +702,67 @@ def postgres_activities_to_girder_activities(
             "files": ids,
             "metadata": metadata
         }
+        
+        # Add to Schedule
+        timings = {
+            "1d": "Daily",
+            "1": "Once",
+            "8h": "3×Daily",
+            "12h": "2×Daily"
+        }
+        for timing in timings:
+            schedule_folder_id = gc.createFolder(
+                name=timings[timing],
+                parentId=schedules_id,
+                parentType="collection",
+                public=False,
+                reuseExisting=True
+            )["_id"]
+            schedule_item_id = gc.createItem(
+                name=" ".join([
+                    "Healthy Brain Network",
+                    timings[timing]
+                ]),
+                parentFolderId=schedule_folder_id,
+                reuseExisting=True
+            )["_id"]
+            schedule_item = gc.get(
+                "".join([
+                    "item/",
+                    schedule_item_id
+                ])
+            )
+            schedule_metadata = schedule_item[
+                "meta"
+            ] if "meta" in schedule_item else {} 
+            schedule_metadata[
+                "@context"
+            ] = context if "@context" not in \
+            schedule_metadata else schedule_metadata[
+                "@context"
+            ]
+            if "activities" not in schedule_metadata:
+                schedule_metadata["activities"] = [
+                    {
+                        "@id": "".join([
+                            "item/",
+                            activity_item_id
+                        ])
+                    }
+                ]
+            else:
+                schedule_metadata["activities"].append(
+                    {
+                        "@id": "".join([
+                            "item/",
+                            activity_item_id
+                        ])
+                    }
+                )
+            gc.addMetadataToItem(
+                schedule_item_id,
+                schedule_metadata
+            )
     return(pd.DataFrame(activities).T)
   
   
@@ -730,7 +803,7 @@ def postgres_questions_to_girder_screens(
         name=activity_version,
         parentId=get_girder_id_by_name(
             entity="collection",
-            name="screens",
+            name="Screens",
             girder_connection=girder_connection
         ),
         parentType="collection",
@@ -738,6 +811,12 @@ def postgres_questions_to_girder_screens(
         reuseExisting=True
     )["_id"]
     screens = []
+    screen_mode, screen_type = screen_type.split(
+        " "
+    ) if " " in screen_type else [
+        screen_type,
+        None
+    ]
     for i, q in enumerate(questions):
         question_text = q["title"] if "title" in q else None
         variable_name = q["variable_name"] if "variable_name" in q else "_".join([
@@ -1214,7 +1293,7 @@ def _main():
     # Get or create activities Collection
     activities_id = get_girder_id_by_name(
         entity="collection",
-        name="activities",
+        name="Activities",
         girder_connection=girder_connection
     ) # pragma: no cover
     activities_id = gc.createCollection(
