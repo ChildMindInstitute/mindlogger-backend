@@ -9,6 +9,106 @@ import urllib
 from datetime import date
 
 
+def add_to_schedule(
+    gc,
+    frequency,
+    schedules_id,
+    activity_item_id,
+    context={},
+    timings={
+        "1d": "Daily",
+        "1": "Once",
+        "8h": "3×Daily",
+        "12h": "2×Daily"
+    }
+):
+    """
+    Function to add Activities to a Schedule
+    
+    Parameters
+    ----------
+    gc: GirderClient
+    
+    frequency: string
+    
+    schedules_id: string
+    
+    activity_item_id: string
+    
+    context: dictionary, optional
+        default: {}
+    
+    timings: dictionary, optional
+        key: string
+            frequency
+        value: string
+            schedule name
+        default: {
+            "1d": "Daily",
+            "1": "Once",
+            "8h": "3×Daily",
+            "12h": "2×Daily"
+        }
+    
+    Returns
+    -------
+    schedule_item_id: string
+    """
+    schedule_folder_id = gc.createFolder(
+        name=timings[frequency],
+        parentId=schedules_id,
+        parentType="collection",
+        public=False,
+        reuseExisting=True
+    )["_id"]
+    schedule_item_id = gc.createItem(
+        name=" ".join([
+            "Healthy Brain Network",
+            timings[frequency]
+        ]),
+        parentFolderId=schedule_folder_id,
+        reuseExisting=True
+    )["_id"]
+    schedule_item = gc.get(
+        "".join([
+            "item/",
+            schedule_item_id
+        ])
+    )
+    schedule_metadata = schedule_item[
+        "meta"
+    ] if "meta" in schedule_item else {} 
+    schedule_metadata[
+        "@context"
+    ] = context if "@context" not in \
+    schedule_metadata else schedule_metadata[
+        "@context"
+    ]
+    if "activities" not in schedule_metadata:
+        schedule_metadata["activities"] = [
+            {
+                "@id": "".join([
+                    "item/",
+                    activity_item_id
+                ])
+            }
+        ]
+    else:
+        schedule_metadata["activities"].append(
+            {
+                "@id": "".join([
+                    "item/",
+                    activity_item_id
+                ])
+            }
+        )
+    gc.addMetadataToItem(
+        schedule_item_id,
+        schedule_metadata
+    )
+    return(schedule_item_id)
+
+
 def config(
     config_file=None,
     context_file=None
@@ -704,65 +804,13 @@ def postgres_activities_to_girder_activities(
         }
         
         # Add to Schedule
-        timings = {
-            "1d": "Daily",
-            "1": "Once",
-            "8h": "3×Daily",
-            "12h": "2×Daily"
-        }
-        for timing in timings:
-            schedule_folder_id = gc.createFolder(
-                name=timings[timing],
-                parentId=schedules_id,
-                parentType="collection",
-                public=False,
-                reuseExisting=True
-            )["_id"]
-            schedule_item_id = gc.createItem(
-                name=" ".join([
-                    "Healthy Brain Network",
-                    timings[timing]
-                ]),
-                parentFolderId=schedule_folder_id,
-                reuseExisting=True
-            )["_id"]
-            schedule_item = gc.get(
-                "".join([
-                    "item/",
-                    schedule_item_id
-                ])
-            )
-            schedule_metadata = schedule_item[
-                "meta"
-            ] if "meta" in schedule_item else {} 
-            schedule_metadata[
-                "@context"
-            ] = context if "@context" not in \
-            schedule_metadata else schedule_metadata[
-                "@context"
-            ]
-            if "activities" not in schedule_metadata:
-                schedule_metadata["activities"] = [
-                    {
-                        "@id": "".join([
-                            "item/",
-                            activity_item_id
-                        ])
-                    }
-                ]
-            else:
-                schedule_metadata["activities"].append(
-                    {
-                        "@id": "".join([
-                            "item/",
-                            activity_item_id
-                        ])
-                    }
-                )
-            gc.addMetadataToItem(
-                schedule_item_id,
-                schedule_metadata
-            )
+        add_to_schedule(
+            gc,
+            act_data["frequency"],
+            schedules_id,
+            activity_item_id,
+            context
+        )
     return(pd.DataFrame(activities).T)
   
   
