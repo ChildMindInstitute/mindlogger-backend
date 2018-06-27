@@ -475,7 +475,10 @@ def get_girder_id_by_name(
     entity = entity.title()
     query = "".join([
         entity.lower(),
-        "?text=" if entity=="Collection" else "?name=",
+        "?text=" if entity in {
+            "Collection",
+            "Group"
+        } else "?name=",
         name,
         "&parentType={0}&parentId={1}".format(
             *parent
@@ -762,15 +765,19 @@ def postgres_activities_to_girder_activities(
                         act_data["questions"],
                         abbreviation if abbreviation else activity_name,
                         " ".join([
-                            acts.loc[
-                                i,
-                                "type"
-                            ],
-                            act_data["mode"]
-                        ]) if "mode" in act_data else acts.loc[
-                            i,
-                            "type"
-                        ],
+                            word for word in [
+                                acts.loc[
+                                    i,
+                                    "type"
+                                ],
+                                "accordion" if (
+                                    "accordion" in act_data and
+                                    act_data["accordion"]==True
+                                ) else act_data[
+                                    "mode"
+                                ] if "mode" in act_data else None
+                            ] if word is not None
+                        ]),
                         item_version,
                         context
                     )
@@ -859,7 +866,7 @@ def postgres_questions_to_girder_screens(
         reuseExisting=True
     )["_id"]
     screens = []
-    screen_mode, screen_type = screen_type.split(
+    screen_type, screen_mode = screen_type.split(
         " "
     ) if " " in screen_type else [
         screen_type,
@@ -881,10 +888,9 @@ def postgres_questions_to_girder_screens(
                 "@value": question_text,
                 "@language": language
             },
-            "@type": "_".join([ 
-                q["type"],
-                screen_type
-            ])
+            "@type": screen_type,
+            "response_type": q["type"],
+            "mode": screen_mode
         }
         screen = girder_connection.createItem(
             name=": ".join([
@@ -995,13 +1001,133 @@ def postgres_options_to_JSONLD_options(
               ]
             } for option in q["rows"]
         ])
+      
+      
+def postgres_user_assign_to_girder_groups(
+    postgres_user,
+    girder_user,
+    girder_connection
+):
+    """
+    Function to assign User to appropriate
+    Girder Groups per permissions in PostgresDB.
+    
+    Parameters
+    ----------
+    postgres_user: Series
+        row from users DataFrame
+    
+    girder_user: string
+        Girder User "_id"
+        
+    girder_connection: GirderClient
+        active GirderClient
+        
+    Returns
+    -------
+    groups: dictionary 
+        key: string
+            Group_id
+        value: string
+            permissions level
+        groups and permissions levels assigned
+    """
+    roles = {
+        "user": {
+            "Users": 0
+        },
+        "admin": {
+            "Managers": 0,
+            "Editors": 1,
+            "Users": 1,
+            "Viewers": 1
+        },
+        "super_admin": {
+            "Managers": 2,
+            "Editors": 2,
+            "Users": 2,
+            "Viewers": 2
+        },
+        "viewer": {
+            "Viewers": 0
+        },
+        None: {
+            "Editors": 0
+        }
+    }
+    groups = {}
+    group_ids = {
+        group: get_girder_id_by_name(
+            girder_connection,
+            "Group",
+            group
+        ) for group in {
+            "Managers",
+            "Editors",
+            "Users",
+            "Viewers"
+        }
+    }
+    for role in roles[
+        postgres_user["role"]
+    ]:
+        girder_connection.post(
+            "".join([
+                "group/",
+                group_ids[
+                    role
+                ],
+                "/invitation?userId=",
+                girder_user,
+                "&level=",
+                str(
+                    roles[
+                        postgres_user[
+                            "role"
+                        ]
+                    ][
+                        role
+                    ]
+                ),
+                "&",
+                "quiet=true&",
+                "force=true"
+            ])
+        ) if group_ids[
+            role
+        ] is not None else None
+        groups[
+            group_ids[
+                role
+            ]
+        ] = "Member" if roles[
+            postgres_user[
+                "role"
+            ]
+        ][
+            role
+        ]==0 else "Moderator" if roles[
+            postgres_user[
+                "role"
+            ]
+        ][
+            role
+        ]==1 else "Administrator" if roles[
+            postgres_user[
+                "role"
+            ]
+        ][
+            role
+        ]==2 else None
+    return(groups)
+      
   
 def postgres_users_to_girder_users(
     users,
     girder_connection,
     unknown_person={
-        "first_name": "Notname",
-        "last_name": "Anonymous"
+        "first_name": "[Notname]",
+        "last_name": "[Anonymous]"
     }
 ):
     """
@@ -1069,7 +1195,7 @@ def postgres_users_to_girder_users(
             login = original_login
             while True: # pragma: no cover
                 try: # pragma: no cover
-                    new_user = girder_connection.post(
+                    user_id = girder_connection.post(
                         "".join([
                             "user?login=",
                             login,
@@ -1114,12 +1240,12 @@ def postgres_users_to_girder_users(
                             "&password=",
                             users.loc[i,"password"],
                             "&admin=",
-                            "true" if "admin" in str(
+                            "true" if str(
                                 users.loc[
                                     i,
                                     "role"
                                 ]
-                            ) else "false",
+                            )=="super_admin" else "false",
                             "&email=",
                             users.loc[
                                 i,
@@ -1127,10 +1253,10 @@ def postgres_users_to_girder_users(
                             ],
                             "&public=false"
                         ])
-                    ) # pragma: no cover
+                    )["_id"] # pragma: no cover
                     users_by_email[
                         users.loc[i,"email"]
-                    ] = new_user["_id"] # pragma: no cover
+                    ] = user_id # pragma: no cover
                     break # pragma: no cover
                 except: # pragma: no cover
                     username_i = 1 # pragma: no cover
@@ -1138,7 +1264,11 @@ def postgres_users_to_girder_users(
                         original_login,
                         str(username_i)
                     ) # pragma: no cover
-                    
+        postgres_user_assign_to_girder_groups(
+            users.iloc[i],
+            user_id,
+            girder_connection
+        ) # pragma: no cover
     return(users_by_email)
   
   
