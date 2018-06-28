@@ -109,7 +109,7 @@ def add_to_schedule(
     return(schedule_item_id)
 
 
-def config(
+def configuration(
     config_file=None,
     context_file=None
 ):
@@ -141,7 +141,7 @@ def config(
     ...    os.path.dirname(__file__),
     ...    "config.json.template"
     ... )
-    >>> config, context, api_url = config(
+    >>> config, context, api_url = configuration(
     ...     config_file=config_file
     ... )
     >>> config["girder"]["user"]
@@ -273,7 +273,7 @@ def connect_to_postgres(postgres_config):
     ...    "config.json.template"
     ... )
     >>> connect_to_postgres(
-    ...     config(
+    ...     configuration(
     ...         config_file=config_file
     ...     )[0]["postgres"]
     ... )
@@ -710,8 +710,8 @@ def postgres_activities_to_girder_activities(
 
     Parameters
     ----------
-    users: DataFrame
-        users table from Postgres DB
+    acts: DataFrame
+        activities table from Postgres DB
         
     gc: GirderClient
         active GirderClient in which to add the users
@@ -1130,19 +1130,12 @@ def postgres_user_assign_to_girder_groups(
             "Editors": 0
         }
     }
+    
     groups = {}
-    group_ids = {
-        group: get_girder_id_by_name(
-            girder_connection,
-            "Group",
-            group
-        ) for group in {
-            "Managers",
-            "Editors",
-            "Users",
-            "Viewers"
-        }
-    }
+    group_ids = get_group_ids(
+        girder_connection
+    )
+    
     for role in roles[
         postgres_user["role"]
     ]:
@@ -1525,12 +1518,36 @@ def _main():
     Postgres DB to a running Girder DB.
     
     "config.json" needs to have its values filled in first.
+    
+    Parameters
+    ----------
+    None
+    
+    Returns
+    -------
+    activities_id: string
+    
+    activities: DataFrame
+    
+    config: dictionary
+    
+    context: dictionary
+    
+    girder_connection: GirderClient
+    
+    postgres_connection: connection
+    
+    groups: dictionary
+    
+    postgres_tables: dictionary
+    
+    users: dictionary
     """
     # Load configuration
-    config, context, api_url = _config() # pragma: no cover
+    config, context, api_url = configuration() # pragma: no cover
     
     # Connect to Girder
-    girder_connection=_connect_to_girder(
+    girder_connection = connect_to_girder(
         api_url=api_url,
         authentication=(
             config["girder"]["user"],
@@ -1539,12 +1556,15 @@ def _main():
     ) # pragma: no cover
     
     # Connect to Postgres
-    postgres_connection=_connect_to_postgres(
+    postgres_connection = connect_to_postgres(
         config["postgres"]
     ) # pragma: no cover
          
     # Get or create user Groups
-    groups = get_group_ids()
+    groups = get_group_ids(
+        girder_connection,
+        create_missing=True
+    ) # pragma: no cover
       
     # Get or create activities Collection
     activities_id = get_girder_id_by_name(
@@ -1563,7 +1583,7 @@ def _main():
             "SELECT * FROM {0};".format(
                 table
             ),
-            conn
+            postgres_connection
         ) for table in {
             "acts",
             "users",
@@ -1585,6 +1605,29 @@ def _main():
         postgres_tables["acts"]
     ) # pragma: no cover
     
+    # Port activities from Postgres to Girder
+    activities = \
+    postgres_activities_to_girder_activities(
+        acts=postgres_tables["acts"],
+        gc=girder_connection,
+        users=postgres_tables["users"],
+        users_by_email=users,
+        context=context
+    ) # pragma: no cover
+    
+    return(
+        (
+            activities_id,
+            activities,
+            config,
+            context,
+            girder_connection,
+            postgres_connection,
+            groups,
+            postgres_tables,
+            users
+        )
+    ) # pragma: no cover
     
 def _respondents(acts):
     """
