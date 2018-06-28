@@ -506,6 +506,81 @@ def get_girder_id_by_name(
     )
   
   
+def get_group_ids(
+    gc,
+    groups={
+        "Editors",
+        "Managers",
+        "Users",
+        "Viewers"
+    },
+    create_missing=False
+):
+    """
+    Function to collect Girder _ids,
+    optionally creating any missing groups.
+    
+    Parameters
+    ----------
+    gc: GirderClient
+        active Girder Client
+        
+    groups: set
+        set of Group names for which to get
+        Girder _ids
+        item: string
+            Group name
+        default: {
+            "Editors",
+            "Managers",
+            "Users",
+            "Viewers"
+        }
+        
+    create_missing: boolean
+        create Group if none with that name
+        exists?
+        default: False
+        
+    Returns
+    -------
+    groups: dictionary
+        key: string
+            name from original set
+        value: string
+            Girder Group _id
+            
+    Examples
+    --------
+    >>> import girder_client as gc
+    >>> get_group_ids(
+    ...     gc=gc.GirderClient(
+    ...         apiUrl="https://data.kitware.com/api/v1/"
+    ...     ),
+    ...     groups={"VIGILANT"}
+    ... )
+    {'VIGILANT': '58a354fe8d777f0721a6106a'}
+    """
+    groups = {
+        group: get_girder_id_by_name(
+          gc,
+          "group",
+          group
+          ) for group in groups
+    }
+    if create_missing: # pragma: no cover
+        for group in groups: # pragma: no cover
+            if groups[group] is None: # pragma: no cover
+                groups[group] = gc.post(
+                    "".join([
+                        "group?name=",
+                        group,
+                        "&public=false"
+                    ])
+                )["_id"] # pragma: no cover
+    return(groups)
+  
+  
 def get_postgres_item_version(
     activity_name,
     abbreviation=None,
@@ -1467,7 +1542,10 @@ def _main():
     postgres_connection=_connect_to_postgres(
         config["postgres"]
     ) # pragma: no cover
-        
+         
+    # Get or create user Groups
+    groups = get_group_ids()
+      
     # Get or create activities Collection
     activities_id = get_girder_id_by_name(
         entity="collection",
