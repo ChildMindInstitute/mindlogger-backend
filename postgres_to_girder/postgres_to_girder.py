@@ -803,6 +803,10 @@ def postgres_activities_to_girder_activities(
                 i,
                 "status"
             ],
+            "accordion": act_data["accordion"] if (
+                "accordion" in act_data and
+                act_data["accordion"]==True
+            ) else False,
             "pav:lastUpdatedOn": acts.loc[
                 i,
                 "updated_at"
@@ -850,10 +854,6 @@ def postgres_activities_to_girder_activities(
                                 ] if "mode" in act_data else None
                             ] if word is not None
                         ]),
-                        act_data["accordion"] if (
-                            "accordion" in act_data and
-                            act_data["accordion"]==True
-                        ) else False,
                         item_version,
                         context
                     )
@@ -895,6 +895,28 @@ def postgres_activities_to_girder_activities(
             context
         )
     return(pd.DataFrame(activities).T)
+
+
+def postgres_question_to_girder_question(
+    q,
+    question_text,
+    variable_name,
+    context,
+    language="en-US"
+):
+    metadata={
+        **context,
+        "schema:name": {
+            "@value": variable_name,
+            "@language": language
+        },
+        "question_text": {
+            "@value": question_text,
+            "@language": language
+        },
+        "response_type": q["type"]
+    }
+    return(metadata)
   
   
 def postgres_questions_to_girder_screens(
@@ -902,7 +924,6 @@ def postgres_questions_to_girder_screens(
     questions,
     short_name,
     screen_type,
-    accordion,
     activity_version,
     context,
     language="en-US"
@@ -920,8 +941,6 @@ def postgres_questions_to_girder_screens(
     short_name: string
     
     screen_type: string
-    
-    accordion: boolean
     
     activity_version: string
     
@@ -952,28 +971,22 @@ def postgres_questions_to_girder_screens(
         None
     ]
     for i, q in enumerate(questions):
-        question_text = q["title"] if "title" in q else None
-        variable_name = q["variable_name"] if "variable_name" in q else "_".join([
+        question_text = q["title"] if "title" in q else q[
+            "text"
+        ] if "text" in q else None
+        variable_name = q[
+            "variable_name"
+        ] if "variable_name" in q else "_".join([
             short_name,
             str(i + 1)
         ])
-        metadata={
-            **context,
-            "schema:name": {
-                "@value": variable_name,
-                "@language": language
-            },
-            "question_text": {
-                "@value": question_text,
-                "@language": language
-            },
-            "@type": screen_type,
-            "response_type": q["type"],
-            "accordion": accordion,
-            "table": True if (
-                screen_mode=="table"
-            ) else False
-        }
+        metadata = postgres_question_to_girder_question(
+            q,
+            question_text,
+            variable_name,
+            context,
+            language="en-US"
+        )
         screen = girder_connection.createItem(
             name=": ".join([
                 variable_name,
@@ -983,42 +996,170 @@ def postgres_questions_to_girder_screens(
             reuseExisting=True,
             metadata=metadata
         )["_id"]
-        if q["type"] not in {
-            "camera",
-            "drawing",
-            "text"
-        }:
-            if screen_mode=="table":
-                print(
-                    "{5}: {4}:\n\t{0} rows, {1} columns\n\t\trows: {2}\n\t\tcolumns: {3}".format(
-                        q["rows_count"],
-                        q["cols_count"],
-                        str(q["rows"]),
-                        str(q["cols"]),
-                        q["type"],
-                        activity_version
-                    )
-                )
-            else:
-                girder_connection.addMetadataToItem(
+        if screen_mode=="table":
+            table = table_cells_from_postgres(
+                rows=q["rows"],
+                columns=q["cols"],
+                response_type=q["type"]
+            )
+            options = [
+                postgres_options_to_JSONLD_options(
+                    girder_connection,
+                    row,
+                    screen
+                ) for row in [
+                    {
+                        "type": q["type"],
+                        "title": table[(row,0)],
+                        "rows": [
+                            table[
+                                (
+                                    row if q[
+                                        "type"
+                                    ] in {
+                                        "image_sel"
+                                    } else 0,
+                                    col
+                                )
+                            ] for col in {
+                                cell[1] for cell in table
+                            } if col > 0
+                        ]
+                    } for row in {
+                        cell[0] for cell in table
+                    } if row > 0 
+                ]
+            ]
+            rows = [
+                {
+                    "header": \
+                    postgres_question_to_girder_question(
+                        {
+                            "type": "_".join([
+                                q[
+                                    "type"
+                                ],
+                                "tableRow"
+                            ])
+                        },
+                        table[
+                            (
+                                i+1,
+                                0
+                            )
+                        ]["text"],
+                        "{0}_row_{1}".format(
+                            variable_name,
+                            str(i+1)
+                        ),
+                        context,
+                        language=language
+                    ),
+                    "options": options[i] if "sel" in q[
+                        "type"
+                    ] else None,
+                    "columns": [
+                        {
+                            "header": \
+                            postgres_question_to_girder_question(
+                                {
+                                    "type": q[
+                                        "type"
+                                    ]
+                                },
+                                options[i][j]["option_text"],
+                                "{0}_row_{1}_col_{2}".format(
+                                    variable_name,
+                                    str(i+1),
+                                    str(j+1)
+                                ),
+                                context,
+                                language=language
+                            )
+                        } for j, column in enumerate(
+                            options[i]
+                        )
+                    ] if "sel" not in q[
+                        "type"
+                    ] else None
+                } for i in range(len(options)) 
+            ]
+            girder_connection.addMetadataToItem(
                     screen,
                     {
-                        **metadata,
-                        "options": \
-                        postgres_options_to_JSONLD_options(
-                            girder_connection,
-                            q,
-                            screen
-                        )
+                        **{
+                            key: "_".join([
+                                metadata[
+                                    key
+                                ],
+                                "table"
+                            ]) if (
+                                (
+                                    key=="response_type"
+                                ) and (
+                                    "table" not in metadata[
+                                        key
+                                    ]
+                                )
+                            ) else metadata[
+                                key
+                            ] for key in metadata if metadata[
+                                key
+                            ] is not None
+                        },
+                        "table": {
+                            str(
+                                coords
+                            ): table[
+                                coords
+                            ] for coords in table
+                        },
+                        "rows": [
+                            {
+                                key: item[
+                                    key
+                                ] for key in item if item[
+                                    key
+                                ] is not None
+                            } for item in rows
+                        ]
                     }
                 )
-        else:
-            pass
+        elif q["type"] not in {
+            "camera",
+            "drawing",
+            "number",
+            "text"
+        }:
+            girder_connection.addMetadataToItem(
+                screen,
+                {
+                    **{
+                        key: metadata[
+                            key
+                        ] for key in metadata if metadata[
+                            key
+                        ] is not None
+                    },
+                    "options": \
+                    postgres_options_to_JSONLD_options(
+                        girder_connection,
+                        q,
+                        screen
+                    ) 
+                }
+            )
         if "image_url" in q:
             girder_connection.addMetadataToItem(
                 screen,
                 {
-                    **metadata,
+                    **{
+                        key: metadata[
+                            key
+                        ] for key in metadata if metadata[
+                            key
+                        ] is not None
+                    },
                     "question_image": list(
                         upload_applicable_files(
                             girder_connection,
@@ -1052,6 +1193,8 @@ def postgres_options_to_JSONLD_options(
     
     q: dictionary
     
+    item_id: string
+    
     language: string, default en-US
     
     Returns
@@ -1061,43 +1204,64 @@ def postgres_options_to_JSONLD_options(
     Examples
     --------
     """
-    if "images" in q and len(q["images"]):
-        return([
-            {
-              "option_image": list(
-                  upload_applicable_files(
-                      gc,
-                      {
-                          **option,
-                          "filetype": "image_url"
-                      },
-                      item_id,
-                      option["name"]
-                  ).values()
-              )[0] if "image_url" in option else None,
-              "option_text": {
-                  "@value": option["name"],
-                  "@language": language
-              },
-              "value": option[
-                  "key"
-              ] if "key" in option else option["name"]
-            } for option in q["images"]
-        ])
-    else:
-        return([
-            {
-              "option_text": {
-                  "@value": option["text"],
-                  "@language": language
-              } if "text" in option else None,
-              "value": option[
-                  "value"
-              ] if "value" in option else option[
+    j_options = [
+        {
+          "option_image": list(
+              upload_applicable_files(
+                  gc,
+                  {
+                      **option,
+                      "filetype": "image_url"
+                  },
+                  item_id,
+                  option[
+                      "name"
+                  ] if "name" in option else ""
+              ).values()
+          )[0] if "image_url" in option else None,
+          "option_text": {
+              "@value": option[
                   "text"
-              ]
-            } for option in q["rows"]
-        ])
+              ] if "text" in option else option[
+                  "name"
+              ] if "name" in option else None,
+              "@language": language
+          },
+          "value": (
+              option[
+                  "key"
+              ] if "key" in option else option[
+                  "name"
+              ] if "name" in option else option[
+                  "text"
+              ] if "text" in option else None
+          ) if q["type"] not in {
+              "number",
+              "text"
+          } else None
+        } for option in [
+            *(
+                q[
+                    "images"
+                ] if "images" in q else []
+            ),
+            *(
+                q[
+                    "rows"
+                ] if "rows" in q else []
+            )
+        ]
+    ]
+    j_options = [
+        {
+            key: item[
+                key
+            ] for key in item if item[
+                key
+            ] is not None
+        } for item in j_options
+    ]
+    return(j_options)
       
       
 def postgres_user_assign_to_girder_groups(
@@ -1362,7 +1526,7 @@ def postgres_users_to_girder_users(
     return(users_by_email)
 
 
-def table_options_from_postgres(
+def table_cells_from_postgres(
     rows,
     columns,
     response_type
@@ -1410,7 +1574,7 @@ def table_options_from_postgres(
     Examples
     --------
     >>> [
-    ...     key for key in table_options_from_postgres(
+    ...     key for key in table_cells_from_postgres(
     ...         rows=[
     ...             {'text': 'Good question'},
     ...             {'text': 'Bad'}
@@ -1424,7 +1588,7 @@ def table_options_from_postgres(
     ... ]
     [(1, 0), (2, 0), (1, 1), (1, 2), (2, 1), (2, 2)]
     >>> [
-    ...     key for key in table_options_from_postgres(
+    ...     key for key in table_cells_from_postgres(
     ...         rows=[
     ...             {'text': 'Good question'},
     ...             {'text': 'Bad'}
