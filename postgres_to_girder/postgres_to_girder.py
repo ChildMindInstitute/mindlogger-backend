@@ -845,14 +845,15 @@ def postgres_activities_to_girder_activities(
                                     i,
                                     "type"
                                 ],
-                                "accordion" if (
-                                    "accordion" in act_data and
-                                    act_data["accordion"]==True
-                                ) else act_data[
+                                act_data[
                                     "mode"
                                 ] if "mode" in act_data else None
                             ] if word is not None
                         ]),
+                        act_data["accordion"] if (
+                            "accordion" in act_data and
+                            act_data["accordion"]==True
+                        ) else False,
                         item_version,
                         context
                     )
@@ -901,6 +902,7 @@ def postgres_questions_to_girder_screens(
     questions,
     short_name,
     screen_type,
+    accordion,
     activity_version,
     context,
     language="en-US"
@@ -918,6 +920,8 @@ def postgres_questions_to_girder_screens(
     short_name: string
     
     screen_type: string
+    
+    accordion: boolean
     
     activity_version: string
     
@@ -965,7 +969,10 @@ def postgres_questions_to_girder_screens(
             },
             "@type": screen_type,
             "response_type": q["type"],
-            "mode": screen_mode
+            "accordion": accordion,
+            "table": True if (
+                screen_mode=="table"
+            ) else False
         }
         screen = girder_connection.createItem(
             name=": ".join([
@@ -981,17 +988,32 @@ def postgres_questions_to_girder_screens(
             "drawing",
             "text"
         }:
-            girder_connection.addMetadataToItem(
-                screen,
-                {
-                    **metadata,
-                    "options": postgres_options_to_JSONLD_options(
-                        girder_connection,
-                        q,
-                        screen
+            if screen_mode=="table":
+                print(
+                    "{5}: {4}:\n\t{0} rows, {1} columns\n\t\trows: {2}\n\t\tcolumns: {3}".format(
+                        q["rows_count"],
+                        q["cols_count"],
+                        str(q["rows"]),
+                        str(q["cols"]),
+                        q["type"],
+                        activity_version
                     )
-                }
-            )
+                )
+            else:
+                girder_connection.addMetadataToItem(
+                    screen,
+                    {
+                        **metadata,
+                        "options": \
+                        postgres_options_to_JSONLD_options(
+                            girder_connection,
+                            q,
+                            screen
+                        )
+                    }
+                )
+        else:
+            pass
         if "image_url" in q:
             girder_connection.addMetadataToItem(
                 screen,
@@ -1338,6 +1360,105 @@ def postgres_users_to_girder_users(
             girder_connection
         ) # pragma: no cover
     return(users_by_email)
+
+
+def table_options_from_postgres(
+    rows,
+    columns,
+    response_type
+):
+    """
+    Function to convert Postgres table options 
+    encoded as rows and columns to dictionaries
+    with (row, column) keys where 0 represents a
+    header in either dimension and internal cells
+    are 1-indexed.
+    
+    Parameters
+    ----------
+    rows: list
+        rows[]: dictionary
+            key: string
+                "text" or "img_url"
+            value: string
+                row header
+    
+    columns: list
+        columns[] dictionary
+            key: string
+                "text" or "img_url"
+            value: string
+                internal cell option or column header
+    
+    response_type: string
+
+    Returns
+    -------
+    table: dictionary
+        key: 2-tuple
+            (row_number, column_number)
+            row_number: int
+                0 == header
+            column_number: int
+                0 == header
+        value: dictionary
+            key: string
+                "text" or "img_url"
+            value: string
+                internal cell option or column header
+                
+    Examples
+    --------
+    >>> [
+    ...     key for key in table_options_from_postgres(
+    ...         rows=[
+    ...             {'text': 'Good question'},
+    ...             {'text': 'Bad'}
+    ...         ],
+    ...         columns=[
+    ...             {'text': '1'},
+    ...             {'text': '2'}
+    ...         ],
+    ...         response_type="image_sel"
+    ...     )
+    ... ]
+    [(1, 0), (2, 0), (1, 1), (1, 2), (2, 1), (2, 2)]
+    >>> [
+    ...     key for key in table_options_from_postgres(
+    ...         rows=[
+    ...             {'text': 'Good question'},
+    ...             {'text': 'Bad'}
+    ...         ],
+    ...         columns=[
+    ...             {'text': '1'},
+    ...             {'text': '2'}
+    ...         ],
+    ...         response_type="single_sel"
+    ...     )
+    ... ]
+    [(1, 0), (2, 0), (0, 1), (0, 2)]
+    """
+    return(
+        {
+            **{
+                (i+1,0): rows[i] for i in range(
+                    len(rows)
+                )
+            },
+            **{
+                (
+                    i+1 if response_type in {
+                        "image_sel"
+                    } else 0,
+                    j+1
+                ): columns[j] for i in range(
+                    len(rows)
+                ) for j in range(
+                    len(columns)
+                )
+            } 
+        }
+    )
   
   
 def upload_applicable_files(
