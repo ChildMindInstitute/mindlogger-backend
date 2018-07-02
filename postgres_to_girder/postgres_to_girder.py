@@ -1076,6 +1076,161 @@ def postgres_activities_to_girder_activities(
     return(pd.DataFrame(activities).T)
 
 
+def postgres_answers_to_girder_answers(
+    girder_connection,
+    postgres_tables
+):
+    answers = pd.merge(
+        pd.merge(
+            postgres_tables["answers"].drop(
+                "id",
+                axis=1
+            ),
+            postgres_tables["users"],
+            how="left",
+            left_on="user_id",
+            right_on="id",
+            suffixes=(
+                "_answers",
+                "_user"
+            )
+        ).drop(
+            "id",
+            axis=1
+        ),
+        postgres_tables["acts"].drop(
+            [
+                "act_data",
+                "user_id",
+                "status",
+                "organization_id"
+            ],
+            axis=1
+        ),
+        how="left",
+        left_on="act_id",
+        right_on="id",
+        suffixes=(
+            "_answers",
+            "_activity"
+        )
+    )
+    answers = answers.sort_values(
+        [
+            "email",
+            "title",
+            "created_at_answers"
+        ]
+    ).reset_index(
+        drop=True
+    )
+    answers = answers.set_index(
+        [
+            "email",
+            "title",
+            "updated_at",
+            "created_at_answers"
+        ]
+    )
+    users = set(
+        answers.index.get_level_values(
+            "email"
+        )
+    )
+    users = {
+        u: get_user_id_by_email(
+            girder_connection,
+            u
+        ) for u in users
+    }
+    activities = set(
+        answers.index.get_level_values(
+            "title"
+        )
+    )
+    for s in {
+        (u, a) for u in users for a in activities
+    }:
+        activity_name, abbreviation = get_abbreviation(
+            s[1]
+        )
+        try:
+            activity_df = answers.loc[s,]
+        except KeyError:
+            continue
+        response_folder_id = girder_connection.createFolder(
+            name="Responses",
+            parentId=users[s[0]],
+            parentType="user",
+            public=False,
+            reuseExisting=True
+        )["_id"]
+        activity_folder_id = girder_connection.createFolder(
+            name=activity_name,
+            parentId=response_folder_id,
+            parentType="folder",
+            public=False,
+            reuseExisting=True
+        )["_id"]
+        for version in set(
+            activity_df.index.get_level_values(
+                "updated_at"
+            )
+        ):
+            activity_version_folder_id = girder_connection.createFolder(
+                name=get_postgres_item_version(
+                    activity_name,
+                    abbreviation=abbreviation,
+                    activity_source="Healthy Brain Network",
+                    respondent=list(
+                        activity_df[
+                            "respondent"
+                        ]
+                    )[0],
+                    version=date.strftime(
+                        version,
+                        "%F"
+                    )
+                ),
+                parentId=activity_folder_id,
+                parentType="folder",
+                public=False,
+                reuseExisting=True
+            )["_id"]
+            for response in activity_df.loc[version,].index.get_level_values(
+                "created_at_answers"
+            ):
+                response_item_id = girder_connection.createItem(
+                    name=date.strftime(
+                        response,
+                        "%F-%R%z"
+                    ),
+                    parentFolderId=activity_version_folder_id,
+                    reuseExisting=True
+                )["_id"]
+                answer_data = {
+                    **json.loads(
+                        activity_df.loc[
+                            (
+                                version,
+                                response
+                            )
+                        ]["answer_data"]
+                    ),
+                    "platform": activity_df.loc[
+                        (
+                            version,
+                            response
+                        )
+                    ]["platform"]
+                }
+                girder_connection.addMetadataToItem(
+                    response_item_id,
+                    answer_data
+                )
+    return(response_folder_id)
+
+
 def postgres_question_to_girder_question(
     q,
     question_text,
@@ -2081,6 +2236,12 @@ def _main():
     
     # Port individual User Schedules from Postgres to Girder
     assignments = assigments_from_postgres(
+        girder_connection,
+        postgres_tables
+    ) # pragma: no cover
+    
+    # Port individual User Responses from Postgres to Girder
+    postgres_answers_to_girder_answers(
         girder_connection,
         postgres_tables
     ) # pragma: no cover
