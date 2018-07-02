@@ -20,7 +20,9 @@ def add_to_schedule(
         "1": "Once",
         "8h": "3×Daily",
         "12h": "2×Daily"
-    }
+    },
+    schedule_folder_id=None,
+    schedule_item_id=None
 ):
     """
     Function to add Activities to a Schedule
@@ -49,6 +51,12 @@ def add_to_schedule(
             "8h": "3×Daily",
             "12h": "2×Daily"
         }
+        
+    schedule_folder_id: string, optional
+        default: _id for public schedules
+        
+    schedule_item_id: string, optional
+        default: _id for "Healthy Brain Network [Frequency]"
     
     Returns
     -------
@@ -60,7 +68,7 @@ def add_to_schedule(
         parentType="collection",
         public=False,
         reuseExisting=True
-    )["_id"]
+    )["_id"] if not schedule_folder_id else schedule_folder_id
     schedule_item_id = gc.createItem(
         name=" ".join([
             "Healthy Brain Network",
@@ -68,7 +76,7 @@ def add_to_schedule(
         ]),
         parentFolderId=schedule_folder_id,
         reuseExisting=True
-    )["_id"]
+    )["_id"] if not schedule_item_id else schedule_item_id
     schedule_item = gc.get(
         "".join([
             "item/",
@@ -84,29 +92,196 @@ def add_to_schedule(
     schedule_metadata else schedule_metadata[
         "@context"
     ]
-    if "activities" not in schedule_metadata:
-        schedule_metadata["activities"] = [
-            {
-                "@id": "".join([
-                    "item/",
+    schedule_metadata["activities"] = [] if (
+        "activities" not in schedule_metadata
+    ) else schedule_metadata["activities"]
+    schedule_metadata["activities"].append(
+        {
+            "@id": "".join([
+                "item/",
+                activity_item_id
+            ]),
+            "name": gc.get(
+                "item/{0}".format(
                     activity_item_id
-                ])
-            }
-        ]
-    else:
-        schedule_metadata["activities"].append(
-            {
-                "@id": "".join([
-                    "item/",
-                    activity_item_id
-                ])
-            }
-        )
+                )
+            )["name"]
+        }
+    )
     gc.addMetadataToItem(
         schedule_item_id,
         schedule_metadata
     )
     return(schedule_item_id)
+
+
+def assigments_from_postgres(
+    girder_connection,
+    postgres_tables,
+    timings={
+        "1d": "Daily",
+        "1": "Once",
+        "8h": "3×Daily",
+        "12h": "2×Daily"
+    }
+):
+    """
+    Function to build user activity schedules.
+    
+    Parameters
+    ----------
+    girder_connection: GirderClient
+    
+    postgres_tables: DataFrame
+    
+    timings: dictionary, optional
+    
+    Returns
+    -------
+    schedules: set
+        set of Girder Item _ids
+    """
+    schedules = set()
+    assignments = pd.merge(
+        pd.merge(
+            postgres_tables["user_acts"].drop(
+                "id",
+                axis=1
+            ),
+            postgres_tables["users"][
+                [
+                    "id",
+                    "email"
+                ]
+            ],
+            how='left',
+            left_on='user_id',
+            right_on='id'
+        ).drop(
+            "id",
+            axis=1
+        ),
+        postgres_tables["acts"].drop(
+            "user_id",
+            axis=1
+        ),
+        how="left",
+        left_on="act_id",
+        right_on="id",
+        suffixes=(
+            "_assignment",
+            "_activity"
+        )
+    ).drop(
+        "id",
+        axis=1
+    ).dropna(
+        axis=0,
+        subset=["title"]
+    )
+    assignments["frequency"] = assignments.act_data.apply(
+        lambda x: json.loads(x)["frequency"]
+    )
+    assignments = assignments.sort_values(
+        [
+            "email",
+            "frequency"
+        ]
+    ).set_index(
+        [
+            "email",
+            "frequency",
+            "title"
+        ]
+    )
+    users = set(
+        assignments.index.get_level_values(
+            "email"
+        )
+    )
+    users = {
+        u: get_user_id_by_email(
+            girder_connection,
+            u
+        ) for u in users
+    }
+    frequencies = set(
+        assignments.index.get_level_values(
+            "frequency"
+        )
+    )
+    for s in {
+        (u, f) for u in users for f in frequencies
+    }:
+        try:
+            sched_df = assignments.loc[s,]
+        except KeyError:
+            continue
+        schedule_folder_id = girder_connection.createFolder(
+            name="Schedules",
+            parentId=users[s[0]],
+            parentType="user",
+            public=False,
+            reuseExisting=True
+        )["_id"]
+        schedule_item_id = girder_connection.createItem(
+            name=" ".join([
+                "Version 0 ",
+                timings[s[1]]
+            ]),
+            parentFolderId=schedule_folder_id,
+            reuseExisting=True
+        )["_id"]
+        l = assignments.loc[s,]
+        for title in l.index.get_level_values("title"):
+            activity_name, abbreviation = get_abbreviation(
+                title
+            )
+            add_to_schedule(
+                gc=girder_connection,
+                frequency=s[1],
+                schedules_id=None,
+                activity_item_id=get_girder_id_by_name(
+                    girder_connection,
+                    "item",
+                    parent=(
+                        "folder",
+                        get_girder_id_by_name(
+                            girder_connection,
+                            "folder",
+                            name=activity_name,
+                            parent=(
+                                "collection",
+                                get_girder_id_by_name(
+                                    entity="collection",
+                                    name="Activities",
+                                    girder_connection=girder_connection
+                                )
+                            )
+                        )
+                    ),
+                    name=get_postgres_item_version(
+                        activity_name,
+                        abbreviation=abbreviation,
+                        activity_source="Healthy Brain Network",
+                        respondent=l.loc[
+                            title,
+                            "respondent"
+                        ],
+                        version=date.strftime(
+                            l.loc[
+                                title,
+                                "updated_at_activity"
+                            ],
+                            "%F"
+                        )
+                    )
+                ),
+                schedule_folder_id=schedule_folder_id,
+                schedule_item_id=schedule_item_id
+            )
+            schedules.add(schedule_item_id)
+    return(schedules)
 
 
 def configuration(
@@ -482,6 +657,10 @@ def get_girder_id_by_name(
         name,
         "&parentType={0}&parentId={1}".format(
             *parent
+        ) if (
+            parent and entity!="Item"
+        ) else "&folderId={0}".format(
+            parent[1]
         ) if parent else "",
         "&limit=",
         str(limit),
@@ -1898,6 +2077,12 @@ def _main():
         users=postgres_tables["users"],
         users_by_email=users,
         context=context
+    ) # pragma: no cover
+    
+    # Port individual User Schedules from Postgres to Girder
+    assignments = assigments_from_postgres(
+        girder_connection,
+        postgres_tables
     ) # pragma: no cover
     
     return(
