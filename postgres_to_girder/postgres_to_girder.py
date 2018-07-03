@@ -27,20 +27,20 @@ def add_to_schedule(
 ):
     """
     Function to add Activities to a Schedule
-    
+
     Parameters
     ----------
     gc: GirderClient
-    
+
     frequency: string
-    
+
     schedules_id: string
-    
+
     activity_item_id: string
-    
+
     context: dictionary, optional
         default: {}
-    
+
     timings: dictionary, optional
         key: string
             frequency
@@ -52,13 +52,13 @@ def add_to_schedule(
             "8h": "3×Daily",
             "12h": "2×Daily"
         }
-        
+
     schedule_folder_id: string, optional
         default: _id for public schedules
-        
+
     schedule_item_id: string, optional
-        default: _id for "Healthy Brain Network [Frequency]"
-    
+        default: _id for "Version 0 [Frequency]"
+
     Returns
     -------
     schedule_item_id: string
@@ -69,33 +69,37 @@ def add_to_schedule(
         parentType="collection",
         public=False,
         reuseExisting=True
-    )["_id"] if not schedule_folder_id else schedule_folder_id
+    )[
+        "_id"
+    ] if not schedule_folder_id else schedule_folder_id # pragma: no cover
     schedule_item_id = gc.createItem(
         name=" ".join([
-            "Healthy Brain Network",
+            "Version 0",
             timings[frequency]
         ]),
         parentFolderId=schedule_folder_id,
         reuseExisting=True
-    )["_id"] if not schedule_item_id else schedule_item_id
+    )[
+        "_id"
+    ] if not schedule_item_id else schedule_item_id # pragma: no cover
     schedule_item = gc.get(
         "".join([
             "item/",
             schedule_item_id
         ])
-    )
+    ) # pragma: no cover
     schedule_metadata = schedule_item[
         "meta"
-    ] if "meta" in schedule_item else {} 
+    ] if "meta" in schedule_item else {} # pragma: no cover
     schedule_metadata[
         "@context"
     ] = context if "@context" not in \
     schedule_metadata else schedule_metadata[
         "@context"
-    ]
+    ] # pragma: no cover
     schedule_metadata["activities"] = [] if (
         "activities" not in schedule_metadata
-    ) else schedule_metadata["activities"]
+    ) else schedule_metadata["activities"] # pragma: no cover
     schedule_metadata["activities"].append(
         {
             "@id": "".join([
@@ -108,12 +112,14 @@ def add_to_schedule(
                 )
             )["name"]
         }
-    )
+    ) # pragma: no cover
     gc.addMetadataToItem(
         schedule_item_id,
-        schedule_metadata
-    )
-    return(schedule_item_id)
+        drop_empty_keys(
+            schedule_metadata
+        )
+    ) # pragma: no cover
+    return(schedule_item_id) # pragma: no cover
 
 
 def assingments_from_postgres(
@@ -129,17 +135,17 @@ def assingments_from_postgres(
 ):
     """
     Function to build user activity schedules.
-    
+
     Parameters
     ----------
     girder_connection: GirderClient
-    
+
     postgres_tables: DataFrame
-    
+
     context: dictionary, optional
-    
+
     timings: dictionary, optional
-    
+
     Returns
     -------
     schedules: set
@@ -254,7 +260,10 @@ def assingments_from_postgres(
                         get_girder_id_by_name(
                             girder_connection,
                             "folder",
-                            name=activity_name,
+                            name=get_postgres_item_version(
+                                activity_name,
+                                abbreviation=abbreviation
+                            ),
                             parent=(
                                 "collection",
                                 get_girder_id_by_name(
@@ -268,7 +277,7 @@ def assingments_from_postgres(
                     name=get_postgres_item_version(
                         activity_name,
                         abbreviation=abbreviation,
-                        activity_source="Healthy Brain Network",
+                        activity_source="Version 0",
                         respondent=l.loc[
                             title,
                             "respondent"
@@ -295,25 +304,25 @@ def configuration(
 ):
     """
     Function to set configuration variables.
-    
+
     Parameters
     ----------
     config_file: string, optional
         path to configuration file
         default = "config.json"
-        
+
     context_file: string, optional
         path to context file
         default = "context.json"
-        
+
     Returns
     -------
     config: dictionary
-    
+
     context: dictionary
-    
+
     api_url: string
-    
+
     Example
     -------
     >>> import json
@@ -331,7 +340,7 @@ def configuration(
         config_file = os.path.join(
             os.path.dirname(__file__),
             "config.json"
-        ) # pragma: no cover 
+        ) # pragma: no cover
     if context_file is None:
         context_file = os.path.join(
             os.path.dirname(__file__),
@@ -347,21 +356,21 @@ def configuration(
         "/api/v1"
     ])
     return(config, context, api_url)
-  
-  
+
+
 def connect_to_girder(
     api_url="https://data.kitware.com/api/v1/",
     authentication=None
 ):
     """
     Function to connect to a Girder DB.
-    
+
     Parameters
     ----------
     api_url: string, optional
         path to running Girder DB API endpoint.
         Default is Kitware Data API
-        
+
     authentication: tuple or string, optional
         (username, password) or APIkey
         (
@@ -369,15 +378,15 @@ def connect_to_girder(
             password: string
         )
         default=None
-        
+
         APIkey: string
             default=None
-        
-        
+
+
     Returns
     -------
     girder_connection: GirderClient
-    
+
     Examples
     --------
     >>> import girder_client as gc
@@ -394,7 +403,7 @@ def connect_to_girder(
     try:
         girder_connection = gc.GirderClient(
             apiUrl=api_url
-        ) 
+        )
         if authentication:
             if isinstance(
                 authentication,
@@ -423,12 +432,12 @@ def connect_to_girder(
         ) # pragma: no cover
         return(None) # pragma: no cover
     return(girder_connection)
-  
-  
+
+
 def connect_to_postgres(postgres_config):
     """
     Function to connect to a Girder DB.
-    
+
     Parameters
     ----------
     postgres_config: dictionary
@@ -440,12 +449,12 @@ def connect_to_postgres(postgres_config):
             active Postgres IP (no protocol, ie, without "https://")
         "password": string
             password for Postgres user
-        
+
     Returns
     -------
     postgres_connection: connection
         http://initd.org/psycopg/docs/connection.html#connection
-    
+
     Examples
     --------
     >>> config_file = os.path.join(
@@ -472,8 +481,8 @@ def connect_to_postgres(postgres_config):
                 ]
             )
         )
-        print("Connected to the Postgres database 🐘") # pragma: no cover 
-        return(postgres_connection) # pragma: no cover 
+        print("Connected to the Postgres database 🐘") # pragma: no cover
+        return(postgres_connection) # pragma: no cover
     except (
         psycopg2.OperationalError,
         psycopg2.DatabaseError
@@ -483,23 +492,23 @@ def connect_to_postgres(postgres_config):
             "Postgres database 🐘"
         )
         return(None)
-      
-      
+
+
 def get_abbreviation(activity):
     """
     Function to extract abbreviation from
     activity name if one is present
-    
+
     Parameters
     ----------
     activity: string
-    
+
     Returns
     -------
     activity_name: string
-    
+
     abbreviation: string
-    
+
     Examples
     --------
     >>> get_abbreviation(
@@ -535,7 +544,7 @@ def get_abbreviation(activity):
         activity_name,
         abbreviation
     )
-  
+
 
 def get_files_in_item(
     girder_connection,
@@ -546,28 +555,28 @@ def get_files_in_item(
     """
     Function to get a dictionary of Files in an Item in
     a Girder database.
-    
+
     Parameters
     ----------
     girder_connection: GirderClient
         an active `GirderClient <http://girder.readthedocs.io/en/latest/python-client.html#girder_client.GirderClient>`_
-    
+
     item_id: string
         Girder _id of Item.
-        
+
     sort: string, optional
         Field to sort the result set by.
         default = "created"
-    
+
     sortdir: int, optional
         Sort order: 1 for ascending, -1 for descending.
         default = -1
-    
+
     Returns
     -------
     files: dictionary or None
         metadata of files in Girder Item
-        
+
     Examples
     --------
     >>> import girder_client as gc
@@ -605,39 +614,39 @@ def get_girder_id_by_name(
 ):
     """
     Function to get the `_id` of a single entity in a Girder database.
-    
+
     Parameters
     ----------
     girder_connection: GirderClient
         an active `GirderClient <http://girder.readthedocs.io/en/latest/python-client.html#girder_client.GirderClient>`_
-    
+
     entity: string
         "collection", "folder", "item", "file", "user"
-    
+
     name: string
         name of entity
-        
+
     parent: 2-tuple, optional, default=None
         (parentType, parent_id)
         parentType: string
             "Collection", "Folder", or "User"
         parendId: string
             Girder _id for parent
-        
+
     limit: int, optional, default=1
         maximum number of query results
-        
+
     sortdir: int, optional, default=-1
         Sort order: 1 for ascending, -1 for descending.
-        
+
     index: int, default=0
         0-indexed index of named entity in given sort order.
-        
+
     Returns
     -------
     _id: string
         Girder _id of requested entity
-        
+
     Examples
     --------
     >>> import girder_client as gc
@@ -686,10 +695,10 @@ def get_girder_id_by_name(
         ) else girder_connection.createCollection(
             name=name,
             public=False
-        ) if entity=="Collection" else None
+        )["_id"] if entity=="Collection" else None
     )
-  
-  
+
+
 def get_group_ids(
     gc,
     groups={
@@ -703,12 +712,12 @@ def get_group_ids(
     """
     Function to collect Girder _ids,
     optionally creating any missing groups.
-    
+
     Parameters
     ----------
     gc: GirderClient
         active Girder Client
-        
+
     groups: set
         set of Group names for which to get
         Girder _ids
@@ -720,12 +729,12 @@ def get_group_ids(
             "Users",
             "Viewers"
         }
-        
+
     create_missing: boolean
         create Group if none with that name
         exists?
         default: False
-        
+
     Returns
     -------
     groups: dictionary
@@ -733,7 +742,7 @@ def get_group_ids(
             name from original set
         value: string
             Girder Group _id
-            
+
     Examples
     --------
     >>> import girder_client as gc
@@ -763,8 +772,8 @@ def get_group_ids(
                     ])
                 )["_id"] # pragma: no cover
     return(groups)
-  
-  
+
+
 def get_postgres_item_version(
     activity_name,
     abbreviation=None,
@@ -775,23 +784,23 @@ def get_postgres_item_version(
     """
     Function to create an item version in `Mindlogger Item <https://github.com/ChildMindInstitute/mindlogger-app-backend/wiki/Data-Dictionary#activitiesfolderitem>`_ format:
     `[Source] — [Activity] — [Respondent] Report ([Version])`.
-    
+
     Parameters
     ----------
     activity_name: string
-    
+
     abbreviation: string
-    
+
     activity_source: string
-    
+
     respondent: string
-    
+
     version: string
-    
+
     Returns
     -------
     item_version: string
-    
+
     Examples
     --------
     >>> activity_name, abbreviation = get_abbreviation(
@@ -831,20 +840,20 @@ def get_postgres_item_version(
 def get_user_id_by_email(girder_connection, email):
     """
     Function to get the `_id` of a single User in a Girder database.
-    
+
     Parameters
     ----------
     girder_connection: GirderClient
         an active `GirderClient <http://girder.readthedocs.io/en/latest/python-client.html#girder_client.GirderClient>`_
-    
+
     email: string
         email address
-        
+
     Returns
     -------
     _id: string or None
         Girder _id of requested User, or None if not found
-        
+
     Examples
     --------
     >>> import girder_client as gc
@@ -864,13 +873,13 @@ def get_user_id_by_email(girder_connection, email):
             ])
         ) if (
             (
-                 "email" in user 
+                 "email" in user
             ) and (
                  user["email"]==email
             )
         ) or (
             (
-                 "login" in user 
+                 "login" in user
             ) and (
                  user["login"]==email
             )
@@ -879,8 +888,8 @@ def get_user_id_by_email(girder_connection, email):
     return(
         user_ids[0] if len(user_ids) else None
     )
-  
-  
+
+
 def postgres_activities_to_girder_activities(
     acts,
     gc,
@@ -896,27 +905,27 @@ def postgres_activities_to_girder_activities(
     ----------
     acts: DataFrame
         activities table from Postgres DB
-        
+
     gc: GirderClient
         active GirderClient in which to add the users
-        
+
     users: DataFrame
         users table from Postgres DB
-    
+
     users_by_email: dictionary
         key: string
             email address
         value: string
-            Girder User_id        
-    
+            Girder User_id
+
     context: dictionary
         JSON-LD context
-    
+
     Returns
     -------
     activities: DataFrame
     """
-    activities = {}
+    activities = {} # pragma: no cover
     activities_id = get_girder_id_by_name(
         entity="collection",
         name="Activities",
@@ -936,7 +945,7 @@ def postgres_activities_to_girder_activities(
         item_version = get_postgres_item_version(
             activity_name,
             abbreviation,
-            activity_source="Healthy Brain Network",
+            activity_source="Version 0",
             respondent=respondent,
             version=date.strftime(
                 acts.loc[
@@ -968,13 +977,16 @@ def postgres_activities_to_girder_activities(
 
         # Create or locate top-level folder and return _id
         activity_folder_id = gc.createFolder(
-            name=activity_name,
+            name=get_postgres_item_version(
+                activity_name,
+                abbreviation=abbreviation
+            ),
             parentId=activities_id,
             parentType="collection",
             public=False,
             reuseExisting=True
         )["_id"]
-
+        print(acts.loc[i,])
         # Define metadata
         metadata = {
             **context,
@@ -996,34 +1008,25 @@ def postgres_activities_to_girder_activities(
                 "updated_at"
             ].isoformat(),
             **{
-                prop: act_data[prop] for prop in 
+                prop: act_data[prop] for prop in
                 act_data if prop not in [
                     "questions",
                     "instruction",
                     "image_url",
                     "frequency",
-                    "mode"
+                    "mode",
+                    "type"
                 ]
             },
-            "instruction": {
-                "@value": act_data["instruction"],
-                "@language": "en-US"
-            } if (
-                (
-                    "instruction" in act_data
-                ) and len(
-                    act_data["instruction"]
-                )
-            ) else None,
             "oslc:modifiedBy": user,
             "pav:createdBy": user,
             "respondent": respondent if respondent else None,
             "screens": [
-                {
-                    "@id": "item/{0}".format(
-                        screen
-                    )
-                } for screen in postgres_questions_to_girder_screens(
+                    {
+                        "@id": "item/{0}".format(
+                            screen
+                        )
+                    } for screen in postgres_questions_to_girder_screens(
                         gc,
                         act_data["questions"],
                         abbreviation if abbreviation else activity_name,
@@ -1041,7 +1044,33 @@ def postgres_activities_to_girder_activities(
                         item_version,
                         context
                     )
-              ] if "questions" in act_data else None
+                ] if "questions" in act_data else [
+                    {
+                        "@id": "item/{0}".format(
+                            screen
+                        )
+                    } for screen in postgres_questions_to_girder_screens(
+                            gc,
+                            [{
+                                **act_data,
+                                "type": acts.loc[i, "type"]
+                            }],
+                            abbreviation if abbreviation else activity_name,
+                            " ".join([
+                                word for word in [
+                                    acts.loc[
+                                        i,
+                                        "type"
+                                    ],
+                                    act_data[
+                                        "mode"
+                                    ] if "mode" in act_data else None
+                                ] if word is not None
+                            ]),
+                            item_version,
+                            context
+                        )
+                ]
         }
 
         # Create or locate Item
@@ -1049,7 +1078,9 @@ def postgres_activities_to_girder_activities(
             name=item_version,
             parentFolderId=activity_folder_id,
             reuseExisting=True,
-            metadata=metadata
+            metadata=drop_empty_keys(
+                metadata
+            )
         )["_id"]
 
         ids = upload_applicable_files(
@@ -1058,7 +1089,7 @@ def postgres_activities_to_girder_activities(
             activity_item_id,
             activity_name
         )
-        
+
         activities[
             activity_item_id
         ] = {
@@ -1067,9 +1098,11 @@ def postgres_activities_to_girder_activities(
                 abbreviation
             ) else None,
             "files": ids,
-            "metadata": metadata
+            "metadata": drop_empty_keys(
+                metadata
+            )
         }
-        
+
         # Add to Schedule
         add_to_schedule(
             gc,
@@ -1089,15 +1122,15 @@ def postgres_answers_to_girder_answers(
     """
     Function to port User responses from Postgres
     to Girder
-    
+
     Parameters
     ----------
     girder_connection: GirderClient
-    
+
     postgres_tables: DataFrame
-    
+
     context: dictionary
-    
+
     Returns
     -------
     response_folder_ids: set
@@ -1181,6 +1214,12 @@ def postgres_answers_to_girder_answers(
             activity_df = answers.loc[s,]
         except KeyError:
             continue
+        respondent = list(
+            activity_df[
+                "respondent"
+            ]
+        )[0]
+        version = activity_df.index.get_level_values("updated_at")[0]
         response_folder_id = girder_connection.createFolder(
             name="Responses",
             parentId=users[s[0]],
@@ -1204,7 +1243,7 @@ def postgres_answers_to_girder_answers(
                 name=get_postgres_item_version(
                     activity_name,
                     abbreviation=abbreviation,
-                    activity_source="Healthy Brain Network",
+                    activity_source="Version 0",
                     respondent=list(
                         activity_df[
                             "respondent"
@@ -1238,57 +1277,63 @@ def postgres_answers_to_girder_answers(
                         "answer_data"
                     ].values[0]
                 )
-                user_responses = user_responses["user_responses"] if (
-                    "user_responses" in user_responses
+                user_responses = user_responses["answers"] if (
+                    "answers" in user_responses
                 ) else [user_responses]
-                prompts = json.loads(
-                    activity_df[
-                        "act_data"
-                    ].values[0]
-                )
-                prompts = prompts[
-                    "prompts"
-                ] if (
-                    "prompts" in prompts
-                ) else [prompts]
+                print(girder_connection.getItem(
+                    _lookup_postgres_activity_in_girder(
+                        girder_connection,
+                        activity_name,
+                        abbreviation,
+                        respondent,
+                        version
+                    )
+                ))
+                screens = girder_connection.getItem(
+                    _lookup_postgres_activity_in_girder(
+                        girder_connection,
+                        activity_name,
+                        abbreviation,
+                        respondent,
+                        version
+                    )
+                )["meta"]["screens"]
+                screens = [
+                    girder_connection.getItem(
+                        screen["@id"][5:]
+                    )["meta"] for screen in screens
+                ]
+                print(activity_name)
+                print("{0} user responses, {1} prompts".format(
+                    str(len(user_responses)),
+                    str(len(screens))
+                ))
                 answer_data = {
                     **context,
                     "responses": [
                         {
                             **{
-                                response if (
-                                    response!="result"
-                                ) else "response": answer[
-                                    response
-                                ] for response in (
-                                    answer if answer is not None else {}
-                                ) if (
-                                    "type" in prompts[i] and (
-                                        not (
-                                                (
-                                                    "sel" in prompts[i]["type"]
-                                                ) and (
-                                                    response=="result"
-                                                )
-                                        )
-                                    )
-                                )
+                                resp: user_responses[
+                                    i
+                                ][resp] for resp in user_responses[
+                                    i
+                                ] if resp!="result"
                             },
-                            "prompt": prompts[i][
-                                "title"
+                            "prompt": screens[i][
+                                "question_text"
                             ] if (
-                                "title" in prompts[i]
+                                "question_text" in screens[i]
                             ) else None,
-                            "variable_name": prompts[i][
-                                "variable_name"
+                            "schema:name": screens[i][
+                                "schema:name"
                             ] if (
-                                "variable_name" in prompts[i]
+                                "schema:name" in screens[i]
                             ) else None,
                             "choice": [
-                                prompts[
+                                screens[
                                     i
                                 ][
-                                    "rows"
+                                    "options"
                                 ][
                                     selection
                                 ] for selection in (
@@ -1306,9 +1351,11 @@ def postgres_answers_to_girder_answers(
                                 )
                             ] if (
                                 (
-                                    "type" in prompts[i]
+                                    "response_type" in screens[i]
                                 ) and (
-                                    "sel" in prompts[i]["type"]
+                                    "sel" in screens[i]["response_type"]
+                                ) and (
+                                    "table" not in screens[i]["response_type"]
                                 )
                             ) else None
                         } if (
@@ -1317,34 +1364,30 @@ def postgres_answers_to_girder_answers(
                             user_responses
                         )
                     ],
-                    "prompt": prompts[i][
-                        "instruction"
-                    ] if (
-                        "instruction" in prompts[i]
-                    ) else None, 
-                    "devices:os": "iOS" if activity_df.loc[
+                #     "prompt": prompts[
+                #         "instruction"
+                #     ] if (
+                #         "instruction" in prompts
+                #     ) else None,
+                    "devices:os": "devices:iOS" if activity_df.loc[
                         (
                             version,
                             response
                         )
-                    ]["platform"] == "ios" else activity_df.loc[
-                        (
-                            version,
-                            response
-                        )
-                    ]["platform"]
+                    ]["platform"] == "ios" else "devices:{0}".format(
+                        activity_df.loc[
+                            (
+                                version,
+                                response
+                            )
+                        ]["platform"]
+                    )
                 }
                 girder_connection.addMetadataToItem(
                     response_item_id,
-                    {
-                        key: answer_data[
-                            key
-                        ] for key in answer_data if (
-                            answer_data[
-                                key
-                            ] is not None
-                        )
-                    }
+                    drop_empty_keys(
+                        answer_data
+                    )
                 )
         response_folder_ids.add(response_folder_id)
     return(response_folder_ids)
@@ -1370,8 +1413,8 @@ def postgres_question_to_girder_question(
         "response_type": q["type"]
     }
     return(metadata)
-  
-  
+
+
 def postgres_questions_to_girder_screens(
     girder_connection,
     questions,
@@ -1384,34 +1427,35 @@ def postgres_questions_to_girder_screens(
     """
     Function to convert Postgres questions
     to Girder screens
-    
+
     Parameters
     ----------
     girder_connection: GirderClient
 
     questions: list of dictionaries
-    
+
     short_name: string
-    
+
     screen_type: string
-    
+
     activity_version: string
-    
+
     Returns
     -------
     screens: list
         list of Girder screen _ids
-    
+
     Examples
     --------
     """
+    screens_collection = get_girder_id_by_name(
+        entity="collection",
+        name="Screens",
+        girder_connection=girder_connection
+    )
     screens_folder_id = girder_connection.createFolder(
         name=activity_version,
-        parentId=get_girder_id_by_name(
-            entity="collection",
-            name="Screens",
-            girder_connection=girder_connection
-        ),
+        parentId=screens_collection,
         parentType="collection",
         public=False,
         reuseExisting=True
@@ -1426,7 +1470,7 @@ def postgres_questions_to_girder_screens(
     for i, q in enumerate(questions):
         question_text = q["title"] if "title" in q else q[
             "text"
-        ] if "text" in q else None
+        ] if "text" in q else q["instruction"] if "instruction" in q else None
         variable_name = q[
             "variable_name"
         ] if "variable_name" in q else "_".join([
@@ -1443,11 +1487,13 @@ def postgres_questions_to_girder_screens(
         screen = girder_connection.createItem(
             name=": ".join([
                 variable_name,
-                question_text
+                question_text if question_text else str(i)
             ]),
             parentFolderId=screens_folder_id,
             reuseExisting=True,
-            metadata=metadata
+            metadata=drop_empty_keys(
+                metadata
+            )
         )["_id"]
         if screen_mode=="table":
             table = table_cells_from_postgres(
@@ -1480,7 +1526,7 @@ def postgres_questions_to_girder_screens(
                         ]
                     } for row in {
                         cell[0] for cell in table
-                    } if row > 0 
+                    } if row > 0
                 ]
             ]
             rows = [
@@ -1535,7 +1581,7 @@ def postgres_questions_to_girder_screens(
                     ] if "sel" not in q[
                         "type"
                     ] else None
-                } for i in range(len(options)) 
+                } for i in range(len(options))
             ]
             girder_connection.addMetadataToItem(
                     screen,
@@ -1599,7 +1645,7 @@ def postgres_questions_to_girder_screens(
                         girder_connection,
                         q,
                         screen
-                    ) 
+                    )
                 }
             )
         if "image_url" in q:
@@ -1621,15 +1667,17 @@ def postgres_questions_to_girder_screens(
                                 "filetype": "image_url"
                             },
                             screen,
-                            q["title"]
+                            q["title"] if "title" in q else q[
+                                "instruction"
+                            ] if "instruction" in q else str(i)
                         ).values()
                     )[0] if "image_url" in q else None
                 }
             )
         screens.append(screen)
     return(screens)
-  
-  
+
+
 def postgres_options_to_JSONLD_options(
     gc,
     q,
@@ -1639,21 +1687,21 @@ def postgres_options_to_JSONLD_options(
     """
     Function to convert Postgres question
     options to JSON-LD options
-    
+
     Parameters
     ----------
     gc: GirderClient
-    
+
     q: dictionary
-    
+
     item_id: string
-    
+
     language: string, default en-US
-    
+
     Returns
     -------
     j_options: list of dictionaries
-    
+
     Examples
     --------
     """
@@ -1715,8 +1763,8 @@ def postgres_options_to_JSONLD_options(
         } for item in j_options
     ]
     return(j_options)
-      
-      
+
+
 def postgres_user_assign_to_girder_groups(
     postgres_user,
     girder_user,
@@ -1725,21 +1773,21 @@ def postgres_user_assign_to_girder_groups(
     """
     Function to assign User to appropriate
     Girder Groups per permissions in PostgresDB.
-    
+
     Parameters
     ----------
     postgres_user: Series
         row from users DataFrame
-    
+
     girder_user: string
         Girder User "_id"
-        
+
     girder_connection: GirderClient
         active GirderClient
-        
+
     Returns
     -------
-    groups: dictionary 
+    groups: dictionary
         key: string
             Group_id
         value: string
@@ -1769,12 +1817,12 @@ def postgres_user_assign_to_girder_groups(
             "Editors": 0
         }
     }
-    
+
     groups = {}
     group_ids = get_group_ids(
         girder_connection
     )
-    
+
     for role in roles[
         postgres_user["role"]
     ]:
@@ -1827,8 +1875,8 @@ def postgres_user_assign_to_girder_groups(
             role
         ]==2 else None
     return(groups)
-      
-  
+
+
 def postgres_users_to_girder_users(
     users,
     girder_connection,
@@ -1840,19 +1888,19 @@ def postgres_users_to_girder_users(
     """
     Function to transfer users from Postgres table to
     Girder collection.
-    
+
     Parameters
     ----------
     users: DataFrame
         users table from Postgres DB
-        
+
     girder_connection: GirderClient
         active GirderClient in which to add the users
-        
+
     unknown_person: dictionary
         unknown_person["first_name"]: string
         unknown_person["last_name"]: string
-    
+
     Returns
     -------
     users_by_email: dictionary
@@ -1860,7 +1908,7 @@ def postgres_users_to_girder_users(
             email address
         value: string
             Girder User_id
-    
+
     Examples
     --------
     >>> import girder_client as gc
@@ -1985,12 +2033,12 @@ def table_cells_from_postgres(
     response_type
 ):
     """
-    Function to convert Postgres table options 
+    Function to convert Postgres table options
     encoded as rows and columns to dictionaries
     with (row, column) keys where 0 represents a
     header in either dimension and internal cells
     are 1-indexed.
-    
+
     Parameters
     ----------
     rows: list
@@ -1999,14 +2047,14 @@ def table_cells_from_postgres(
                 "text" or "img_url"
             value: string
                 row header
-    
+
     columns: list
         columns[] dictionary
             key: string
                 "text" or "img_url"
             value: string
                 internal cell option or column header
-    
+
     response_type: string
 
     Returns
@@ -2023,7 +2071,7 @@ def table_cells_from_postgres(
                 "text" or "img_url"
             value: string
                 internal cell option or column header
-                
+
     Examples
     --------
     >>> [
@@ -2073,11 +2121,11 @@ def table_cells_from_postgres(
                 ) for j in range(
                     len(columns)
                 )
-            } 
+            }
         }
     )
-  
-  
+
+
 def upload_applicable_files(
     gc,
     act_data,
@@ -2088,21 +2136,21 @@ def upload_applicable_files(
     Function to find a File in a Girder Item if
     such File exists, otherwise to upload said
     File from Postgres pointer.
-    
+
     Parameters
     ----------
     gc: GirderClient
         active girder client
-    
+
     act_data: dictionary
         from JSON in Postgres
-        
+
     item_id: string
         Girder _id for Item
-    
+
     item_name: string
         name of Item
-        
+
     Returns
     -------
     file_ids: dictionary
@@ -2111,13 +2159,13 @@ def upload_applicable_files(
         value: dictionary
             "@id": string
                 "file/[Girder _id of File]"
-            
+
     Examples
     --------
     >>> import girder_client
     >>> upload_applicable_files(
     ...     gc=girder_client.GirderClient(
-    ...         apiUrl="https://data.kitware.com/api/v1/" 
+    ...         apiUrl="https://data.kitware.com/api/v1/"
     ...     ),
     ...     act_data = {
     ...         "image_url": "https://data.kitware.com/api/"
@@ -2185,105 +2233,244 @@ def upload_applicable_files(
                 )
             }
         return(file_ids)
- 
+
+
+def _delete_collections(gc, except_collection_ids):
+    """
+    Function to delete all collections
+    except those collection_ids specified
+    as exceptions.
+
+    Parameters
+    ----------
+    gc: GirderClient
+
+    except_collection_ids: iterable
+        list, set, or tuple of collection_ids to
+        keep. Can be empty.
+
+    Returns
+    -------
+    collections_kept_and_deleted: DataFrame
+        DataFrame of Collections kept and deleted
+    """
+    except_collection_ids = except_collection_ids if isiterable(
+        except_collection_ids
+    ) else {}
+    kept = pd.DataFrame(
+      [
+        {
+            **gc.getCollection(
+                i["_id"]
+            ),
+            "deleted": False
+        } for i in gc.listCollection(
+        ) if i["_id"] in except_collection_ids
+      ]
+    ) # pragma: no cover
+    deleted = pd.DataFrame(
+      [
+        {
+            **gc.getCollection(
+                i["_id"]
+            ),
+            "deleted": True
+        } for i in gc.listCollection(
+        ) if i["_id"] not in except_collection_ids
+      ]
+    ) # pragma: no cover
+    collections_kept_and_deleted = pd.concat(
+        [
+            kept,
+            deleted
+        ],
+        ignore_index = True
+    ) # pragma: no cover
+    for u in collections_kept_and_deleted[
+        collections_kept_and_deleted[
+            "deleted"
+        ]==True
+    ]["_id"]:
+        gc.delete(
+            "collection/{0}".format(
+                u
+            )
+        )
+    return(
+        collections_kept_and_deleted
+    )
+
 
 def _delete_users(gc, except_user_ids):
     """
     Function to delete all users
     except those user_ids specified
     as exceptions.
-    
+
     Parameters
     ----------
     gc: GirderClient
-    
+
     except_user_ids: iterable
-        list, set, or tuple of user_ids to 
+        list, set, or tuple of user_ids to
         keep. Can be empty.
-        
+
     Returns
     -------
     users_kept_and_deleted: DataFrame
         DataFrame of Users kept and deleted
     """
+    except_user_ids = except_user_ids if isiterable(
+        except_user_ids
+    ) else {}
     kept = pd.DataFrame(
-      [
-        {
-            **gc.getUser(
-                i["_id"]
-            ),
-            "deleted": False
-        } for i in gc.listUser(
-        ) if i["_id"] in except_user_ids
-      ]
-    )
+        [
+           {
+                **gc.getUser(
+                    i["_id"]
+                ),
+                "deleted": False
+            } for i in gc.listUser(
+            ) if i["_id"] in except_user_ids
+        ]
+    ) # pragma: no cover
     deleted = pd.DataFrame(
-      [
-        {
-            **gc.getUser(
-                i["_id"]
-            ),
-            "deleted": True
-        } for i in gc.listUser(
-        ) if i["_id"] not in except_user_ids
-      ]
-    )
+        [
+            {
+                **gc.getUser(
+                    i["_id"]
+                ),
+                "deleted": True
+            } for i in gc.listUser(
+            ) if i["_id"] not in except_user_ids
+        ]
+    ) # pragma: no cover
     users_kept_and_deleted = pd.concat(
-            [
-                kept,
-                deleted
-            ],
-            ignore_index = True
-        )
+        [
+            kept,
+            deleted
+        ],
+        ignore_index = True
+    ) # pragma: no cover
     for u in users_kept_and_deleted[
         users_kept_and_deleted[
             "deleted"
         ]==True
-    ]["_id"]:
+    ]["_id"]: # pragma: no cover
         gc.delete(
             "user/{0}".format(
                 u
             )
-        )
+        ) # pragma: no cover
     return(
         users_kept_and_deleted
-    )
-  
-  
-def _main():
+    ) # pragma: no cover
+
+
+def _lookup_postgres_activity_in_girder(
+    girder_connection,
+    activity_name,
+    abbreviation,
+    respondent,
+    version
+):
+    """
+    Function to find an already-ported-from-Postgres
+    Activity in Girder
+
+    Parameters
+    ----------
+    girder_connection: GirderClient
+
+    activity_name: string
+
+    abbreviation: string
+
+    respondent: string
+
+    version: Timestamp
+
+    Returns
+    -------
+    item_id: string
+        Girder _id
+    """
+    return(
+        get_girder_id_by_name(
+            girder_connection,
+            entity="Item",
+            name=get_postgres_item_version(
+                activity_name,
+                abbreviation=abbreviation,
+                activity_source="Version 0",
+                respondent=respondent,
+                version=date.strftime(
+                    version,
+                    "%F"
+                )
+            ),
+            parent=(
+                "Folder",
+                get_girder_id_by_name(
+                    girder_connection,
+                    entity="Folder",
+                    name=get_postgres_item_version(
+                        activity_name,
+                        abbreviation=abbreviation
+                    ),
+                    parent=(
+                        "collection",
+                        get_girder_id_by_name(
+                            girder_connection,
+                            entity="Collection",
+                            name="Activities",
+                        )
+                    )
+                )
+            )
+        )
+    ) # pragma: no cover
+
+
+def _main(delete_first=False, keep_collections=None, keep_users=None):
     """
     Function to execute from commandline to transfer a running
     Postgres DB to a running Girder DB.
-    
+
     "config.json" needs to have its values filled in first.
-    
+
     Parameters
     ----------
-    None
-    
+    delete_first: boolean
+        delete Users and Collections before building?
+
+    keep_collections: Iterable or None
+
+    keep_users: Iterable or None
+
     Returns
     -------
     activities_id: string
-    
+
     activities: DataFrame
-    
+
     config: dictionary
-    
+
     context: dictionary
-    
+
     girder_connection: GirderClient
-    
+
     postgres_connection: connection
-    
+
     groups: dictionary
-    
+
     postgres_tables: dictionary
-    
+
     users: dictionary
     """
     # Load configuration
     config, context, api_url = configuration() # pragma: no cover
-    
+
     # Connect to Girder
     girder_connection = connect_to_girder(
         api_url=api_url,
@@ -2292,29 +2479,39 @@ def _main():
             config["girder"]["password"]
         )
     ) # pragma: no cover
-    
+
     # Connect to Postgres
     postgres_connection = connect_to_postgres(
         config["postgres"]
     ) # pragma: no cover
-         
+
+    if delete_first:
+        delete_confirmed = ''
+        while len(delete_confirmed) < 1:
+            delete_confirmed = input("Really delete all Collections and Users?")
+        if delete_confirmed[0].lower()=="y":
+            _delete_collections(
+                girder_connection,
+                keep_collections
+            )
+            _delete_users(
+                girder_connection,
+                keep_users
+            )
+
     # Get or create user Groups
     groups = get_group_ids(
         girder_connection,
         create_missing=True
     ) # pragma: no cover
-      
+
     # Get or create activities Collection
     activities_id = get_girder_id_by_name(
         entity="collection",
         name="Activities",
         girder_connection=girder_connection
     ) # pragma: no cover
-    activities_id = gc.createCollection(
-        name="activities",
-        public=False
-    ) if not activities_id else activities_id # pragma: no cover
-    
+
     # Get tables from Postgres
     postgres_tables = {
         table: pd.io.sql.read_sql_query(
@@ -2330,19 +2527,19 @@ def _main():
             "answers"
         }
     } # pragma: no cover
-    
+
     # Load users into Girder
     users = postgres_users_to_girder_users(
         postgres_tables["users"],
         girder_connection,
         config["missing_persons"]
     ) # pragma: no cover
-    
+
     # Pull respondents out of titles in DataFrame from Postgres
     postgres_tables["acts"] = _respondents(
         postgres_tables["acts"]
     ) # pragma: no cover
-    
+
     # Port activities from Postgres to Girder
     activities = \
     postgres_activities_to_girder_activities(
@@ -2352,21 +2549,21 @@ def _main():
         users_by_email=users,
         context=context
     ) # pragma: no cover
-    
+
     # Port individual User Schedules from Postgres to Girder
     assignments = assingments_from_postgres(
         girder_connection,
         postgres_tables,
         context
     ) # pragma: no cover
-    
+
     # Port individual User Responses from Postgres to Girder
     postgres_answers_to_girder_answers(
         girder_connection,
         postgres_tables,
         context
     ) # pragma: no cover
-    
+
     return(
         (
             activities_id,
@@ -2380,21 +2577,21 @@ def _main():
             users
         )
     ) # pragma: no cover
-    
+
 def _respondents(acts):
     """
-    Function to extract respondents from 
+    Function to extract respondents from
     activity titles in Postgres table and
     update relevat columns
-    
+
     Parameters
     ----------
     acts: DataFrame
-    
+
     Returns
     -------
     acts: DataFrame
-    
+
     Examples
     --------
     >>> import pandas as pd
