@@ -1,6 +1,7 @@
 {
   "@context": {
     "@base": "http://localhost:8080/api/v1/",
+    "devices": "http://www.w3id.org/abdn/irp/devices/",
     "nidm": "http://nidm.nidash.org/specs/nidm-experiment.html#",
     "oslc": "http://open-services.net/ns/core#",
     "pav": "http://purl.org/pav/",

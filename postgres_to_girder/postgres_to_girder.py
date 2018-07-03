@@ -7,6 +7,7 @@ import psycopg2
 import re
 import urllib
 from datetime import date
+from object_manipulation import *
 
 
 def add_to_schedule(
@@ -115,9 +116,10 @@ def add_to_schedule(
     return(schedule_item_id)
 
 
-def assigments_from_postgres(
+def assingments_from_postgres(
     girder_connection,
     postgres_tables,
+    context={},
     timings={
         "1d": "Daily",
         "1": "Once",
@@ -133,6 +135,8 @@ def assigments_from_postgres(
     girder_connection: GirderClient
     
     postgres_tables: DataFrame
+    
+    context: dictionary, optional
     
     timings: dictionary, optional
     
@@ -241,6 +245,7 @@ def assigments_from_postgres(
                 gc=girder_connection,
                 frequency=s[1],
                 schedules_id=None,
+                context=context,
                 activity_item_id=get_girder_id_by_name(
                     girder_connection,
                     "item",
@@ -1078,8 +1083,25 @@ def postgres_activities_to_girder_activities(
 
 def postgres_answers_to_girder_answers(
     girder_connection,
-    postgres_tables
+    postgres_tables,
+    context
 ):
+    """
+    Function to port User responses from Postgres
+    to Girder
+    
+    Parameters
+    ----------
+    girder_connection: GirderClient
+    
+    postgres_tables: DataFrame
+    
+    context: dictionary
+    
+    Returns
+    -------
+    response_folder_ids: set
+    """
     answers = pd.merge(
         pd.merge(
             postgres_tables["answers"].drop(
@@ -1148,6 +1170,7 @@ def postgres_answers_to_girder_answers(
             "title"
         )
     )
+    response_folder_ids = set()
     for s in {
         (u, a) for u in users for a in activities
     }:
@@ -1197,7 +1220,9 @@ def postgres_answers_to_girder_answers(
                 public=False,
                 reuseExisting=True
             )["_id"]
-            for response in activity_df.loc[version,].index.get_level_values(
+            for response in activity_df.loc[
+                version,
+            ].index.get_level_values(
                 "created_at_answers"
             ):
                 response_item_id = girder_connection.createItem(
@@ -1208,16 +1233,101 @@ def postgres_answers_to_girder_answers(
                     parentFolderId=activity_version_folder_id,
                     reuseExisting=True
                 )["_id"]
+                user_responses = json.loads(
+                    activity_df[
+                        "answer_data"
+                    ].values[0]
+                )
+                user_responses = user_responses["user_responses"] if (
+                    "user_responses" in user_responses
+                ) else [user_responses]
+                prompts = json.loads(
+                    activity_df[
+                        "act_data"
+                    ].values[0]
+                )
+                prompts = prompts[
+                    "prompts"
+                ] if (
+                    "prompts" in prompts
+                ) else [prompts]
                 answer_data = {
-                    **json.loads(
-                        activity_df.loc[
-                            (
-                                version,
-                                response
-                            )
-                        ]["answer_data"]
-                    ),
-                    "platform": activity_df.loc[
+                    **context,
+                    "responses": [
+                        {
+                            **{
+                                response if (
+                                    response!="result"
+                                ) else "response": answer[
+                                    response
+                                ] for response in (
+                                    answer if answer is not None else {}
+                                ) if (
+                                    "type" in prompts[i] and (
+                                        not (
+                                                (
+                                                    "sel" in prompts[i]["type"]
+                                                ) and (
+                                                    response=="result"
+                                                )
+                                        )
+                                    )
+                                )
+                            },
+                            "prompt": prompts[i][
+                                "title"
+                            ] if (
+                                "title" in prompts[i]
+                            ) else None,
+                            "variable_name": prompts[i][
+                                "variable_name"
+                            ] if (
+                                "variable_name" in prompts[i]
+                            ) else None,
+                            "choice": [
+                                prompts[
+                                    i
+                                ][
+                                    "rows"
+                                ][
+                                    selection
+                                ] for selection in (
+                                    answer[
+                                        "result"
+                                    ] if type(
+                                        answer[
+                                            "result"
+                                        ]
+                                    )==list else [
+                                        answer[
+                                            "result"
+                                        ]
+                                    ]
+                                )
+                            ] if (
+                                (
+                                    "type" in prompts[i]
+                                ) and (
+                                    "sel" in prompts[i]["type"]
+                                )
+                            ) else None
+                        } if (
+                            answer is not None
+                        ) else None for i, answer in enumerate(
+                            user_responses
+                        )
+                    ],
+                    "prompt": prompts[i][
+                        "instruction"
+                    ] if (
+                        "instruction" in prompts[i]
+                    ) else None, 
+                    "devices:os": "iOS" if activity_df.loc[
+                        (
+                            version,
+                            response
+                        )
+                    ]["platform"] == "ios" else activity_df.loc[
                         (
                             version,
                             response
@@ -1226,9 +1336,18 @@ def postgres_answers_to_girder_answers(
                 }
                 girder_connection.addMetadataToItem(
                     response_item_id,
-                    answer_data
+                    {
+                        key: answer_data[
+                            key
+                        ] for key in answer_data if (
+                            answer_data[
+                                key
+                            ] is not None
+                        )
+                    }
                 )
-    return(response_folder_id)
+        response_folder_ids.add(response_folder_id)
+    return(response_folder_ids)
 
 
 def postgres_question_to_girder_question(
@@ -2235,15 +2354,17 @@ def _main():
     ) # pragma: no cover
     
     # Port individual User Schedules from Postgres to Girder
-    assignments = assigments_from_postgres(
+    assignments = assingments_from_postgres(
         girder_connection,
-        postgres_tables
+        postgres_tables,
+        context
     ) # pragma: no cover
     
     # Port individual User Responses from Postgres to Girder
     postgres_answers_to_girder_answers(
         girder_connection,
-        postgres_tables
+        postgres_tables,
+        context
     ) # pragma: no cover
     
     return(
