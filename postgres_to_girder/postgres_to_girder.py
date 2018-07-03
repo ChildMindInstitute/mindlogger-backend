@@ -986,7 +986,6 @@ def postgres_activities_to_girder_activities(
             public=False,
             reuseExisting=True
         )["_id"]
-        print(acts.loc[i,])
         # Define metadata
         metadata = {
             **context,
@@ -1303,11 +1302,7 @@ def postgres_answers_to_girder_answers(
                         screen["@id"][5:]
                     )["meta"] for screen in screens
                 ]
-                print(activity_name)
-                print("{0} user responses, {1} prompts".format(
-                    str(len(user_responses)),
-                    str(len(screens))
-                ))
+                
                 answer_data = {
                     **context,
                     "responses": [
