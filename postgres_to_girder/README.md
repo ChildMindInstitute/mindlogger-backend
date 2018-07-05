@@ -1,20 +1,3 @@
-<head>
-<style>
-ol {
-  counter-reset: item;
-}
-ol li {
-  display: block;
-}
-ol li:before {
-  content: counters(item, ".") ". ";
-  counter-increment: item;
-  position: relative;
-  left: -2em;
-}
-</style>
-</head>
-
 # Mindlogger on AWS
 
 ## Prepare an AWS Account
@@ -63,20 +46,6 @@ User Guide*.
         <em>Amazon EC2 User Guide for Linux Instances</em>.
      </p>
   </div>
-  <noscript>
-     <div>
-        <div>
-           <div>
-              <div id="js_error_message">
-                 <p><img src="https://d1ge0kk1l5kms0.cloudfront.net/images/G/01/webservices/console/warning.png" alt="Warning" /> <strong>Javascript is disabled or is unavailable in your browser.</strong></p>
-                 <p>To use the AWS Documentation, Javascript must be enabled. Please refer to your browser's
-                    Help pages for instructions.
-                 </p>
-              </div>
-           </div>
-        </div>
-     </div>
-  </noscript>
 </div>
 </blockquote>
 
