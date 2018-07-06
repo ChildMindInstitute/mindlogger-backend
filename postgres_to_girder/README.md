@@ -1,3 +1,7 @@
+# Local Mindlogger Database (testing and development)
+
+
+
 # Mindlogger on AWS
 
 ## Prepare an AWS Account
@@ -88,8 +92,7 @@ Follow the "Option 1" instructions in [Step 2. Launch the Quick Start](https://d
   <p>&bull; <a href="step2.html#new">Parameters for deploying MongoDB into a new VPC</a></p>
 </blockquote></li>
 
-&mdash; Amazon Web Services, Inc. (2018). [Step 2. Launch the Quick Start](https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/cfn-console-create-keypair.html). *MongoDB on AWS
-MongoDB Quick Start*.
+&mdash; Amazon Web Services, Inc. (2018). [Step 2. Launch the Quick Start](https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/cfn-console-create-keypair.html). *MongoDB on AWS MongoDB Quick Start*.
 
 <ol><li>
 <blockquote><em>Network Configuration:</em><table>
@@ -193,4 +196,183 @@ On the <b>Review</b> page, review and confirm the template settings. Under <b>Ca
 
 </li>
 </ol>
+<li>
+<blockquote><b>Important</b>
+
+You need the private key (.pem) file to connect to MongoDB nodes. Copy the private key (.pem) file into the bastion host instance; for example:
+<code>scp –i mykey.pem mykey.pem ec2-user@Bastion-public-ip:/home/ec2-user/mykey.pem</code></blockquote>
+
+&mdash; Amazon Web Services, Inc. (2018). [Step 3. Connect to MongoDB Nodes](https://docs.aws.amazon.com/quickstart/latest/mongodb/step3.html). *MongoDB on AWS MongoDB Quick Start*.
+</li>
+<li><blockquote>
+<h1>Testing MongoDB</h1>
+After the AWS CloudFormation template has completed successfully, the system will have a <em>mongod</em> instance running on each of the primary replica set nodes. To validate the system and verify the configuration, follow these steps:
+<ol><li>[<b>From the bastion host</b> u]se SSH to log in to one of the primary instances created by the Quick Start template.</li>
+<li>Execute the following commands from the terminal:
+<pre><code class="highlight highlight-source-shell">mongo
+use admin
+db.auth("admin", "YourAdminPassword")
+rs.printReplicationInfo()
+rs.status()
+</code></pre>
+</li>
+<li>Verify that the <code>mongo</code> shell connects to the local host on the default TCP port (27017), and that the output reflects the configuration that you specified for the Quick Start template.</li>
+</blockquote></li>
+
+&mdash; Amazon Web Services, Inc. (2018). [Testing MongoDB](https://docs.aws.amazon.com/quickstart/latest/mongodb/test.html). *MongoDB on AWS MongoDB Quick Start*.
 </ol>
+
+## Set Up Girder
+
+On your primary EC2 instance, perform the following tasks.
+
+### Install and Configure Python3.6
+
+1. `sudo yum install python36 python36-pip python36-devel`
+2. Alias python to Python3.6 in `.bashrc`:
+   ```bash
+   alias python=python3.6
+   ```
+   .
+3. Activate Python alias: `source .bashrc`.
+
+### Create a Virtual Environment
+
+#### Example (Linux)
+```bash
+python -m venv ~/mindlogger_girder_env
+```
+
+### Activate Virtual Environment
+
+#### Example (Linux)
+```bash
+source ~/mindlogger_girder_env/bin/activate
+pip install --upgrade pip
+
+```
+
+### Install Prerequisites
+
+> The following software packages are required to be installed on your system:
+>
+> - Python 2.7 or 3.5+
+> - pip
+> - MongoDB 3.2+
+> - Node.js 8+ [installed via YUM below]
+> - curl
+> - zlib
+> - libjpeg
+>
+> Additionally, in order to send out emails to users, Girder will need to be able to communicate with an SMTP server.
+
+[. . .]
+
+> ```bash
+> sudo yum install epel-release
+> ```
+
+[. . .]
+
+> ```bash
+> sudo yum install curl gcc-c++ git libffi-devel make python-devel python-pip openssl-devel libjpeg-turbo-devel zlib-devel
+> ```
+
+[. . .]
+
+> Enable the Node.js YUM repository:
+> ```bash
+> curl --silent --location https://rpm.nodesource.com/setup_10.x | sudo bash -
+> ```
+> Install Node.js and NPM using YUM:
+> ```bash
+> sudo yum install nodejs
+> ```
+
+[. . .]
+
+> It’s recommended to get the latest version of the npm package manager, and Girder currently requires at least version 5.2 of npm. To upgrade to the latest npm, after installing Node.js, run:
+>
+> `npm install -g npm`
+>
+> This may need to be run as root using `sudo`.
+
+&mdash; Kitware, Inc. (2018). [System Prerequisites](http://girder.readthedocs.io/en/latest/prerequisites.html). *Girder Docs: Administrator Documentation. Revision 8847c4d7*.
+
+### Get Girder from GitHub
+If your EC2 instance does not have `git`, the application can be installed with `yum` or `apt`, depending on your Linux flavor.
+
+> Obtain the Girder source code by cloning the Git repository on GitHub:
+>
+>
+> ```bash
+> git clone --branch 2.x-maintenance https://github.com/girder/girder.git
+> ```
+
+&mdash; Kitware, Inc. (2018). [Install from Git Repository](http://girder.readthedocs.io/en/latest/installation.html#install-from-git-repository). *Girder Docs: Administrator Documentation. Revision 8847c4d7: Installation: Sources*.
+
+### Install and Configure AWS Elastic Beanstalk
+
+1. `cd` into your `girder` directory.
+2. > From within the checked out copy of Girder, install and configure the CLI tools:
+   >
+   > ```bash
+   > $ pip install awscli awsebcli
+   > $ aws configure
+   > ```
+
+   &mdash; Kitware, Inc. (2018). [Elastic Beanstalk](http://girder.readthedocs.io/en/latest/deploy.html). *Girder Docs: Administrator Documentation. Revision 8847c4d7: Deploy*.
+
+   1. Repeat the AWS configuration at the top of this document.
+3. > Initialize the Beanstalk application with a custom name. This is an interactive process that will ask various questions about your setup[. . .]:
+   >
+   > ```bashr
+   > $ eb init mindlogger-girder
+   > ```
+
+   &mdash; Kitware, Inc. (2018). [Elastic Beanstalk](http://girder.readthedocs.io/en/latest/deploy.html). *Girder Docs: Administrator Documentation. Revision 8847c4d7: Deploy*.
+
+   1. Choose your region.
+   2. Choose Python.
+   3. Choose Python 3.6.
+   4. Decline CodeCommit (unless you want that service).
+   5. Set up SSH.
+   6. Choose the keypair you set up above.
+
+### Install Girder
+
+1. `pip install -e .[plugins]`
+3. `girder-install web --all-plugins`
+4. > Create a requirements.txt for the Beanstalk application, overwriting the default Girder requirements.txt:
+   >
+   > ```bash
+   > pip freeze | grep -v 'girder\|^awscli\|^awsebcli' > requirements.txt
+   > ```
+
+[. . .]
+
+5. > Copy the pre-packaged configurations for Beanstalk into the current directory:
+   > ```bash
+   > cp -r devops/beanstalk/. .
+   > ```
+
+[. . .]
+
+6. > Beanstalk deploys code based on commits, so create a git commit with the newly added configurations:
+   > ```bash
+   > git add . && git commit -m "Add Beanstalk configurations"
+   > ```
+
+   [Elastic Beanstalk does not allow emoji in commit messages.]
+
+7. > Create an environment to deploy code to:
+
+   &mdash; Kitware, Inc. (2018). [Elastic Beanstalk](http://girder.readthedocs.io/en/latest/deploy.html). *Girder Docs: Administrator Documentation. Revision 8847c4d7: Deploy*.
+
+   (This step takes a while.)
+
+#### Example (Linux)
+  ```bash
+  eb create mindlogger-girder --envvars \
+  GIRDER_CONFIG=girder.cfg,GIRDER_MONGO_URI=mongodb://35.168.212.116:27017/girder
+  ```
