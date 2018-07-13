@@ -1017,7 +1017,9 @@ def postgres_activities_to_girder_activities(
                     "type"
                 ]
             },
-            "oslc:modifiedBy": user,
+            "oslc:modifiedBy": [
+                user
+            ],
             "pav:createdBy": user,
             "respondent": respondent if respondent else None,
             "screens": [
@@ -1304,7 +1306,6 @@ def postgres_answers_to_girder_answers(
                 ]
                 
                 answer_data = {
-                    **context,
                     "responses": [
                         {
                             **{
