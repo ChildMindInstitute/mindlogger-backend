@@ -4,7 +4,61 @@
 # App_ModularDataCollection_Backend
 This backend serves as an administration console for customizing and storing data from the modular data collection app.
 
+---
 # Girder Structure
+
+
+- [Collections](#collections)
+	- [Activities](#activities)
+		- [[Activity]](#activity)
+			- [[Version]](#version)
+				- [meta.abbreviation](#metaabbreviation)
+				- [meta.accordion](#metaaccordion)
+				- [meta.@context](#metacontext)
+				- [meta.pav:createdBy](#metapavcreatedby)
+			  	- [*@id*](#id)
+				- [meta.pav:lastUpdatedOn](#metapavlastupdatedon)
+				- [meta.oslc:modifiedBy](#metaoslcmodifiedby)
+				  - [*@id*](#id)
+				- [meta.schema:name](#metaschemaname)
+				- [meta.respondent](#metarespondent)
+				- [meta.screens](#metascreens)
+				  - [[*screen*]](#screen)
+				- [meta.status](#metastatus)
+	- [Schedules](#schedules)
+		- [[Frequency]](#frequency)
+			- [[Volume] + [Schedule]](#volume-schedule)
+				- [meta.activities](#metaactivities)
+			  	- [@id](#id)
+				  - [name](#name)
+				- [meta.@context](#metacontext)
+	- [Screens](#screens)
+		- [[Version]](#version)
+			- [[Screen]](#screen)
+				- [[File]](#file)
+				- [meta.@context](#metacontext)
+				- [meta.schema:name](#metaschemaname)
+				- [meta.options](#metaoptions)
+				  - [*[option]*](#option)
+				- [meta.question_image](#metaquestionimage)
+				  - [*@id*](#id)
+				- [meta.question_text](#metaquestiontext)
+				- [meta.response_type](#metaresponsetype)
+- [Users](#users)
+	- [Responses](#responses)
+		- [[Activity]](#activity)
+			- [[Version]](#version)
+				- [[Completed Activity]](#completed-activity)
+	- [Schedules](#schedules)
+		- [[Schedule]](#schedule)
+			- [activities](#activities)
+				- [@id](#id)
+				- [name](#name)
+- [Groups](#groups)
+	- [Editors](#editors)
+	- [Managers](#managers)
+	- [Users](#users)
+	- [Viewers](#viewers)
 
 ## Collections
 
@@ -87,10 +141,10 @@ Each ([**Volume**] + [**Frequency**]) Item contains JSON-LD metadata.
 
 A JSON-LD array (ordered by priority) of **Activities** to be completed with the parent **Frequency**.
 
-###### @id
+###### *@id*
 A string in the format "item/[girder_id]"
 
-###### name
+###### *name*
 A string to show in the **User**'s app for this **Schedule**.
 
 ###### meta.@context
