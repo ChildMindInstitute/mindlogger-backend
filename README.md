@@ -7,7 +7,6 @@ This backend serves as an administration console for customizing and storing dat
 ---
 # Girder Structure
 
-
 - [Collections](#collections)
 	- [Activities](#activities)
 		- [[Activity]](#activity)

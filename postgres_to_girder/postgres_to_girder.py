@@ -1645,6 +1645,7 @@ def postgres_questions_to_girder_screens(
                 }
             )
         if "image_url" in q:
+            continue
             girder_connection.addMetadataToItem(
                 screen,
                 {
@@ -2469,10 +2470,13 @@ def _main(delete_first=False, keep_collections=None, keep_users=None):
 
     # Connect to Girder
     girder_connection = connect_to_girder(
-        api_url=api_url,
+        api_url="{}/api/v1".format(
+            config["girder"]["host"]
+        ),
         authentication=(
-            config["girder"]["user"],
-            config["girder"]["password"]
+            (
+                config["girder"]["APIkey"]
+            )
         )
     ) # pragma: no cover
 
