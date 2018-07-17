@@ -7,7 +7,7 @@ import psycopg2
 import re
 import urllib
 from datetime import date
-from object_manipulation import *
+from ..object_manipulation import *
 
 
 def add_to_schedule(
@@ -1280,16 +1280,11 @@ def postgres_answers_to_girder_answers(
                 )
                 user_responses = user_responses["answers"] if (
                     "answers" in user_responses
+                ) else user_responses["lines"] if (
+                    "lines" in user_responses
                 ) else [user_responses]
-                print(girder_connection.getItem(
-                    _lookup_postgres_activity_in_girder(
-                        girder_connection,
-                        activity_name,
-                        abbreviation,
-                        respondent,
-                        version
-                    )
-                ))
+                print("user responses")
+                print(user_responses)
                 screens = girder_connection.getItem(
                     _lookup_postgres_activity_in_girder(
                         girder_connection,
@@ -1304,7 +1299,6 @@ def postgres_answers_to_girder_answers(
                         screen["@id"][5:]
                     )["meta"] for screen in screens
                 ]
-                
                 answer_data = {
                     "responses": [
                         {
@@ -1359,7 +1353,7 @@ def postgres_answers_to_girder_answers(
                         ) else None for i, answer in enumerate(
                             user_responses
                         )
-                    ],
+                    ] if len(user_responses) else None,
                 #     "prompt": prompts[
                 #         "instruction"
                 #     ] if (
@@ -1480,19 +1474,25 @@ def postgres_questions_to_girder_screens(
             context,
             language="en-US"
         )
-        screen = girder_connection.createItem(
-            name=": ".join([
-                variable_name,
-                question_text if question_text else str(i)
-            ]),
-            parentFolderId=screens_folder_id,
-            reuseExisting=True,
-            metadata=drop_empty_keys(
-                metadata
-            )
-        )["_id"]
+        l = True
+        while l:
+            try:
+                screen = girder_connection.createItem(
+                    name=": ".join([
+                        variable_name,
+                        question_text if question_text else str(i)
+                    ]),
+                    parentFolderId=screens_folder_id,
+                    reuseExisting=True,
+                    metadata=drop_empty_keys(
+                        metadata
+                    )
+                )["_id"]
+                l = False
+            except:
+                continue
         if screen_mode=="table":
-            table = table_cells_from_postgres(
+            table = table_cells_from_e(
                 rows=q["rows"],
                 columns=q["cols"],
                 response_type=q["type"]
@@ -2229,7 +2229,8 @@ def upload_applicable_files(
                     img_id
                 )
             }
-        return(file_ids)
+    print(file_ids)
+    return(file_ids)
 
 
 def _delete_collections(gc, except_collection_ids):
@@ -2470,9 +2471,7 @@ def _main(delete_first=False, keep_collections=None, keep_users=None):
 
     # Connect to Girder
     girder_connection = connect_to_girder(
-        api_url="{}/api/v1".format(
-            config["girder"]["host"]
-        ),
+        api_url=api_url,
         authentication=(
             (
                 config["girder"]["APIkey"]

@@ -22,7 +22,7 @@ pgsql
 .env.development.local
 .env.test.local
 .env.production.local
-postgres_to_girder/config.json
+dev/config.json
 *checkpoints*
 *__pycache__*
 .pytest_cache
