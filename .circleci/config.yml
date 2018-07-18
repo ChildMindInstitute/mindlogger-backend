@@ -27,7 +27,7 @@ jobs:
       # Download and cache dependencies
       - restore_cache:
           keys:
-          - v1-dependencies-{{ checksum "postgres_to_girder/requirements.txt" }}
+          - v1-dependencies-{{ checksum "mindlogger_backend_dev/requirements.txt" }}
           # fallback to using the latest cache if no exact match is found
           - v1-dependencies-
 
@@ -36,13 +36,13 @@ jobs:
           command: |
             python3 -m venv venv
             . venv/bin/activate
-            pip install -r postgres_to_girder/requirements.txt
+            pip install -r mindlogger_backend_dev/requirements.txt
             pip install pytest pytest-cov
 
       - save_cache:
           paths:
             - ./venv
-          key: v1-dependencies-{{ checksum "postgres_to_girder/requirements.txt" }}
+          key: v1-dependencies-{{ checksum "mindlogger_backend_dev/requirements.txt" }}
 
       # run tests!
       # this example uses Django's built-in test-runner
