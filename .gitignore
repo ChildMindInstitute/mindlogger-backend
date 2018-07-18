@@ -22,7 +22,7 @@ pgsql
 .env.development.local
 .env.test.local
 .env.production.local
-dev/config.json
+mindlogger_backend_dev/config.json
 *checkpoints*
 *__pycache__*
 .pytest_cache

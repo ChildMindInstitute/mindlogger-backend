@@ -1,125 +1,34 @@
+import os
+import sys
+
+sys.path.append(
+    os.path.abspath(
+        os.path.join(
+            __file__,
+            os.pardir,
+            os.pardir,
+            os.pardir
+        )
+    )
+)
+
+__package__ = ".".join([
+    "mindlogger_backend_dev",
+    "postgres_to_girder",
+    "postgres_to_girder"
+])
+    
 import girder_client as gc
 import json
 import numpy as np
-import os
 import pandas as pd
 import psycopg2
 import re
 import urllib
 from datetime import date
-from ..object_manipulation import *
-
-
-def add_to_schedule(
-    gc,
-    frequency,
-    schedules_id,
-    activity_item_id,
-    context={},
-    timings={
-        "1d": "Daily",
-        "1": "Once",
-        "8h": "3×Daily",
-        "12h": "2×Daily"
-    },
-    schedule_folder_id=None,
-    schedule_item_id=None
-):
-    """
-    Function to add Activities to a Schedule
-
-    Parameters
-    ----------
-    gc: GirderClient
-
-    frequency: string
-
-    schedules_id: string
-
-    activity_item_id: string
-
-    context: dictionary, optional
-        default: {}
-
-    timings: dictionary, optional
-        key: string
-            frequency
-        value: string
-            schedule name
-        default: {
-            "1d": "Daily",
-            "1": "Once",
-            "8h": "3×Daily",
-            "12h": "2×Daily"
-        }
-
-    schedule_folder_id: string, optional
-        default: _id for public schedules
-
-    schedule_item_id: string, optional
-        default: _id for "Version 0 [Frequency]"
-
-    Returns
-    -------
-    schedule_item_id: string
-    """
-    schedule_folder_id = gc.createFolder(
-        name=timings[frequency],
-        parentId=schedules_id,
-        parentType="collection",
-        public=False,
-        reuseExisting=True
-    )[
-        "_id"
-    ] if not schedule_folder_id else schedule_folder_id # pragma: no cover
-    schedule_item_id = gc.createItem(
-        name=" ".join([
-            "Version 0",
-            timings[frequency]
-        ]),
-        parentFolderId=schedule_folder_id,
-        reuseExisting=True
-    )[
-        "_id"
-    ] if not schedule_item_id else schedule_item_id # pragma: no cover
-    schedule_item = gc.get(
-        "".join([
-            "item/",
-            schedule_item_id
-        ])
-    ) # pragma: no cover
-    schedule_metadata = schedule_item[
-        "meta"
-    ] if "meta" in schedule_item else {} # pragma: no cover
-    schedule_metadata[
-        "@context"
-    ] = context if "@context" not in \
-    schedule_metadata else schedule_metadata[
-        "@context"
-    ] # pragma: no cover
-    schedule_metadata["activities"] = [] if (
-        "activities" not in schedule_metadata
-    ) else schedule_metadata["activities"] # pragma: no cover
-    schedule_metadata["activities"].append(
-        {
-            "@id": "".join([
-                "item/",
-                activity_item_id
-            ]),
-            "name": gc.get(
-                "item/{0}".format(
-                    activity_item_id
-                )
-            )["name"]
-        }
-    ) # pragma: no cover
-    gc.addMetadataToItem(
-        schedule_item_id,
-        drop_empty_keys(
-            schedule_metadata
-        )
-    ) # pragma: no cover
-    return(schedule_item_id) # pragma: no cover
+from ...girder_connections import *
+from ...object_manipulation import *
+from ...update_schema import *
 
 
 def assingments_from_postgres(
@@ -248,7 +157,7 @@ def assingments_from_postgres(
                 title
             )
             add_to_schedule(
-                gc=girder_connection,
+                girder_connection=girder_connection,
                 frequency=s[1],
                 schedules_id=None,
                 context=context,
@@ -296,142 +205,6 @@ def assingments_from_postgres(
             )
             schedules.add(schedule_item_id)
     return(schedules)
-
-
-def configuration(
-    config_file=None,
-    context_file=None
-):
-    """
-    Function to set configuration variables.
-
-    Parameters
-    ----------
-    config_file: string, optional
-        path to configuration file
-        default = "config.json"
-
-    context_file: string, optional
-        path to context file
-        default = "context.json"
-
-    Returns
-    -------
-    config: dictionary
-
-    context: dictionary
-
-    api_url: string
-
-    Example
-    -------
-    >>> import json
-    >>> config_file = os.path.join(
-    ...    os.path.dirname(__file__),
-    ...    "config.json.template"
-    ... )
-    >>> config, context, api_url = configuration(
-    ...     config_file=config_file
-    ... )
-    >>> config["girder"]["user"]
-    'wong'
-    """
-    if config_file is None:
-        config_file = os.path.join(
-            os.path.dirname(__file__),
-            "config.json"
-        ) # pragma: no cover
-    if context_file is None:
-        context_file = os.path.join(
-            os.path.dirname(__file__),
-            "context.json"
-        )
-    with open (config_file, "r") as j:
-        config = json.load(j)
-    with open (context_file, "r") as j:
-        context = json.load(j)
-    api_url = "".join([
-        "http://",
-        config["girder"]["host"],
-        "/api/v1"
-    ])
-    return(config, context, api_url)
-
-
-def connect_to_girder(
-    api_url="https://data.kitware.com/api/v1/",
-    authentication=None
-):
-    """
-    Function to connect to a Girder DB.
-
-    Parameters
-    ----------
-    api_url: string, optional
-        path to running Girder DB API endpoint.
-        Default is Kitware Data API
-
-    authentication: tuple or string, optional
-        (username, password) or APIkey
-        (
-            username: string
-            password: string
-        )
-        default=None
-
-        APIkey: string
-            default=None
-
-
-    Returns
-    -------
-    girder_connection: GirderClient
-
-    Examples
-    --------
-    >>> import girder_client as gc
-    >>> g = connect_to_girder()
-    >>> g.getItem(
-    ...     "58cb124c8d777f0aef5d79ff"
-    ... )["name"]
-    'LARGE_PtCu_NanoParticles-stride-5.html'
-    >>> g = connect_to_girder(authentication=("a", "b"))
-    Connected to the Girder database 🏗🍃 but could not authenticate.
-    >>> g = connect_to_girder(authentication="ab")
-    Connected to the Girder database 🏗🍃 but could not authenticate.
-    """
-    try:
-        girder_connection = gc.GirderClient(
-            apiUrl=api_url
-        )
-        if authentication:
-            if isinstance(
-                authentication,
-                tuple
-            ):
-                girder_connection.authenticate(
-                    *authentication
-                )
-            else:
-                girder_connection.authenticate(
-                    apiKey=authentication
-                )
-            print(
-              "Connected to the Girder database 🏗🍃 and "
-              "authenticated."
-            ) # pragma: no cover
-    except (gc.AuthenticationError, gc.HttpError) as AuthError:
-        print(
-            "Connected to the Girder database 🏗🍃 but "
-            "could not authenticate."
-        )
-    except: # pragma: no cover
-        print(
-            "I am unable to connect to the "
-            "Girder database 🏗🍃"
-        ) # pragma: no cover
-        return(None) # pragma: no cover
-    return(girder_connection)
 
 
 def connect_to_postgres(postgres_config):
@@ -546,234 +319,6 @@ def get_abbreviation(activity):
     )
 
 
-def get_files_in_item(
-    girder_connection,
-    item_id,
-    sort="created",
-    sortdir=-1
-):
-    """
-    Function to get a dictionary of Files in an Item in
-    a Girder database.
-
-    Parameters
-    ----------
-    girder_connection: GirderClient
-        an active `GirderClient <http://girder.readthedocs.io/en/latest/python-client.html#girder_client.GirderClient>`_
-
-    item_id: string
-        Girder _id of Item.
-
-    sort: string, optional
-        Field to sort the result set by.
-        default = "created"
-
-    sortdir: int, optional
-        Sort order: 1 for ascending, -1 for descending.
-        default = -1
-
-    Returns
-    -------
-    files: dictionary or None
-        metadata of files in Girder Item
-
-    Examples
-    --------
-    >>> import girder_client as gc
-    >>> get_files_in_item(
-    ...     girder_connection=gc.GirderClient(
-    ...         apiUrl="https://data.kitware.com/api/v1/"
-    ...     ),
-    ...     item_id="58a372f38d777f0721a64df3"
-    ... )[0]["name"]
-    'Normal001-T1-Flash.mha'
-    """
-    return(
-      girder_connection.get(
-        "".join([
-          "item/",
-          item_id,
-          "/files?",
-          "sort=",
-          sort,
-          "&sortdir=",
-          str(sortdir)
-        ])
-      )
-    )
-
-
-def get_girder_id_by_name(
-    girder_connection,
-    entity,
-    name,
-    parent=None,
-    limit=1,
-    sortdir=-1,
-    index=0
-):
-    """
-    Function to get the `_id` of a single entity in a Girder database.
-
-    Parameters
-    ----------
-    girder_connection: GirderClient
-        an active `GirderClient <http://girder.readthedocs.io/en/latest/python-client.html#girder_client.GirderClient>`_
-
-    entity: string
-        "collection", "folder", "item", "file", "user"
-
-    name: string
-        name of entity
-
-    parent: 2-tuple, optional, default=None
-        (parentType, parent_id)
-        parentType: string
-            "Collection", "Folder", or "User"
-        parendId: string
-            Girder _id for parent
-
-    limit: int, optional, default=1
-        maximum number of query results
-
-    sortdir: int, optional, default=-1
-        Sort order: 1 for ascending, -1 for descending.
-
-    index: int, default=0
-        0-indexed index of named entity in given sort order.
-
-    Returns
-    -------
-    _id: string
-        Girder _id of requested entity
-
-    Examples
-    --------
-    >>> import girder_client as gc
-    >>> get_girder_id_by_name(
-    ...     girder_connection=gc.GirderClient(
-    ...         apiUrl="https://data.kitware.com/api/v1/"
-    ...     ),
-    ...     entity="collection",
-    ...     name="Cinema",
-    ...     parent=None,
-    ...     sortdir=1
-    ... )
-    '55706aa58d777f649a9ba164'
-    """
-    entity = entity.title()
-    query = "".join([
-        entity.lower(),
-        "?text=" if entity in {
-            "Collection",
-            "Group"
-        } else "?name=",
-        name,
-        "&parentType={0}&parentId={1}".format(
-            *parent
-        ) if (
-            parent and entity!="Item"
-        ) else "&folderId={0}".format(
-            parent[1]
-        ) if parent else "",
-        "&limit=",
-        str(limit),
-        "&sortdir=",
-        str(sortdir)
-    ])
-    j = json.loads(
-        girder_connection.get(
-            query,
-            jsonResp=False
-        ).content.decode(
-            "UTF8"
-        )
-    )
-    return(
-        j[0]["_id"] if len(
-            j
-        ) else girder_connection.createCollection(
-            name=name,
-            public=False
-        )["_id"] if entity=="Collection" else None
-    )
-
-
-def get_group_ids(
-    gc,
-    groups={
-        "Editors",
-        "Managers",
-        "Users",
-        "Viewers"
-    },
-    create_missing=False
-):
-    """
-    Function to collect Girder _ids,
-    optionally creating any missing groups.
-
-    Parameters
-    ----------
-    gc: GirderClient
-        active Girder Client
-
-    groups: set
-        set of Group names for which to get
-        Girder _ids
-        item: string
-            Group name
-        default: {
-            "Editors",
-            "Managers",
-            "Users",
-            "Viewers"
-        }
-
-    create_missing: boolean
-        create Group if none with that name
-        exists?
-        default: False
-
-    Returns
-    -------
-    groups: dictionary
-        key: string
-            name from original set
-        value: string
-            Girder Group _id
-
-    Examples
-    --------
-    >>> import girder_client as gc
-    >>> get_group_ids(
-    ...     gc=gc.GirderClient(
-    ...         apiUrl="https://data.kitware.com/api/v1/"
-    ...     ),
-    ...     groups={"VIGILANT"}
-    ... )
-    {'VIGILANT': '58a354fe8d777f0721a6106a'}
-    """
-    groups = {
-        group: get_girder_id_by_name(
-          gc,
-          "group",
-          group
-          ) for group in groups
-    }
-    if create_missing: # pragma: no cover
-        for group in groups: # pragma: no cover
-            if groups[group] is None: # pragma: no cover
-                groups[group] = gc.post(
-                    "".join([
-                        "group?name=",
-                        group,
-                        "&public=false"
-                    ])
-                )["_id"] # pragma: no cover
-    return(groups)
-
-
 def get_postgres_item_version(
     activity_name,
     abbreviation=None,
@@ -834,59 +379,6 @@ def get_postgres_item_version(
                 version
             ) if version else "" #{2}
         )
-    )
-
-
-def get_user_id_by_email(girder_connection, email):
-    """
-    Function to get the `_id` of a single User in a Girder database.
-
-    Parameters
-    ----------
-    girder_connection: GirderClient
-        an active `GirderClient <http://girder.readthedocs.io/en/latest/python-client.html#girder_client.GirderClient>`_
-
-    email: string
-        email address
-
-    Returns
-    -------
-    _id: string or None
-        Girder _id of requested User, or None if not found
-
-    Examples
-    --------
-    >>> import girder_client as gc
-    >>> get_user_id_by_email(
-    ...     girder_connection=gc.GirderClient(
-    ...         apiUrl="https://data.kitware.com/api/v1/"
-    ...     ),
-    ...     email="test@example.com"
-    ... )
-    """
-    email = email.lower()
-    user_ids = [
-      user["_id"] for user in girder_connection.get(
-            "".join([
-                "user?text=",
-                email
-            ])
-        ) if (
-            (
-                 "email" in user
-            ) and (
-                 user["email"]==email
-            )
-        ) or (
-            (
-                 "login" in user
-            ) and (
-                 user["login"]==email
-            )
-        )
-    ]
-    return(
-        user_ids[0] if len(user_ids) else None
     )
 
 
@@ -1283,8 +775,6 @@ def postgres_answers_to_girder_answers(
                 ) else user_responses["lines"] if (
                     "lines" in user_responses
                 ) else [user_responses]
-                print("user responses")
-                print(user_responses)
                 screens = girder_connection.getItem(
                     _lookup_postgres_activity_in_girder(
                         girder_connection,
@@ -1353,7 +843,13 @@ def postgres_answers_to_girder_answers(
                         ) else None for i, answer in enumerate(
                             user_responses
                         )
-                    ] if len(user_responses) else None,
+                    ] if (
+                        len(
+                            user_responses
+                        ) and len(
+                            screens
+                        )
+                    ) else None,
                 #     "prompt": prompts[
                 #         "instruction"
                 #     ] if (
@@ -1492,7 +988,7 @@ def postgres_questions_to_girder_screens(
             except:
                 continue
         if screen_mode=="table":
-            table = table_cells_from_e(
+            table = table_cells_from_postgres(
                 rows=q["rows"],
                 columns=q["cols"],
                 response_type=q["type"]
@@ -2229,140 +1725,7 @@ def upload_applicable_files(
                     img_id
                 )
             }
-    print(file_ids)
     return(file_ids)
-
-
-def _delete_collections(gc, except_collection_ids):
-    """
-    Function to delete all collections
-    except those collection_ids specified
-    as exceptions.
-
-    Parameters
-    ----------
-    gc: GirderClient
-
-    except_collection_ids: iterable
-        list, set, or tuple of collection_ids to
-        keep. Can be empty.
-
-    Returns
-    -------
-    collections_kept_and_deleted: DataFrame
-        DataFrame of Collections kept and deleted
-    """
-    except_collection_ids = except_collection_ids if isiterable(
-        except_collection_ids
-    ) else {}
-    kept = pd.DataFrame(
-      [
-        {
-            **gc.getCollection(
-                i["_id"]
-            ),
-            "deleted": False
-        } for i in gc.listCollection(
-        ) if i["_id"] in except_collection_ids
-      ]
-    ) # pragma: no cover
-    deleted = pd.DataFrame(
-      [
-        {
-            **gc.getCollection(
-                i["_id"]
-            ),
-            "deleted": True
-        } for i in gc.listCollection(
-        ) if i["_id"] not in except_collection_ids
-      ]
-    ) # pragma: no cover
-    collections_kept_and_deleted = pd.concat(
-        [
-            kept,
-            deleted
-        ],
-        ignore_index = True
-    ) # pragma: no cover
-    for u in collections_kept_and_deleted[
-        collections_kept_and_deleted[
-            "deleted"
-        ]==True
-    ]["_id"]:
-        gc.delete(
-            "collection/{0}".format(
-                u
-            )
-        )
-    return(
-        collections_kept_and_deleted
-    )
-
-
-def _delete_users(gc, except_user_ids):
-    """
-    Function to delete all users
-    except those user_ids specified
-    as exceptions.
-
-    Parameters
-    ----------
-    gc: GirderClient
-
-    except_user_ids: iterable
-        list, set, or tuple of user_ids to
-        keep. Can be empty.
-
-    Returns
-    -------
-    users_kept_and_deleted: DataFrame
-        DataFrame of Users kept and deleted
-    """
-    except_user_ids = except_user_ids if isiterable(
-        except_user_ids
-    ) else {}
-    kept = pd.DataFrame(
-        [
-           {
-                **gc.getUser(
-                    i["_id"]
-                ),
-                "deleted": False
-            } for i in gc.listUser(
-            ) if i["_id"] in except_user_ids
-        ]
-    ) # pragma: no cover
-    deleted = pd.DataFrame(
-        [
-            {
-                **gc.getUser(
-                    i["_id"]
-                ),
-                "deleted": True
-            } for i in gc.listUser(
-            ) if i["_id"] not in except_user_ids
-        ]
-    ) # pragma: no cover
-    users_kept_and_deleted = pd.concat(
-        [
-            kept,
-            deleted
-        ],
-        ignore_index = True
-    ) # pragma: no cover
-    for u in users_kept_and_deleted[
-        users_kept_and_deleted[
-            "deleted"
-        ]==True
-    ]["_id"]: # pragma: no cover
-        gc.delete(
-            "user/{0}".format(
-                u
-            )
-        ) # pragma: no cover
-    return(
-        users_kept_and_deleted
-    ) # pragma: no cover
 
 
 def _lookup_postgres_activity_in_girder(
@@ -2430,7 +1793,12 @@ def _lookup_postgres_activity_in_girder(
     ) # pragma: no cover
 
 
-def _main(delete_first=False, keep_collections=None, keep_users=None):
+def _main(
+    delete_first=False,
+    keep_collections=None,
+    keep_users=None,
+    which_girder="dev"
+):
     """
     Function to execute from commandline to transfer a running
     Postgres DB to a running Girder DB.
@@ -2445,6 +1813,9 @@ def _main(delete_first=False, keep_collections=None, keep_users=None):
     keep_collections: Iterable or None
 
     keep_users: Iterable or None
+    
+    which_girder: string
+        "dev" or "production"
 
     Returns
     -------
@@ -2467,14 +1838,25 @@ def _main(delete_first=False, keep_collections=None, keep_users=None):
     users: dictionary
     """
     # Load configuration
-    config, context, api_url = configuration() # pragma: no cover
+    config, context, api_url = configuration(which_girder=which_girder) # pragma: no cover
 
     # Connect to Girder
     girder_connection = connect_to_girder(
         api_url=api_url,
         authentication=(
             (
-                config["girder"]["APIkey"]
+                config["girder-{}".format(
+                    which_girder
+                )]["APIkey"]
+            ) if "APIkey" in config["girder-{}".format(
+                which_girder
+            )] else (
+                config["girder-{}".format(
+                    which_girder
+                )]["user"],
+                config["girder-{}".format(
+                    which_girder
+                )]["password"]
             )
         )
     ) # pragma: no cover
