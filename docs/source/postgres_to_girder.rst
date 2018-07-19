@@ -9,6 +9,15 @@ postgres_to_girder (module)
 Submodules
 ----------
 
+object_manipulation
+^^^^^^^^^^^^^^^^^^^
+
+.. automodule:: postgres_to_girder.object_manipulation
+  :members:
+  :undoc-members:
+  :inherited-members:
+  :show-inheritance:
+
 postgres_to_girder
 ^^^^^^^^^^^^^^^^^^
 

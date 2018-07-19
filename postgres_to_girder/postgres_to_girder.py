@@ -7,7 +7,7 @@ import psycopg2
 import re
 import urllib
 from datetime import date
-from object_manipulation import *
+from .object_manipulation import *
 
 
 def add_to_schedule(
@@ -1304,7 +1304,7 @@ def postgres_answers_to_girder_answers(
                         screen["@id"][5:]
                     )["meta"] for screen in screens
                 ]
-                
+
                 answer_data = {
                     "responses": [
                         {
