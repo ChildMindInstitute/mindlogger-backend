@@ -11,13 +11,11 @@ sys.path.append(
         )
     )
 )
-
 __package__ = ".".join([
     "mindlogger_backend_dev",
     "postgres_to_girder",
     "postgres_to_girder"
 ])
-
 import girder_client as gc
 import json
 import numpy as np
@@ -29,6 +27,7 @@ from datetime import date
 from ...girder_connections import *
 from ...object_manipulation import *
 from ...update_schema import *
+from ...update_schema import _delete_collections, _delete_users
 
 
 def assingments_from_postgres(
