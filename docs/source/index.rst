@@ -7,10 +7,10 @@ Welcome to Mindlogger App Backend's documentation!
 ==================================================
 
 .. toctree::
-   :maxdepth: 3
+   :maxdepth: 5
    :caption: Contents:
 
-   postgres_to_girder
+   mindlogger_backend_dev
 
 Indices and tables
 ==================
