@@ -1,7 +1,10 @@
 import json
+import os
 import pandas as pd
+import sys
+
 __package__ = "mindlogger_backend_dev.update_schema"
-from object_manipulation import *
+from ..object_manipulation import *
 
 def add_to_schedule(
     girder_connection,
