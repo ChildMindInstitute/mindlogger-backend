@@ -287,7 +287,7 @@ def get_group_ids(
 
     Parameters
     ----------
-    gc: GirderClient
+    girder_connection: GirderClient
         active Girder Client
 
     groups: set
@@ -319,7 +319,7 @@ def get_group_ids(
     --------
     >>> import girder_client as gc
     >>> get_group_ids(
-    ...     gc=gc.GirderClient(
+    ...     girder_connection=gc.GirderClient(
     ...         apiUrl="https://data.kitware.com/api/v1/"
     ...     ),
     ...     groups={"VIGILANT"}

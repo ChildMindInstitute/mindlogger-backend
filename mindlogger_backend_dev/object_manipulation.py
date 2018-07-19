@@ -2,15 +2,15 @@ def drop_empty_keys(d):
     """
     Function to iteratively drop empty keys
     from a given dictionary
-    
+
     Parameters
     ----------
     d: dictionary
-    
+
     Returns
     -------
     d: dictionary
-    
+
     Examples
     --------
     >>> drop_empty_keys(
@@ -46,7 +46,7 @@ def drop_empty_keys(d):
                 ) else type(d[k])(
                     drop_empty_keys(
                         d[k]
-                    ) 
+                    )
                 ) if isiterable(d[k]) else d[k]
             ) for k in d if d[
                 k
@@ -83,16 +83,16 @@ def isiterable(item):
     """
     Function to test if an item is an Iterable, ie
     a non-string object that can be iterated over
-    
+
     Parameters
     ----------
     item: anything
-    
+
     Returns
     -------
     isterable: boolean
         Is item iterable?
-        
+
     Examples
     --------
     >>> isiterable(set())

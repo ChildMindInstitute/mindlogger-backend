@@ -1,6 +1,8 @@
 import girder_client as gc
 import json
 import os
+from contextlib import suppress
+
 
 def configuration(
     config_file=None,
@@ -19,7 +21,7 @@ def configuration(
     context_file: string, optional
         path to context file
         default = "context.json"
-        
+
     which_girder: string, optional
         "dev" or "production"
         default = "dev"
@@ -42,7 +44,7 @@ def configuration(
     >>> config, context, api_url = configuration(
     ...     config_file=config_file
     ... )
-    >>> config["girder"]["user"]
+    >>> config["girder-dev"]["user"]
     'wong'
     """
     if config_file is None:
@@ -102,6 +104,8 @@ def connect_to_girder(
     --------
     >>> import girder_client as gc
     >>> g = connect_to_girder()
+    Connected to the Girder database 🏗🍃 but could not authenticate without \
+username and password.
     >>> g.getItem(
     ...     "58cb124c8d777f0aef5d79ff"
     ... )["name"]
@@ -111,33 +115,44 @@ def connect_to_girder(
     >>> g = connect_to_girder(authentication="ab")
     Connected to the Girder database 🏗🍃 but could not authenticate.
     """
-    try:
-        girder_connection = gc.GirderClient(
-            apiUrl=api_url
+    girder_connection = gc.GirderClient(
+        apiUrl=api_url
+    )
+    if (
+        not authentication or
+        isinstance(
+            authentication,
+            type(None)
         )
-        
-        girder_connection.authenticate(
-            *authentication
-        ) if len(
-            authentication
-        )==2 else girder_connection.authenticate(
-            authentication[0],
-            authentication[1],
-            apiKey=authentication[2]
-        )
-        print(
-            "Connected to the Girder database 🏗🍃 and "
-            "authenticated."
-        ) # pragma: no cover
-    except (gc.AuthenticationError, gc.HttpError) as AuthError:
+    ):
         print(
             "Connected to the Girder database 🏗🍃 but "
-            "could not authenticate."
+            "could not authenticate without username and password."
         )
-    except: # pragma: no cover
-        print(
-            "I am unable to connect to the "
-            "Girder database 🏗🍃"
-        ) # pragma: no cover
-        return(None) # pragma: no cover
+    else:
+        try:
+            girder_connection.authenticate(
+                *authentication
+            ) if len(
+                authentication
+            )==2 else girder_connection.authenticate(
+                authentication[0],
+                authentication[1],
+                apiKey=authentication[2]
+            )
+            print(
+                "Connected to the Girder database 🏗🍃 and "
+                "authenticated."
+            ) # pragma: no cover
+        except (gc.AuthenticationError, gc.HttpError) as AuthError:
+            print(
+                "Connected to the Girder database 🏗🍃 but "
+                "could not authenticate."
+            )
+        except: # pragma: no cover
+            print(
+                "I am unable to connect to the "
+                "Girder database 🏗🍃"
+            ) # pragma: no cover
+            return(None) # pragma: no cover
     return(girder_connection)

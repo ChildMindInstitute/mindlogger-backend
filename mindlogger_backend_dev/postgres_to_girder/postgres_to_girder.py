@@ -17,7 +17,7 @@ __package__ = ".".join([
     "postgres_to_girder",
     "postgres_to_girder"
 ])
-    
+
 import girder_client as gc
 import json
 import numpy as np
@@ -232,6 +232,7 @@ def connect_to_postgres(postgres_config):
     --------
     >>> config_file = os.path.join(
     ...    os.path.dirname(__file__),
+    ...    os.pardir,
     ...    "config.json.template"
     ... )
     >>> connect_to_postgres(
@@ -1813,7 +1814,7 @@ def _main(
     keep_collections: Iterable or None
 
     keep_users: Iterable or None
-    
+
     which_girder: string
         "dev" or "production"
 
