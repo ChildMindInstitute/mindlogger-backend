@@ -435,15 +435,23 @@ def ls_x_in_y(x_type, y, girder_connection):
     ... )
     [{'_accessLevel': 0, '_id': '58b5d86c8d777f0aef5d04b4', '_modelType': 'folder', 'baseParentId': '58b5d21a8d777f0aef5d04b1', 'baseParentType': 'collection', 'created': '2017-02-28T20:07:08.074000+00:00', 'creatorId': '55a413168d777f649a9ba343', 'description': '', 'name': 'TestData', 'parentCollection': 'collection', 'parentId': '58b5d21a8d777f0aef5d04b1', 'public': True, 'publicFlags': [], 'size': 41319999, 'updated': '2017-02-28T20:07:08.074000+00:00'}, {'_accessLevel': 0, '_id': '58cb12048d777f0aef5d79fc', '_modelType': 'folder', 'baseParentId': '58b5d21a8d777f0aef5d04b1', 'baseParentType': 'collection', 'created': '2017-03-16T22:30:28.994000+00:00', 'creatorId': '55a413168d777f649a9ba343', 'description': '', 'name': 'TomvizData', 'parentCollection': 'collection', 'parentId': '58b5d21a8d777f0aef5d04b1', 'public': True, 'size': 0, 'updated': '2017-03-24T18:30:21.117000+00:00'}]
     """
+    api_query = "".join([
+        x_type.lower(),
+        "?folderId=",
+        y[1]
+    ]) if (
+        x_type.lower()=="item" and
+        y[0].lower()=="folder"
+    ) else "".join([
+        x_type.lower(),
+        "?parentType=",
+        y[0].lower(),
+        "&parentId=",
+        y[1]
+    ])
     return(
         girder_connection.get(
-            "".join([
-                x_type.lower(),
-                "?parentType=",
-                y[0].lower(),
-                "&parentId=",
-                y[1]
-            ])
+            api_query
         )
     )
 
