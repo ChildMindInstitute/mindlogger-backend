@@ -399,6 +399,55 @@ def get_user_id_by_email(girder_connection, email):
     )
 
 
+def ls_x_in_y(x_type, y, girder_connection):
+    """
+    Function to list **x** in **y**.
+    
+    Parameters
+    ----------
+    x_type: string
+        "Folder", "Item", etc.
+        
+    y: 2-tuple
+        y[0]: string
+            "Collection", "Folder", etc.
+        
+        y[1]: string
+            Girder_id
+        
+    girder_connection: GirderClient
+        active GirderClient
+    
+    Returns
+    -------
+    x: list of dictionaries
+        ≅ JSON array of objects
+        
+    Examples
+    --------
+    >>> import girder_client as gc
+    >>> ls_x_in_y(
+    ...     "Folder",
+    ...     ("Collection", "58b5d21a8d777f0aef5d04b1"),
+    ...     girder_connection=gc.GirderClient(
+    ...         apiUrl="https://data.kitware.com/api/v1/"
+    ...     )
+    ... )
+    [{'_accessLevel': 0, '_id': '58b5d86c8d777f0aef5d04b4', '_modelType': 'folder', 'baseParentId': '58b5d21a8d777f0aef5d04b1', 'baseParentType': 'collection', 'created': '2017-02-28T20:07:08.074000+00:00', 'creatorId': '55a413168d777f649a9ba343', 'description': '', 'name': 'TestData', 'parentCollection': 'collection', 'parentId': '58b5d21a8d777f0aef5d04b1', 'public': True, 'publicFlags': [], 'size': 41319999, 'updated': '2017-02-28T20:07:08.074000+00:00'}, {'_accessLevel': 0, '_id': '58cb12048d777f0aef5d79fc', '_modelType': 'folder', 'baseParentId': '58b5d21a8d777f0aef5d04b1', 'baseParentType': 'collection', 'created': '2017-03-16T22:30:28.994000+00:00', 'creatorId': '55a413168d777f649a9ba343', 'description': '', 'name': 'TomvizData', 'parentCollection': 'collection', 'parentId': '58b5d21a8d777f0aef5d04b1', 'public': True, 'size': 0, 'updated': '2017-03-24T18:30:21.117000+00:00'}]
+    """
+    return(
+        girder_connection.get(
+            "".join([
+                x_type.lower(),
+                "?parentType=",
+                y[0].lower(),
+                "&parentId=",
+                y[1]
+            ])
+        )
+    )
+
+
 def _delete_collections(girder_connection, except_collection_ids):
     """
     Function to delete all collections
