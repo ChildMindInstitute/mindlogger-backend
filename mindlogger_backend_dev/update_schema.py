@@ -2,9 +2,9 @@ import json
 import os
 import pandas as pd
 import sys
-
 __package__ = "mindlogger_backend_dev.update_schema"
 from ..object_manipulation import *
+
 
 def add_to_schedule(
     girder_connection,
@@ -116,6 +116,60 @@ def add_to_schedule(
         )
     ) # pragma: no cover
     return(schedule_item_id) # pragma: no cover
+
+
+def find_or_create(x, parent, girder_connection):
+    """
+    Function to find or create a Girder Folder or Item
+    under a specific parent.
+    
+    Parameters
+    ----------
+    x: 2-tuple
+        x[0]: string
+            "Folder", "Item", etc.
+        x[1]: string
+            entity name
+    
+    parent: 2-tuple
+        parent[0]: string
+            "Collection", "Folder", etc.
+        parent[1]: string
+            Girder_id
+    
+    girder_connection: GirderClient
+        active GirderClient
+        
+    Returns
+    -------
+    _id: string
+        Girder_id of found or created entity
+    """
+    api_query = "".join([
+        x[0].lower(),
+        "?folderId=",
+        parent[1],
+        "&name=",
+        x[1],
+        "&reuseExisting=true"
+    ]) if (
+        x[0].lower()=="item" and
+        y[0].lower()=="folder"
+    ) else "".join([
+        x[0].lower(),
+        "?parentType=",
+        parent[0].lower(),
+        "&parentId=",
+        parent[1],
+        "&name=",
+        x[1],
+        "&reuseExisting=true"
+    ])
+    return(
+        girder_connection.post(
+            api_query
+        )["_id"]
+    )
 
 
 def get_files_in_item(
@@ -451,6 +505,61 @@ def ls_x_in_y(x_type, y, girder_connection):
     ])
     return(
         girder_connection.get(
+            api_query
+        )
+    )
+
+
+def mv(
+    x,
+    new_parent,
+    girder_connection
+):
+    """
+    Function to move a Girder entity to a new_parent.
+    
+    Parameters
+    ----------
+    x: 2-tuple
+        x[0]: string
+            "Folder", "Item", etc.
+        x[1]: string
+            Girder_id
+    
+    new_parent: 2-tuple
+        new_parent[0]: string
+            "Collection", "Folder", etc.
+        new_parent[1]: string
+            Girder_id
+    
+    girder_connection: GirderClient
+        active GirderClient
+        
+    Returns
+    -------
+    x_object: dictionary
+        ≅JSON representation of entity in new location
+    """
+    api_query = "".join([
+        x[0].lower(),
+        "/",
+        x[1],
+        "?folderId=",
+        new_parent[1]
+    ]) if (
+        x[0].lower()=="item" and
+        y[0].lower()=="folder"
+    ) else "".join([
+        x[0].lower(),
+        "/",
+        x[1],
+        "?parentId=",
+        new_parent[1],
+        "&parentType=",
+        new_parent[0].lower()
+    ])
+    return(
+        girder_connection.put(
             api_query
         )
     )
