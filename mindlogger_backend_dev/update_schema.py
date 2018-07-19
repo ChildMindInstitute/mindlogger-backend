@@ -565,6 +565,47 @@ def mv(
     )
 
 
+def rename(
+    x,
+    new_name,
+    girder_connection
+):
+    """
+    Function to rename a Girder entity.
+    
+    Parameters
+    ----------
+    x: 2-tuple
+        x[0]: string
+            "Folder", "Item", etc.
+        x[1]: string
+            Girder_id
+    
+    new_name: string
+        new name for entity
+    
+    girder_connection: GirderClient
+        active GirderClient
+        
+    Returns
+    -------
+    x_object: dictionary
+        ≅JSON representation of entity in new location
+    """
+    api_query = "".join([
+        x[0].lower(),
+        "/",
+        x[1],
+        "?name=",
+        new_name
+    ])
+    return(
+        girder_connection.put(
+            api_query
+        )
+    )
+    
+
 def _delete_collections(girder_connection, except_collection_ids):
     """
     Function to delete all collections
