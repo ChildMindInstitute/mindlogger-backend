@@ -296,7 +296,8 @@ def get_girder_id_by_name(
         } else "?name=",
         name,
         "&parentType={0}&parentId={1}".format(
-            *parent
+            parent[0].lower(),
+            parent[1]
         ) if (
             parent and entity!="Item"
         ) else "&folderId={0}".format(
