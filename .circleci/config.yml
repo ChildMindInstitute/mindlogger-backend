@@ -37,7 +37,7 @@ jobs:
             python3 -m venv venv
             . venv/bin/activate
             pip install -r mindlogger_backend_dev/requirements.txt
-            pip install pytest pytest-cov
+            pip install pytest pytest-cov pytest-pythonpath pytest-remotedata pytest-openfiles pytest-doctestplus pytest-arraydiff celery
 
       - save_cache:
           paths:
