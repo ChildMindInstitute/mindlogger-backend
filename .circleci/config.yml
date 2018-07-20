@@ -12,7 +12,7 @@ jobs:
     docker:
       # specify the version you desire here
       # use `-browsers` prefix for selenium tests, e.g. `3.6.1-browsers`
-      - image: circleci/python:3.6.1
+      - image: circleci/python:3.6.5
 
       # Specify service dependencies here if necessary
       # CircleCI maintains a library of pre-built images
@@ -27,7 +27,7 @@ jobs:
       # Download and cache dependencies
       - restore_cache:
           keys:
-          - v1-dependencies-{{ checksum "postgres_to_girder/requirements.txt" }}
+          - v1-dependencies-{{ checksum "mindlogger_backend_dev/requirements.txt" }}
           # fallback to using the latest cache if no exact match is found
           - v1-dependencies-
 
@@ -36,13 +36,14 @@ jobs:
           command: |
             python3 -m venv venv
             . venv/bin/activate
-            pip install -r postgres_to_girder/requirements.txt
-            pip install pytest pytest-cov
+            pip install -r mindlogger_backend_dev/requirements.txt
+            pip install pytest pytest-cov pytest-pythonpath pytest-remotedata pytest-openfiles pytest-doctestplus pytest-arraydiff celery
+            PYTHONPATH=.
 
       - save_cache:
           paths:
             - ./venv
-          key: v1-dependencies-{{ checksum "postgres_to_girder/requirements.txt" }}
+          key: v1-dependencies-{{ checksum "mindlogger_backend_dev/requirements.txt" }}
 
       # run tests!
       # this example uses Django's built-in test-runner

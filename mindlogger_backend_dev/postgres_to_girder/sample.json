@@ -1,0 +1,200 @@
+{
+  "@context": {
+    "@base": "http://localhost:8080/api/v1/",
+    "nidm": "http://nidm.nidash.org/specs/nidm-experiment.html#",
+    "oslc": "http://open-services.net/ns/core#",
+    "pav": "http://purl.org/pav/",
+    "pav:lastUpdatedOn": {
+      "@type": "xsd:dateTime"
+    },
+    "schema": "http://schema.org/",
+    "schema:description": {
+      "@type": "xsd:string"
+    },
+    "schema:name": {
+      "@type": "xsd:string"
+    },
+    "xsd": "http://www.w3.org/2001/XMLSchema"
+  },
+  "@type": "survey",
+  "abbreviation": {
+    "@literal": "EHQ"
+  },
+  "frequency": "1",
+  "mode": "basic",
+  "oslc:modifiedBy": {
+    "@id": "user/5b1830ddad97092bdb8e99d1"
+  },
+  "questions": {
+    "@type": "questionnaire",
+    "instruction": {
+      "schema:text": {
+        "@language": "en-us",
+        "@literal": "For each of the activities below, please indicate: Which hand do you prefer for that activity? Do you ever use the other hand for the activity?"
+      }
+    },
+    "question_groups": [
+      {
+        "@type": "question_group",
+        "instruction": {
+          "@language": "en-us",
+          "@literal": "Which hand do you prefer to use when:"
+        },
+        "questions": [
+          {
+            "@type": "single_sel",
+            "options": [
+              {
+                "@type": "option",
+                "@value": -1,
+                "schema:text": {
+                  "@language": "en-us",
+                  "@literal": "Left hand"
+                }
+              },
+              {
+                "@type": "option",
+                "@value": 0,
+                "schema:text": {
+                  "@language": "en-us",
+                  "@literal": "No preference"
+                }
+              },
+              {
+                "@type": "option",
+                "@value": 1,
+                "schema:text": {
+                  "@language": "en-us",
+                  "@literal": "Right hand"
+                }
+              }
+            ],
+            "schema:text": {
+              "@language": "en-us",
+              "@literal": "Writing"
+            },
+            "variable_name": "EHQ_01a"
+          }
+        ]
+      },
+      {
+        "@type": "question_group",
+        "instruction": {
+          "@language": "en-us",
+          "@literal": "Do you ever use the other hand?"
+        },
+        "questions": [
+          {
+            "@type": "single_sel",
+            "options": [
+              {
+                "@type": "option",
+                "@value": "EHQ_01a/2",
+                "schema:text": {
+                  "@language": "en-us",
+                  "@literal": "Yes"
+                }
+              },
+              {
+                "@type": "option",
+                "@value": "EHQ_01a",
+                "schema:text": {
+                  "@language": "en-us",
+                  "@literal": "No"
+                }
+              }
+            ],
+            "schema:text": {
+              "@language": "en-us",
+              "@literal": "Writing"
+            },
+            "variable_name": "EHQ_01"
+          }
+        ]
+      },
+      {
+        "@type": "question_group",
+        "instruction": {
+          "@language": "en-us",
+          "@literal": "Which hand do you prefer to use when:"
+        },
+        "questions": [
+          {
+            "@type": "single_sel",
+            "options": [
+              {
+                "@type": "option",
+                "@value": -1,
+                "schema:text": {
+                  "@language": "en-us",
+                  "@literal": "Left hand"
+                }
+              },
+              {
+                "@type": "option",
+                "@value": 0,
+                "schema:text": {
+                  "@language": "en-us",
+                  "@literal": "No preference"
+                }
+              },
+              {
+                "@type": "option",
+                "@value": 1,
+                "schema:text": {
+                  "@language": "en-us",
+                  "@literal": "Right hand"
+                }
+              }
+            ],
+            "schema:text": {
+              "@language": "en-us",
+              "@literal": "Drawing"
+            },
+            "variable_name": "EHQ_02a"
+          }
+        ]
+      },
+      {
+        "@type": "question_group",
+        "instruction": {
+          "@language": "en-us",
+          "@literal": "Do you ever use the other hand?"
+        },
+        "questions": [
+          {
+            "@type": "single_sel",
+            "options": [
+              {
+                "@type": "option",
+                "@value": "EHQ_01a/2",
+                "schema:text": {
+                  "@language": "en-us",
+                  "@literal": "Yes"
+                }
+              },
+              {
+                "@type": "option",
+                "@value": "EHQ_01a",
+                "schema:text": {
+                  "@language": "en-us",
+                  "@literal": "No"
+                }
+              }
+            ],
+            "schema:text": {
+              "@language": "en-us",
+              "@literal": "Drawing"
+            },
+            "variable_name": "EHQ_02"
+          }
+        ]
+      }
+    ]
+  },
+  "schema:name": {
+    "@language": "en-us",
+    "@literal": "Edinburgh Handedness Questionnaire"
+  },
+  "status": "active"
+}

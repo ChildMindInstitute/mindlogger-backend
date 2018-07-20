@@ -1,5 +1,5 @@
-[![CircleCI](https://circleci.com/gh/ChildMindInstitute/mindlogger-app-backend/tree/mongo.svg?style=svg)](https://circleci.com/gh/ChildMindInstitute/mindlogger-app-backend/tree/mongo) [![Python coverage](.circleci/python-coverage.svg)](https://circleci.com/gh/ChildMindInstitute/mindlogger-app-backend/tree/mongo)
-[![ReadTheDocs](https://readthedocs.org/projects/mindlogger-app-backend/badge/?version=mongo)](https://mindlogger-app-backend.readthedocs.io/en/mongo/?badge=mongo)
+[![CircleCI](https://circleci.com/gh/ChildMindInstitute/mindlogger-app-backend/tree/girder-dev.svg?style=svg)](https://circleci.com/gh/ChildMindInstitute/mindlogger-app-backend/tree/girder-dev) [![Python coverage](.circleci/python-coverage.svg)](https://circleci.com/gh/ChildMindInstitute/mindlogger-app-backend/tree/girder-dev)
+[![ReadTheDocs](https://readthedocs.org/projects/mindlogger-app-backend/badge/?version=girder-dev)](https://mindlogger-app-backend.readthedocs.io/en/girder-dev/?badge=girder-dev)
 
 # App_ModularDataCollection_Backend
 This backend serves as an administration console for customizing and storing data from the modular data collection app.
@@ -15,21 +15,21 @@ This backend serves as an administration console for customizing and storing dat
 				- [meta.accordion](#metaaccordion)
 				- [meta.@context](#metacontext)
 				- [meta.pav:createdBy](#metapavcreatedby)
-			  	  - [*@id*](#id)
+				  - [@id](#id)
 				- [meta.pav:lastUpdatedOn](#metapavlastupdatedon)
 				- [meta.oslc:modifiedBy](#metaoslcmodifiedby)
-				  - [*@id*](#id)
+				  - [@id](#id)
 				- [meta.schema:name](#metaschemaname)
 				- [meta.respondent](#metarespondent)
 				- [meta.screens](#metascreens)
-				  - [[*screen*]](#screen)
+				  - [[screen]](#screen)
 				- [meta.status](#metastatus)
 	- [Schedules](#schedules)
-		- [[Frequency]](#frequency)
-			- [[Volume] + [Schedule]](#volume-schedule)
-				- [meta.activities](#metaactivities)
-			  	  - [@id](#id)
-				  - [name](#name)
+		- [[Volume]](#volume)
+			- [[Frequency]](#frequency)
+			    - [meta.activities](#metaactivities)
+			      - [@id](#uidu)
+			      - [name](#unameu)
 				- [meta.@context](#metacontext)
 	- [Screens](#screens)
 		- [[Version]](#version)
@@ -38,21 +38,22 @@ This backend serves as an administration console for customizing and storing dat
 				- [meta.@context](#metacontext)
 				- [meta.schema:name](#metaschemaname)
 				- [meta.options](#metaoptions)
-				  - [*[option]*](#option)
+				  - [[option]](#option)
 				- [meta.question_image](#metaquestionimage)
-				  - [*@id*](#id)
+				  - [@id](#id)
 				- [meta.question_text](#metaquestiontext)
 				- [meta.response_type](#metaresponsetype)
 - [Users](#users)
-	- [Responses](#responses)
-		- [[Activity]](#activity)
-			- [[Version]](#version)
-				- [[Completed Activity]](#completed-activity)
-	- [Schedules](#schedules)
-		- [[Schedule]](#schedule)
-			- [activities](#activities)
-				- [@id](#id)
-				- [name](#name)
+	- [[Volume]](#volume)
+		- [Responses](#responses)
+			- [[Activity]](#activity)
+				- [[Version]](#version)
+				  - [[Completed Activity]](#completed-activity)
+		- [Schedules](#schedules)
+			- [[Schedule]](#schedule)
+				- [activities](#activities)
+			    	- [@id](#id)
+			    	- [name](#name)
 - [Groups](#groups)
 	- [Editors](#editors)
 	- [Managers](#managers)
@@ -126,27 +127,27 @@ String (for now): "active" or "inactive".
 
 ### Schedules
 
-The **Schedules** Collection is organized into a Folder for each [**Frequency**].
+The **Schedules** Collection is organized into a Folder for each [**Volume**].
 
-#### [Frequency]
+#### [Volume]
 
-Each [**Frequency**] Folder contains assignable ([**Volume**] + [**Frequecy**]) Items.
+Each [**Volume**] Folder contains a Folder for each relevant [**Frequency**].
 
-##### [Volume] + [Schedule]
+##### [Frequency]
 
-Each ([**Volume**] + [**Frequency**]) Item contains JSON-LD metadata.
+Each [**Frequency**] Folder contains assignable [**Frequency**] Items.
 
-###### meta.activities
+###### *meta.activities*
 
 A JSON-LD array (ordered by priority) of **Activities** to be completed with the parent **Frequency**.
 
-###### *@id*
+###### <u>@id</u>
 A string in the format "item/[girder_id]"
 
-###### *name*
+###### <u>name</u>
 A string to show in the **User**'s app for this **Schedule**.
 
-###### meta.@context
+###### *meta.@context*
 
 JSON-LD object with prefix and type definitions.
 
@@ -200,38 +201,42 @@ String (for now).
 
 ## Users
 
-**User** objects contain **Schedules** Folders [of **Activities**] and **Responses** Folders [of that User's previously completed **Activities**].
+**User** objects contain [**Volume**] Folders.
 
-### Responses
+### [Volume]
 
-[**User**].**Responses** Folders each contain a Folder for each **Activity** the parent **User** has completed.
+[**Volume**] Folders contain **Schedules** Folders [of **Activities**] and **Responses** Folders [of that User's previously completed **Activities**].
 
-#### [Activity]
+#### Responses
 
-Each [**User**].**Responses**.[**Activity**] Folder contains a Folder for each version of that **Activity** the **User** has completed.
+[**User**].[**Volume**].**Responses** Folders each contain a Folder for each **Activity** the parent **User** has completed in that **Volume**.
 
-##### [Version]
-Each [**User**].**Responses**.[**Activity**].[**Version**] Folder contains an Item for each **Completed Activity** instance for that relative ()**User** + **Activity**.**Version**) combination.
+##### [Activity]
 
-###### [Completed Activity]
-Each [**User**].**Responses**.[**Activity**].[**Version**].**Completed Activity** Item contains JSON-LD metadata, including context, os, and responses.
+Each [**User**].[**Volume**].**Responses**.[**Activity**] Folder contains a Folder for each version of that **Activity** the **User** has completed.
 
-### Schedules
+###### [Version]
+Each [**User**].[**Volume**].**Responses**.[**Activity**].[**Version**] Folder contains an Item for each **Completed Activity** instance for that relative (**User** + **Activity**.**Version**) combination.
 
-Each [**User**].**Schedules** Folder contains a **Schedule** Item for each **Volume**.
+###### *[Completed Activity]*
+Each [**User**].[**Volume**].**Responses**.[**Activity**].[**Version**].**Completed Activity** Item contains JSON-LD metadata, including context, os, and responses.
 
-#### [Schedule]
+#### Schedules
 
-Each [**User**].**Schedules**.[**Schedule**] contains JSON-LD metadata, including context and an array of **Activity** objects.
+Each [**User**].[**Volume**].**Schedules** Folder contains a **Schedule** Item for each **Volume**.
 
-##### activities
+##### [Schedule]
 
-Each object in a [**User**].**Schedules**.[**Schedule**].activities array includes an **@id** and a **name**.
+Each [**User**].[**Volume**].**Schedules**.[**Schedule**] contains JSON-LD metadata, including context and an array of **Activity** objects.
 
-###### @id
+###### activities
+
+Each object in a [**User**].[**Volume**].**Schedules**.[**Schedule**].activities array includes an **@id** and a **name**.
+
+###### *@id*
 A string in the format "item/[girder_id]"
 
-###### name
+###### *name*
 A string to show in the **User**'s app for this **Schedule**.
 
 ## Groups

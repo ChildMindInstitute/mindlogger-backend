@@ -5,11 +5,17 @@
     "host":"127.0.0.1",
     "password":"jectorsefulatedistrologicat"
   },
-  "girder": {
+  "girder-dev": {
     "user":"wong",
     "host":"127.0.0.1:8080",
     "password":"parionistersenestionlityper",
     "APIkey":"zv9hkfzz8kwebc59h7iyVpfG4KCFhorKKfQ7537p"
+  },
+  "girder-production": {
+    "user":"wong",
+    "host":"www.marvel.com/doctorstrange",
+    "password":"eNestIONaliTyPOrustRaterSeaT",
+    "APIkey":"h|]6ndnEm{1i5Xz{=o{8vzzd&&%'6}4p30z2e1=u"
   },
   "missing_persons": {
     "first_name": "Steven",
