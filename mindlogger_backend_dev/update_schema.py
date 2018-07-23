@@ -1,7 +1,9 @@
 import json
 import os
 import pandas as pd
+from urllib.parse import quote
 import sys
+from urllib.request import urlopen
 __package__ = "mindlogger_backend_dev.update_schema"
 from ..object_manipulation import *
 
@@ -227,6 +229,47 @@ def get_files_in_item(
         ])
       )
     )
+
+
+def get_folder_or_item_info(girder_id, girder_type, girder_connection):
+    """
+    Function to collect all relevant info about a Folder or Item.
+    
+    Parameters
+    ----------
+    girder_id: string
+        Girder _id
+    
+    girder_type: string
+        "Folder" or "Item"
+        
+    girder_connection: GirderClient
+        active GirderClient
+        
+    Returns
+    -------
+    info: dictionary
+    
+    Examples
+    >>> pass
+    """
+    info = {
+        "old_ids" : [girder_id],
+        **girder_connection.get(
+            "{}/{}".format(
+                girder_type.lower(),
+                girder_id
+            )
+        )
+    }
+    return({
+        key: info[key] for key in info if key not in [
+            "_id",
+            "_modelType",
+            "baseParentId",
+            "baseParentType"
+        ]
+    })
 
 
 def get_girder_id_by_name(
@@ -509,6 +552,95 @@ def ls_x_in_y(x_type, y, girder_connection):
             api_query
         )
     )
+
+
+def move_item_to_folder(girder_id, girder_connection):
+    """
+    Function to collect all relevant info about a Folder or Item.
+    
+    Parameters
+    ----------
+    girder_id: string
+        Item's Girder_id
+        
+    girder_connection: GirderClient
+        active GirderClient
+        
+    Returns
+    -------
+    folder_id: string
+        Girder_id for new Folder replacing old Item
+    
+    Examples
+    >>> pass
+    """
+    info = get_folder_or_item_info(
+        girder_id,
+        "Item",
+        girder_connection
+    )
+    files = girder_connection.get(
+        "item/{}/files".format(girder_id)
+    )
+    if len(files):
+        if not os.path.exists("temp_filestore"):
+            os.makedirs("temp_filestore")
+        for file in files:
+            girder_connection.downloadFile(
+                file["_id"],
+                os.path.join(
+                    os.getcwd(),
+                    "temp_filestore",
+                    file["name"]
+                )
+            )
+    girder_connection.delete("item/{}".format(info['old_ids'][0]))
+    folder_id = girder_connection.post(
+        "&".join([
+            "folder?name={}".format(
+                info['name']
+            ),
+            "parentId={}".format(info['folderId']),
+            "parentType=folder",
+            "reuseExisting=true",
+            "metadata={}".format(
+                quote(
+                    json.dumps(
+                        info['meta'] if 'meta' in info else {}
+                    )
+                )
+            ),
+            "description={}".format(
+                info['description']
+            ) if 'description' in info else ''
+        ])
+    )["_id"]
+    if len(files):
+        for file in files:
+            image_stream = urlopen("/".join([
+                "file://",
+                os.getcwd(),
+                "temp_filestore",
+                file["name"]
+            ])) # url_or_filepath includes protocol, eg, "https://", "file://", "ftp://"
+
+            img_id = girder_connection.uploadFile(
+                parentId=folder_id,
+                parentType="folder",
+                stream=image_stream,
+                name=".".join([
+                    file["name"]
+                ]), # name to save the File as in Mindlogger, including extension
+                size=int(
+                    image_stream.info()["Content-Length"]
+                ) # size of the File in bytes
+            )["_id"]
+            os.remove(os.path.join(
+                "temp_filestore",
+                file["name"]
+            ))
+        os.removedirs("temp_filestore")
+    return(folder_id)
 
 
 def mv(
