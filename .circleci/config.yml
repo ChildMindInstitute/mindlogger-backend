@@ -41,10 +41,6 @@ jobs:
             pip install -r mindlogger_backend_dev/requirements.txt
             pip install pytest pytest-cov pytest-pythonpath pytest-remotedata pytest-openfiles pytest-doctestplus pytest-arraydiff celery
             PYTHONPATH=.
-          environment:
-            GIRDER_USER: wongwongwong
-            GIRDER_PASSWORD: parionistersenestionlityper
-            GIRDER_API_URL: "http://127.0.0.1:8080/api/v1"
 
       - save_cache:
           paths:
@@ -61,6 +57,10 @@ jobs:
           command: |
             . venv/bin/activate
             pytest --doctest-modules --cov-report html:coverage --cov . --cov-config .circleci/.coveragerc
+          environment:
+            GIRDER_USER: wongwongwong
+            GIRDER_PASSWORD: parionistersenestionlityper
+            GIRDER_API_URL: "http://127.0.0.1:8080/api/v1"
 
       - store_artifacts:
           path: coverage
