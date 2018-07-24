@@ -50,7 +50,7 @@ jobs:
             - ./venv
           key: v1-dependencies-{{ checksum "mindlogger_backend_dev/requirements.txt" }}
 
-      -run:
+      - run:
         name: Set Up Postgres
         command: |
           bundle exec rake db:create db:schema:load --trace
