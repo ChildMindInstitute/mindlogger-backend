@@ -64,7 +64,7 @@ jobs:
           name: Configuring Girder Server Using Playbook
           command: |
             . venv/bin/activate
-            apt-get install apt-transport-https
+            sudo apt-get install apt-transport-https
             ansible-playbook --connection local -i "localhost," .circleci/ansible/setup.yml
 
       - run:
