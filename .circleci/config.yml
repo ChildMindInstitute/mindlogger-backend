@@ -36,7 +36,7 @@ jobs:
       - run:
           name: Installing Dependencies
           command: |
-            python3 -m venv venv -system-site-packages
+            python3 -m venv venv --system-site-packages
             . venv/bin/activate
             pip install -r mindlogger_backend_dev/requirements.txt
             pip install pytest pytest-cov pytest-pythonpath pytest-remotedata pytest-openfiles pytest-doctestplus pytest-arraydiff celery
