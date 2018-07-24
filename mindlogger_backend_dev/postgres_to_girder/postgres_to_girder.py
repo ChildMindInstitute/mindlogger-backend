@@ -1948,7 +1948,271 @@ def _main(
         postgres_tables,
         context
     ) # pragma: no cover
+    
+    # Collect new pointers
+    activities_id = get_girder_id_by_name(
+        girder_connection,
+        "Collection",
+        "Activities"
+    ) # pragma: no cover
+    screens_id = get_girder_id_by_name(
+        girder_connection,
+        "Collection",
+        "Screens"
+    ) # pragma: no cover
+    schedules_id = get_girder_id_by_name(
+        girder_connection,
+        "Collection",
+        "Schedules"
+    ) # pragma: no cover
+    users_ids = [
+        user["_id"] for user in girder_connection.get("user")
+    ] # pragma: no cover
+    volumes_id = get_girder_id_by_name(
+        girder_connection,
+        "Collection",
+        "Volumes"
+    ) # pragma: no cover
+    
+    # Move Schedules and Activities into Volume
+    
+    for schedule in ls_x_in_y(
+        "Folder",
+        ("Collection", schedules_id),
+        girder_connection
+    ): # pragma: no cover
+        versions = ls_x_in_y(
+            "Item",
+            ("Folder", schedule['_id']),
+            girder_connection
+        )  # pragma: no cover
+        for version in versions:  # pragma: no cover
+            volume = version['name'].split(
+                schedule['name']
+            )[0].strip()  # pragma: no cover
+            volume_id = find_or_create(
+                ('Folder', volume),
+                ('Collection', volumes_id),
+                girder_connection
+            )  # pragma: no cover
+            volume_schedules_folder = find_or_create(
+                ('Folder', "Schedules"),
+                ('Folder', volume_id),
+                girder_connection
+            )  # pragma: no cover
+            mv(
+                ('Folder', schedule['_id']),
+                ('Folder', volume_schedules_folder),
+                girder_connection
+            )  # pragma: no cover
+    girder_connection.delete(
+        "collection/{}".format(schedules_id)
+    )  # pragma: no cover
 
+    for activity in ls_x_in_y(
+        "Folder",
+        ("Collection", activities_id),
+        girder_connection
+    ): # pragma: no cover
+        versions = ls_x_in_y(
+            "Item",
+            ("Folder", activity['_id']),
+            girder_connection
+        ) # pragma: no cover
+        for version in versions: # pragma: no cover
+            volume = version['name'].split(
+                activity['name']
+            )[0].strip(" ―") # pragma: no cover
+            volume_id = find_or_create(
+                ('Folder', volume),
+                ('Collection', volumes_id),
+                girder_connection
+            ) # pragma: no cover
+            rename(
+                ("Item", version["_id"]),
+                version['name'].split(
+                    volume,
+                    maxsplit=1
+                )[1].strip("― "),
+                girder_connection
+            ) # pragma: no cover
+            volume_activities_folder = find_or_create(
+                ('Folder', "Activities"),
+                ('Folder', volume_id),
+                girder_connection
+            ) # pragma: no cover
+            mv(
+                ('Folder', activity['_id']),
+                ('Folder', volume_activities_folder),
+                girder_connection
+            ) # pragma: no cover
+    girder_connection.delete(
+        "collection/{}".format(activities_id)
+    ) # pragma: no cover
+    
+    # Update Activities (Item to Folder) in "Volume 0"
+    
+    volume_name = "Volume 0" # pragma: no cover
+    activities_id = girder_connection.get(
+        "&".join([
+            "folder?parentType=folder",
+            "parentId={}".format(
+                girder_connection.get(
+                    "&".join([
+                        "folder?parentType=collection",
+                        "parentId={}".format(volumes_id),
+                        "text={}".format(volume_name)
+                    ])
+                )[0]["_id"]
+            ),
+            "name={}".format(
+                "Activities"
+            )
+        ])
+    )[0]["_id"] # get "Activities" _id within Volume # pragma: no cover
+
+    activity_ids = [
+        a["_id"] for a in girder_connection.get(
+            "&".join([
+                "folder?parentType=folder",
+                "parentId={}".format(
+                    activities_id
+                )
+            ])
+        )
+    ] # get _ids of each Activity # pragma: no cover
+
+    for activity in activity_ids: # pragma: no cover
+        [
+            move_item_to_folder(
+                version["_id"],
+                girder_connection
+            ) for version in girder_connection.get(
+                "&".join([
+                    "item?folderId={}".format(activity),
+                ])
+            )
+        ] # pragma: no cover
+
+    # Move Volumes to top of Users
+    
+    for user in users_ids: # pragma: no cover
+        for user_folder in ls_x_in_y(
+            "Folder",
+            ("User", user),
+            girder_connection
+        ): # pragma: no cover
+            for item in ls_x_in_y(
+                "Item",
+                ("Folder", user_folder["_id"]),
+                girder_connection
+            ): # pragma: no cover
+                volume = item['name'][:9] # pragma: no cover
+                volume_id = find_or_create(
+                    ('Folder', volume),
+                    ('User', user),
+                    girder_connection
+                ) # pragma: no cover
+                rename(
+                    ("Item", item["_id"]),
+                    item['name'].split(volume)[1].strip(),
+                    girder_connection
+                ) # pragma: no cover
+                mv(
+                    ("Folder", user_folder["_id"]),
+                    ("Folder", volume_id),
+                    girder_connection
+                ) # pragma: no cover
+            for internal_folder in ls_x_in_y(
+                "Folder",
+                ("Folder", user_folder["_id"]),
+                girder_connection
+            ): # pragma: no cover
+                for version in ls_x_in_y(
+                    "Folder",
+                    ("Folder", internal_folder["_id"]),
+                    girder_connection
+                ): # pragma: no cover
+                    volume = version['name'].split(
+                        internal_folder['name']
+                    )[0].strip(" ―") # pragma: no cover
+                    volume_id = find_or_create(
+                        ('Folder', volume),
+                        ('User', user),
+                        girder_connection
+                    ) # pragma: no cover
+                    rename(
+                        ("Folder", version["_id"]),
+                        version['name'].split(volume)[1].strip("― "),
+                        girder_connection
+                    ) # pragma: no cover
+                    try: # pragma: no cover
+                        mv(
+                            ("Folder", user_folder["_id"]),
+                            ("Folder", volume_id),
+                            girder_connection
+                        ) # pragma: no cover
+                    except: # pragma: no cover
+                        pass # if this function persists, add code to copy relevant Folders # pragma: no cover
+                    
+    # Move Screens into Activity versions
+    
+    for screens in ls_x_in_y(
+        "Folder",
+        ("Collection", screens_id),
+        girder_connection
+    ):  # pragma: no cover
+        volume = screens['name'].split("―")[0].strip(" ―") # pragma: no cover
+        volume_id = find_or_create(
+            ('Folder', volume),
+            ('Collection', volumes_id),
+            girder_connection
+        ) # pragma: no cover
+        screenset = [1] # pragma: no cover
+        while len(screenset): # iterate for n(screens) > 50 # pragma: no cover
+            screenset = girder_connection.get(
+                "item?folderId={}".format(screens["_id"])
+            ) # pragma: no cover
+            for screen in screenset: # pragma: no cover
+                vers = girder_connection.get(
+                    "folder/{}".format(screen["folderId"])
+                )['name'].split(volume)[1].strip("― ") # pragma: no cover
+                act = vers.split(
+                    "―"
+                )[0].strip() if "―" in vers else vers.rsplit(
+                    "(",
+                    maxsplit=1
+                )[0].strip() # pragma: no cover
+                mv(
+                    (
+                        "Item",
+                        screen["_id"]
+                    ),
+                    (
+                        "Folder",
+                        girder_connection.get(
+                            "&".join([
+                                "folder?parentId={}".format(
+                                    girder_connection.get(
+                                        "&".join([
+                                            "folder?parentId={}".format(volume_activities_folder),
+                                            "parentType=folder",
+                                            "name={}".format(act)
+                                        ])
+                                    )[0]["_id"]
+                                ),
+                                "parentType=folder",
+                                "name={}".format(vers)
+                            ])
+                        )[0]["_id"]
+                    ),
+                    girder_connection
+                ) # pragma: no cover
+    
+    girder_connection.delete(
+        "collection/{}".format(screens_id)
+    ) # pragma: no cover
+        
     return(
         (
             activities_id,
