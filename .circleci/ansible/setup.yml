@@ -22,9 +22,8 @@
 
     - name: Create Girder user
       user:
-        firstName: "Wong"
-        lastName: "Wong"
-        login: "wongwongwong"
+        first_name: "Wong"
+        last_name: "Wong"
         password: "parionistersenestionlityper"
         email: "wong@wong.wong"
         admin: yes
