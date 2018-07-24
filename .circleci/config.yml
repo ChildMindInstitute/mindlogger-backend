@@ -14,11 +14,7 @@ jobs:
       # specify the version you desire here
       # use `-browsers` prefix for selenium tests, e.g. `3.6.1-browsers`
       - image: circleci/python:3.6.5
-      - image: circleci/postgres:11
-        environment:
-          POSTGRES_USER: ubuntu
-          POSTGRES_DB: unittests
-      # - image: circleci/mongo:4.0.0
+      - image: circleci/mongo:4.0.0
       # Specify service dependencies here if necessary
       # CircleCI maintains a library of pre-built images
       # documented at https://circleci.com/docs/2.0/circleci-images/
@@ -51,12 +47,15 @@ jobs:
           key: v1-dependencies-{{ checksum "mindlogger_backend_dev/requirements.txt" }}
 
       - run:
-          name: Set Up Postgres
+          name: Set Up Girder
           command: |
-            cd mindlogger_backend_dev/.cirleci
-            python -m postgres.py
-          environment:
-            DATABASE_URL: "postgres://ubuntu@localhost:5432/unittests"
+            cd mindlogger_backend_dev
+            pip install --upgrade pip
+            git clone --branch 2.x-maintenance https://github.com/girder/girder.git
+            cd girder
+            pip install -e .[plugins]
+            girder-install web --all-plugins
+            girder serve
 
       # run tests!
       # this example uses Django's built-in test-runner
