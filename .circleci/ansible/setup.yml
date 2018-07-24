@@ -10,7 +10,6 @@
     girder_always_build_assets: yes
     girder_host: localhost
     girder_port: 8080
-    girder_user: "wongwongwong"
     girder_password: "parionistersenestionlityper"
 
   pre_tasks:
