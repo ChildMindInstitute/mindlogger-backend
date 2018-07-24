@@ -59,13 +59,12 @@ jobs:
             . venv/bin/activate
             ansible-galaxy install --force --roles-path .circleci/ansible/roles girder.girder
             pip install girder_client
-            sudo apt-get install python3-apt -y
 
       - run:
           name: Configuring Girder Server Using Playbook
           command: |
             . venv/bin/activate
-            ansible-playbook --connection local -i "localhost," .circleci/ansible/setup.yml -e "ansible_python_interpreter=/home/circleci/repo/venv/bin/python"
+            ansible-playbook --connection local -i "localhost," .circleci/ansible/setup.yml -e "ansible_python_interpreter=/usr/bin/python"
 
       - run:
           name: Running Tests
