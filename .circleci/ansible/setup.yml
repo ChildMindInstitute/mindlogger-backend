@@ -42,4 +42,4 @@
     - name: Wait until server restarts
       wait_for:
         port: "{{ girder_port }}"
-delay: 5
+        delay: 5
