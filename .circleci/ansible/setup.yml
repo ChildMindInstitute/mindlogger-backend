@@ -1,10 +1,12 @@
 ---
+
 - hosts: localhost
   vars:
     girder_host: girder
     girder_port: 8080
     girder_user: "wongwongwong"
     girder_password: "parionistersenestionlityper"
+
   tasks:
     - name: Creating User
       girder:
@@ -17,6 +19,7 @@
           email: "wong@wong.wong"
           admin: yes
         state: present
+
     - name: Creating Filesystem Assetstore
       girder:
         username: "{{ girder_user }}"
@@ -28,6 +31,7 @@
           root: "/data/"
           current: true
         state: present
+
     - name: Restarting the Server
       girder:
         username: "{{ girder_user }}"
@@ -35,7 +39,15 @@
         port: "{{ girder_port }}"
         put:
           path: "system/restart"
+
     - name: Waiting Until Server Restarts
       wait_for:
         port: "{{ girder_port }}"
         delay: 5
+        
+  roles:
+    - role: girder
+      girder_python: /usr/local/bin/python3.6
+      girder_pip: /usr/local/bin/pip3.6
+      become: yes
+      become_user: "{{ girder_user }}"
