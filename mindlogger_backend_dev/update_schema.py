@@ -361,11 +361,11 @@ def get_girder_id_by_name(
     ...         get_girder_id_by_name(
     ...             girder_connection=girder_connection,
     ...             entity="Collection",
-    ...             name="Mjolnir"
+    ...             name="Ancient One"
     ...         )
     ...     )
     ... )["name"]
-    'Mjolnir'
+    'Ancient One'
     """
     entity = entity.title()
     query = "".join([
