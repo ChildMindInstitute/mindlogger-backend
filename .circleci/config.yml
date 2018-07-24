@@ -18,7 +18,7 @@ jobs:
         environment:
           POSTGRES_USER: ubuntu
           POSTGRES_DB: unittests
-      - image: circleci/mongo:4.1.1
+      - image: circleci/mongo:4.0.0
       # Specify service dependencies here if necessary
       # CircleCI maintains a library of pre-built images
       # documented at https://circleci.com/docs/2.0/circleci-images/
@@ -53,6 +53,7 @@ jobs:
       - run:
           name: Set Up Postgres
           command: |
+            pwd
             cd .cicleci
             python -m postgres.py
           environment:
