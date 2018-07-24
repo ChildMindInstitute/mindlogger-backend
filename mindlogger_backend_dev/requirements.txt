@@ -3,5 +3,3 @@ numpydoc
 pandas
 psycopg2-binary
 recommonmark
-ansible
-python3-apt
