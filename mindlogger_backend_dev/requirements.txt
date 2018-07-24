@@ -3,3 +3,6 @@ numpydoc
 pandas
 psycopg2-binary
 recommonmark
+ansible
+apt
+apt_pkg
