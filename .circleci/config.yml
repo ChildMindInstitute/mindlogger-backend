@@ -55,8 +55,8 @@ jobs:
           command: |
             bundle exec rake db:create db:schema:load --trace
             bundle exec rake db:migrate
-        environment:
-          DATABASE_URL: "postgres://ubuntu@localhost:5432/unittests"
+          environment:
+            DATABASE_URL: "postgres://ubuntu@localhost:5432/unittests"
 
       # run tests!
       # this example uses Django's built-in test-runner
