@@ -18,7 +18,7 @@ jobs:
         environment:
           POSTGRES_USER: ubuntu
           POSTGRES_DB: unittests
-      - image: circleci/mongo:4.0.0
+      # - image: circleci/mongo:4.0.0
       # Specify service dependencies here if necessary
       # CircleCI maintains a library of pre-built images
       # documented at https://circleci.com/docs/2.0/circleci-images/
@@ -53,7 +53,7 @@ jobs:
       - run:
           name: Set Up Postgres
           command: |
-            cd mindlogger_backend_dev/.cicleci
+            cd mindlogger_backend_dev/.cirleci
             python -m postgres.py
           environment:
             DATABASE_URL: "postgres://ubuntu@localhost:5432/unittests"
