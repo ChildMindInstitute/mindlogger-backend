@@ -11,6 +11,7 @@ sys.path.append(
 from mindlogger_backend_dev import girder_connections
 import json
 
+email="wong@wong.wong"
 config_path = os.path.join(
     os.path.dirname(__file__),
     os.pardir,
@@ -31,11 +32,27 @@ if os.path.exists(config_path):
         )
     )
 
-    from mindlogger_backend_dev import update_girder
-
     config, context, api_url = girder_connections.configuration(
         config_file="{}.template".format(config_path),
         which_girder="dev"
     )
 
-    
+    from mindlogger_backend_dev import update_schema
+
+    user_id = update_schema.get_user_id_by_email(
+        girder_connection,
+        email
+    )
+
+    if not user_id:
+        user_id = girder_connection.post(
+            "&".join([
+                "user?login={}".format(config[which_girder]["user"]),
+                "firstName=Wong",
+                "lastName=Wong",
+                "password={}".format(config[which_girder]["password"]),
+                "admin=true",
+                "email={}".format(email),
+                "public=false"
+            ])
+        )
