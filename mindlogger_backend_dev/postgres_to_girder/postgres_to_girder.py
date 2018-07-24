@@ -1401,29 +1401,6 @@ def postgres_users_to_girder_users(
             email address
         value: string
             Girder User_id
-
-    Examples
-    --------
-    >>> import girder_client as gc
-    >>> import pandas as pd
-    >>> postgres_users_to_girder_users(
-    ...     pd.DataFrame(
-    ...         {
-    ...             'first_name': ['Packages,'],
-    ...             'last_name': ['TravisCI'],
-    ...             'email': ['travis-packages'],
-    ...             'password': [
-    ...                 '$2b$12$jchNQFK2jj7UZ/papXfWsu1'
-    ...                 '6enEeCUjk2gUxWJ/n6iYPYmejcmNnq'
-    ...             ],
-    ...             'role': ['user']
-    ...         }
-    ...     ),
-    ...     girder_connection=gc.GirderClient(
-    ...         apiUrl="https://data.kitware.com/api/v1/"
-    ...     )
-    ... )
-    {'travis-packages': '55535d828d777f082b592f54'}
     """
     users_by_email = {}
     for i in range(users.shape[0]):
@@ -1948,7 +1925,7 @@ def _main(
         postgres_tables,
         context
     ) # pragma: no cover
-    
+
     # Collect new pointers
     activities_id = get_girder_id_by_name(
         girder_connection,
@@ -1973,9 +1950,9 @@ def _main(
         "Collection",
         "Volumes"
     ) # pragma: no cover
-    
+
     # Move Schedules and Activities into Volume
-    
+
     for schedule in ls_x_in_y(
         "Folder",
         ("Collection", schedules_id),
@@ -2049,9 +2026,9 @@ def _main(
     girder_connection.delete(
         "collection/{}".format(activities_id)
     ) # pragma: no cover
-    
+
     # Update Activities (Item to Folder) in "Volume 0"
-    
+
     volume_name = "Volume 0" # pragma: no cover
     activities_id = girder_connection.get(
         "&".join([
@@ -2095,7 +2072,7 @@ def _main(
         ] # pragma: no cover
 
     # Move Volumes to top of Users
-    
+
     for user in users_ids: # pragma: no cover
         for user_folder in ls_x_in_y(
             "Folder",
@@ -2154,9 +2131,9 @@ def _main(
                         ) # pragma: no cover
                     except: # pragma: no cover
                         pass # if this function persists, add code to copy relevant Folders # pragma: no cover
-                    
+
     # Move Screens into Activity versions
-    
+
     for screens in ls_x_in_y(
         "Folder",
         ("Collection", screens_id),
@@ -2208,11 +2185,11 @@ def _main(
                     ),
                     girder_connection
                 ) # pragma: no cover
-    
+
     girder_connection.delete(
         "collection/{}".format(screens_id)
     ) # pragma: no cover
-        
+
     return(
         (
             activities_id,
