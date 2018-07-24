@@ -22,11 +22,7 @@
 
     - name: Create Girder user
       user:
-        first_name: "Wong"
-        last_name: "Wong"
         password: "parionistersenestionlityper"
-        email: "wong@wong.wong"
-        admin: yes
         name: "{{ girder_user }}"
       become: yes
       become_user: root
