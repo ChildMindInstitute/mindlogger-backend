@@ -42,8 +42,9 @@ jobs:
             pip install pytest pytest-cov pytest-pythonpath pytest-remotedata pytest-openfiles pytest-doctestplus pytest-arraydiff celery
             PYTHONPATH=.
           environment:
-            GIRDER_USER: severus.snape
-            GIRDER_PASSWORD: OA\rL(D>NVDM#
+            GIRDER_USER: wong
+            GIRDER_PASSWORD: parionistersenestionlityper
+            GIRDER_API_URL: "http://localhost:8080/api/v1"
 
       - save_cache:
           paths:
