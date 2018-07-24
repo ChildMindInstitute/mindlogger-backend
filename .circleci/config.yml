@@ -41,18 +41,14 @@ jobs:
             pip install -r mindlogger_backend_dev/requirements.txt
             pip install pytest pytest-cov pytest-pythonpath pytest-remotedata pytest-openfiles pytest-doctestplus pytest-arraydiff celery
             PYTHONPATH=.
+          environment:
+            GIRDER_USER: severus.snape
+            GIRDER_PASSWORD: OA\rL(D>NVDM#
 
       - save_cache:
           paths:
             - ./venv
           key: v1-dependencies-{{ checksum "mindlogger_backend_dev/requirements.txt" }}
-
-      - run:
-          name: Set Up Girder
-          command: |
-          environment:
-            GIRDER_USER: severus.snape
-            GIRDER_PASSWORD: OA\rL(D>NVDM#
 
       # run tests!
       # this example uses Django's built-in test-runner
