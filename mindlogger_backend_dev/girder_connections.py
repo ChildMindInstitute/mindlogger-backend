@@ -147,7 +147,7 @@ username and password.
         except (gc.AuthenticationError, gc.HttpError) as AuthError:
             print(
                 "Connected to the Girder database 🏗🍃 but "
-                "could not authenticate."
+                "could not authenticate: {}".format(AuthError)
             )
         except: # pragma: no cover
             print(
