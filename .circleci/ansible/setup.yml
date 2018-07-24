@@ -44,9 +44,9 @@
       wait_for:
         port: "{{ girder_port }}"
         delay: 5
-        
+
   roles:
-    - role: girder
+    - role: girder.girder
       girder_python: /usr/local/bin/python3.6
       girder_pip: /usr/local/bin/pip3.6
       become: yes
