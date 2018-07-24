@@ -1,3 +1,6 @@
+### Function to create or delete test User
+
+
 import os
 import sys
 sys.path.append(
@@ -56,3 +59,6 @@ if os.path.exists(config_path):
                 "public=false"
             ])
         )
+
+    else:
+        girder_connection.delete("user/{}".format(user_id))
