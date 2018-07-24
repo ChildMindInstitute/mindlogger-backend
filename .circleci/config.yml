@@ -34,7 +34,7 @@ jobs:
           - v1-dependencies-
 
       - run:
-          name: install dependencies
+          name: Installing Dependencies
           command: |
             python3 -m venv venv
             . venv/bin/activate
@@ -48,26 +48,26 @@ jobs:
           key: v1-dependencies-{{ checksum "mindlogger_backend_dev/requirements.txt" }}
 
       - run:
-          name: install ansible
+          name: Installing ansible
           command: |
             . venv/bin/activate
             pip install ansible
 
       - run:
-          name: install Girder ansible role
+          name: Installing Girder ansible role
           command: |
             . venv/bin/activate
             ansible-galaxy install --force --roles-path ./tests/ansible/roles girder.girder
             pip install girder_client
 
       - run:
-          name: configure girder server using playbook
+          name: Configuring Girder Server Using Playbook
           command: |
             . venv/bin/activate
-            ansible-playbook --connection local -i "localhost," ansible.yml -e "ansible_python_interpreter=/home/circleci/venv/bin/python"
+            ansible-playbook --connection local -i "localhost," mindlogger_backend_dev/.circleci/ansible.yml -e "ansible_python_interpreter=/home/circleci/venv/bin/python"
 
       - run:
-          name: run tests
+          name: Running Tests
           command: |
             . venv/bin/activate
             pytest --doctest-modules --cov-report html:coverage --cov . --cov-config .circleci/.coveragerc
