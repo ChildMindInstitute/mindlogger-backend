@@ -14,6 +14,7 @@ jobs:
       # specify the version you desire here
       # use `-browsers` prefix for selenium tests, e.g. `3.6.1-browsers`
       - image: circleci/python:3.6.5
+      - image: girder/girder
       - image: circleci/mongo:4.0.0
       # Specify service dependencies here if necessary
       # CircleCI maintains a library of pre-built images
@@ -49,13 +50,9 @@ jobs:
       - run:
           name: Set Up Girder
           command: |
-            cd mindlogger_backend_dev
-            pip install --upgrade pip
-            git clone --branch 2.x-maintenance https://github.com/girder/girder.git
-            cd girder
-            pip install -e .[plugins]
-            girder-install web --all-plugins
-            girder serve
+          environment:
+            GIRDER_USER: severus.snape
+            GIRDER_PASSWORD: OA\rL(D>NVDM#
 
       # run tests!
       # this example uses Django's built-in test-runner
