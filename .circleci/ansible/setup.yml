@@ -5,9 +5,9 @@
     girder_port: 8080
     girder_user: "wongwongwong"
     girder_password: "parionistersenestionlityper"
-  tasks:
 
-    - name: Create 'jupyter' User
+  tasks:
+    - name: Creating User
       girder:
         port: "{{ girder_port }}"
         user:
@@ -19,7 +19,7 @@
           admin: yes
         state: present
 
-    - name: Create filesystem assetstore
+    - name: Creating Filesystem Assetstore
       girder:
         username: "{{ girder_user }}"
         password: "{{ girder_password }}"
@@ -31,7 +31,7 @@
           current: true
         state: present
 
-    - name: Restart the server
+    - name: Restarting the Server
       girder:
         username: "{{ girder_user }}"
         password: "{{ girder_password }}"
@@ -39,7 +39,7 @@
         put:
           path: "system/restart"
 
-    - name: Wait until server restarts
+    - name: Waiting Until Server Restarts
       wait_for:
         port: "{{ girder_port }}"
         delay: 5
