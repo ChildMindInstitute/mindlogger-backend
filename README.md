@@ -1,4 +1,4 @@
-[![CircleCI](https://circleci.com/gh/ChildMindInstitute/mindlogger-app-backend/tree/girder-dev.svg?style=svg)](https://circleci.com/gh/ChildMindInstitute/mindlogger-app-backend/tree/girder-dev) [![Python coverage](.circleci/python-coverage.svg)](https://circleci.com/gh/ChildMindInstitute/mindlogger-app-backend/tree/girder-dev)
+[![CircleCI](https://circleci.com/gh/ChildMindInstitute/mindlogger-app-backend/tree/mongo.svg?style=svg)](https://circleci.com/gh/ChildMindInstitute/mindlogger-app-backend/tree/mongo) [![Python coverage](.circleci/python-coverage.svg)](https://circleci.com/gh/ChildMindInstitute/mindlogger-app-backend/tree/mongo)
 [![ReadTheDocs](https://readthedocs.org/projects/mindlogger-app-backend/badge/?version=girder-dev)](https://mindlogger-app-backend.readthedocs.io/en/girder-dev/?badge=girder-dev)
 
 # App_ModularDataCollection_Backend
