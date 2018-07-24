@@ -53,9 +53,7 @@ jobs:
       - run:
           name: Set Up Postgres
           command: |
-            pwd
-            ls
-            cd .cicleci
+            cd mindlogger_backend_dev/.cicleci
             python -m postgres.py
           environment:
             DATABASE_URL: "postgres://ubuntu@localhost:5432/unittests"
