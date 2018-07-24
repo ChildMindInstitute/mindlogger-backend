@@ -1844,20 +1844,24 @@ def _main(
     girder_connection = connect_to_girder(
         api_url=api_url,
         authentication=(
-            (
-                config["girder-{}".format(
-                    which_girder
-                )]["APIkey"]
-            ) if "APIkey" in config["girder-{}".format(
+            config["girder-{}".format(
+                which_girder
+            )]["user"],
+            config["girder-{}".format(
+                which_girder
+            )]["password"],
+            config["girder-{}".format(
+                which_girder
+            )]["APIkey"]
+        ) if "APIkey" in config["girder-{}".format(
                 which_girder
             )] else (
-                config["girder-{}".format(
-                    which_girder
-                )]["user"],
-                config["girder-{}".format(
-                    which_girder
-                )]["password"]
-            )
+            config["girder-{}".format(
+                which_girder
+            )]["user"],
+            config["girder-{}".format(
+                which_girder
+            )]["password"]
         )
     ) # pragma: no cover
 

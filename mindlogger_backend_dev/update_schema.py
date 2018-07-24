@@ -681,7 +681,7 @@ def mv(
         new_parent[1]
     ]) if (
         x[0].lower()=="item" and
-        y[0].lower()=="folder"
+        new_parent[0].lower()=="folder"
     ) else "".join([
         x[0].lower(),
         "/",
