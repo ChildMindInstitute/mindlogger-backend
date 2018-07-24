@@ -36,7 +36,7 @@ jobs:
       - run:
           name: Installing Dependencies
           command: |
-            python3 -m venv venv
+            python3 -m venv venv -system-site-packages
             . venv/bin/activate
             pip install -r mindlogger_backend_dev/requirements.txt
             pip install pytest pytest-cov pytest-pythonpath pytest-remotedata pytest-openfiles pytest-doctestplus pytest-arraydiff celery
@@ -64,7 +64,7 @@ jobs:
           name: Configuring Girder Server Using Playbook
           command: |
             . venv/bin/activate
-            ansible-playbook --connection local -i "localhost," .circleci/ansible/setup.yml -e "ansible_python_interpreter=/usr/bin/python"
+            ansible-playbook --connection local -i "localhost," .circleci/ansible/setup.yml
 
       - run:
           name: Running Tests
