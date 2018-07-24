@@ -51,12 +51,12 @@ jobs:
           key: v1-dependencies-{{ checksum "mindlogger_backend_dev/requirements.txt" }}
 
       - run:
-        name: Set Up Postgres
-        command: |
-          bundle exec rake db:create db:schema:load --trace
-          bundle exec rake db:migrate
-      environment:
-        DATABASE_URL: "postgres://ubuntu@localhost:5432/unittests"
+          name: Set Up Postgres
+          command: |
+            bundle exec rake db:create db:schema:load --trace
+            bundle exec rake db:migrate
+        environment:
+          DATABASE_URL: "postgres://ubuntu@localhost:5432/unittests"
 
       # run tests!
       # this example uses Django's built-in test-runner
