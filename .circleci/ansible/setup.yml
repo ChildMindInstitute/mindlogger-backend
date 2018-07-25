@@ -19,7 +19,6 @@
         password: "parionistersenestionlityper"
         name: "{{ girder_user }}"
       become: yes
-      become_method: sudo
       become_user: circleci
 
   roles:
