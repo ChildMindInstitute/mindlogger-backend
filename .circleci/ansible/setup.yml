@@ -13,14 +13,7 @@
     girder_password: "parionistersenestionlityper"
 
   pre_tasks:
-    - name: Update package cache
-      apt:
-        update_cache: yes
-      become: yes
-      become_method: sudo
-      become_user: circleci
-      when: ansible_os_family == "Debian"
-
+    
     - name: Create Girder user
       user:
         password: "parionistersenestionlityper"
