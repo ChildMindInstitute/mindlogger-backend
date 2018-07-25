@@ -37,3 +37,51 @@ jobs:
           name: Who Am I?
           command: |
             sudo whoami
+
+      - run:
+          name: Installing Dependencies
+          command: |
+            python3 -m venv venv --system-site-packages
+            . venv/bin/activate
+            pip install -r mindlogger_backend_dev/requirements.txt
+            pip install pytest pytest-cov pytest-pythonpath pytest-remotedata pytest-openfiles pytest-doctestplus pytest-arraydiff celery
+            PYTHONPATH=.
+
+      - save_cache:
+          paths:
+            - ./venv
+          key: v1-dependencies-{{ checksum "mindlogger_backend_dev/requirements.txt" }}
+
+      - run:
+          name: Installing ansible
+          command: |
+            . venv/bin/activate
+            pip install ansible
+
+      - run:
+          name: Installing Girder ansible role
+          command: |
+            . venv/bin/activate
+            ansible-galaxy install --force --roles-path .circleci/ansible/roles girder.girder
+            pip install girder_client
+
+      - run:
+          name: Configuring Girder Server Using Playbook
+          command: |
+            . venv/bin/activate
+            sudo apt-get install apt-transport-https apt-utils
+            ansible-playbook --connection local -i "localhost," .circleci/ansible/setup.yml -s
+
+      - run:
+          name: Running Tests
+          command: |
+            . venv/bin/activate
+            pytest --doctest-modules --cov-report html:coverage --cov . --cov-config .circleci/.coveragerc
+          environment:
+            GIRDER_USER: wongwongwong
+            GIRDER_PASSWORD: parionistersenestionlityper
+            GIRDER_API_URL: "http://localhost:8080/api/v1"
+
+      - store_artifacts:
+          path: coverage
+          destination: coverage
