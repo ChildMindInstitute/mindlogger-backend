@@ -33,11 +33,6 @@ jobs:
           # fallback to using the latest cache if no exact match is found
           - v1-dependencies-
 
-      -run:
-          name: "Who Am I?"
-          command: |
-            sudo whoami
-
       - run:
           name: Installing Dependencies
           command: |
@@ -76,6 +71,7 @@ jobs:
           name: Running Tests
           command: |
             . venv/bin/activate
+            sudo whoami
             pytest --doctest-modules --cov-report html:coverage --cov . --cov-config .circleci/.coveragerc
           environment:
             GIRDER_USER: wongwongwong
