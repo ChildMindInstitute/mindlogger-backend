@@ -34,7 +34,7 @@ jobs:
           - v1-dependencies-
 
       -run:
-          name: Who Am I?
+          name: "Who Am I?"
           command: |
             sudo whoami
 
