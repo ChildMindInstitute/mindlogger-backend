@@ -17,7 +17,7 @@
       apt:
         update_cache: yes
       become: yes
-      become-method: sudo
+      become_method: sudo
       become_user: circleci
       when: ansible_os_family == "Debian"
 
