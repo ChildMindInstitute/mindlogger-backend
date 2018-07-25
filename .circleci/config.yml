@@ -9,11 +9,13 @@ jobs:
       only:
         - mongo
         - girder-dev
+        - circleci
     docker:
       # specify the version you desire here
       # use `-browsers` prefix for selenium tests, e.g. `3.6.1-browsers`
       - image: circleci/python:3.6.5
-
+      - image: girder/girder
+      - image: circleci/mongo:4.0.0
       # Specify service dependencies here if necessary
       # CircleCI maintains a library of pre-built images
       # documented at https://circleci.com/docs/2.0/circleci-images/
@@ -32,9 +34,9 @@ jobs:
           - v1-dependencies-
 
       - run:
-          name: install dependencies
+          name: Installing Dependencies
           command: |
-            python3 -m venv venv
+            python3 -m venv venv --system-site-packages
             . venv/bin/activate
             pip install -r mindlogger_backend_dev/requirements.txt
             pip install pytest pytest-cov pytest-pythonpath pytest-remotedata pytest-openfiles pytest-doctestplus pytest-arraydiff celery
@@ -45,16 +47,36 @@ jobs:
             - ./venv
           key: v1-dependencies-{{ checksum "mindlogger_backend_dev/requirements.txt" }}
 
-      # run tests!
-      # this example uses Django's built-in test-runner
-      # other common Python testing frameworks include pytest and nose
-      # https://pytest.org
-      # https://nose.readthedocs.io
       - run:
-          name: run tests
+          name: Installing ansible
+          command: |
+            . venv/bin/activate
+            pip install ansible
+
+      - run:
+          name: Installing Girder ansible role
+          command: |
+            . venv/bin/activate
+            ansible-galaxy install --force --roles-path .circleci/ansible/roles girder.girder
+            pip install girder_client
+
+      - run:
+          name: Configuring Girder Server Using Playbook
+          command: |
+            pip install requests --user
+            . venv/bin/activate
+            sudo apt-get install apt-transport-https apt-utils
+            ansible-playbook --connection local -i "localhost," --extra-vars="ansible_python_interpreter=$(which python)" .circleci/ansible/setup.yml -vvv
+
+      - run:
+          name: Running Tests
           command: |
             . venv/bin/activate
             pytest --doctest-modules --cov-report html:coverage --cov . --cov-config .circleci/.coveragerc
+          environment:
+            GIRDER_USER: wongwongwong
+            GIRDER_PASSWORD: parionistersenestionlityper
+            GIRDER_API_URL: "http://localhost:8080/api/v1"
 
       - store_artifacts:
           path: coverage

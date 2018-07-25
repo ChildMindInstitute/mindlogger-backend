@@ -124,7 +124,7 @@ def find_or_create(x, parent, girder_connection):
     """
     Function to find or create a Girder Folder or Item
     under a specific parent.
-    
+
     Parameters
     ----------
     x: 2-tuple
@@ -132,45 +132,94 @@ def find_or_create(x, parent, girder_connection):
             "Folder", "Item", etc.
         x[1]: string
             entity name
-    
+
     parent: 2-tuple
         parent[0]: string
             "Collection", "Folder", etc.
         parent[1]: string
             Girder_id
-    
+
     girder_connection: GirderClient
         active GirderClient
-        
+
     Returns
     -------
     _id: string
         Girder_id of found or created entity
+
+    Examples
+    --------
+    >>> import os
+    >>> from .. import girder_connections
+    >>> which_girder = "dev"
+    >>> config, context, api_url = girder_connections.configuration(
+    ...     config_file=os.path.join(
+    ...         os.path.dirname(__file__),
+    ...         "config.json.template"
+    ...     ),
+    ...     context_file=os.path.join(
+    ...         os.path.dirname(__file__),
+    ...         "context.json"
+    ...     ),
+    ...     which_girder=which_girder
+    ... )
+    >>> which_girder = "girder-{}".format(which_girder)
+    >>> girder_connection = girder_connections.connect_to_girder(
+    ...     api_url=api_url,
+    ...     authentication=(
+    ...         config[which_girder]["user"],
+    ...         config[which_girder]["password"],
+    ...         config[which_girder]["APIkey"]
+    ...     ) if "APIkey" in config[which_girder] else (
+    ...         config[which_girder]["user"],
+    ...         config[which_girder]["password"]
+    ...     )
+    ... )
+    Connected to the Girder database 🏗🍃 and authenticated.
+    >>> book = girder_connection.get("folder/{}".format(find_or_create(
+    ...     ("Folder", "Book of Cagliostro"),
+    ...     ("Collection", get_girder_id_by_name(
+    ...         girder_connection,
+    ...         "Collection",
+    ...         "Ancient One"
+    ...     )),
+    ...     girder_connection
+    ... )))
+    >>> book['name']
+    'Book of Cagliostro'
+    >>> incantation = girder_connection.get("item/{}".format(find_or_create(
+    ...     ("Item", "draw energy from the Dark Dimension"),
+    ...     ("Folder", book["_id"]),
+    ...     girder_connection
+    ... )))
+    >>> incantation['name']
+    'draw energy from the Dark Dimension'
+    >>> girder_connection.delete(
+    ...     "item/{}".format(incantation["_id"])
+    ... )['message']
+    'Deleted item draw energy from the Dark Dimension.'
+    >>> girder_connection.delete(
+    ...     "folder/{}".format(book["_id"])
+    ... )['message']
+    'Deleted folder Book of Cagliostro.'
+    >>> girder_connection.delete(
+    ...     'collection/{}'.format(
+    ...         get_girder_id_by_name(
+    ...             girder_connection,
+    ...             "Collection",
+    ...             "Ancient One"
+    ...         )
+    ...     )
+    ... )['message']
+    'Deleted collection Ancient One.'
     """
-    api_query = "".join([
-        x[0].lower(),
-        "?folderId=",
-        parent[1],
-        "&name=",
-        x[1],
-        "&reuseExisting=true"
-    ]) if (
-        x[0].lower()=="item" and
-        y[0].lower()=="folder"
-    ) else "".join([
-        x[0].lower(),
-        "?parentType=",
-        parent[0].lower(),
-        "&parentId=",
-        parent[1],
-        "&name=",
-        x[1],
-        "&reuseExisting=true"
-    ])
     return(
-        girder_connection.post(
-            api_query
-        )["_id"]
+        get_girder_id_by_name(
+            girder_connection,
+            x[0],
+            x[1],
+            parent=parent
+        )
     )
 
 
@@ -234,22 +283,22 @@ def get_files_in_item(
 def get_folder_or_item_info(girder_id, girder_type, girder_connection):
     """
     Function to collect all relevant info about a Folder or Item.
-    
+
     Parameters
     ----------
     girder_id: string
         Girder _id
-    
+
     girder_type: string
         "Folder" or "Item"
-        
+
     girder_connection: GirderClient
         active GirderClient
-        
+
     Returns
     -------
     info: dictionary
-    
+
     Examples
     >>> pass
     """
@@ -318,17 +367,43 @@ def get_girder_id_by_name(
 
     Examples
     --------
-    >>> import girder_client as gc
-    >>> get_girder_id_by_name(
-    ...     girder_connection=gc.GirderClient(
-    ...         apiUrl="https://data.kitware.com/api/v1/"
+    >>> import os
+    >>> from .. import girder_connections
+    >>> which_girder = "dev"
+    >>> config, context, api_url = girder_connections.configuration(
+    ...     config_file=os.path.join(
+    ...         os.path.dirname(__file__),
+    ...         "config.json.template"
     ...     ),
-    ...     entity="collection",
-    ...     name="Cinema",
-    ...     parent=None,
-    ...     sortdir=1
+    ...     context_file=os.path.join(
+    ...         os.path.dirname(__file__),
+    ...         "context.json"
+    ...     ),
+    ...     which_girder=which_girder
     ... )
-    '55706aa58d777f649a9ba164'
+    >>> which_girder = "girder-{}".format(which_girder)
+    >>> girder_connection = girder_connections.connect_to_girder(
+    ...     api_url=api_url,
+    ...     authentication=(
+    ...         config[which_girder]["user"],
+    ...         config[which_girder]["password"],
+    ...         config[which_girder]["APIkey"]
+    ...     ) if "APIkey" in config[which_girder] else (
+    ...         config[which_girder]["user"],
+    ...         config[which_girder]["password"]
+    ...     )
+    ... )
+    Connected to the Girder database 🏗🍃 and authenticated.
+    >>> girder_connection.get(
+    ...     "collection/{}".format(
+    ...         get_girder_id_by_name(
+    ...             girder_connection=girder_connection,
+    ...             entity="Collection",
+    ...             name="Ancient One"
+    ...         )
+    ...     )
+    ... )["name"]
+    'Ancient One'
     """
     entity = entity.title()
     query = "".join([
@@ -365,7 +440,9 @@ def get_girder_id_by_name(
         ) else girder_connection.createCollection(
             name=name,
             public=False
-        )["_id"] if entity=="Collection" else None
+        )["_id"] if entity=="Collection" else girder_connection.post(
+            query
+        )["_id"]
     )
 
 
@@ -500,27 +577,27 @@ def get_user_id_by_email(girder_connection, email):
 def ls_x_in_y(x_type, y, girder_connection):
     """
     Function to list **x** in **y**.
-    
+
     Parameters
     ----------
     x_type: string
         "Folder", "Item", etc.
-        
+
     y: 2-tuple
         y[0]: string
             "Collection", "Folder", etc.
-        
+
         y[1]: string
             Girder_id
-        
+
     girder_connection: GirderClient
         active GirderClient
-    
+
     Returns
     -------
     x: list of dictionaries
         ≅ JSON array of objects
-        
+
     Examples
     --------
     >>> import girder_client as gc
@@ -557,20 +634,20 @@ def ls_x_in_y(x_type, y, girder_connection):
 def move_item_to_folder(girder_id, girder_connection):
     """
     Function to collect all relevant info about a Folder or Item.
-    
+
     Parameters
     ----------
     girder_id: string
         Item's Girder_id
-        
+
     girder_connection: GirderClient
         active GirderClient
-        
+
     Returns
     -------
     folder_id: string
         Girder_id for new Folder replacing old Item
-    
+
     Examples
     >>> pass
     """
@@ -650,7 +727,7 @@ def mv(
 ):
     """
     Function to move a Girder entity to a new_parent.
-    
+
     Parameters
     ----------
     x: 2-tuple
@@ -658,16 +735,16 @@ def mv(
             "Folder", "Item", etc.
         x[1]: string
             Girder_id
-    
+
     new_parent: 2-tuple
         new_parent[0]: string
             "Collection", "Folder", etc.
         new_parent[1]: string
             Girder_id
-    
+
     girder_connection: GirderClient
         active GirderClient
-        
+
     Returns
     -------
     x_object: dictionary
@@ -705,7 +782,7 @@ def rename(
 ):
     """
     Function to rename a Girder entity.
-    
+
     Parameters
     ----------
     x: 2-tuple
@@ -713,13 +790,13 @@ def rename(
             "Folder", "Item", etc.
         x[1]: string
             Girder_id
-    
+
     new_name: string
         new name for entity
-    
+
     girder_connection: GirderClient
         active GirderClient
-        
+
     Returns
     -------
     x_object: dictionary
@@ -737,7 +814,7 @@ def rename(
             api_query
         )
     )
-    
+
 
 def _delete_collections(girder_connection, except_collection_ids):
     """

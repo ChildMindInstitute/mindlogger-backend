@@ -45,7 +45,7 @@ def configuration(
     ...     config_file=config_file
     ... )
     >>> config["girder-dev"]["user"]
-    'wong'
+    'wongwongwong'
     """
     if config_file is None:
         config_file = os.path.join(

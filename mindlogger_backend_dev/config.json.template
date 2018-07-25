@@ -6,13 +6,12 @@
     "password":"jectorsefulatedistrologicat"
   },
   "girder-dev": {
-    "user":"wong",
+    "user":"wongwongwong",
     "host":"127.0.0.1:8080",
-    "password":"parionistersenestionlityper",
-    "APIkey":"zv9hkfzz8kwebc59h7iyVpfG4KCFhorKKfQ7537p"
+    "password":"parionistersenestionlityper"
   },
   "girder-production": {
-    "user":"wong",
+    "user":"wongwongwong",
     "host":"www.marvel.com/doctorstrange",
     "password":"eNestIONaliTyPOrustRaterSeaT",
     "APIkey":"h|]6ndnEm{1i5Xz{=o{8vzzd&&%'6}4p30z2e1=u"
