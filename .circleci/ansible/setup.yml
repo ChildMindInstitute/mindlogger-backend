@@ -13,12 +13,13 @@
     girder_password: "parionistersenestionlityper"
 
   pre_tasks:
-    
+
     - name: Create Girder user
       user:
         password: "parionistersenestionlityper"
         name: "{{ girder_user }}"
       become: yes
+      become_method: sudo
       become_user: circleci
 
   roles:
