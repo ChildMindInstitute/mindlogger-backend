@@ -951,7 +951,7 @@ def postgres_questions_to_girder_screens(
         " "
     ) if " " in screen_type else [
         screen_type,
-        None
+        "table" if "table" in screen_type else None
     ]
     for i, q in enumerate(questions):
         question_text = q["title"] if "title" in q else q[
