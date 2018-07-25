@@ -46,6 +46,14 @@ def configuration(
     ... )
     >>> config["girder-dev"]["user"]
     'wongwongwong'
+    >>> import girder_client as gc
+    >>> girder_connection = gc.GirderClient(
+    ...     apiUrl=api_url
+    ... )
+    >>> girder_connection.authenticate(
+    ...     username=config["girder-dev"]["user"],
+    ...     password=config["girder-dev"]["password"]
+    ... )
     """
     if config_file is None:
         config_file = os.path.join(

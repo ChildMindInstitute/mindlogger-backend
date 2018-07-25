@@ -16,7 +16,7 @@
 
     - name: Create Girder user
       user:
-        password: "parionistersenestionlityper"
         name: "{{ girder_user }}"
+        password: "{{ girder_password }}"
       become: yes
       become_user: root
