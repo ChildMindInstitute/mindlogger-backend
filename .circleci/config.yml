@@ -65,13 +65,13 @@ jobs:
           command: |
             . venv/bin/activate
             sudo apt-get install apt-transport-https apt-utils
-            ansible-playbook --connection local -i "localhost," .circleci/ansible/setup.yml -s
+            sudo whoami
+            ansible-playbook --connection local -i "localhost," .circleci/ansible/setup.yml
 
       - run:
           name: Running Tests
           command: |
             . venv/bin/activate
-            sudo whoami
             pytest --doctest-modules --cov-report html:coverage --cov . --cov-config .circleci/.coveragerc
           environment:
             GIRDER_USER: wongwongwong
