@@ -36,7 +36,6 @@ def configuration(
 
     Example
     -------
-    >>> import json
     >>> config_file = os.path.join(
     ...    os.path.dirname(__file__),
     ...    "config.json.template"
@@ -114,6 +113,30 @@ username and password.
     Connected to the Girder database 🏗🍃 but could not authenticate.
     >>> g = connect_to_girder(authentication="ab")
     Connected to the Girder database 🏗🍃 but could not authenticate.
+    >>> import os
+    >>> config_file = os.path.join(
+    ...    os.path.dirname(__file__),
+    ...    "config.json.template"
+    ... )
+    >>> config, context, api_url = configuration(
+    ...     config_file=config_file
+    ... )
+    >>> girder_connection = connect_to_girder(
+    ...     api_url=api_url,
+    ...     authentication=(
+    ...         config["girder-dev"]["user"],
+    ...         config["girder-dev"]["password"]
+    ...     )
+    ... )
+    Connected to the Girder database 🏗🍃 and authenticated.
+    >>> connect_to_girder(
+    ...     api_url=config["girder-dev"]["password"],
+    ...     authentication=(
+    ...         config["girder-dev"]["user"],
+    ...         config["girder-dev"]["password"]
+    ...     )
+    ... )
+    I am unable to connect to the Girder database 🏗🍃
     """
     girder_connection = gc.GirderClient(
         apiUrl=api_url
@@ -143,16 +166,16 @@ username and password.
             print(
                 "Connected to the Girder database 🏗🍃 and "
                 "authenticated."
-            ) # pragma: no cover
+            )
         except (gc.AuthenticationError, gc.HttpError) as AuthError:
             print(
                 "Connected to the Girder database 🏗🍃 but "
                 "could not authenticate."
             )
-        except: # pragma: no cover
+        except:
             print(
                 "I am unable to connect to the "
                 "Girder database 🏗🍃"
-            ) # pragma: no cover
-            return(None) # pragma: no cover
+            )
+            return(None)
     return(girder_connection)
