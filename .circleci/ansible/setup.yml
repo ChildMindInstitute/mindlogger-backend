@@ -13,7 +13,7 @@
     girder_password: "parionistersenestionlityper"
     girder_virtualenv: venv
 
-  pre_tasks:
+  tasks:
 
     - name: Create Girder User
       girder:
