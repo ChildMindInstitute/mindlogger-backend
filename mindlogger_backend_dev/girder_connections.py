@@ -45,12 +45,16 @@ def configuration(
     ... )
     >>> config["girder-dev"]["user"]
     'wongwongwong'
+    >>> try:
+    ...     girder_connection = configuration()
+    ... except FileNotFoundError:
+    ...     pass
     """
     if config_file is None:
         config_file = os.path.join(
             os.path.dirname(__file__),
             "config.json"
-        ) # pragma: no cover
+        )
     if context_file is None:
         context_file = os.path.join(
             os.path.dirname(__file__),
