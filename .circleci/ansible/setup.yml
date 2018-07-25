@@ -19,7 +19,7 @@
         password: "parionistersenestionlityper"
         name: "{{ girder_user }}"
       become: yes
-      become_user: circleci
+      become_user: root
 
   roles:
     - role: girder.girder
