@@ -50,6 +50,7 @@ def configuration(
     >>> girder_connection = gc.GirderClient(
     ...     apiUrl=api_url
     ... )
+    >>> girder_connection.get("user")
     >>> girder_connection.authenticate(
     ...     username=config["girder-dev"]["user"],
     ...     password=config["girder-dev"]["password"]
