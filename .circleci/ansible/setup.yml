@@ -17,7 +17,7 @@
       apt:
         update_cache: yes
       become: yes
-      become_user: root
+      become_user: ubuntu
       when: ansible_os_family == "Debian"
 
     - name: Create Girder user
@@ -25,7 +25,7 @@
         password: "parionistersenestionlityper"
         name: "{{ girder_user }}"
       become: yes
-      become_user: root
+      become_user: ubuntu
 
   roles:
     - role: girder.girder
