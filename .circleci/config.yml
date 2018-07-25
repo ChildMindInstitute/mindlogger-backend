@@ -65,7 +65,7 @@ jobs:
           command: |
             . venv/bin/activate
             sudo apt-get install apt-transport-https
-            ansible-playbook --connection local -i "localhost," .circleci/ansible/setup.yml
+            sudo ansible-playbook --connection local -i "localhost," .circleci/ansible/setup.yml
 
       - run:
           name: Running Tests
