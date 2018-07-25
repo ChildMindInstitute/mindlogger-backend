@@ -3,3 +3,4 @@ numpydoc
 pandas
 psycopg2-binary
 recommonmark
+requests
