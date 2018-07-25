@@ -506,7 +506,8 @@ def postgres_activities_to_girder_activities(
                     "image_url",
                     "frequency",
                     "mode",
-                    "type"
+                    "type",
+                    "answers"
                 ]
             },
             "oslc:modifiedBy": [
@@ -546,7 +547,13 @@ def postgres_activities_to_girder_activities(
                             gc,
                             [{
                                 **act_data,
-                                "type": acts.loc[i, "type"]
+                                "type": acts.loc[
+                                    i,
+                                    "type"
+                                ] if "type" in list(acts.loc[i].index) else acts.loc[
+                                    i,
+                                    "mode"
+                                ]
                             }],
                             abbreviation if abbreviation else activity_name,
                             " ".join([
@@ -897,6 +904,16 @@ def postgres_question_to_girder_question(
             "@language": language
         },
         "response_type": q["type"]
+    } if context else {
+        "schema:name": {
+            "@value": variable_name,
+            "@language": language
+        },
+        "question_text": {
+            "@value": question_text,
+            "@language": language
+        },
+        "response_type": q["type"]
     }
     return(metadata)
 
@@ -1043,7 +1060,7 @@ def postgres_questions_to_girder_screens(
                             variable_name,
                             str(i+1)
                         ),
-                        context,
+                        context=None,
                         language=language
                     ),
                     "options": options[i] if "sel" in q[
@@ -1064,7 +1081,7 @@ def postgres_questions_to_girder_screens(
                                     str(i+1),
                                     str(j+1)
                                 ),
-                                context,
+                                context=None,
                                 language=language
                             )
                         } for j, column in enumerate(
