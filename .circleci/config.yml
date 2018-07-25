@@ -65,7 +65,6 @@ jobs:
           command: |
             . venv/bin/activate
             sudo apt-get install apt-transport-https apt-utils
-            sudo whoami
             ansible-playbook --connection local -i "localhost," .circleci/ansible/setup.yml
 
       - run:

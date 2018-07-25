@@ -20,8 +20,3 @@
         name: "{{ girder_user }}"
       become: yes
       become_user: root
-
-  roles:
-    - role: girder.girder
-      become: yes
-      become_user: "{{ girder_user }}"
