@@ -1040,7 +1040,7 @@ def postgres_questions_to_girder_screens(
             ]
             rows = [
                 {
-                    "header": \
+                    "index": \
                     postgres_question_to_girder_question(
                         {
                             "type": "_".join([
@@ -1118,9 +1118,14 @@ def postgres_questions_to_girder_screens(
                         "table": {
                             str(
                                 coords
-                            ): table[
-                                coords
-                            ] for coords in table
+                            ): postgres_options_to_JSONLD_options(
+                                girder_connection,
+                                {
+                                    "type": q["type"],
+                                    "rows": [table[coords]]
+                                },
+                                screen
+                            ) for coords in table
                         },
                         "rows": [
                             {
@@ -1217,39 +1222,44 @@ def postgres_options_to_JSONLD_options(
     """
     j_options = [
         {
-          "option_image": list(
-              upload_applicable_files(
-                  gc,
-                  {
-                      **option,
-                      "filetype": "image_url"
-                  },
-                  item_id,
-                  option[
-                      "name"
-                  ] if "name" in option else ""
-              ).values()
-          )[0] if "image_url" in option else None,
-          "option_text": {
-              "@value": option[
-                  "text"
-              ] if "text" in option else option[
-                  "name"
-              ] if "name" in option else None,
-              "@language": language
-          },
-          "value": (
-              option[
-                  "key"
-              ] if "key" in option else option[
-                  "name"
-              ] if "name" in option else option[
-                  "text"
-              ] if "text" in option else None
-          ) if q["type"] not in {
-              "number",
-              "text"
-          } else None
+            "option_image": list(
+                upload_applicable_files(
+                    gc,
+                    {
+                        **option,
+                        "filetype": "image_url"
+                    },
+                    item_id,
+                    option[
+                        "name"
+                    ] if "name" in option else option[
+                        "text"
+                    ] if "text" in option else ""
+                ).values()
+            )[0] if "image_url" in option else None,
+            "option_text": {
+                "@value": option[
+                    "text"
+                ] if "text" in option else option[
+                    "name"
+                ] if "name" in option else None,
+                "@language": language
+            } if (
+                "text" in option and option["text"] and len(option["text"])
+            ) else None,
+            "value": (
+                option[
+                    "value"
+                ] if "value" in option else option[
+                    "key"
+                ] if "key" in option else option[
+                    "name"
+                ] if "name" in option else option[
+                    "text"
+                ] if "text" in option else None
+            ) if q["type"] not in {
+                "text"
+            } else None
         } for option in [
             *(
                 q[
@@ -1608,7 +1618,14 @@ def table_cells_from_postgres(
                 ) for j in range(
                     len(columns)
                 )
-            }
+            },
+            **({
+                (i,j): {"value": 0} for i in range(
+                    1, len(rows)+1
+                ) for j in range(
+                    1, len(columns)+1
+                )
+            } if response_type=="number" else {})
         }
     )
 
