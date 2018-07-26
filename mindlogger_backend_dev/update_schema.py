@@ -60,6 +60,69 @@ def add_to_schedule(
     Returns
     -------
     schedule_item_id: string
+
+    Examples
+    --------
+    >>> from .. import girder_connections
+    >>> import os
+    >>> config_file = os.path.join(
+    ...    os.path.dirname(__file__),
+    ...    "config.json.template"
+    ... )
+    >>> config, context, api_url = girder_connections.configuration(
+    ...     config_file=config_file
+    ... )
+    >>> girder_connection = girder_connections.connect_to_girder(
+    ...     api_url=api_url,
+    ...     authentication=(
+    ...         config["girder-dev"]["user"],
+    ...         config["girder-dev"]["password"]
+    ...     )
+    ... )
+    Connected to the Girder database 🏗🍃 and authenticated.
+    >>> collection_id = get_girder_id_by_name(
+    ...     girder_connection,
+    ...     "Collection",
+    ...     "Ancient One"
+    ... )
+    >>> schedules_id = get_girder_id_by_name(
+    ...     girder_connection,
+    ...     "folder",
+    ...     "Schedules",
+    ...     ("Collection", collection_id)
+    ... )
+    >>> girder_connection.get("item/{}".format(
+    ...     add_to_schedule(
+    ...         girder_connection=girder_connection,
+    ...         frequency="Centennially",
+    ...         schedules_id=schedules_id,
+    ...         activity_item_id=get_girder_id_by_name(
+    ...             girder_connection,
+    ...             "Item",
+    ...             "Fighting Dragon Raiders",
+    ...             ("Folder", get_girder_id_by_name(
+    ...                 girder_connection,
+    ...                 "Folder",
+    ...                 "Fighting Dragon Raiders",
+    ...                 ("Folder", get_girder_id_by_name(
+    ...                     girder_connection,
+    ...                     "Folder",
+    ...                     "Activities",
+    ...                     ("Collection", collection_id)
+    ...                 ))
+    ...             ))
+    ...         ),
+    ...         timings={"Centennially": "Centennially"},
+    ...         schedule_folder_id=schedules_id,
+    ...         schedule_item_id=get_girder_id_by_name(
+    ...             girder_connection,
+    ...             "Item",
+    ...             "Centennially",
+    ...             ("Folder", schedules_id)
+    ...         )
+    ...     )
+    ... ))['name']
+    'Centennially'
     """
     schedule_folder_id = girder_connection.createFolder(
         name=timings[frequency],
@@ -69,7 +132,7 @@ def add_to_schedule(
         reuseExisting=True
     )[
         "_id"
-    ] if not schedule_folder_id else schedule_folder_id # pragma: no cover
+    ] if not schedule_folder_id else schedule_folder_id
     schedule_item_id = girder_connection.createItem(
         name=" ".join([
             "Version 0",
@@ -79,25 +142,25 @@ def add_to_schedule(
         reuseExisting=True
     )[
         "_id"
-    ] if not schedule_item_id else schedule_item_id # pragma: no cover
+    ] if not schedule_item_id else schedule_item_id
     schedule_item = girder_connection.get(
         "".join([
             "item/",
             schedule_item_id
         ])
-    ) # pragma: no cover
+    )
     schedule_metadata = schedule_item[
         "meta"
-    ] if "meta" in schedule_item else {} # pragma: no cover
+    ] if "meta" in schedule_item else {}
     schedule_metadata[
         "@context"
     ] = context if "@context" not in \
     schedule_metadata else schedule_metadata[
         "@context"
-    ] # pragma: no cover
+    ]
     schedule_metadata["activities"] = [] if (
         "activities" not in schedule_metadata
-    ) else schedule_metadata["activities"] # pragma: no cover
+    ) else schedule_metadata["activities"]
     schedule_metadata["activities"].append(
         {
             "@id": "".join([
@@ -110,14 +173,14 @@ def add_to_schedule(
                 )
             )["name"]
         }
-    ) # pragma: no cover
+    )
     girder_connection.addMetadataToItem(
         schedule_item_id,
         drop_empty_keys(
             schedule_metadata
         )
-    ) # pragma: no cover
-    return(schedule_item_id) # pragma: no cover
+    )
+    return(schedule_item_id)
 
 
 def find_or_create(x, parent, girder_connection):
