@@ -5,6 +5,10 @@
 This backend serves as an administration console for customizing and storing data from the modular data collection app.
 
 ---
+# Mindlogger Girder DB (Live Link)
+[🔗 Mindlogger Girder Database](http://mindlogger-girder-atlas.a4vwd5q7ib.us-east-1.elasticbeanstalk.com)
+
+---
 # Girder Structure
 
 - [Collections](#collections)

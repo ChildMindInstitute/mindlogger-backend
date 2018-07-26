@@ -363,7 +363,48 @@ def get_folder_or_item_info(girder_id, girder_type, girder_connection):
     info: dictionary
 
     Examples
-    >>> pass
+    >>> import os
+    >>> from .. import girder_connections
+    >>> which_girder = "dev"
+    >>> config, context, api_url = girder_connections.configuration(
+    ...     config_file=os.path.join(
+    ...         os.path.dirname(__file__),
+    ...         "config.json.template"
+    ...     ),
+    ...     context_file=os.path.join(
+    ...         os.path.dirname(__file__),
+    ...         "context.json"
+    ...     ),
+    ...     which_girder=which_girder
+    ... )
+    >>> which_girder = "girder-{}".format(which_girder)
+    >>> girder_connection = girder_connections.connect_to_girder(
+    ...     api_url=api_url,
+    ...     authentication=(
+    ...         config[which_girder]["user"],
+    ...         config[which_girder]["password"],
+    ...         config[which_girder]["APIkey"]
+    ...     ) if "APIkey" in config[which_girder] else (
+    ...         config[which_girder]["user"],
+    ...         config[which_girder]["password"]
+    ...     )
+    ... )
+    Connected to the Girder database 🏗🍃 and authenticated.
+    >>> book = find_or_create(
+    ...     ("Folder", "Book of Cagliostro"),
+    ...     ("Collection", get_girder_id_by_name(
+    ...         girder_connection,
+    ...         "Collection",
+    ...         "Ancient One"
+    ...     )),
+    ...     girder_connection
+    ... )
+    >>> get_folder_or_item_info(
+    ...     book,
+    ...     "Folder",
+    ...     girder_connection
+    ... )['name']
+    'Book of Cagliostro'
     """
     info = {
         "old_ids" : [girder_id],
@@ -472,8 +513,7 @@ def get_girder_id_by_name(
     query = "".join([
         entity.lower(),
         "?text=" if entity in {
-            "Collection",
-            "Group"
+            "Collection"
         } else "?name=",
         name,
         "&parentType={0}&parentId={1}".format(
@@ -516,8 +556,7 @@ def get_group_ids(
         "Managers",
         "Users",
         "Viewers"
-    },
-    create_missing=False
+    }
 ):
     """
     Function to collect Girder _ids,
@@ -540,11 +579,6 @@ def get_group_ids(
             "Viewers"
         }
 
-    create_missing: boolean
-        create Group if none with that name
-        exists?
-        default: False
-
     Returns
     -------
     groups: dictionary
@@ -563,25 +597,48 @@ def get_group_ids(
     ...     groups={"VIGILANT"}
     ... )
     {'VIGILANT': '58a354fe8d777f0721a6106a'}
+    >>> import os
+    >>> from .. import girder_connections
+    >>> which_girder = "dev"
+    >>> config, context, api_url = girder_connections.configuration(
+    ...     config_file=os.path.join(
+    ...         os.path.dirname(__file__),
+    ...         "config.json.template"
+    ...     ),
+    ...     context_file=os.path.join(
+    ...         os.path.dirname(__file__),
+    ...         "context.json"
+    ...     ),
+    ...     which_girder=which_girder
+    ... )
+    >>> which_girder = "girder-{}".format(which_girder)
+    >>> girder_connection = girder_connections.connect_to_girder(
+    ...     api_url=api_url,
+    ...     authentication=(
+    ...         config[which_girder]["user"],
+    ...         config[which_girder]["password"],
+    ...         config[which_girder]["APIkey"]
+    ...     ) if "APIkey" in config[which_girder] else (
+    ...         config[which_girder]["user"],
+    ...         config[which_girder]["password"]
+    ...     )
+    ... )
+    Connected to the Girder database 🏗🍃 and authenticated.
+    >>> groups = [k for k in get_group_ids(
+    ...     girder_connection,
+    ...     {"Masters of the Mystic Arts", "Sorcerers Supreme"}
+    ... )]
+    >>> groups.sort()
+    >>> groups
+    ['Masters of the Mystic Arts', 'Sorcerers Supreme']
     """
-    groups = {
+    return({
         group: get_girder_id_by_name(
-          girder_connection,
-          "group",
-          group
-          ) for group in groups
-    }
-    if create_missing: # pragma: no cover
-        for group in groups: # pragma: no cover
-            if groups[group] is None: # pragma: no cover
-                groups[group] = girder_connection.post(
-                    "".join([
-                        "group?name=",
-                        group,
-                        "&public=false"
-                    ])
-                )["_id"] # pragma: no cover
-    return(groups)
+            girder_connection,
+            "group",
+            group
+            ) for group in groups
+    })
 
 
 def get_user_id_by_email(girder_connection, email):
@@ -712,7 +769,71 @@ def move_item_to_folder(girder_id, girder_connection):
         Girder_id for new Folder replacing old Item
 
     Examples
-    >>> pass
+    >>> import os
+    >>> from .. import girder_connections
+    >>> which_girder = "dev"
+    >>> config, context, api_url = girder_connections.configuration(
+    ...     config_file=os.path.join(
+    ...         os.path.dirname(__file__),
+    ...         "config.json.template"
+    ...     ),
+    ...     context_file=os.path.join(
+    ...         os.path.dirname(__file__),
+    ...         "context.json"
+    ...     ),
+    ...     which_girder=which_girder
+    ... )
+    >>> which_girder = "girder-{}".format(which_girder)
+    >>> girder_connection = girder_connections.connect_to_girder(
+    ...     api_url=api_url,
+    ...     authentication=(
+    ...         config[which_girder]["user"],
+    ...         config[which_girder]["password"],
+    ...         config[which_girder]["APIkey"]
+    ...     ) if "APIkey" in config[which_girder] else (
+    ...         config[which_girder]["user"],
+    ...         config[which_girder]["password"]
+    ...     )
+    ... )
+    Connected to the Girder database 🏗🍃 and authenticated.
+    >>> collection = get_girder_id_by_name(
+    ...     girder_connection,
+    ...     "Collection",
+    ...     "Ancient One"
+    ... )
+    >>> item = get_girder_id_by_name(
+    ...     girder_connection,
+    ...     "Item",
+    ...     "Kaecilius",
+    ...     ("Folder", get_girder_id_by_name(
+    ...         girder_connection,
+    ...         "Folder",
+    ...         "Masters of the Mystic Arts",
+    ...         ("Collection", collection)
+    ...     ))
+    ... )
+    >>> from urllib.request import urlopen
+    >>> image_stream = urlopen(
+    ...     "/".join([
+    ...         "https://vignette.wikia.nocookie.net",
+    ...         "marvelcinematicuniverse/images/1/14/",
+    ...         "DS_Kaecilius_Poster_cropped.png"
+    ...     ])
+    ... )
+    >>> img_id = girder_connection.uploadFile(
+    ...     parentId=item,
+    ...     parentType="item",
+    ...     stream=image_stream,
+    ...     name="Kaecilius.png",
+    ...     size=int(
+    ...         image_stream.info()["Content-Length"]
+    ...     )
+    ... )["_id"]
+    >>> folder = move_item_to_folder(item, girder_connection)
+    >>> girder_connection.get(
+    ...     "folder/{}".format(folder)
+    ... )['_modelType']
+    'folder'
     """
     info = get_folder_or_item_info(
         girder_id,
@@ -812,6 +933,64 @@ def mv(
     -------
     x_object: dictionary
         ≅JSON representation of entity in new location
+
+    Examples
+    --------
+    >>> import os
+    >>> from .. import girder_connections
+    >>> which_girder = "dev"
+    >>> config, context, api_url = girder_connections.configuration(
+    ...     config_file=os.path.join(
+    ...         os.path.dirname(__file__),
+    ...         "config.json.template"
+    ...     ),
+    ...     context_file=os.path.join(
+    ...         os.path.dirname(__file__),
+    ...         "context.json"
+    ...     ),
+    ...     which_girder=which_girder
+    ... )
+    >>> which_girder = "girder-{}".format(which_girder)
+    >>> girder_connection = girder_connections.connect_to_girder(
+    ...     api_url=api_url,
+    ...     authentication=(
+    ...         config[which_girder]["user"],
+    ...         config[which_girder]["password"],
+    ...         config[which_girder]["APIkey"]
+    ...     ) if "APIkey" in config[which_girder] else (
+    ...         config[which_girder]["user"],
+    ...         config[which_girder]["password"]
+    ...     )
+    ... )
+    Connected to the Girder database 🏗🍃 and authenticated.
+    >>> book = find_or_create(
+    ...     ("Folder", "Book of Cagliostro"),
+    ...     ("Collection", get_girder_id_by_name(
+    ...         girder_connection,
+    ...         "Collection",
+    ...         "Ancient One"
+    ...     )),
+    ...     girder_connection
+    ... )
+    >>> incantation = find_or_create(
+    ...     ("Item", "draw energy from the Dark Dimension"),
+    ...     ("Folder", book),
+    ...     girder_connection
+    ... )
+    >>> girder_connection.get("folder/{}".format(mv(
+    ...     ("Item", incantation),
+    ...     ("Folder", get_girder_id_by_name(
+    ...         girder_connection,
+    ...         "Folder",
+    ...         "Incantations",
+    ...         ("User", get_user_id_by_email(
+    ...             girder_connection,
+    ...             "wong@wong.wong"
+    ...         ))
+    ...     )),
+    ...     girder_connection
+    ... )['folderId']))['name']
+    'Incantations'
     """
     api_query = "".join([
         x[0].lower(),
@@ -864,6 +1043,56 @@ def rename(
     -------
     x_object: dictionary
         ≅JSON representation of entity in new location
+
+    Examples
+    --------
+    >>> import os
+    >>> from .. import girder_connections
+    >>> which_girder = "dev"
+    >>> config, context, api_url = girder_connections.configuration(
+    ...     config_file=os.path.join(
+    ...         os.path.dirname(__file__),
+    ...         "config.json.template"
+    ...     ),
+    ...     context_file=os.path.join(
+    ...         os.path.dirname(__file__),
+    ...         "context.json"
+    ...     ),
+    ...     which_girder=which_girder
+    ... )
+    >>> which_girder = "girder-{}".format(which_girder)
+    >>> girder_connection = girder_connections.connect_to_girder(
+    ...     api_url=api_url,
+    ...     authentication=(
+    ...         config[which_girder]["user"],
+    ...         config[which_girder]["password"],
+    ...         config[which_girder]["APIkey"]
+    ...     ) if "APIkey" in config[which_girder] else (
+    ...         config[which_girder]["user"],
+    ...         config[which_girder]["password"]
+    ...     )
+    ... )
+    Connected to the Girder database 🏗🍃 and authenticated.
+    >>> book = find_or_create(
+    ...     ("Folder", "Book of Cagliostro"),
+    ...     ("Collection", get_girder_id_by_name(
+    ...         girder_connection,
+    ...         "Collection",
+    ...         "Ancient One"
+    ...     )),
+    ...     girder_connection
+    ... )
+    >>> incantation = find_or_create(
+    ...     ("Item", "draw energy from the Dark Dimension"),
+    ...     ("Folder", book),
+    ...     girder_connection
+    ... )
+    >>> rename(
+    ...     ("Item", incantation),
+    ...     "Draw Energy",
+    ...     girder_connection
+    ... )['name']
+    'Draw Energy'
     """
     api_query = "".join([
         x[0].lower(),
@@ -897,6 +1126,51 @@ def _delete_collections(girder_connection, except_collection_ids):
     -------
     collections_kept_and_deleted: DataFrame
         DataFrame of Collections kept and deleted
+
+    Examples
+    --------
+    >>> import os
+    >>> from .. import girder_connections
+    >>> which_girder = "dev"
+    >>> config, context, api_url = girder_connections.configuration(
+    ...     config_file=os.path.join(
+    ...         os.path.dirname(__file__),
+    ...         "config.json.template"
+    ...     ),
+    ...     context_file=os.path.join(
+    ...         os.path.dirname(__file__),
+    ...         "context.json"
+    ...     ),
+    ...     which_girder=which_girder
+    ... )
+    >>> which_girder = "girder-{}".format(which_girder)
+    >>> girder_connection = girder_connections.connect_to_girder(
+    ...     api_url=api_url,
+    ...     authentication=(
+    ...         config[which_girder]["user"],
+    ...         config[which_girder]["password"],
+    ...         config[which_girder]["APIkey"]
+    ...     ) if "APIkey" in config[which_girder] else (
+    ...         config[which_girder]["user"],
+    ...         config[which_girder]["password"]
+    ...     )
+    ... )
+    Connected to the Girder database 🏗🍃 and authenticated.
+    >>> ancientOne = get_girder_id_by_name(
+    ...     girder_connection,
+    ...     "Collection",
+    ...     "Ancient One"
+    ... )
+    >>> deletion_table = _delete_collections(
+    ...     girder_connection,
+    ...     [c["_id"] for c in girder_connection.get(
+    ...         "collection"
+    ...     ) if c["name"] != 'Ancient One']
+    ... )
+    >>> deletion_table[
+    ...     deletion_table["name"]=="Ancient One"
+    ... ]["deleted"].values[0]
+    True
     """
     except_collection_ids = except_collection_ids if isiterable(
         except_collection_ids
@@ -911,7 +1185,7 @@ def _delete_collections(girder_connection, except_collection_ids):
         } for i in girder_connection.listCollection(
         ) if i["_id"] in except_collection_ids
       ]
-    ) # pragma: no cover
+    )
     deleted = pd.DataFrame(
       [
         {
@@ -922,14 +1196,14 @@ def _delete_collections(girder_connection, except_collection_ids):
         } for i in girder_connection.listCollection(
         ) if i["_id"] not in except_collection_ids
       ]
-    ) # pragma: no cover
+    )
     collections_kept_and_deleted = pd.concat(
         [
             kept,
             deleted
         ],
         ignore_index = True
-    ) # pragma: no cover
+    )
     for u in collections_kept_and_deleted[
         collections_kept_and_deleted[
             "deleted"
@@ -963,6 +1237,67 @@ def _delete_users(girder_connection, except_user_ids):
     -------
     users_kept_and_deleted: DataFrame
         DataFrame of Users kept and deleted
+
+
+    Examples
+    --------
+    >>> import os
+    >>> import random
+    >>> import string
+    >>> from .. import girder_connections
+    >>> which_girder = "dev"
+    >>> config, context, api_url = girder_connections.configuration(
+    ...     config_file=os.path.join(
+    ...         os.path.dirname(__file__),
+    ...         "config.json.template"
+    ...     ),
+    ...     context_file=os.path.join(
+    ...         os.path.dirname(__file__),
+    ...         "context.json"
+    ...     ),
+    ...     which_girder=which_girder
+    ... )
+    >>> which_girder = "girder-{}".format(which_girder)
+    >>> girder_connection = girder_connections.connect_to_girder(
+    ...     api_url=api_url,
+    ...     authentication=(
+    ...         config[which_girder]["user"],
+    ...         config[which_girder]["password"],
+    ...         config[which_girder]["APIkey"]
+    ...     ) if "APIkey" in config[which_girder] else (
+    ...         config[which_girder]["user"],
+    ...         config[which_girder]["password"]
+    ...     )
+    ... )
+    Connected to the Girder database 🏗🍃 and authenticated.
+    >>> dormammu = get_user_id_by_email(
+    ...     girder_connection,
+    ...     "dormammu@wong.wong"
+    ... )
+    >>> dormammu = dormammu if dormammu else girder_connection.post(
+    ...     "&".join([
+    ...         "user?login=dormammu",
+    ...         "email=dormammu@wong.wong",
+    ...         "firstName=Dormammu",
+    ...         "lastName=Dormammu",
+    ...         "password={}".format(
+    ...             "".join(random.sample(
+    ...                 (string.ascii_letters+string.digits)*100,
+    ...                 12
+    ...             ))
+    ...         )
+    ...     ])
+    ... )["_id"]
+    >>> deletion_table = _delete_users(
+    ...     girder_connection,
+    ...     [u["_id"] for u in girder_connection.get(
+    ...         "user"
+    ...     ) if u["login"]!="dormammu"]
+    ... )
+    >>> deletion_table[
+    ...     deletion_table["login"]=="wongwongwong"
+    ... ]["deleted"].values[0]
+    False
     """
     except_user_ids = except_user_ids if isiterable(
         except_user_ids
@@ -977,7 +1312,7 @@ def _delete_users(girder_connection, except_user_ids):
             } for i in girder_connection.listUser(
             ) if i["_id"] in except_user_ids
         ]
-    ) # pragma: no cover
+    )
     deleted = pd.DataFrame(
         [
             {
@@ -988,24 +1323,24 @@ def _delete_users(girder_connection, except_user_ids):
             } for i in girder_connection.listUser(
             ) if i["_id"] not in except_user_ids
         ]
-    ) # pragma: no cover
+    )
     users_kept_and_deleted = pd.concat(
         [
             kept,
             deleted
         ],
         ignore_index = True
-    ) # pragma: no cover
+    )
     for u in users_kept_and_deleted[
         users_kept_and_deleted[
             "deleted"
         ]==True
-    ]["_id"]: # pragma: no cover
+    ]["_id"]:
         girder_connection.delete(
             "user/{0}".format(
                 u
             )
-        ) # pragma: no cover
+        )
     return(
         users_kept_and_deleted
-    ) # pragma: no cover
+    )
