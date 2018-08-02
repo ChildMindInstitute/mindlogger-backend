@@ -1897,8 +1897,7 @@ def _main(
 
     # Get or create user Groups
     groups = get_group_ids(
-        girder_connection,
-        create_missing=True
+        girder_connection
     ) # pragma: no cover
 
     # Get or create activities Collection

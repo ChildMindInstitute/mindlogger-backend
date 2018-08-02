@@ -1204,16 +1204,17 @@ def _delete_collections(girder_connection, except_collection_ids):
         ],
         ignore_index = True
     )
-    for u in collections_kept_and_deleted[
-        collections_kept_and_deleted[
-            "deleted"
-        ]==True
-    ]["_id"]:
-        girder_connection.delete(
-            "collection/{0}".format(
-                u
+    if "deleted" in collections_kept_and_deleted.columns:
+        for u in collections_kept_and_deleted[
+            collections_kept_and_deleted[
+                "deleted"
+            ]==True
+        ]["_id"]:
+            girder_connection.delete(
+                "collection/{0}".format(
+                    u
+                )
             )
-        )
     return(
         collections_kept_and_deleted
     )
