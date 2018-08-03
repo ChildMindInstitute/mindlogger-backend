@@ -1,5 +1,6 @@
 __package__ = "mindlogger_backend_dev.create_scorekeys"
 from .. import object_manipulation
+import pandas as pd
 
 
 score_key_comparison_operators = {
@@ -50,14 +51,11 @@ def columns_to_score_key_labels(columns):
     Returns
     -------
     score_key_labels: dictionary
-        key: string
-            range (from first column)
-        value: dictionary
-            key: tuple
-                [0]: "==", "<", ">", "<=", ">="
-                [1]: comparator
-            value: anything
-                label
+        key: tuple of tuples
+            [i][0]: "==", "<", ">", "<=", ">="
+            [i][1]: comparator
+        value: anything
+            label
                 
     Example
     -------
@@ -188,7 +186,7 @@ def columns_to_score_key_labels(columns):
     return(score_key_labels)
 
 
-def create_scorekey(activity_version_id, formula, girder_connection):
+def scorekey_to_girder(activity_version_id, scorekey, girder_connection):
     """
     Function to create a scorekey in Girder.
     
@@ -197,12 +195,16 @@ def create_scorekey(activity_version_id, formula, girder_connection):
     activity_version_id: string
         Girder _id of Activity Version
         
-    formula: dictionary
+    scorekey: dictionary
         key: string
             score name
-        value: list
-            sequence of constants, operators, and variable names, eg,
-            `["(", 1, "+", "variable1", ")", "*", "variable2"]`
+        value: dictionary
+            formula: list
+                sequence of constants, operators, and variable names, eg,
+                `["(", 1, "+", "variable1", ")", "*", "variable2"]`
+            lookup: dictionary
+                key: anything
+                value: anything
             
     girder_connection: GirderClient
         active GirderClient
@@ -346,11 +348,376 @@ def score(responses, scorekey):
     scores: dictionary
         key: string
             score name
-        value: anything
-            score
+        value: tuple
+            [0]: anything
+                score value
+            [1]: anything
+                score label
     
     Examples
     --------
+    >>> responses = [
+    ...     {
+    ...         'choice': [
+    ...             {
+    ...                 'option_text': {
+    ...                     '@language': 'en-US',
+    ...                     '@value': 'Right hand, sometimes uses other hand'
+    ...                 },
+    ...                 'value': '0.5'
+    ...             }
+    ...         ],
+    ...         'prompt': {
+    ...             '@language': 'en-US',
+    ...             '@value': 'Writing'
+    ...         },
+    ...         'schema:name': {
+    ...             '@language': 'en-US',
+    ...             '@value': 'EHQ_01'
+    ...         },
+    ...         'time': 1519226389593
+    ...     },
+    ...     {
+    ...         'choice': [
+    ...             {
+    ...                 'option_text': {
+    ...                     '@language': 'en-US',
+    ...                     '@value': 'No preference'
+    ...                 },
+    ...                 'value': '0'
+    ...             }
+    ...         ],
+    ...         'prompt': {
+    ...             '@language': 'en-US',
+    ...             '@value': 'Drawing'
+    ...         },
+    ...         'schema:name': {
+    ...             '@language': 'en-US',
+    ...             '@value': 'EHQ_02'
+    ...         },
+    ...         'time': 1519226395777
+    ...     },
+    ...     {
+    ...         'choice': [
+    ...             {
+    ...                 'option_text': {
+    ...                     '@language': 'en-US',
+    ...                     '@value': 'Right hand, sometimes uses other hand'
+    ...                 },
+    ...                 'value': '0.5'
+    ...             }
+    ...         ],
+    ...         'prompt': {
+    ...             '@language': 'en-US',
+    ...             '@value': 'Throwing'
+    ...         },
+    ...         'schema:name': {
+    ...             '@language': 'en-US',
+    ...             '@value': 'EHQ_03'
+    ...         },
+    ...         'time': 1519226398015
+    ...     },
+    ...     {
+    ...         'choice': [
+    ...             {
+    ...                 'option_text': {
+    ...                     '@language': 'en-US',
+    ...                     '@value': 'Left hand, sometimes other hand'
+    ...                 },
+    ...                 'value': '-0.5'
+    ...             }
+    ...         ],
+    ...         'prompt': {
+    ...             '@language': 'en-US',
+    ...             '@value': 'Using Scissors'
+    ...         },
+    ...         'schema:name': {
+    ...             '@language': 'en-US',
+    ...             '@value': 'EHQ_04'
+    ...         },
+    ...         'time': 1519226402229
+    ...     },
+    ...     {
+    ...         'choice': [
+    ...             {
+    ...                 'option_text': {
+    ...                     '@language': 'en-US',
+    ...                     '@value': 'No preference'
+    ...                 },
+    ...                 'value': '0'
+    ...             }
+    ...         ],
+    ...         'prompt': {
+    ...             '@language': 'en-US',
+    ...             '@value': 'Using a Toothbrush'
+    ...         },
+    ...         'schema:name': {
+    ...             '@language': 'en-US',
+    ...             '@value': 'EHQ_05'
+    ...         },
+    ...         'time': 1519226404429
+    ...     },
+    ...     {
+    ...         'choice': [
+    ...             {
+    ...                 'option_text': {
+    ...                     '@language': 'en-US',
+    ...                     '@value': 'No preference'
+    ...                 },
+    ...                 'value': '0'
+    ...             }
+    ...         ],
+    ...         'prompt': {
+    ...             '@language': 'en-US',
+    ...             '@value': 'Using a Knife (without a fork)'
+    ...         },
+    ...         'schema:name': {
+    ...             '@language': 'en-US',
+    ...             '@value': 'EHQ_06'
+    ...         },
+    ...         'time': 1519226412079
+    ...     },
+    ...     {
+    ...         'choice': [
+    ...             {
+    ...                 'option_text': {
+    ...                     '@language': 'en-US',
+    ...                     '@value': 'No preference'
+    ...                 },
+    ...                 'value': '0'
+    ...             }
+    ...         ],
+    ...         'prompt': {
+    ...             '@language': 'en-US',
+    ...             '@value': 'Using a Spoon'
+    ...         },
+    ...         'schema:name': {
+    ...             '@language': 'en-US',
+    ...             '@value': 'EHQ_07'
+    ...         },
+    ...         'time': 1519226416146
+    ...     },
+    ...     {
+    ...         'choice': [
+    ...             {
+    ...                 'option_text': {
+    ...                     '@language': 'en-US',
+    ...                     '@value': 'No preference'
+    ...                 },
+    ...                 'value': '0'
+    ...             }
+    ...         ],
+    ...         'prompt': {
+    ...             '@language': 'en-US',
+    ...             '@value': 'Using a Broom (upper hand)'
+    ...         },
+    ...         'schema:name': {
+    ...             '@language': 'en-US',
+    ...             '@value': 'EHQ_08'
+    ...         },
+    ...         'time': 1519226420380
+    ...     },
+    ...     {
+    ...         'choice': [
+    ...             {
+    ...                 'option_text': {
+    ...                     '@language': 'en-US',
+    ...                     '@value': 'No preference'
+    ...                 },
+    ...                 'value': '0'
+    ...             }
+    ...         ],
+    ...         'prompt': {
+    ...             '@language': 'en-US',
+    ...             '@value': 'Striking a Match'
+    ...         },
+    ...         'schema:name': {
+    ...             '@language': 'en-US',
+    ...             '@value': 'EHQ_09'
+    ...         },
+    ...         'time': 1519226423028
+    ...     },
+    ...     {
+    ...         'choice': [
+    ...             {
+    ...                 'option_text': {
+    ...                     '@language': 'en-US',
+    ...                     '@value': 'No preference'
+    ...                 },
+    ...                 'value': '0'
+    ...             }
+    ...         ],
+    ...         'prompt': {
+    ...             '@language': 'en-US',
+    ...             '@value': 'Opening a Box (holding the lid)'
+    ...         },
+    ...         'schema:name': {
+    ...             '@language': 'en-US',
+    ...             '@value': 'EHQ_10'
+    ...         },
+    ...         'time': 1519226425111
+    ...     },
+    ...     {
+    ...         'choice': [
+    ...             {
+    ...                 'option_text': {
+    ...                     '@language': 'en-US',
+    ...                     '@value': 'Left hand, sometimes other hand'
+    ...                 },
+    ...                 'value': '-0.67'
+    ...             }
+    ...         ],
+    ...         'prompt': {
+    ...             '@language': 'en-US',
+    ...             '@value': 'Holding a Computer Mouse'
+    ...         },
+    ...         'schema:name': {
+    ...             '@language': 'en-US',
+    ...             '@value': 'EHQ_11'
+    ...         },
+    ...         'time': 1519226428676
+    ...     },
+    ...     {
+    ...         'choice': [
+    ...             {
+    ...                 'option_text': {
+    ...                     '@language': 'en-US',
+    ...                     '@value': 'No preference'
+    ...                 },
+    ...                 'value': '0'
+    ...             }
+    ...         ],
+    ...         'prompt': {
+    ...             '@language': 'en-US',
+    ...             '@value': 'Using a Key to Unlock a Door'
+    ...         },
+    ...         'schema:name': {
+    ...             '@language': 'en-US',
+    ...             '@value': 'EHQ_12'
+    ...         },
+    ...         'time': 1519226431664
+    ...     },
+    ...     {
+    ...         'choice': [
+    ...             {
+    ...                 'option_text': {
+    ...                     '@language': 'en-US',
+    ...                     '@value': 'No preference'
+    ...                 },
+    ...                 'value': '0'
+    ...             }
+    ...         ],
+    ...         'prompt': {
+    ...             '@language': 'en-US',
+    ...             '@value': 'Holding a Hammer'
+    ...         },
+    ...         'schema:name': {
+    ...             '@language': 'en-US',
+    ...             '@value': 'EHQ_13'
+    ...         },
+    ...         'time': 1519226434345
+    ...     },
+    ...     {
+    ...         'choice': [
+    ...             {
+    ...                 'option_text': {
+    ...                     '@language': 'en-US',
+    ...                     '@value': 'Left hand, sometimes other hand'
+    ...                 },
+    ...                 'value': '-0.67'
+    ...             }
+    ...         ],
+    ...         'prompt': {
+    ...             '@language': 'en-US',
+    ...             '@value': 'Holding a Brush or Comb'
+    ...         },
+    ...         'schema:name': {
+    ...             '@language': 'en-US',
+    ...             '@value': 'EHQ_14'
+    ...         },
+    ...         'time': 1519226438862
+    ...     },
+    ...     {
+    ...         'choice': [
+    ...             {
+    ...                 'option_text': {
+    ...                     '@language': 'en-US',
+    ...                     '@value': 'No preference'
+    ...                 },
+    ...                 'value': '0'
+    ...             }
+    ...         ],
+    ...         'prompt': {
+    ...             '@language': 'en-US',
+    ...             '@value': 'Holding a Cup While Drinking'
+    ...         },
+    ...         'schema:name': {
+    ...             '@language': 'en-US',
+    ...             '@value': 'EHQ_15'
+    ...         },
+    ...         'time': 1519226441115
+    ...     }
+    ... ]
+    >>> scorekey = {
+    ...     'Laterality Index': {
+    ...         'formula': [
+    ...             'EHQ_01',
+    ...             '+',
+    ...             'EHQ_02',
+    ...             '+',
+    ...             'EHQ_03',
+    ...             '+',
+    ...             'EHQ_04',
+    ...             '+',
+    ...             'EHQ_05',
+    ...             '+',
+    ...             'EHQ_06',
+    ...             '+',
+    ...             'EHQ_07',
+    ...             '+',
+    ...             'EHQ_08',
+    ...             '+',
+    ...             'EHQ_09',
+    ...             '+',
+    ...             'EHQ_10',
+    ...             '+',
+    ...             'EHQ_11',
+    ...             '+',
+    ...             'EHQ_12',
+    ...             '+',
+    ...             'EHQ_13',
+    ...             '+',
+    ...             'EHQ_14',
+    ...             '+',
+    ...             'EHQ_15'
+    ...         ],
+    ...         'lookup': {
+    ...             (('==', -100),): '10th left',
+    ...             (('>=', -100), ('<', -92)): '9th left',
+    ...             (('>=', -92), ('<', -90)): '8th left',
+    ...             (('>=', -90), ('<', -87)): '7th left',
+    ...             (('>=', -87), ('<', -83)): '6th left',
+    ...             (('>=', -83), ('<', -76)): '5th left',
+    ...             (('>=', -76), ('<', -66)): '4th left',
+    ...             (('>=', -66), ('<', -54)): '3d left',
+    ...             (('>=', -54), ('<', -42)): '2d left',
+    ...             (('>=', -42), ('<', -28)): '1st left',
+    ...             (('>=', -28), ('<', 48)): 'Middle',
+    ...             (('>=', 48), ('<', 60)): '1st right',
+    ...             (('>=', 60), ('<', 68)): '2d right',
+    ...             (('>=', 68), ('<', 74)): '3d right',
+    ...             (('>=', 74), ('<', 80)): '4th right',
+    ...             (('>=', 80), ('<', 84)): '5th right',
+    ...             (('>=', 84), ('<', 88)): '6th right',
+    ...             (('>=', 88), ('<', 92)): '7th right',
+    ...             (('>=', 92), ('<', 95)): '8th right',
+    ...             (('>=', 95), ('<', 100)): '9th right',
+    ...             (('==', 100),): '10th right'
+    ...         }
+    ...     }
+    ... }
+    >>> score(responses, scorekey)['Laterality Index'][1]
+    'Middle'
     """
     response_values = {
         response["schema:name"]["@value"]: [
@@ -384,5 +751,24 @@ def score(responses, scorekey):
                 "+"
             )
         ) for score in scorekey
+    }
+    scores = {
+        score: (
+            scores[score],
+            pd.Series(
+                scorekey[score]["lookup"]
+            ).loc[
+                pd.Series([
+                    all([
+                        eval(
+                            "".join([
+                                str(scores[score]),
+                                *[str(o) for o in t]
+                            ])
+                        ) for t in k
+                    ]) for k in scorekey[score]["lookup"]
+                ]).values
+            ].values[0]
+        ) for score in scores
     }
     return(scores)
