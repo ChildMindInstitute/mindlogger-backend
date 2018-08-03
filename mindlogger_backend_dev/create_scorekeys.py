@@ -187,40 +187,6 @@ def columns_to_score_key_labels(columns):
             ]): initial_dict[key] for key in initial_dict
     }
     return(score_key_labels)
-
-
-def scorekey_to_girder(activity_version_id, scorekey, girder_connection):
-    """
-    Function to create a scorekey in Girder.
-    
-    Parameters
-    ----------
-    activity_version_id: string
-        Girder _id of Activity Version
-        
-    scorekey: dictionary
-        key: string
-            score name
-        value: dictionary
-            formula: list
-                sequence of constants, operators, and variable names, eg,
-                `["(", 1, "+", "variable1", ")", "*", "variable2"]`
-            lookup: dictionary
-                key: anything
-                value: anything
-            
-    girder_connection: GirderClient
-        active GirderClient
-    
-    Returns
-    -------
-    None
-    
-    Examples
-    -------
-    pass
-    """
-    pass
     
 
 def get_variables(activity_version_id, girder_connection):
