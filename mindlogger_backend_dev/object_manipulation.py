@@ -105,3 +105,39 @@ def isiterable(item):
         return(True)
     except TypeError:
         return(False)
+
+    
+def numeric(s):
+    """
+    Function to test if a string is numeric and convert if so
+    
+    Parameters
+    ----------
+    s : string
+    
+    Returns
+    -------
+    new_s: int, float, or string
+    
+    Examples
+    --------
+    >>> numeric("9")
+    9
+    >>> numeric("9s")
+    '9s'
+    >>> numeric("9.1")
+    9.1
+    """
+    return(
+        s if not (
+            (
+                s.isnumeric()
+            ) or (
+                s.startswith("-") and s[1:].isnumeric()
+            ) or (
+                s.replace(".", "").isnumeric()
+            )
+        ) else int(s) if (
+            "." not in s
+        ) else float(s)
+    )
