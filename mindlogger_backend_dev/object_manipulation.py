@@ -141,3 +141,74 @@ def numeric(s):
             "." not in s
         ) else float(s)
     )
+
+
+def test_format(o):
+    """
+    Function to take long strings and format them for doctests.
+    
+    Parameters
+    ----------
+    o: string
+        original string
+    
+    Returns
+    -------
+    new_o: string
+        docstring-formatted output string
+        
+    Examples
+    --------
+    >>> test_format(
+    ...     "test_this(set_of, params)"
+    ... )
+    '    >>> test_this(\\n    ...     set_of,\\n    ...     params\\n    ... )'
+    """
+    o = str(o)
+    tab_count = 0
+    tcup = ["[", "{", "("]
+    tcdown = ["]", "}", ")"]
+    new_o = '    >>> '
+    open_quotes = []
+    for i, c in enumerate(o):
+        tab_count = (
+            tab_count + 1
+        ) if (
+            (
+                i>0
+            ) and (
+                o[i-1] in tcup and not len(open_quotes)
+            )
+        ) else (
+            tab_count - 1
+        ) if (
+            c in tcdown and not len(open_quotes)
+        ) else tab_count
+        new_o+="\n    ... {}{}".format(
+            "    "*tab_count,
+            str(c) if (
+                (
+                    i>0
+                ) and (
+                    str(o[i-1])!=","
+                )
+            ) else ""
+        ) if (
+            (
+                not len(open_quotes)
+            ) and
+            (
+                i>0
+            ) and (
+                str(o[i-1]) in [
+                    ",",
+                    *tcup
+                ]
+            )
+        ) or c in tcdown and not len(open_quotes) else c
+        if c in ["'", '"']:
+            if len(open_quotes) and open_quotes[0]==c:
+                open_quotes = []
+            else:
+                open_quotes.append(c)
+    return(new_o)
