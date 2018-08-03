@@ -1,6 +1,9 @@
 __package__ = "mindlogger_backend_dev.create_scorekeys"
+import json
 from .. import object_manipulation
+import os
 import pandas as pd
+from urllib.parse import quote
 
 
 score_key_comparison_operators = {
@@ -795,22 +798,23 @@ def score_label_lookup(score_value, score_key_labels):
     ...     (('>=', -83), ('<', -76)): '5th left',
     ...     (('>=', -76), ('<', -66)): '4th left',
     ...     (('>=', -66), ('<', -54)): '3d left',
-    ...      (('>=', -54), ('<', -42)): '2d left',
-    ...      (('>=', -42), ('<', -28)): '1st left',
-    ...      (('>=', -28), ('<', 48)): 'Middle',
-    ...      (('>=', 48), ('<', 60)): '1st right',
-    ...      (('>=', 60), ('<', 68)): '2d right',
-    ...      (('>=', 68), ('<', 74)): '3d right',
-    ...      (('>=', 74), ('<', 80)): '4th right',
-    ...      (('>=', 80), ('<', 84)): '5th right',
-    ...      (('>=', 84), ('<', 88)): '6th right',
-    ...      (('>=', 88), ('<', 92)): '7th right',
-    ...      (('>=', 92), ('<', 95)): '8th right',
-    ...      (('>=', 95), ('<', 100)): '9th right',
-    ...      (('==', 100),): '10th right'
+    ...     (('>=', -54), ('<', -42)): '2d left',
+    ...     (('>=', -42), ('<', -28)): '1st left',
+    ...     (('>=', -28), ('<', 48)): 'Middle',
+    ...     (('>=', 48), ('<', 60)): '1st right',
+    ...     (('>=', 60), ('<', 68)): '2d right',
+    ...     (('>=', 68), ('<', 74)): '3d right',
+    ...     (('>=', 74), ('<', 80)): '4th right',
+    ...     (('>=', 80), ('<', 84)): '5th right',
+    ...     (('>=', 84), ('<', 88)): '6th right',
+    ...     (('>=', 88), ('<', 92)): '7th right',
+    ...     (('>=', 92), ('<', 95)): '8th right',
+    ...     (('>=', 95), ('<', 100)): '9th right',
+    ...     (('==', 100),): '10th right'
     ... }
     >>> score_label_lookup(-80, labels)
     '5th left'
+    >>> score_label_lookup(101, labels)
     """
     try:
         return(
@@ -831,3 +835,117 @@ def score_label_lookup(score_value, score_key_labels):
         )
     except:
         return(None)
+    
+    
+def scorekey_to_girder(activity_version_id, scorekey, girder_connection):
+    """
+    Function to create a scorekey in Girder.
+    
+    Parameters
+    ----------
+    activity_version_id: string
+        Girder _id of Activity Version
+        
+    scorekey: dictionary
+        key: string
+            score name
+        value: dictionary
+            formula: list
+                sequence of constants, operators, and variable names, eg,
+                `["(", 1, "+", "variable1", ")", "*", "variable2"]`
+            lookup: dictionary
+                key: anything
+                value: anything
+            
+    girder_connection: GirderClient
+        active GirderClient
+    
+    Returns
+    -------
+    activity_version: dictionary
+        updated activity version
+    
+    Examples
+    -------
+    >>> from .. import girder_connections, update_schema
+    >>> import os
+    >>> which_girder = "dev"
+    >>> config, context, api_url = girder_connections.configuration(
+    ...     config_file=os.path.join(
+    ...         os.path.dirname(__file__),
+    ...         "config.json.template"
+    ...     ),
+    ...     context_file=os.path.join(
+    ...         os.path.dirname(__file__),
+    ...         "context.json"
+    ...     ),
+    ...     which_girder=which_girder
+    ... )
+    >>> which_girder = "girder-{}".format(which_girder)
+    >>> girder_connection = girder_connections.connect_to_girder(
+    ...     api_url=api_url,
+    ...     authentication=(
+    ...         config[which_girder]["user"],
+    ...         config[which_girder]["password"],
+    ...         config[which_girder]["APIkey"]
+    ...     ) if "APIkey" in config[which_girder] else (
+    ...         config[which_girder]["user"],
+    ...         config[which_girder]["password"]
+    ...     )
+    ... )
+    Connected to the Girder database 🏗🍃 and authenticated.
+    >>> book = update_schema.find_or_create(
+    ...     ("Folder", "Book of Cagliostro"),
+    ...     ("Collection", update_schema.get_girder_id_by_name(
+    ...         girder_connection,
+    ...         "Collection",
+    ...         "Ancient One"
+    ...     )),
+    ...     girder_connection
+    ... )
+    >>> scorekey={
+    ...     'Ring': {
+    ...         'formula': [
+    ...             1,
+    ...             '+',
+    ...             2
+    ...         ],
+    ...         'lookup': {
+    ...             "(('==', 3),)": 'Gollum'
+    ...         }
+    ...     }
+    ... }
+    >>> scorekey_to_girder(
+    ...     book, scorekey, girder_connection
+    ... )["meta"]["scorekey"]["Ring"]["lookup"]
+    {"(('==', 3),)": 'Gollum'}
+    """
+    activity_version = girder_connection.get("folder/{}".format(activity_version_id))
+    meta = activity_version["meta"] if "meta" in activity_version else {}
+    scorekey = {
+        key: {
+            "formula": scorekey[key][
+                "formula"
+            ] if "formula" in scorekey[key] else None,
+            "lookup": {
+                str(comparisons): scorekey[key]["lookup"][comparisons]
+                for comparisons in scorekey[key]["lookup"]
+            } if "lookup" in scorekey[key] else None
+        } for key in scorekey
+    }
+    meta["scorekey"] = {
+        **meta["scorekey"],
+        **scorekey
+    } if "scorekey" in meta else scorekey
+    return(
+        girder_connection.put(
+            "?".join([
+                "folder/{}".format(activity_version_id),
+                "metadata={}".format(
+                    quote(
+                        json.dumps(meta)
+                    )
+                )
+            ])
+        )
+    )
