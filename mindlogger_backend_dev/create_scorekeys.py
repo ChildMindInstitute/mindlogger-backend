@@ -755,20 +755,79 @@ def score(responses, scorekey):
     scores = {
         score: (
             scores[score],
-            pd.Series(
+            score_label_lookup(
+                scores[score],
                 scorekey[score]["lookup"]
+            )
+        ) for score in scores
+    }
+    return(scores)
+
+
+def score_label_lookup(score_value, score_key_labels):
+    """
+    Function to lookup labels / text values for scores.
+    
+    Parameters
+    ----------
+    score_value: numeric
+        score to lookup
+    
+    score_key_labels: dictionary
+        key: string
+            value or range of values
+        value: anything
+            labels / text values
+    
+    Returns
+    -------
+    score_label: anything
+        label / text value of score_value
+        
+    Examples
+    --------
+    >>> labels = {
+    ...     (('==', -100),): '10th left',
+    ...     (('>=', -100), ('<', -92)): '9th left',
+    ...     (('>=', -92), ('<', -90)): '8th left',
+    ...     (('>=', -90), ('<', -87)): '7th left',
+    ...     (('>=', -87), ('<', -83)): '6th left',
+    ...     (('>=', -83), ('<', -76)): '5th left',
+    ...     (('>=', -76), ('<', -66)): '4th left',
+    ...     (('>=', -66), ('<', -54)): '3d left',
+    ...      (('>=', -54), ('<', -42)): '2d left',
+    ...      (('>=', -42), ('<', -28)): '1st left',
+    ...      (('>=', -28), ('<', 48)): 'Middle',
+    ...      (('>=', 48), ('<', 60)): '1st right',
+    ...      (('>=', 60), ('<', 68)): '2d right',
+    ...      (('>=', 68), ('<', 74)): '3d right',
+    ...      (('>=', 74), ('<', 80)): '4th right',
+    ...      (('>=', 80), ('<', 84)): '5th right',
+    ...      (('>=', 84), ('<', 88)): '6th right',
+    ...      (('>=', 88), ('<', 92)): '7th right',
+    ...      (('>=', 92), ('<', 95)): '8th right',
+    ...      (('>=', 95), ('<', 100)): '9th right',
+    ...      (('==', 100),): '10th right'
+    ... }
+    >>> score_label_lookup(-80, labels)
+    '5th left'
+    """
+    try:
+        return(
+            pd.Series(
+                score_key_labels
             ).loc[
                 pd.Series([
                     all([
                         eval(
                             "".join([
-                                str(scores[score]),
+                                str(score_value),
                                 *[str(o) for o in t]
                             ])
                         ) for t in k
-                    ]) for k in scorekey[score]["lookup"]
+                    ]) for k in score_key_labels
                 ]).values
             ].values[0]
-        ) for score in scores
-    }
-    return(scores)
+        )
+    except:
+        return(None)
