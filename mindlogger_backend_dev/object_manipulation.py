@@ -163,6 +163,10 @@ def test_format(o):
     ...     "test_this(set_of, params)"
     ... )
     '    >>> test_this(\\n    ...     set_of,\\n    ...     params\\n    ... )'
+    >>> test_format(
+    ...     'test_format("test_this(set_of, params)")'
+    ... )
+    '    >>> test_format(\\n    ...     "test_this(set_of, params)"\\n    ... )'
     """
     o = str(o)
     tab_count = 0
