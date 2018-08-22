@@ -259,19 +259,87 @@ def camelCaseKeys(d):
     ...         }
     ...     ]
     ... })
-    {'rows': [{'headers': [{'@value': ''}, {'@value': ''}]}, {'index': {'@value': ''}, 'options': [{'questionImage': None, 'questionText': {'@value': ''}}, {'questionImage': None, 'questionText': {'@value': ''}}], 'select': {'max': 1, 'min': 1}}, {'index': {'@value': ''}, 'options': [{'questionImage': None, 'questionText': {'@value': ''}}, {'questionImage': None, 'questionText': {'@value': ''}}], 'select': {'max': 1, 'min': 1}}, {'index': {'@value': ''}, 'options': [{'questionImage': None, 'questionText': {'@value': ''}}, {'questionImage': None, 'questionText': {'@value': ''}}], 'select': {'max': 1, 'min': 1}}], 'responseType': None}
+    {'responseType': None, 'rows': [{'headers': [{'@value': ''}, {'@value': ''}]}, {'index': {'@value': ''}, 'options': [{'questionImage': None, 'questionText': {'@value': ''}}, {'questionImage': None, 'questionText': {'@value': ''}}], 'select': {'max': 1, 'min': 1}}, {'index': {'@value': ''}, 'options': [{'questionImage': None, 'questionText': {'@value': ''}}, {'questionImage': None, 'questionText': {'@value': ''}}], 'select': {'max': 1, 'min': 1}}, {'index': {'@value': ''}, 'options': [{'questionImage': None, 'questionText': {'@value': ''}}, {'questionImage': None, 'questionText': {'@value': ''}}], 'select': {'max': 1, 'min': 1}}]}
     """
+    if isinstance(d, str):
+        return(camelCase(d))
+    dd = {}
     for k in d:
         if isinstance(d[k], list):
-            d[k] = [
+            dd[camelCase(k)] = [
                 camelCaseKeys(li) for li in d[k]
             ]
-        if isinstance(d[k], dict):
-            d[k] = camelCaseKeys(d[k])
-        if camelCase(k) != k:
-            d[camelCase(k)] = d[k]
-            del(d[k])
-    return(d)
+        elif isinstance(d[k], dict):
+            dd[camelCase(k)] = camelCaseKeys(d[k])
+        else:
+            dd[camelCase(k)] = d[k]
+    return(dd)
+
+
+def camelCaseMeta(girderConnection, o):
+    """
+    Function to camelCase metadata keys on Girder
+    
+    Parameters
+    ----------
+    girderConnection: GirderClient
+    
+    o: dict
+    
+    Returns
+    -------
+    None
+    
+    Example
+    -------
+    >>> pass #TODO
+    """
+    if "meta" in o:
+        girderConnection.put(
+            "{}/{}".format(
+                o["_modelType"],
+                o["_id"]
+            ),
+            parameters={
+                "metadata": json.dumps(
+                    update_schema.camelCaseKeys(o["meta"])
+                )
+            }
+        )    
+    if o["_modelType"] in [
+        'collection',
+        'folder'
+    ]:
+        for folder in girder_connection.get(
+            'folder?parentType={}&parentId={}'.format(
+                o["_modelType"],
+                o["_id"]
+            )
+        ):
+            camelCaseMeta(
+                girderConnection,
+                folder
+            )
+    if o["_modelType"] == 'folder':
+        for item in girder_connection.get(
+            'item?folderId={}'.format(
+                o["_id"]
+            )
+        ):
+            camelCaseMeta(
+                girderConnection,
+                item
+            )
+    if o["_modelType"] == 'item':
+        for file in girder_connection.get(
+            'item/{}/files'.format(
+                o["_id"]
+            )
+        ):
+            camelCaseMeta(
+                girderConnection,
+                file
+            )
 
 
 def find_or_create(x, parent, girder_connection):
