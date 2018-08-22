@@ -183,6 +183,97 @@ def add_to_schedule(
     return(schedule_item_id)
 
 
+def camelCase(s):
+    """
+    Function to turn _-delimited strings to camelCase
+    
+    Parameter
+    ---------
+    s: string
+    
+    Returns
+    -------
+    cc: string
+    
+    Example
+    -------
+    >>> camelCase("bob_the_builder")
+    'bobTheBuilder'
+    """
+    if not isinstance(s, str):
+        return(s)
+    cc = ""
+    camel = False
+    for c in s:
+        if camel:
+            cc += c.upper()
+            camel=False
+        elif c=="_":
+            camel=True
+        else:
+            cc += c
+    return(cc)
+
+
+def camelCaseKeys(d):
+    """
+    Function to CamelCase each _-delimited
+    key in a nested dictionary
+    
+    Parameter
+    ---------
+    d: dict
+    
+    Returns
+    -------
+    d: dict
+    
+    Example
+    -------
+    >>> camelCaseKeys({
+    ...     'response_type': None,
+    ...     'rows': [
+    ...         {'headers': [{'@value': ''}, {'@value': ''}]},
+    ...         {
+    ...             'index': {'@value': ''},
+    ...             'options': [
+    ...                 {'question_image': None, 'question_text': {'@value': ''}},
+    ...                 {'question_image': None, 'question_text': {'@value': ''}}
+    ...             ],
+    ...             'select': {'max': 1, 'min': 1}},
+    ...         {
+    ...             'index': {'@value': ''},
+    ...             'options': [
+    ...                 {'question_image': None, 'question_text': {'@value': ''}},
+    ...                 {'question_image': None, 'question_text': {'@value': ''}}
+    ...             ],
+    ...             'select': {'max': 1, 'min': 1}
+    ...         },
+    ...         {
+    ...             'index': {'@value': ''},
+    ...             'options': [
+    ...                 {'question_image': None, 'question_text': {'@value': ''}},
+    ...                 {'question_image': None, 'question_text': {'@value': ''}}
+    ...             ],
+    ...             'select': {'max': 1, 'min': 1}
+    ...         }
+    ...     ]
+    ... })
+    {'rows': [{'headers': [{'@value': ''}, {'@value': ''}]}, {'index': {'@value': ''}, 'options': [{'questionImage': None, 'questionText': {'@value': ''}}, {'questionImage': None, 'questionText': {'@value': ''}}], 'select': {'max': 1, 'min': 1}}, {'index': {'@value': ''}, 'options': [{'questionImage': None, 'questionText': {'@value': ''}}, {'questionImage': None, 'questionText': {'@value': ''}}], 'select': {'max': 1, 'min': 1}}, {'index': {'@value': ''}, 'options': [{'questionImage': None, 'questionText': {'@value': ''}}, {'questionImage': None, 'questionText': {'@value': ''}}], 'select': {'max': 1, 'min': 1}}], 'responseType': None}
+    """
+    for k in d:
+        if isinstance(d[k], list):
+            d[k] = [
+                camelCaseKeys(li) for li in d[k]
+            ]
+        if isinstance(d[k], dict):
+            d[k] = camelCaseKeys(d[k])
+        if camelCase(k) != k:
+            d[camelCase(k)] = d[k]
+            del(d[k])
+    return(d)
+
+
 def find_or_create(x, parent, girder_connection):
     """
     Function to find or create a Girder Folder or Item
