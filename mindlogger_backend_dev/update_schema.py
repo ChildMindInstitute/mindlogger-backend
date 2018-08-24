@@ -186,19 +186,21 @@ def add_to_schedule(
 def camelCase(s):
     """
     Function to turn _-delimited strings to camelCase
-    
+
     Parameter
     ---------
     s: string
-    
+
     Returns
     -------
     cc: string
-    
-    Example
-    -------
+
+    Examples
+    --------
     >>> camelCase("bob_the_builder")
     'bobTheBuilder'
+    >>> camelCase(12)
+    12
     """
     if not isinstance(s, str):
         return(s)
@@ -219,17 +221,17 @@ def camelCaseKeys(d):
     """
     Function to CamelCase each _-delimited
     key in a nested dictionary
-    
+
     Parameter
     ---------
     d: dict
-    
+
     Returns
     -------
     d: dict
-    
-    Example
-    -------
+
+    Examples
+    --------
     >>> camelCaseKeys({
     ...     'response_type': None,
     ...     'rows': [
@@ -260,6 +262,8 @@ def camelCaseKeys(d):
     ...     ]
     ... })
     {'responseType': None, 'rows': [{'headers': [{'@value': ''}, {'@value': ''}]}, {'index': {'@value': ''}, 'options': [{'questionImage': None, 'questionText': {'@value': ''}}, {'questionImage': None, 'questionText': {'@value': ''}}], 'select': {'max': 1, 'min': 1}}, {'index': {'@value': ''}, 'options': [{'questionImage': None, 'questionText': {'@value': ''}}, {'questionImage': None, 'questionText': {'@value': ''}}], 'select': {'max': 1, 'min': 1}}, {'index': {'@value': ''}, 'options': [{'questionImage': None, 'questionText': {'@value': ''}}, {'questionImage': None, 'questionText': {'@value': ''}}], 'select': {'max': 1, 'min': 1}}]}
+    >>> camelCaseKeys("test_this")
+    'testThis'
     """
     if isinstance(d, str):
         return(camelCase(d))
@@ -279,20 +283,91 @@ def camelCaseKeys(d):
 def camelCaseMeta(girderConnection, o):
     """
     Function to camelCase metadata keys on Girder
-    
+
     Parameters
     ----------
     girderConnection: GirderClient
-    
+
     o: dict
-    
+
     Returns
     -------
     None
-    
+
     Example
     -------
-    >>> pass #TODO
+    >>> import json, os
+    >>> from .. import girder_connections
+    >>> which_girder = "dev"
+    >>> config, context, api_url = girder_connections.configuration(
+    ...     config_file=os.path.join(
+    ...         os.path.dirname(__file__),
+    ...         "config.json.template"
+    ...     ),
+    ...     context_file=os.path.join(
+    ...         os.path.dirname(__file__),
+    ...         "context.json"
+    ...     ),
+    ...     which_girder=which_girder
+    ... )
+    >>> which_girder = "girder-{}".format(which_girder)
+    >>> girder_connection = girder_connections.connect_to_girder(
+    ...     api_url=api_url,
+    ...     authentication=(
+    ...         config[which_girder]["user"],
+    ...         config[which_girder]["password"],
+    ...         config[which_girder]["APIkey"]
+    ...     ) if "APIkey" in config[which_girder] else (
+    ...         config[which_girder]["user"],
+    ...         config[which_girder]["password"]
+    ...     )
+    ... )
+    Connected to the Girder database 🏗🍃 and authenticated.
+    >>> book = find_or_create(
+    ...     ("Folder", "Book of Cagliostro"),
+    ...     ("Collection", get_girder_id_by_name(
+    ...         girder_connection,
+    ...         "Collection",
+    ...         "Ancient One"
+    ...     )),
+    ...     girder_connection
+    ... )
+    >>> incantation = find_or_create(
+    ...     ("Item", "draw energy from the Dark Dimension"),
+    ...     ("Folder", book),
+    ...     girder_connection
+    ... )
+    >>> inner_book = find_or_create(
+    ...     ("Folder", "coloring pages"),
+    ...     ("Folder", book),
+    ...     girder_connection
+    ... )
+    >>> o = girder_connection.put(
+    ...     'folder/{}'.format(book),
+    ...     parameters={"metadata": json.dumps({
+    ...         "test_case": ["test_one", {"test_2": "test_3"}]
+    ...     })}
+    ... )
+    >>> from urllib.request import urlopen
+    >>> image_stream = urlopen(
+    ...     "/".join([
+    ...         "https://vignette.wikia.nocookie.net",
+    ...         "marvelcinematicuniverse/images/1/14/",
+    ...         "DS_Kaecilius_Poster_cropped.png"
+    ...     ])
+    ... )
+    >>> img_id = girder_connection.uploadFile(
+    ...     parentId=incantation,
+    ...     parentType="item",
+    ...     stream=image_stream,
+    ...     name="Kaecilius.png",
+    ...     size=int(
+    ...         image_stream.info()["Content-Length"]
+    ...     )
+    ... )["_id"]
+    >>> camelCaseMeta(girder_connection, o)
+    >>> girder_connection.get('folder/{}'.format(book))['meta']['testCase']
+    ['testOne', {'test2': 'test_3'}]
     """
     if "meta" in o:
         girderConnection.put(
@@ -302,15 +377,15 @@ def camelCaseMeta(girderConnection, o):
             ),
             parameters={
                 "metadata": json.dumps(
-                    update_schema.camelCaseKeys(o["meta"])
+                    camelCaseKeys(o["meta"])
                 )
             }
-        )    
+        )
     if o["_modelType"] in [
         'collection',
         'folder'
     ]:
-        for folder in girder_connection.get(
+        for folder in girderConnection.get(
             'folder?parentType={}&parentId={}'.format(
                 o["_modelType"],
                 o["_id"]
@@ -321,7 +396,7 @@ def camelCaseMeta(girderConnection, o):
                 folder
             )
     if o["_modelType"] == 'folder':
-        for item in girder_connection.get(
+        for item in girderConnection.get(
             'item?folderId={}'.format(
                 o["_id"]
             )
@@ -331,7 +406,7 @@ def camelCaseMeta(girderConnection, o):
                 item
             )
     if o["_modelType"] == 'item':
-        for file in girder_connection.get(
+        for file in girderConnection.get(
             'item/{}/files'.format(
                 o["_id"]
             )
