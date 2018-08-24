@@ -11,62 +11,45 @@ This backend serves as an administration console for customizing and storing dat
 ---
 # Girder Structure
 
-- [Collections](#collections)
-	- [Volumes](#volumes)
-		- [Activities](#activities)
-			- [[Activity]](#activity)
-				- [[Version]](#version)
-  				- [meta.abbreviation](#metaabbreviation)
-  				- [meta.accordion](#metaaccordion)
-  				- [meta.@context](#metacontext)
-  				- [meta.pav:createdBy](#metapavcreatedby)
-    				- [@id](#id)
-  				- [[File]](#file)
-  				- [meta.pav:lastUpdatedOn](#metapavlastupdatedon)
-  				- [meta.oslc:modifiedBy](#metaoslcmodifiedby)
-    				- [@id](#id-1)
-  				- [meta.schema:name](#metaschemaname)
-  				- [meta.respondent](#metarespondent)
-  				- [[Screen]](#screen)
-    				- [meta.@context](#metacontext-1)
-    				- [meta.schema:name](#metaschemaname-1)
-    				- [meta.options](#metaoptions)
-      			    	- [[option]](#-option)
-    				- [meta.question_image](#metaquestionimage)
-    				  - [@id](#-id)
-    				- [meta.question_text](#metaquestiontext)
-    				- [meta.response_type](#metaresponsetype)
-  				- [meta.screens](#metascreens)
-  				  - [@id](#id-2)
-  				- [meta.status](#metastatus)
-		- [Schedules](#schedules)
-			- [[Frequency]](#frequency)
-				- [meta.activities](#metaactivities)
-  			    	- [@id](#id-3)
-  			    	- [name](#name)
-				- [meta.@context](#metacontext-2)
-- [Groups](#groups)
-	- [Editors](#editors)
-	- [Managers](#managers)
-	- [Users](#users)
-	- [Viewers](#viewers)
-- [Users](#users-1)
-	- [[Volume]](#volume)
-		- [Responses](#responses)
-			- [[Activity]](#activity-1)
-				- [[Version]](#version-1)
-  			    	- [[Completed Activity]](#completed-activity)
-		- [Schedules](#schedules-1)
-			- [[Schedule]](#schedule)
-				- [activities](#activities-1)
-    				- [@id](#id-4)
-    				- [name](#name-1)
-
 ## Collections
 
 ### Volumes
 
 The **Volumes** Collection includes a Folder for each Mindlogger **Volume**.
+
+#### [Volume].meta
+
+##### consent
+
+API string of this Volume's consent Activity in a JSON-LD object's "@id" or `null` if no consent Activity.
+
+##### information
+
+API string of this Volume's information Activity in a JSON-LD object's "@id" or `null` if no information Activity.
+
+##### members
+
+Object with "editors", "managers", "users", and "viewers" keys.
+
+###### editors
+
+Array of strings, Girder_ids of Editors of this Volume.
+
+###### managers
+
+Array of strings, Girder_ids of Managers of this Volume.
+
+###### users
+
+Array of strings, Girder_ids of Users of this Volume.
+
+###### viewers
+
+Array of objects: keys are Girder_ids of Viewers of this Volume; values are Arrays of Girder_ids of Users that the keyed Viewer has permissions to view.
+
+##### shortName
+
+Display name for this Volume in navbar.
 
 #### Activities
 
@@ -77,86 +60,35 @@ Each [**Volume**].**Activities** Folder is organized into a Folder for each [**A
 Each [**Volume**].**Activities**.[**Activity**] Folder contains an Item for each [**Version**] of that [**Activity**].
 
 ###### [Version]
-Each **Activities**.[**Activity**].[**Version**] Folder contains JSON-LD metadata.
+Each **Activities**.[**Activity**].[**Version**] Folder contains JSON-LD metadata and Items for new Screens.
 
-###### *meta.abbreviation*
+###### *meta.instructions*
+
+API string of this Activity's instructions Activity in a JSON-LD object's "@id" or `null` if no instructions Activity.
+
+###### *meta.shortName*
 
 String abbreviation for this [**Activity**].[**Version**] (not necessarily unique).
 
-###### *meta.accordion*
-
-Boolean, display this [**Activity**].[**Version**]'s **Screens** in an accordion format instead of a discrete series of screens?
-
-###### *meta.@context*
-
-JSON-LD object with prefix and type definitions.
-
-###### *meta.pav:createdBy*
-
-A JSON-LD object with an **@id** key and a value that resolves to the Mindlogger User who created this [**Activity**].[**Version**].
-
-###### _**@id**_
-
-String in the format "user/[girder_id]".
-
-###### *[File]*
-
-An Audio File, Image File or Video File to be presented on a [**Screen**] in this [**Activity**].[**Version**].
-
-###### *meta.pav:lastUpdatedOn*
-
-Datetime of last update.
-
-###### *meta.oslc:modifiedBy*
-
-Array of JSON-LD objects that resolves to Mindlogger Users who have ever modified this [**Activity**].[**Version**].
-
-###### __*@id*__
-
-String in the format "user/[girder_id]".
-
 ###### *meta.schema:name*
 
-JSON-LD object with **@language** and **@value** strings.
+JSON-LD object with optional **@language** and **@value** strings.
+
+###### *meta.progressBar*
+
+Boolean
 
 ###### *meta.respondent*
 
 String (for now) indicating the intended respondent in relationship to the target individual (eg, "Self", "Parent", "Teacher", "Peer").
 
-###### *[Screen]*
+###### *meta.resume*
 
-Each [**Screen**] Item contains JSON-LD metadata, including **@context**, **schema:name**, **options**, **question_image**, **question_text**, **response_type** and any relevant media (images, audio, and/or video files).
+String
 
-###### *__meta.@context__*
+###### *meta.reverseNavigable*
 
-JSON-LD object with prefix and type definitions.
-
-
-###### *__meta.schema:name__*
-
-JSON-LD object with **@language** and **@value** strings.
-
-###### *__meta.options__*
-
-JSON-LD array of objects (ordered).
-
-###### - [option]
-
-Each [**Screen**].**meta.options**.[**option**] contains a stimulus to be presented to the **User** (eg, an **option_text** object JSON-LD object with **@language** and **@value** strings) and a **value** string to be stored / used for scoring if that response **[option]** is chosen.
-
-###### *__meta.question_image__*
-A JSON-LD object that resolves to an Image URL through the Mindlogger Girder API.
-
-###### - @id
-A string in the format "file/[girder_id]".
-
-###### *__meta.question_text__*
-
-JSON-LD object with **@language** and **@value** strings.
-
-###### *__meta.response_type__*
-
-String (for now).
+Boolean
 
 ###### *meta.screens*
 
@@ -166,31 +98,108 @@ JSON-LD array (ordered) of **Screens** to display, in sequence, for this [**Acti
 
 Each object in a **meta.screens** array contains an **@id** key with a string value that resolves to a Mindlogger **Screen** in the Girder API.
 
+###### *meta.skippable*
+Boolean
+
+###### *meta.userDeleteable*
+Boolean
+
+###### *meta.userFontSize*
+Boolean
+
+###### *meta.userNotifications*
+Object with the following keys:
+    - `scheduleType`
+		   Object with the following keys:
+			    - `calendar`: Array
+					- `monthly`: Array
+					- `weekly`: Array
+					- `userCanReset`: boolean
+		- `timeOfDay`: Object with the following keys:
+		    - `times`: Array of Objects with the following keys:
+				    - `scheduled`: time
+						- `random`: Object with `start` and `stop` times
+				- `userCanReset`: boolean
+		- `reminders`: Object with the following keys:
+		    - `advanceNotification`: integer (minutes) or `null`
+				- `reminderDays`: integer (days) or `null`
+				- `userCanReset`: boolean
+
 ###### *meta.status*
 
-String (for now): "active" or "inactive".
+String: "active" or "inactive".
 
-#### Schedules
+###### *[Screen]*
 
-Each [**Volume**] Folder can contain a **Schedules** Folder organized into [**Frequency**] Folders.
+Each [**Screen**] Item contains JSON-LD metadata, including **@context**, **schema:name**, **options**, **question_image**, **question_text**, **response_type** and any relevant media (images, audio, and/or video files).
 
-##### [Frequency]
+###### *__meta.audio__*
+Object with boolean `autoplay`, `play`, and `playbackIcon` keys and a `files` key with a value of an Array of strings, each of which resolves to an audio file URL through the Mindlogger Girder API.
 
-Each [**Frequency**] Folder contains assignable [**Assignment**] Items.
+###### *__meta.bgcolor__*
+String, background color.
 
-###### *meta.activities*
+###### *__meta.maximumAttempts__*
+Object with an integer `attempts` and boolean `enforce`.
 
-A JSON-LD array (ordered by priority) of **Activities** to be completed with the parent **Frequency**.
+###### *__meta.schema:name__*
 
-###### *__@id__*
-A string in the format "item/[girder_id]"
+JSON-LD object with optional **@language** and **@value** strings.
 
-###### *__name__*
-A string to show in the **User**'s app for this **Schedule**.
+###### *__meta.options__*
 
-###### *meta.@context*
+JSON-LD array of objects (ordered).
 
-JSON-LD object with prefix and type definitions.
+###### - [option]
+
+Each [**Screen**].**meta.options**.[**option**] contains a stimulus to be presented to the **User** (eg, an **optionText** object JSON-LD object with **@language** and **@value** strings) and a **value** string to be stored / used for scoring if that response **[option]** is chosen.
+
+###### *__meta.pictureVideo__*
+Object with boolean `autoplay`, `display`, and `playbackIcon` keys and a `files` key with a value of an Array of strings, each of which resolves to an Image or Video URL through the Mindlogger Girder API.
+
+###### - @id
+A string in the format "file/[girder_id]".
+
+###### *__meta.questionText__*
+
+JSON-LD object with optional **@language** and **@value** strings.
+
+###### *__meta.responseDelay__*
+Object with an integer `seconds` and boolean `delay`.
+
+###### *__meta.responseType__*
+
+String.
+
+###### *__meta.rows__*
+
+Array of Objects. rows[0] contains header info; each subsequent Object is a table row.
+
+###### *__meta.select__*
+Object with an integer `min` and integer `max` (if a selection-response screen).
+
+###### *__meta.skippable__*
+Boolean
+
+###### *__meta.sliderBar__*
+Object with the following keys:
+    - `orientation`
+	      "vertical" or "horizontal"
+	  - `increments`
+	      "discrete" or "smooth"
+	  - `tickmarks`
+	      Array of Objects with the following keys:
+				  - `label`
+					- `nextScreen`
+	  - `between` (if `increments`=="smooth")
+	      Array of Objects with `nextScreen` keys.
+
+
+###### *__meta.textEntryBox__*
+Object with a boolean `display` and JSON-LD Object `textAbove`.
+
+###### *__meta.timer__*
+Object with boolean `display`, `hideNavigation`, and `timer` keys and an integer `seconds`.
 
 ## Users
 
