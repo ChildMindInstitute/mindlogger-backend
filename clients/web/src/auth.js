@@ -6,7 +6,7 @@ import { restRequest } from 'girder/rest';
 
 // TODO: this might need some fixing/testing, as it seems that
 // girder.corsAuth could be an override. See login doc below.
-var corsAuth = false;
+var corsAuth = true;
 
 var cookie = {
     findAll: function () {
