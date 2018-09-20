@@ -24,7 +24,7 @@ config.loadConfig()  # Read the config files first, so we can override some valu
 cherrypy.config.update({'engine.autoreload.on': False,
                         'environment': 'embedded'})
 cherrypy.config['server'].update({'cherrypy_server': False,
-                                  'disable_event_daemon': True})
+                                  'disable_event_daemon': False})
 
 # 'application' is the default callable object for WSGI implementations, see PEP 3333 for more.
 server.setup()
