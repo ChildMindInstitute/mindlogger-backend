@@ -1,6 +1,3 @@
-[![CircleCI](https://circleci.com/gh/ChildMindInstitute/mindlogger-app-backend/tree/master.svg?style=svg)](https://circleci.com/gh/ChildMindInstitute/mindlogger-app-backend/tree/master) [![Python coverage](.circleci/python-coverage.svg)](https://circleci.com/gh/ChildMindInstitute/mindlogger-app-backend/tree/master)
-[![ReadTheDocs](https://readthedocs.org/projects/mindlogger-app-backend/badge/?version=master)](https://mindlogger-app-backend.readthedocs.io/en/girder-dev/?badge=master)
-
 # Mindlogger Backend
 This repository documents setup and management of Mindlogger's Girder API backend.
 
