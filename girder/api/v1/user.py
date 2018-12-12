@@ -110,26 +110,12 @@ class User(Resource):
                    required=False)
         .param('public', 'Whether the folder should be publicly visible.',
                dataType='boolean', required=False)
-        .param('recurse', 'Whether the policies should be applied to all '
-               'subfolders under this folder as well.', dataType='boolean',
-               default=False, required=False)
-        .param('progress', 'If recurse is set to True, this controls whether '
-               'progress notifications will be sent.', dataType='boolean',
-               default=False, required=False)
         .errorResponse('ID was invalid.')
         .errorResponse('Admin access was denied for the user.', 403)
     )
-    def updateUserAccess(self, user, access, publicFlags, public, recurse, progress):
-        user = self.getCurrentUser()
-        progress = progress and recurse  # Only enable progress in recursive case
-        with ProgressContext(progress, user=user, title='Updating permissions',
-                             message='Calculating progress...') as ctx:
-            if progress:
-                ctx.update(total=self._model.subtreeCount(
-                    folder, includeItems=False, user=user, level=AccessType.ADMIN))
-            return self._model.setAccessList(
-                user, access, save=True, recurse=recurse, user=user,
-                progress=ctx, setPublic=public, publicFlags=publicFlags)
+    def updateUserAccess(self, user, access, publicFlags, public):
+        return self._model.setAccessList(
+            user, access, save=True, setPublic=public, publicFlags=publicFlags)
 
     @access.public(scope=TokenScope.USER_INFO_READ)
     @filtermodel(model=UserModel)
