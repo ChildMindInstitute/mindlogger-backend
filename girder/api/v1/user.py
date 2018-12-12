@@ -96,7 +96,7 @@ class User(Resource):
         .errorResponse('ID was invalid.')
         .errorResponse('You do not have permission to see this user.', 403)
     )
-    def getUserAccess(self):
+    def getUserAccess(self, user):
         return self._model.getFullAccessList(user)
 
     @access.public(scope=TokenScope.USER_INFO_READ)
