@@ -49,7 +49,7 @@ class User(AccessControlledModel):
             'firstName': 1,
             'lastName': 1
         }, language='none')
-        self.exposeFileds(level=AccessType.NONE, fields=(
+        self.exposeFields(level=AccessType.NONE, fields=(
             '_id'
         ))
         self.exposeFields(level=AccessType.READ, fields=(
