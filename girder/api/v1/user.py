@@ -106,16 +106,12 @@ class User(Resource):
         Description('Update the access control list for a user.')
         .modelParam('id', model=UserModel, level=AccessType.WRITE)
         .jsonParam('access', 'The JSON-encoded access control list.', requireObject=True)
-        .jsonParam('publicFlags', 'JSON list of public access flags.', requireArray=True,
-                   required=False)
-        .param('public', 'Whether the folder should be publicly visible.',
-               dataType='boolean', required=False)
         .errorResponse('ID was invalid.')
         .errorResponse('Admin access was denied for the user.', 403)
     )
-    def updateUserAccess(self, user, access, publicFlags, public):
+    def updateUserAccess(self, user, access):
         return self._model.setAccessList(
-            user, access, save=True, setPublic=public, publicFlags=publicFlags)
+            user, access, save=True)
 
     @access.public(scope=TokenScope.USER_INFO_READ)
     @filtermodel(model=UserModel)
