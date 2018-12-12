@@ -1,5 +1,6 @@
 import _ from 'underscore';
 
+import AccessControlledModel from 'girder/models/AccessControlledModel';
 import { fetchCurrentUser, setCurrentUser } from 'girder/auth';
 import events from 'girder/events';
 import Model from 'girder/models/Model';
