@@ -49,12 +49,14 @@ class User(AccessControlledModel):
             'firstName': 1,
             'lastName': 1
         }, language='none')
-
+        self.exposeFileds(level=AccessType.NONE), fields=(
+            '_id'
+        )
         self.exposeFields(level=AccessType.READ, fields=(
-            '_id', 'login', 'public', 'firstName', 'lastName', 'admin',
+            'login', 'public', 'firstName', 'lastName', 'admin', 'email'
             'created'))
         self.exposeFields(level=AccessType.ADMIN, fields=(
-            'size', 'email', 'groups', 'groupInvites', 'status',
+            'size', 'groups', 'groupInvites', 'status',
             'emailVerified'))
 
         # To ensure compatibility with authenticator apps, other defaults shouldn't be changed
