@@ -49,6 +49,7 @@ class User(Resource):
         self.route('GET', (':id',), self.getUser)
         self.route('GET', (':id', 'details'), self.getUserDetails)
         self.route('GET', ('details',), self.getUsersDetails)
+        self.route('GET', (':id', 'access'), self.getUserAccess)
         self.route('POST', (), self.createUser)
         self.route('PUT', (':id',), self.updateUser)
         self.route('PUT', ('password',), self.changePassword)
@@ -86,6 +87,17 @@ class User(Resource):
     )
     def getUser(self, user):
         return user
+
+    @access.user(scope=TokenScope.USER_INFO_READ)
+    @autoDescribeRoute(
+        Description('Get the access control list for a user.')
+        .responseClass('User')
+        .modelParam('id', model=UserModel, level=AccessType.READ)
+        .errorResponse('ID was invalid.')
+        .errorResponse('You do not have permission to see this user.', 403)
+    )
+    def getUserAccess(self, folder):
+        return self._model.getFullAccessList(user)
 
     @access.public(scope=TokenScope.USER_INFO_READ)
     @filtermodel(model=UserModel)
