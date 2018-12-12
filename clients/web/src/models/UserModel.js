@@ -3,11 +3,10 @@ import _ from 'underscore';
 import AccessControlledModel from 'girder/models/AccessControlledModel';
 import { fetchCurrentUser, setCurrentUser } from 'girder/auth';
 import events from 'girder/events';
-import Model from 'girder/models/Model';
 import { restRequest } from 'girder/rest';
 import eventStream from 'girder/utilities/EventStream';
 
-var UserModel = Model.extend({
+var UserModel = AccessControlledModel.extend({
     resourceName: 'user',
 
     /**
