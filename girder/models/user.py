@@ -42,12 +42,12 @@ class User(AccessControlledModel):
         self.ensureIndices(['login', 'email', 'groupInvites.groupId', 'size',
                             'created'])
         self.prefixSearchFields = (
-            'login', ('firstName', 'i'), ('lastName', 'i'))
-
+            'login', ('firstName', 'i'), ('lastName', 'i'), 'email')
         self.ensureTextIndex({
             'login': 1,
             'firstName': 1,
-            'lastName': 1
+            'lastName': 1,
+            'email': 1,
         }, language='none')
         self.exposeFields(level=AccessType.READ, fields=(
             '_id', 'login', 'public', 'firstName', 'lastName', 'admin', 'email'
@@ -123,7 +123,9 @@ class User(AccessControlledModel):
             q['_id'] = {'$ne': doc['_id']}
         existing = self.findOne(q)
         if existing is not None:
-            raise ValidationException('That email is already registered.',
+            raise ValidationException(''.join([
+                                      'That email is already registered:',
+                                      str(existing["_id"])]),
                                       'email')
 
         # If this is the first user being created, make it an admin
@@ -361,8 +363,7 @@ class User(AccessControlledModel):
     def createUser(self, login, password, firstName, lastName, email,
                    admin=False, public=False):
         """
-        Create a new user with the given information. The user will be created
-        with the default "Public" and "Private" folders.
+        Create a new user with the given information.
 
         :param admin: Whether user is global administrator.
         :type admin: bool
