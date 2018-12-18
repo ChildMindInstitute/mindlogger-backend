@@ -852,6 +852,9 @@ class AccessControlledModel(Model):
         if doc is None:
             return None
 
+        if (doc['_modelType'] == 'collection' and doc['name'] == 'Volumes'):
+            return doc
+
         keys = set(self._filterKeys[AccessType.READ])
         level = self.getAccessLevel(doc, user)
 
