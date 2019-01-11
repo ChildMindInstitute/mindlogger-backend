@@ -513,12 +513,13 @@ class System(Resource):
         for user in acList['users'][:]:
             userDoc = User().load(
                 user['id'], force=True,
-                fields=['firstName', 'lastName', 'login'])
+                fields=['firstName', 'lastName', 'login', 'email'])
             if userDoc is None:
                 acList['users'].remove(user)
             else:
                 user['login'] = userDoc['login']
                 user['name'] = ' '.join((userDoc['firstName'], userDoc['lastName']))
+                user['email'] = userDoc['email']
 
         for grp in acList['groups'][:]:
             grpDoc = Group().load(
