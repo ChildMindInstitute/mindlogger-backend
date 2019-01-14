@@ -35,7 +35,7 @@ class GirderCli(GirderClient):
     """
 
     def __init__(self, username, password, host=None, port=None, apiRoot=None,
-                 scheme=None, apiUrl=None, apiKey=None, sslVerify=True, token=None,
+                 scheme=None, apiUrl=None, apiKey=None, sslVerify=False, token=None,
                  retries=None):
         """
         Initialization function to create a GirderCli instance, will attempt
