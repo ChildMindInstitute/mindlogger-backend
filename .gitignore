@@ -23,3 +23,10 @@ __pycache__
 .elasticbeanstalk/*
 !.elasticbeanstalk/*.cfg.yml
 !.elasticbeanstalk/*.global.yml
+
+# Keys
+*.csr
+*.key
+*.pem
+*.crt
+*.credentials*
