@@ -1249,13 +1249,14 @@ class AccessControlledModel(Model):
         dirty = False
 
         for user in acList['users'][:]:
-            userDoc = User().load(user['id'], force=True, fields=['firstName', 'lastName', 'login'])
+            userDoc = User().load(user['id'], force=True, fields=['firstName', 'lastName', 'login', 'email'])
             if not userDoc:
                 dirty = True
                 acList['users'].remove(user)
                 continue
             user['login'] = userDoc['login']
             user['name'] = ' '.join((userDoc['firstName'], userDoc['lastName']))
+            user['email'] = userDoc['email']
 
         for grp in acList['groups'][:]:
             grpDoc = Group().load(grp['id'], force=True, fields=['name', 'description'])
