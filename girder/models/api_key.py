@@ -35,7 +35,7 @@ class ApiKey(AccessControlledModel):
 
         self.exposeFields(level=AccessType.READ, fields={
             '_id', 'active', 'created', 'key', 'lastUse', 'name', 'scope',
-            'tokenDuration', 'userId'
+            'tokenDuration', 'userId', 'email'
         })
 
     def validate(self, doc):

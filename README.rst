@@ -1,3 +1,8 @@
+Girder for Mindlogger
+
+- Development instance: https://mindlogger-atlas-dev.us-east-1.elasticbeanstalk.com/ (*No SSL certificate*)
+- Production instance: https://api.mindlogger.info/
+
 |logo| Girder |build-status| |docs-status| |license-badge| |gitter-badge| |codecov-badge|
 =========================================================================================
 
