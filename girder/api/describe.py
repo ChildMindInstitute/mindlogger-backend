@@ -372,7 +372,7 @@ class Description(object):
 
         return self
 
-    def pagingParams(self, defaultSort, defaultSortDir=SortDir.ASCENDING, defaultLimit=50):
+    def pagingParams(self, defaultSort, defaultSortDir=SortDir.ASCENDING, defaultLimit=20000):
         """
         Adds the limit, offset, sort, and sortdir parameter documentation to
         this route handler.
