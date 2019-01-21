@@ -1083,7 +1083,7 @@ class Resource(ModelImporter):
         the form (limit, offset, sort) whose values should be passed directly
         into the model methods that are finding the resources. If the client
         did not pass the parameters, this always uses the same defaults of
-        limit=50, offset=0, sort='name', sortdir=SortDir.ASCENDING=1.
+        limit=20000, offset=0, sort='name', sortdir=SortDir.ASCENDING=1.
 
         :param params: The URL query parameters.
         :type params: dict
