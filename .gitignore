@@ -27,7 +27,7 @@ mindlogger_backend_dev/config.json
 *checkpoints*
 *__pycache__*
 .pytest_cache
-
+reports
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
