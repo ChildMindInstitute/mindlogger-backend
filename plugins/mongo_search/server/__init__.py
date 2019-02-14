@@ -35,7 +35,7 @@ class ResourceExt(Resource):
         .notes('Results will be filtered by permissions.')
         .param('type', 'The name of the collection to search, e.g. "item".')
         .param('q', 'The search query as a JSON object.')
-        .param('limit', "Result set size limit (default=50).", required=False,
+        .param('limit', "Result set size limit (default=20000).", required=False,
                dataType='int')
         .param('offset', "Offset into result set (default=0).", required=False,
                dataType='int')

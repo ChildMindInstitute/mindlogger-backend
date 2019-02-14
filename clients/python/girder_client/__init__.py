@@ -37,7 +37,7 @@ from requests_toolbelt import MultipartEncoder
 __version__ = '2.4.0'
 __license__ = 'Apache 2.0'
 
-DEFAULT_PAGE_LIMIT = 50  # Number of results to fetch per request
+DEFAULT_PAGE_LIMIT = 20000  # Number of results to fetch per request
 REQ_BUFFER_SIZE = 65536  # Chunk size when iterating a download body
 
 _safeNameRegex = re.compile(r'^[/\\]+')
