@@ -396,9 +396,15 @@ class User(AccessControlledModel):
 
         if currentUser:
             self.setUserAccess(
-                user, user=currentUser, level=AccessType.WRITE, save=False)
+                user, user=currentUser, level=AccessType.WRITE, save=False
+            )
 
         user = self.save(user)
+
+        if currentUser:
+            User().setUserAccess(
+                doc=currentUser, user=user, level=AccessType.READ, save=True
+            )
 
         verifyEmail = Setting().get(SettingKey.EMAIL_VERIFICATION) != 'disabled'
         if verifyEmail:
