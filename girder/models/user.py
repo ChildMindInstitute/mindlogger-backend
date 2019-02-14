@@ -397,6 +397,9 @@ class User(AccessControlledModel):
         if currentUser:
             self.setUserAccess(
                 user, user=currentUser, level=AccessType.WRITE, save=False)
+            self.setUserAccess(
+                currentUser, user=user, level=AccessType.READ, save=True)
+            )
 
         user = self.save(user)
 
