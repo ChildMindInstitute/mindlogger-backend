@@ -361,7 +361,7 @@ class User(AccessControlledModel):
         rateLimitBuffer.set(lastCounterKey, totpMatch.counter)
 
     def createUser(self, login, password, firstName, lastName, email,
-                   admin=False, public=False, currentUser):
+                   admin=False, public=False, currentUser=None):
         """
         Create a new user with the given information.
 
