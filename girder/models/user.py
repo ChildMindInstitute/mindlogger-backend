@@ -54,7 +54,7 @@ class User(AccessControlledModel):
             'created'))
         self.exposeFields(level=AccessType.ADMIN, fields=(
             'size', 'groups', 'groupInvites', 'status',
-            'emailVerified'))
+            'emailVerified', 'createdBy'))
 
         # To ensure compatibility with authenticator apps, other defaults shouldn't be changed
         self._TotpFactory = TOTP.using(
@@ -361,7 +361,7 @@ class User(AccessControlledModel):
         rateLimitBuffer.set(lastCounterKey, totpMatch.counter)
 
     def createUser(self, login, password, firstName, lastName, email,
-                   admin=False, public=False):
+                   admin=False, public=False, currentUser=None):
         """
         Create a new user with the given information.
 
@@ -382,6 +382,7 @@ class User(AccessControlledModel):
             'firstName': firstName,
             'lastName': lastName,
             'created': datetime.datetime.utcnow(),
+            'createdBy': currentUser['_id'] if currentUser else _id,
             'emailVerified': False,
             'status': 'pending' if requireApproval else 'enabled',
             'admin': admin,
@@ -393,7 +394,17 @@ class User(AccessControlledModel):
         self.setPassword(user, password, save=False)
         self.setPublic(user, public, save=False)
 
+        if currentUser:
+            self.setUserAccess(
+                user, user=currentUser, level=AccessType.WRITE, save=False
+            )
+
         user = self.save(user)
+
+        if currentUser:
+            User().setUserAccess(
+                doc=currentUser, user=user, level=AccessType.READ, save=True
+            )
 
         verifyEmail = Setting().get(SettingKey.EMAIL_VERIFICATION) != 'disabled'
         if verifyEmail:

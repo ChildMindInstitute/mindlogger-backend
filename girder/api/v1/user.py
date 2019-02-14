@@ -214,7 +214,7 @@ class User(Resource):
 
         user = self._model.createUser(
             login=login, password=password, email=email, firstName=firstName,
-            lastName=lastName, admin=admin)
+            lastName=lastName, admin=admin, currentUser=currentUser)
 
         if not currentUser and self._model.canLogin(user):
             setCurrentUser(user)
