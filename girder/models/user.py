@@ -402,7 +402,7 @@ class User(AccessControlledModel):
 
         if currentUser:
             self.setUserAccess(
-                currentUser, user=user, level=AccessType.READ, save=True)
+                doc=currentUser, user=user, level=AccessType.READ, save=True)
             )
 
         verifyEmail = Setting().get(SettingKey.EMAIL_VERIFICATION) != 'disabled'
