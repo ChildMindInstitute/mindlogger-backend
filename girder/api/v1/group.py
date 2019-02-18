@@ -50,6 +50,7 @@ class Group(Resource):
         self.route('POST', (':id', 'moderator'), self.promoteToModerator)
         self.route('POST', (':id', 'admin'), self.promoteToAdmin)
         self.route('PUT', (':id',), self.updateGroup)
+        self.route('PUT', (':id', 'access'), self.updateGroupAccess)
 
     @access.public
     @filtermodel(model=GroupModel)
@@ -121,6 +122,18 @@ class Group(Resource):
         group['access'] = groupModel.getFullAccessList(group)
         group['requests'] = list(groupModel.getFullRequestList(group))
         return group
+
+    @filtermodel(model=GroupModel, addFields={'access'})
+    @autoDescribeRoute(
+        Description('Update the access control list for a group.')
+        .modelParam('id', model=GroupModel, level=AccessType.WRITE)
+        .jsonParam('access', 'The JSON-encoded access control list.', requireObject=True)
+        .errorResponse('ID was invalid.')
+        .errorResponse('Admin access was denied for the user.', 403)
+    )
+    def updateGroupAccess(self, group, access):
+        return self._model.setAccessList(
+            group, access, save=True)
 
     @access.public
     @filtermodel(model=User)
