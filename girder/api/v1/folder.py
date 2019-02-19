@@ -239,7 +239,12 @@ class Folder(Resource):
                      reuseExisting, metadata):
         user = self.getCurrentUser()
         parent = self.model(parentType).load(
-            id=parentId, user=user, level=AccessType.WRITE, exc=True)
+            id=parentId, user=user,
+            level=AccessType.READ if (
+                parentType=='collection'
+            ) else AccesType.WRITE,
+            exc=True
+        )
 
         newFolder = self._model.createFolder(
             parent=parent, name=name, parentType=parentType, creator=user,
