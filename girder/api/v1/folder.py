@@ -242,7 +242,7 @@ class Folder(Resource):
             id=parentId, user=user,
             level=AccessType.READ if (
                 parentType=='collection'
-            ) else AccesType.WRITE,
+            ) else AccessType.WRITE,
             exc=True
         )
 
