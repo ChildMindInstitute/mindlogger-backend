@@ -24,7 +24,6 @@ from girder.utility import ziputil
 from girder.constants import AccessType, TokenScope
 from girder.exceptions import RestException
 from girder.api import access
-from girder.models.file import File
 from girder.models.folder import Folder
 from girder.models.item import Item as ItemModel
 
@@ -66,7 +65,7 @@ class ResponseItem(Resource):
             description="{}response on {} at {}".format(
                 "{} ".format(
                     metadata.name
-                ) if metadata and 'name' in metadata else "",
+                ) if ((metadata) and ('name' in metadata)) else "",
                 now.strftime("%Y-%m-%d"),
                 now.strftime("%H:%M:%S")
             ), reuseExisting=False)
