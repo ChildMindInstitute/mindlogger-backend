@@ -21,7 +21,7 @@ import cherrypy
 
 from . import describe
 from .v1 import api_key, assetstore, file, collection, folder, group, item,\
-    resource, system, token, user, notification
+    resource, response, system, token, user, notification
 
 
 class ApiDocs(object):
