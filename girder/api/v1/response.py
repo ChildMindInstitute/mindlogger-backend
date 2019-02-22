@@ -26,13 +26,14 @@ from girder.exceptions import RestException
 from girder.api import access
 from girder.models.folder import Folder
 from girder.models.item import Item as ItemModel
+import tzlocal
 
 
 class ResponseItem(Resource):
 
     def __init__(self):
-        super(Item, self).__init__()
-        self.resourceName = 'responseItem'
+        super(ResponseItem, self).__init__()
+        self.resourceName = 'response'
         self._model = ItemModel()
         self.route('POST', (), self.createResponseItem)
 
@@ -42,32 +43,37 @@ class ResponseItem(Resource):
     @autoDescribeRoute(
         Description('Create a new user response item.')
         .responseClass('Item')
+        .jsonParam('metadata',
+                   'A JSON object containing the metadata keys to add. Requires'
+                   ' the following keys: ["applet", "activity"]',
+                   paramType='form', requireObject=True, required=True)
         .param('subject_id', 'The ID of the user that is the subject.',
                required=False, default=None)
-        .jsonParam('metadata', 'A JSON object containing the metadata keys to add',
-                   paramType='form', requireObject=True, required=False)
         .errorResponse()
         .errorResponse('Write access was denied on the parent folder.', 403)
     )
     def createResponseItem(self, subject_id, metadata):
         informant = self.getCurrentUser()
-        subject_id = subject_id if subject_id is not None else informant
-        now = datetime.now()
-        UserResponsesFolder = Folder()._model.createFolder(
-            parent={'_id': informant}, parentType='user', name='Responses',
+        subject_id = subject_id if subject_id is not None else str(
+            informant["_id"]
+        )
+        now = datetime.now(tzlocal.get_localzone())
+        UserResponsesFolder = Folder().createFolder(
+            parent=informant, parentType='user', name='Responses',
             reuseExisting=True, public=False)
-        UserSubjectResponsesFolder = Folder()._model.createFolder(
-            parent=UserResponsesFolder, parentType='folder', name=subject._id,
-            reuseExisting=True, public=False)
+        UserAppletResponsesFolder = Folder().createFolder(
+            parent=UserResponsesFolder, parentType='folder',
+            name=metadata["applet"], reuseExisting=True, public=False)
+        AppletSubjectResponsesFolder = Folder().createFolder(
+            parent=UserAppletResponsesFolder, parentType='folder',
+            name=subject_id, reuseExisting=True, public=False)
         newItem = self._model.createItem(
-            folder=UserSubjectResponsesFolder,
-            name=now.strftime("%Y-%m-%d-%H-%M-%S"), creator=informant,
-            description="{}response on {} at {}".format(
-                "{} ".format(
-                    metadata.name
-                ) if ((metadata) and ('name' in metadata)) else "",
+            folder=AppletSubjectResponsesFolder,
+            name=now.strftime("%Y-%m-%d-%H-%M-%S-%Z"), creator=informant,
+            description="{} response on {} at {}".format(
+                metadata["activity"],
                 now.strftime("%Y-%m-%d"),
-                now.strftime("%H:%M:%S")
+                now.strftime("%H:%M:%S %Z")
             ), reuseExisting=False)
         if metadata:
             newItem = self._model.setMetadata(newItem, metadata)
