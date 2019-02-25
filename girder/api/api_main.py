@@ -21,7 +21,7 @@ import cherrypy
 
 from . import describe
 from .v1 import api_key, assetstore, file, collection, folder, group, item,\
-    resource, system, token, user, notification
+    resource, response, system, token, user, notification
 
 
 class ApiDocs(object):
@@ -53,6 +53,7 @@ def _addV1ToNode(node):
     node.v1.item = item.Item()
     node.v1.notification = notification.Notification()
     node.v1.resource = resource.Resource()
+    node.v1.response = response.ResponseItem()
     node.v1.system = system.System()
     node.v1.token = token.Token()
     node.v1.user = user.User()
