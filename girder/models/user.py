@@ -382,7 +382,6 @@ class User(AccessControlledModel):
             'firstName': firstName,
             'lastName': lastName,
             'created': datetime.datetime.utcnow(),
-            'createdBy': currentUser,
             'emailVerified': False,
             'status': 'pending' if requireApproval else 'enabled',
             'admin': admin,
@@ -398,6 +397,7 @@ class User(AccessControlledModel):
             self.setUserAccess(
                 user, user=currentUser, level=AccessType.WRITE, save=False
             )
+            user['createdBy'] = currentUser['_id']
 
         user = self.save(user)
 
