@@ -384,6 +384,8 @@ class User(AccessControlledModel):
             'created': datetime.datetime.utcnow(),
             'createdBy': currentUser['_id'] if (
                 currentUser and '_id' in currentUser
+            ) else None currentUser['id'] if (
+                currentUser and 'id' in currentUser
             ) else None,
             'emailVerified': False,
             'status': 'pending' if requireApproval else 'enabled',
