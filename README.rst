@@ -1,7 +1,8 @@
 Girder for Mindlogger
 
-- Development instance: https://mindlogger-atlas-dev.us-east-1.elasticbeanstalk.com/ (*No SSL certificate*)
-- Production instance: https://api.mindlogger.info/
+- Development instance: https://mindlogger-dev.vasegurt.com
+- Production instance: https://api.mindlogger.info
+- Run a local instance: If one clones our [girder](https://github.com/ChildMindInstitute/mindlogger-app-backend/tree/girder) or [girder-dev](https://github.com/ChildMindInstitute/mindlogger-app-backend/tree/girder-dev) branch of this repository, following [the official Girder documentation](https://girder.readthedocs.io/en/stable/admin-docs.html) should get a local instance running.
 
 |logo| Girder |build-status| |docs-status| |license-badge| |gitter-badge| |codecov-badge|
 =========================================================================================
