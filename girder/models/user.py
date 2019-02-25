@@ -382,9 +382,7 @@ class User(AccessControlledModel):
             'firstName': firstName,
             'lastName': lastName,
             'created': datetime.datetime.utcnow(),
-            'createdBy': currentUser['_id'] if (
-                currentUser and '_id' in currentUser
-            ) else None,
+            'createdBy': currentUser,
             'emailVerified': False,
             'status': 'pending' if requireApproval else 'enabled',
             'admin': admin,
