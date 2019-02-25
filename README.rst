@@ -2,7 +2,7 @@ Girder for Mindlogger
 
 - Development instance: https://mindlogger-dev.vasegurt.com
 - Production instance: https://api.mindlogger.info
-- Run a local instance: If one clones our [girder](https://github.com/ChildMindInstitute/mindlogger-app-backend/tree/girder) or [girder-dev](https://github.com/ChildMindInstitute/mindlogger-app-backend/tree/girder-dev) branch of this repository, following [the official Girder documentation](https://girder.readthedocs.io/en/stable/admin-docs.html) should get a local instance running.
+- Run a local instance: If one clones our `girder <https://github.com/ChildMindInstitute/mindlogger-app-backend/tree/girder>`_ or `girder-dev <https://github.com/ChildMindInstitute/mindlogger-app-backend/tree/girder-dev>`_ branch of this repository, following `the official Girder documentation <https://girder.readthedocs.io/en/stable/admin-docs.html>`_ should get a local instance running.
 
 |logo| Girder |build-status| |docs-status| |license-badge| |gitter-badge| |codecov-badge|
 =========================================================================================
