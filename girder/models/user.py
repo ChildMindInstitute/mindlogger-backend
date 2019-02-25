@@ -382,7 +382,9 @@ class User(AccessControlledModel):
             'firstName': firstName,
             'lastName': lastName,
             'created': datetime.datetime.utcnow(),
-            'createdBy': currentUser['_id'] if currentUser else _id,
+            'createdBy': currentUser['_id'] if (
+                currentUser and '_id' in currentUser
+            ) else None,
             'emailVerified': False,
             'status': 'pending' if requireApproval else 'enabled',
             'admin': admin,
@@ -405,6 +407,9 @@ class User(AccessControlledModel):
             User().setUserAccess(
                 doc=currentUser, user=user, level=AccessType.READ, save=True
             )
+        else:
+            user['createdBy'] = user['_id']
+            user = self.save(user)
 
         verifyEmail = Setting().get(SettingKey.EMAIL_VERIFICATION) != 'disabled'
         if verifyEmail:
