@@ -95,7 +95,7 @@ class ResponseItem(Resource):
                     ) else metadata["activity"] if (
                         "activity" in metadata and type(
                             metadata["activity"]
-                        ) != str
+                        ) == str
                     ) else "[Unknown Activity]"
                 ),
                 now.strftime("%Y-%m-%d"),
