@@ -63,7 +63,14 @@ class ResponseItem(Resource):
             reuseExisting=True, public=False)
         UserAppletResponsesFolder = Folder().createFolder(
             parent=UserResponsesFolder, parentType='folder',
-            name=metadata["applet"], reuseExisting=True, public=False)
+            name=metadata["applet"]["@id"] if (
+                "applet" in metadata and "@id" in metadata["applet"]
+            ) else metadata["applet"]["name"] if (
+                "applet" in metadata and "skos:prefLabel" in metadata["applet"]
+            ) else metadata["applet"]["skos:prefLabel"] if (
+                "applet" in metadata and "name" in metadata["applet"]
+            ) else "[Unknown Applet]",
+            reuseExisting=True, public=False)
         AppletSubjectResponsesFolder = Folder().createFolder(
             parent=UserAppletResponsesFolder, parentType='folder',
             name=subject_id, reuseExisting=True, public=False)
