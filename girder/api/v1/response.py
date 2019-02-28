@@ -45,7 +45,8 @@ class ResponseItem(Resource):
         .responseClass('Item')
         .jsonParam('metadata',
                    'A JSON object containing the metadata keys to add. Requires'
-                   ' the following keys: ["applet", "activity"]',
+                   ' the following keys: ["applet", "activity"], each of which'
+                   ' takes an Object for its value.',
                    paramType='form', requireObject=True, required=True)
         .param('subject_id', 'The ID of the user that is the subject.',
                required=False, default=None)
@@ -69,6 +70,10 @@ class ResponseItem(Resource):
                 "applet" in metadata and "skos:prefLabel" in metadata["applet"]
             ) else metadata["applet"]["skos:prefLabel"] if (
                 "applet" in metadata and "name" in metadata["applet"]
+            ) else metadata["applet"] if (
+                "applet" in metadata and type(
+                    metadata["applet"]
+                ) == str
             ) else "[Unknown Applet]",
             reuseExisting=True, public=False)
         AppletSubjectResponsesFolder = Folder().createFolder(
@@ -78,7 +83,21 @@ class ResponseItem(Resource):
             folder=AppletSubjectResponsesFolder,
             name=now.strftime("%Y-%m-%d-%H-%M-%S-%Z"), creator=informant,
             description="{} response on {} at {}".format(
-                metadata["activity"],
+                (
+                    metadata["activity"]["@id"] if (
+                        "activity" in metadata and "@id" in metadata["activity"]
+                    ) else metadata["activity"]["name"] if (
+                        "activity" in metadata and "skos:prefLabel" in metadata[
+                            "activity"
+                        ]
+                    ) else metadata["activity"]["skos:prefLabel"] if (
+                        "activity" in metadata and "name" in metadata["activity"]
+                    ) else metadata["activity"] if (
+                        "activity" in metadata and type(
+                            metadata["activity"]
+                        ) != str
+                    ) else "[Unknown Activity]"
+                ),
                 now.strftime("%Y-%m-%d"),
                 now.strftime("%H:%M:%S %Z")
             ), reuseExisting=False)
