@@ -66,9 +66,9 @@ class ResponseItem(Resource):
             parent=UserResponsesFolder, parentType='folder',
             name=metadata["applet"]["@id"] if (
                 "applet" in metadata and "@id" in metadata["applet"]
-            ) else metadata["applet"]["name"] if (
-                "applet" in metadata and "skos:prefLabel" in metadata["applet"]
             ) else metadata["applet"]["skos:prefLabel"] if (
+                "applet" in metadata and "skos:prefLabel" in metadata["applet"]
+            ) else metadata["applet"]["name"] if (
                 "applet" in metadata and "name" in metadata["applet"]
             ) else metadata["applet"] if (
                 "applet" in metadata and type(
@@ -86,11 +86,11 @@ class ResponseItem(Resource):
                 (
                     metadata["activity"]["@id"] if (
                         "activity" in metadata and "@id" in metadata["activity"]
-                    ) else metadata["activity"]["name"] if (
+                    ) else metadata["activity"]["skos:prefLabel"] if (
                         "activity" in metadata and "skos:prefLabel" in metadata[
                             "activity"
                         ]
-                    ) else metadata["activity"]["skos:prefLabel"] if (
+                    ) else metadata["activity"]["name"] if (
                         "activity" in metadata and "name" in metadata["activity"]
                     ) else metadata["activity"] if (
                         "activity" in metadata and type(
