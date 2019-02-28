@@ -54,7 +54,7 @@ class User(AccessControlledModel):
             'created'))
         self.exposeFields(level=AccessType.ADMIN, fields=(
             'size', 'groups', 'groupInvites', 'status',
-            'emailVerified', 'createdBy'))
+            'emailVerified', 'creatorId'))
 
         # To ensure compatibility with authenticator apps, other defaults shouldn't be changed
         self._TotpFactory = TOTP.using(
@@ -397,7 +397,7 @@ class User(AccessControlledModel):
             self.setUserAccess(
                 user, user=currentUser, level=AccessType.WRITE, save=False
             )
-            user['createdBy'] = currentUser['_id']
+            user['creatorId'] = currentUser['_id']
 
         user = self.save(user)
 
@@ -406,7 +406,7 @@ class User(AccessControlledModel):
                 doc=currentUser, user=user, level=AccessType.READ, save=True
             )
         else:
-            user['createdBy'] = user['_id']
+            user['creatorId'] = user['_id']
             user = self.save(user)
 
         verifyEmail = Setting().get(SettingKey.EMAIL_VERIFICATION) != 'disabled'
