@@ -26,6 +26,7 @@ from girder.exceptions import RestException
 from girder.api import access
 from girder.models.folder import Folder
 from girder.models.item import Item as ItemModel
+from girder.models.user import User as UserModel
 import tzlocal
 
 
@@ -35,7 +36,43 @@ class ResponseItem(Resource):
         super(ResponseItem, self).__init__()
         self.resourceName = 'response'
         self._model = ItemModel()
+        self.route('GET', (), self.getResponses)
         self.route('POST', (), self.createResponseItem)
+
+
+    @access.public(scope=TokenScope.DATA_READ)
+    @filtermodel(model=ItemModel)
+    @autoDescribeRoute(
+        Description('Get all responses for a given user and applet.')
+        .modelParam('user', model=UserModel, level=AccessType.NONE)
+        .modelParam('applet', model=Folder, level=AccessType.NONE)
+        .errorResponse('ID was invalid.')
+        .errorResponse(
+            'Read access was denied for this applet for this user.',
+            403
+        )
+    )
+    def getResponses(self, user, folder):
+        reviewer = self.getCurrentUser()
+        appletId = folder['_id']
+        appletName = folder['name'] # Get by name for old schema, delete later
+        UserResponsesFolder = Folder().createFolder(
+            parent=reviewer, parentType='user', name='Responses',
+            reuseExisting=True, public=False)
+        UserAppletResponsesFolders = Folder().childFolders(
+            parent=UserResponsesFolder, parentType='folder',
+            user=self.getCurrentUser())
+        allResponses = {}
+        for AppletResponsesFolder in UserAppletResponsesFolder:
+            if 'meta' in AppletResponsesFolder:
+                if 'applet' in AppletResponsesFolder[
+                    'meta'
+                ] and AppletResponsesFolder['meta']['applet']['@id']==appletId:
+                    allResponses[appletId] = AppletResponsesFolder
+            elif AppletResponsesFolder['name'] == appletName:
+                 # Get by name for old schema, delete later
+                allResponses[appletId] = AppletResponsesFolder
+        return allResponses
 
 
     @access.user(scope=TokenScope.DATA_WRITE)
@@ -91,7 +128,9 @@ class ResponseItem(Resource):
                             "activity"
                         ]
                     ) else metadata["activity"]["name"] if (
-                        "activity" in metadata and "name" in metadata["activity"]
+                        "activity" in metadata and "name" in metadata[
+                            "activity"
+                        ]
                     ) else metadata["activity"] if (
                         "activity" in metadata and type(
                             metadata["activity"]
