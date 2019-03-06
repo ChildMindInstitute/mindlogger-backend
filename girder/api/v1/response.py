@@ -26,6 +26,7 @@ from girder.exceptions import RestException
 from girder.api import access
 from girder.models.folder import Folder
 from girder.models.item import Item as ItemModel
+from girder.models.user import User as UserModel
 import tzlocal
 
 
@@ -35,7 +36,64 @@ class ResponseItem(Resource):
         super(ResponseItem, self).__init__()
         self.resourceName = 'response'
         self._model = ItemModel()
+        self.route('GET', (), self.getResponses)
         self.route('POST', (), self.createResponseItem)
+
+
+    @access.public(scope=TokenScope.DATA_READ)
+    @autoDescribeRoute(
+        Description('Get all responses for a given user and applet.')
+        .param('userId', 'The ID of the user for whom to get responses.', required=True)
+        .param('appletId', 'The ID of the applet for which to get responses.', required=True)
+        .errorResponse('ID was invalid.')
+        .errorResponse(
+            'Read access was denied for this applet for this user.',
+            403
+        )
+    )
+    def getResponses(self, userId, appletId):
+        reviewer = self.getCurrentUser()
+        user = UserModel().load(
+            id=userId, user=reviewer, level=AccessType.NONE, exc=True
+        )
+        folder = Folder().load(
+            id=appletId, user=user, level=AccessType.NONE, exc=True
+        )
+        appletName = folder['name'] # Get by name for old schema, delete later
+        UserResponsesFolder = Folder().createFolder(
+            parent=reviewer, parentType='user', name='Responses',
+            reuseExisting=True, public=False)
+        UserAppletResponsesFolders = Folder().childFolders(
+            parent=UserResponsesFolder, parentType='folder',
+            user=reviewer)
+        allResponses = {}
+        for appletResponsesFolder in UserAppletResponsesFolders:
+            if appletResponsesFolder['name'] == appletName: # match by name for old schema, delete later
+                allResponses[appletId] = list(Folder().childItems(
+                    folder=appletResponsesFolder, user=reviewer
+                ))
+            elif (
+                (
+                    'meta' in appletResponsesFolder
+                ) and 'applet' in appletResponsesFolder[
+                    'meta'
+                ] and appletResponsesFolder[
+                    'meta'
+                ]['applet']['@id']==appletId
+            ):
+                allResponses[appletId] = []
+                folder = Folder().load(
+                    id=appletResponsesFolder["_id"], user=reviewer,
+                    level=AccessType.READ, exc=True
+                )
+                subjectFolders = Folder().childFolders(
+                    parent=folder, parentType='folder', user=reviewer
+                )
+                for subjectFolder in subjectFolders:
+                    allResponses[appletId] += list(Folder().childItems(
+                        folder=subjectFolder, user=reviewer
+                    ))
+        return(allResponses)
 
 
     @access.user(scope=TokenScope.DATA_WRITE)
@@ -45,7 +103,8 @@ class ResponseItem(Resource):
         .responseClass('Item')
         .jsonParam('metadata',
                    'A JSON object containing the metadata keys to add. Requires'
-                   ' the following keys: ["applet", "activity"]',
+                   ' the following keys: ["applet", "activity"], each of which'
+                   ' takes an Object for its value.',
                    paramType='form', requireObject=True, required=True)
         .param('subject_id', 'The ID of the user that is the subject.',
                required=False, default=None)
@@ -63,7 +122,18 @@ class ResponseItem(Resource):
             reuseExisting=True, public=False)
         UserAppletResponsesFolder = Folder().createFolder(
             parent=UserResponsesFolder, parentType='folder',
-            name=metadata["applet"], reuseExisting=True, public=False)
+            name=metadata["applet"]["@id"] if (
+                "applet" in metadata and "@id" in metadata["applet"]
+            ) else metadata["applet"]["skos:prefLabel"] if (
+                "applet" in metadata and "skos:prefLabel" in metadata["applet"]
+            ) else metadata["applet"]["name"] if (
+                "applet" in metadata and "name" in metadata["applet"]
+            ) else metadata["applet"] if (
+                "applet" in metadata and type(
+                    metadata["applet"]
+                ) == str
+            ) else "[Unknown Applet]",
+            reuseExisting=True, public=False)
         AppletSubjectResponsesFolder = Folder().createFolder(
             parent=UserAppletResponsesFolder, parentType='folder',
             name=subject_id, reuseExisting=True, public=False)
@@ -71,7 +141,23 @@ class ResponseItem(Resource):
             folder=AppletSubjectResponsesFolder,
             name=now.strftime("%Y-%m-%d-%H-%M-%S-%Z"), creator=informant,
             description="{} response on {} at {}".format(
-                metadata["activity"],
+                (
+                    metadata["activity"]["@id"] if (
+                        "activity" in metadata and "@id" in metadata["activity"]
+                    ) else metadata["activity"]["skos:prefLabel"] if (
+                        "activity" in metadata and "skos:prefLabel" in metadata[
+                            "activity"
+                        ]
+                    ) else metadata["activity"]["name"] if (
+                        "activity" in metadata and "name" in metadata[
+                            "activity"
+                        ]
+                    ) else metadata["activity"] if (
+                        "activity" in metadata and type(
+                            metadata["activity"]
+                        ) == str
+                    ) else "[Unknown Activity]"
+                ),
                 now.strftime("%Y-%m-%d"),
                 now.strftime("%H:%M:%S %Z")
             ), reuseExisting=False)

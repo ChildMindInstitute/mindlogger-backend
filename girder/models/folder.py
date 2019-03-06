@@ -531,7 +531,9 @@ class Folder(AccessControlledModel):
             'size': 0
         }
 
-        if parentType in ('folder', 'collection') and (parent['name'] != "Volumes"):
+        if parentType in ('folder', 'collection') and (parent['name'] not in [
+            "Volumes", "Activity Sets", "Applets"
+        ]):
             self.copyAccessPolicies(src=parent, dest=folder, save=False)
 
         if creator is not None:
