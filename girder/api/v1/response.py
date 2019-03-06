@@ -41,38 +41,59 @@ class ResponseItem(Resource):
 
 
     @access.public(scope=TokenScope.DATA_READ)
-    @filtermodel(model=ItemModel)
     @autoDescribeRoute(
         Description('Get all responses for a given user and applet.')
-        .modelParam('user', model=UserModel, level=AccessType.NONE)
-        .modelParam('applet', model=Folder, level=AccessType.NONE)
+        .param('userId', 'The ID of the user for whom to get responses.', required=True)
+        .param('appletId', 'The ID of the applet for which to get responses.', required=True)
         .errorResponse('ID was invalid.')
         .errorResponse(
             'Read access was denied for this applet for this user.',
             403
         )
     )
-    def getResponses(self, user, folder):
+    def getResponses(self, userId, appletId):
         reviewer = self.getCurrentUser()
-        appletId = folder['_id']
+        user = UserModel().load(
+            id=userId, user=reviewer, level=AccessType.NONE, exc=True
+        )
+        folder = Folder().load(
+            id=appletId, user=user, level=AccessType.NONE, exc=True
+        )
         appletName = folder['name'] # Get by name for old schema, delete later
         UserResponsesFolder = Folder().createFolder(
             parent=reviewer, parentType='user', name='Responses',
             reuseExisting=True, public=False)
         UserAppletResponsesFolders = Folder().childFolders(
             parent=UserResponsesFolder, parentType='folder',
-            user=self.getCurrentUser())
+            user=reviewer)
         allResponses = {}
-        for AppletResponsesFolder in UserAppletResponsesFolder:
-            if 'meta' in AppletResponsesFolder:
-                if 'applet' in AppletResponsesFolder[
+        for AppletResponsesFolder in UserAppletResponsesFolders:
+            if (
+                (
+                    'meta' in AppletResponsesFolder
+                ) and 'applet' in AppletResponsesFolder[
                     'meta'
-                ] and AppletResponsesFolder['meta']['applet']['@id']==appletId:
-                    allResponses[appletId] = AppletResponsesFolder
-            elif AppletResponsesFolder['name'] == appletName:
-                 # Get by name for old schema, delete later
-                allResponses[appletId] = AppletResponsesFolder
-        return allResponses
+                ] and AppletResponsesFolder[
+                    'meta'
+                ]['applet']['@id']==appletId
+            ) or (
+                AppletResponsesFolder['name'] == appletName
+            ) or (
+                AppletResponsesFolder['name'] == appletId
+            ):
+                allResponses[appletId] = []
+                folder = Folder().load(
+                    id=AppletResponsesFolder["_id"], user=reviewer,
+                    level=AccessType.READ, exc=True
+                )
+                subjectFolders = Folder().childFolders(
+                    parent=folder, parentType='folder', user=reviewer
+                )
+                for subjectFolder in subjectFolders:
+                    allResponses[appletId] += list(Folder().childItems(
+                        folder=subjectFolder, user=reviewer
+                    ))
+        return(allResponses)
 
 
     @access.user(scope=TokenScope.DATA_WRITE)
