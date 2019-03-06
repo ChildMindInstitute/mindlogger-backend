@@ -67,23 +67,23 @@ class ResponseItem(Resource):
             parent=UserResponsesFolder, parentType='folder',
             user=reviewer)
         allResponses = {}
-        for AppletResponsesFolder in UserAppletResponsesFolders:
-            if (
+        for appletResponsesFolder in UserAppletResponsesFolders:
+            if appletResponsesFolder['name'] == appletName: # match by name for old schema, delete later
+                allResponses[appletId] = list(Folder().childItems(
+                    folder=appletResponsesFolder, user=reviewer
+                ))
+            elif (
                 (
-                    'meta' in AppletResponsesFolder
-                ) and 'applet' in AppletResponsesFolder[
+                    'meta' in appletResponsesFolder
+                ) and 'applet' in appletResponsesFolder[
                     'meta'
-                ] and AppletResponsesFolder[
+                ] and appletResponsesFolder[
                     'meta'
                 ]['applet']['@id']==appletId
-            ) or (
-                AppletResponsesFolder['name'] == appletName
-            ) or (
-                AppletResponsesFolder['name'] == appletId
             ):
                 allResponses[appletId] = []
                 folder = Folder().load(
-                    id=AppletResponsesFolder["_id"], user=reviewer,
+                    id=appletResponsesFolder["_id"], user=reviewer,
                     level=AccessType.READ, exc=True
                 )
                 subjectFolders = Folder().childFolders(
