@@ -80,6 +80,7 @@ installReqs = [
     'requests',
     'shutilwhich ; python_version < \'3\'',
     'six>=1.9',
+    'tzlocal>=1.5.1'
 ]
 
 extrasReqs = {}
