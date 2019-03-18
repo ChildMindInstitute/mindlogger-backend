@@ -61,7 +61,7 @@ class ResponseItem(Resource):
         )
         appletName = folder['name'] # Get by name for old schema, delete later
         UserResponsesFolder = Folder().createFolder(
-            parent=reviewer, parentType='user', name='Responses',
+            parent=user, parentType='user', name='Responses', creator=user,
             reuseExisting=True, public=False)
         UserAppletResponsesFolders = Folder().childFolders(
             parent=UserResponsesFolder, parentType='folder',
@@ -119,7 +119,7 @@ class ResponseItem(Resource):
         now = datetime.now(tzlocal.get_localzone())
         UserResponsesFolder = Folder().createFolder(
             parent=informant, parentType='user', name='Responses',
-            reuseExisting=True, public=False)
+            creator=informant, reuseExisting=True, public=False)
         UserAppletResponsesFolder = Folder().createFolder(
             parent=UserResponsesFolder, parentType='folder',
             name=metadata["applet"]["@id"] if (
