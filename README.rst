@@ -10,7 +10,7 @@ Mindlogger is moving towards the following data structure:
     :align: center
     :alt: Mindlogger database entity-relationship diagram
     :figclass: align-center
-    :href: ./docs/images/Mindlogger-DB-ER.dia
+    :target: ./docs/images/Mindlogger-DB-ER.dia
 
     The above `entity-relationship diagram <https://cacoo.com/blog/er-diagrams-vs-eer-diagrams-whats-the-difference/>`_ was created with `dia 0.97+git <https://live.gnome.org/Dia>`_.
 
