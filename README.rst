@@ -6,8 +6,12 @@ Data Structure
 
 Mindlogger is moving towards the following data structure:
 
-[![Mindlogger database entity-relationship diagram](./docs/images/Mindlogger-DB-ER.png)](./docs/images/Mindlogger-DB-ER.dia)
-The above [entity-relationship diagram](https://cacoo.com/blog/er-diagrams-vs-eer-diagrams-whats-the-difference/) was created with [dia 0.97+git](https://live.gnome.org/Dia).
+.. figure:: ./docs/images/Mindlogger-DB-ER.png
+    :align: center
+    :alt: Mindlogger database entity-relationship diagram
+    :figclass: align-center
+
+    The above `entity-relationship diagram <https://cacoo.com/blog/er-diagrams-vs-eer-diagrams-whats-the-difference/>`_ was created with `dia 0.97+git <https://live.gnome.org/Dia>`_.
 
 Entities
 ########
