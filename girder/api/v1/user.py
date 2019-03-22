@@ -20,12 +20,15 @@
 import base64
 import cherrypy
 import datetime
+import itertools
 
 from ..describe import Description, autoDescribeRoute
 from girder.api import access
 from girder.api.rest import Resource, filtermodel, setCurrentUser
 from girder.constants import AccessType, SettingKey, TokenScope
 from girder.exceptions import RestException, AccessException
+from girder.models.collection import Collection as CollectionModel
+from girder.models.folder import Folder as FolderModel
 from girder.models.password import Password
 from girder.models.setting import Setting
 from girder.models.token import Token
@@ -127,7 +130,7 @@ class User(Resource):
         .modelParam('id', model=UserModel, level=AccessType.READ)
         .param(
             'role',
-            'One of "user", "manager", "editor", or "reviewer"',
+            'One of {"user", "manager", "editor", or "reviewer"}',
             required=False,
             default='user'
         )
@@ -138,20 +141,56 @@ class User(Resource):
         )
     )
     def getUserApplets(self, user, role):
-        if role.toLower not in {
-            "user",
-            "manager",
-            "editor",
-            "reviewer"
-        }:
-            return([])
+        membershipRoles = {
+            "user": {
+                "users"
+            },
+            "manager": {
+                "owners",
+                "managers"
+            },
+            "editor": {
+                "editors",
+                "owners"
+            },
+            "reviewer": {
+                "reviewers",
+                "viewers"
+            }
+        }
+        role = role.lower()
+        if role not in membershipRoles.keys():
+            raise RestException(
+                'Invalid user role.'
+            )
         reviewer = self.getCurrentUser()
-
         # Old schema
-        activitySets = None
+        collections = CollectionModel().find()
+        activitySets = list(itertools.chain.from_iterable([
+            [
+                folder for folder in FolderModel().childFolders(
+                    parentType='collection',
+                    parent=collection,
+                    user=reviewer
+                )
+            ] for collection in [
+                collection for collection in collections if collection[
+                    'name'
+                ] == "Volumes"
+            ]
+        ]))
+        activitySets = [
+            applet for applet in activitySets for membershipRole in membershipRoles[
+                role
+            ] if 'meta' in applet and 'members' in applet[
+                'meta'
+            ] and membershipRole in applet['meta']['members'] and str(
+                user['_id']
+            ) in applet['meta']['members'][membershipRole]
+        ]
         # New schema
         applets = []
-
+        applets.extend(activitySets)
         return(applets)
 
     @access.public(scope=TokenScope.USER_INFO_READ)
