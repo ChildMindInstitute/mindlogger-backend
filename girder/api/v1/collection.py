@@ -49,16 +49,34 @@ class Collection(Resource):
     @autoDescribeRoute(
         Description('List or search for collections.')
         .responseClass('Collection', array=True)
-        .param('text', 'Pass this to perform a text search for collections.', required=False)
+        .param('name', 'Name of the collection', required=False)
+        .param(
+            'text',
+            'Pass this to perform a text search for collections.',
+            required=False
+        )
         .pagingParams(defaultSort='name')
     )
-    def find(self, text, limit, offset, sort):
+    def find(self, name, text, limit, offset, sort):
         user = self.getCurrentUser()
 
-        if text is not None:
-            return self._model.textSearch(text, user=user, limit=limit, offset=offset)
+        collections = self._model.textSearch(
+            text,
+            user=user,
+            limit=limit,
+            offset=offset
+        ) if text is not None else self._model.list(
+            user=user,
+            offset=offset,
+            limit=limit,
+            sort=sort
+        )
 
-        return self._model.list(user=user, offset=offset, limit=limit, sort=sort)
+        return ([
+            collection for collection in collections if name==collection[
+                'name'
+            ]
+        ]) if name is not None else collections 
 
     @access.user(scope=TokenScope.DATA_WRITE)
     @filtermodel(model=CollectionModel)

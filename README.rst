@@ -1,11 +1,78 @@
 Girder for Mindlogger
+====================
+
+Data Structure
+--------------
+
+Mindlogger is moving towards the following data structure:
+
+[![Mindlogger database entity-relationship diagram](./docs/images/Mindlogger-DB-ER.png)](./docs/images/Mindlogger-DB-ER.dia)
+The above [entity-relationship diagram](https://cacoo.com/blog/er-diagrams-vs-eer-diagrams-whats-the-difference/) was created with [dia 0.97+git](https://live.gnome.org/Dia).
+
+Entities
+########
+
+Each entity is separately access controlled.
+
+Activity
+********
+
+Activity Version
+****************
+
+Applet
+******
+
+strong entity
+^^^^^^^^^^^^^
+
+weak entity (under Assignments)
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+weak entity (under Users)
+^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Applets
+*******
+
+A Girder Collection
+
+Custom User Settings
+********************
+
+PHI
+***
+
+Response
+********
+
+Responses
+*********
+
+Screen
+******
+
+User
+****
+
+strong entity
+^^^^^^^^^^^^^
+
+weak entity
+^^^^^^^^^^^
+
+Users
+*****
+
+Links
+-----
 
 - Development instance: https://mindlogger-dev.vasegurt.com
 - Production instance: https://api.mindlogger.info
 - Run a local instance: If one clones our `girder <https://github.com/ChildMindInstitute/mindlogger-app-backend/tree/girder>`_ or `girder-dev <https://github.com/ChildMindInstitute/mindlogger-app-backend/tree/girder-dev>`_ branch of this repository, following `the official Girder documentation <https://girder.readthedocs.io/en/stable/admin-docs.html>`_ should get a local instance running.
 
 |logo| Girder |build-status| |docs-status| |license-badge| |gitter-badge| |codecov-badge|
-=========================================================================================
+-----------------------------------------------------------------------------------------
 
 **Data Management Platform**
 
