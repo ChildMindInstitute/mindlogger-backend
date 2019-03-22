@@ -164,6 +164,7 @@ class User(Resource):
                 'Invalid user role.'
             )
         reviewer = self.getCurrentUser()
+        applets = []
         # Old schema
         collections = CollectionModel().find()
         activitySets = list(itertools.chain.from_iterable([
@@ -189,7 +190,56 @@ class User(Resource):
             ) in applet['meta']['members'][membershipRole]
         ]
         # New schema
-        applets = []
+        collections = CollectionModel().find()
+        assignments = list(itertools.chain.from_iterable([
+            [
+                folder for folder in FolderModel().childFolders(
+                    parentType='collection',
+                    parent=collection,
+                    user=reviewer
+                )
+            ] for collection in [
+                collection for collection in collections if collection[
+                    'name'
+                ] == "Assignments"
+            ]
+        ]))
+        for assignment in assignments:
+            if 'meta' in assignment and 'members' in assignment['meta']:
+                for assignedUser in assignment['meta']['members']:
+                    if 'roles' in assignedUser and bool(len(list(set(
+                        assignedUser['roles']
+                    ).intersection(
+                        list(membershipRoles.keys())
+                    )))):
+                        if str(user['_id']) in [
+                            userId['meta']['user'][
+                                '@id'
+                            ] for userId in FolderModel().childFolders(
+                                parentType='folder',
+                                parent=FolderModel().load(
+                                    assignedUser['@id'],
+                                    level=AccessType.NONE,
+                                    user=reviewer
+                                ),
+                                user=reviewer
+                            ) if (
+                                'lowerName' in userId
+                            ) and (
+                                userId['lowerName']=='userid'
+                            ) and (
+                                'meta' in userId
+                            ) and (
+                                'user' in userId['meta']
+                            ) and (
+                                '@id' in userId['meta']['user']
+                            )
+                        ]:
+                            applets.append(FolderModel().load(
+                                assignment['meta']['applet']['@id'],
+                                user=reviewer
+                            ))
+                                
         applets.extend(activitySets)
         return(applets)
 
