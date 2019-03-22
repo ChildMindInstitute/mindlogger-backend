@@ -60,6 +60,7 @@ pycparser==2.18
 pydicom==1.1.0
 pyldap==3.0.0.post1
 pymongo==3.7.0
+pyOpenSSL>=0.14
 python-dateutil==2.6.1
 python-ldap==3.1.0
 pytz==2018.5

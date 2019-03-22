@@ -20,12 +20,15 @@
 import base64
 import cherrypy
 import datetime
+import itertools
 
 from ..describe import Description, autoDescribeRoute
 from girder.api import access
 from girder.api.rest import Resource, filtermodel, setCurrentUser
 from girder.constants import AccessType, SettingKey, TokenScope
 from girder.exceptions import RestException, AccessException
+from girder.models.collection import Collection as CollectionModel
+from girder.models.folder import Folder as FolderModel
 from girder.models.password import Password
 from girder.models.setting import Setting
 from girder.models.token import Token
@@ -47,9 +50,11 @@ class User(Resource):
         self.route('GET', ('me',), self.getMe)
         self.route('GET', ('authentication',), self.login)
         self.route('GET', (':id',), self.getUser)
+        self.route('GET', (':id', 'access'), self.getUserAccess)
+        self.route('PUT', (':id', 'access'), self.updateUserAccess)
+        self.route('GET', (':id', 'applets'), self.getUserApplets)
         self.route('GET', (':id', 'details'), self.getUserDetails)
         self.route('GET', ('details',), self.getUsersDetails)
-        self.route('GET', (':id', 'access'), self.getUserAccess)
         self.route('POST', (), self.createUser)
         self.route('PUT', (':id',), self.updateUser)
         self.route('PUT', ('password',), self.changePassword)
@@ -63,7 +68,6 @@ class User(Resource):
         self.route('DELETE', (':id', 'otp'), self.removeOtp)
         self.route('PUT', (':id', 'verification'), self.verifyEmail)
         self.route('POST', ('verification',), self.sendVerificationEmail)
-        self.route('PUT', (':id', 'access'), self.updateUserAccess)
 
     @access.public
     @filtermodel(model=UserModel)
@@ -105,13 +109,139 @@ class User(Resource):
     @autoDescribeRoute(
         Description('Update the access control list for a user.')
         .modelParam('id', model=UserModel, level=AccessType.WRITE)
-        .jsonParam('access', 'The JSON-encoded access control list.', requireObject=True)
+        .jsonParam(
+            'access',
+            'The JSON-encoded access control list.',
+            requireObject=True
+        )
         .errorResponse('ID was invalid.')
         .errorResponse('Admin access was denied for the user.', 403)
     )
     def updateUserAccess(self, user, access):
         return self._model.setAccessList(
-            user, access, save=True)
+            user,
+            access,
+            save=True
+        )
+
+    @access.public(scope=TokenScope.DATA_READ)
+    @autoDescribeRoute(
+        Description('Get all applets for a user by that user\'s ID and role.')
+        .modelParam('id', model=UserModel, level=AccessType.READ)
+        .param(
+            'role',
+            'One of {"user", "manager", "editor", or "reviewer"}',
+            required=False,
+            default='user'
+        )
+        .errorResponse('ID was invalid.')
+        .errorResponse(
+            'You do not have permission to see any of this user\'s applets.',
+            403
+        )
+    )
+    def getUserApplets(self, user, role):
+        membershipRoles = {
+            "user": {
+                "users"
+            },
+            "manager": {
+                "owners",
+                "managers"
+            },
+            "editor": {
+                "editors",
+                "owners"
+            },
+            "reviewer": {
+                "reviewers",
+                "viewers"
+            }
+        }
+        role = role.lower()
+        if role not in membershipRoles.keys():
+            raise RestException(
+                'Invalid user role.'
+            )
+        reviewer = self.getCurrentUser()
+        applets = []
+        # Old schema
+        collections = CollectionModel().find()
+        activitySets = list(itertools.chain.from_iterable([
+            [
+                folder for folder in FolderModel().childFolders(
+                    parentType='collection',
+                    parent=collection,
+                    user=reviewer
+                )
+            ] for collection in [
+                collection for collection in collections if collection[
+                    'name'
+                ] == "Volumes"
+            ]
+        ]))
+        activitySets = [
+            applet for applet in activitySets for membershipRole in membershipRoles[
+                role
+            ] if 'meta' in applet and 'members' in applet[
+                'meta'
+            ] and membershipRole in applet['meta']['members'] and str(
+                user['_id']
+            ) in applet['meta']['members'][membershipRole]
+        ]
+        # New schema
+        collections = CollectionModel().find()
+        assignments = list(itertools.chain.from_iterable([
+            [
+                folder for folder in FolderModel().childFolders(
+                    parentType='collection',
+                    parent=collection,
+                    user=reviewer
+                )
+            ] for collection in [
+                collection for collection in collections if collection[
+                    'name'
+                ] == "Assignments"
+            ]
+        ]))
+        for assignment in assignments:
+            if 'meta' in assignment and 'members' in assignment['meta']:
+                for assignedUser in assignment['meta']['members']:
+                    if 'roles' in assignedUser and bool(len(list(set(
+                        assignedUser['roles']
+                    ).intersection(
+                        list(membershipRoles.keys())
+                    )))):
+                        if str(user['_id']) in [
+                            userId['meta']['user'][
+                                '@id'
+                            ] for userId in FolderModel().childFolders(
+                                parentType='folder',
+                                parent=FolderModel().load(
+                                    assignedUser['@id'],
+                                    level=AccessType.NONE,
+                                    user=reviewer
+                                ),
+                                user=reviewer
+                            ) if (
+                                'lowerName' in userId
+                            ) and (
+                                userId['lowerName']=='userid'
+                            ) and (
+                                'meta' in userId
+                            ) and (
+                                'user' in userId['meta']
+                            ) and (
+                                '@id' in userId['meta']['user']
+                            )
+                        ]:
+                            applets.append(FolderModel().load(
+                                assignment['meta']['applet']['@id'],
+                                user=reviewer
+                            ))
+                                
+        applets.extend(activitySets)
+        return(applets)
 
     @access.public(scope=TokenScope.USER_INFO_READ)
     @filtermodel(model=UserModel)

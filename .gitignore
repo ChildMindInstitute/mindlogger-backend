@@ -30,3 +30,5 @@ __pycache__
 *.pem
 *.crt
 *.credentials*
+
+reports
