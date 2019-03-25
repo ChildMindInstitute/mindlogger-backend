@@ -212,7 +212,7 @@ class User(Resource):
                     ).intersection(
                         list(membershipRoles.keys())
                     )))):
-                        if str(user['_id']) in [
+                        if ('_id' in user) and str(user['_id']) in [
                             userId['meta']['user'][
                                 '@id'
                             ] for userId in FolderModel().childFolders(
@@ -235,11 +235,14 @@ class User(Resource):
                                 '@id' in userId['meta']['user']
                             )
                         ]:
-                            applets.append(FolderModel().load(
-                                assignment['meta']['applet']['@id'],
-                                user=reviewer
-                            ))
-                                
+                            if 'applet' in assignment[
+                                'meta'
+                            ] and '@id' in assignment['meta']['applet']:
+                                applets.append(FolderModel().load(
+                                    assignment['meta']['applet']['@id'],
+                                    user=reviewer
+                                ))
+
         applets.extend(activitySets)
         return(applets)
 
