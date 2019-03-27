@@ -27,11 +27,11 @@ by editors.
 
 Activity Version
 ****************
-An **activity version** folder contains 1 or more screen items and is read-only
-once activated, other than being deactivatible. If an activity version is
-selected via the `/activity/version/{id} <https://mindlogger-dev.vasegurt.com/api/v1#!/activity/activity_getActivityVersion>`_
-endpoint, that version will be returned even if a newer version is available.
-These folders are controlled by editors.
+An **activity version** folder contains 1 or more `screen <#screen>`_ items and
+is read-only once activated, other than being deactivatible. If an **activity
+version** is selected via the `/activity/version/{id} <https://mindlogger-dev.vasegurt.com/api/v1#!/activity/activity_getActivityVersion>`_
+endpoint, that version will be returned even if a newer version of that
+`activity <#activity>`_ is available. These folders are controlled by editors.
 
 Applet
 ******
@@ -69,7 +69,8 @@ Responses
 Screen
 ******
 A **screen** item contains information about prompts, response options, and user
-interface. These items are controlled by editors.
+interface. A **screen** is read-only once activated, other than being
+deactivatible. These items are controlled by editors.
 
 Subject
 *******
