@@ -3,7 +3,6 @@ Girder for Mindlogger
 
 Data Structure
 --------------
-
 Mindlogger is moving towards the following data structure:
 
 .. figure:: ./docs/images/Mindlogger-DB-ER.png
@@ -16,20 +15,31 @@ Mindlogger is moving towards the following data structure:
 
 Entities
 ########
-
 Each entity is separately access controlled.
 
 Activity
 ********
+An **activity** folder contains 1 or more
+`Activity Version <#activity-version>`_ folders. If an **activity** is selected
+via the ```/activity/{id}`` <https://mindlogger-dev.vasegurt.com/api/v1#!/activity/activity_getActivity>`_
+endpoint, the latest activity version is returned. These folders are controlled
+by editors.
 
 Activity Version
 ****************
+An **activity version** folder contains 1 or more screen items and is read-only
+once activated, other than being deactivatible. If an activity version is
+selected via the ```/activity/version/{id}`` <https://mindlogger-dev.vasegurt.com/api/v1#!/activity/activity_getActivityVersion>`_
+endpoint, that version will be returned even if a newer version is available.
+These folders are controlled by editors.
 
 Applet
 ******
 
 strong entity
 ^^^^^^^^^^^^^
+An **applet** folder in the `Applets <#applets>`_ collection contains 0 or
+more `Activity <#activity>`_ folders. These folders are controlled by editors.
 
 weak entity (under Assignments)
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -39,6 +49,8 @@ weak entity (under Users)
 
 Applets
 *******
+The **applets** collection contains 0 or more `Applet <#strong-entity>`_
+folders. This collection is controlled by editors.
 
 A Girder Collection
 
@@ -56,6 +68,11 @@ Responses
 
 Screen
 ******
+A **screen** item contains information about prompts, response options, and user
+interface. These items are controlled by editors.
+
+Subject
+*******
 
 User
 ****
@@ -71,12 +88,11 @@ Users
 
 Links
 -----
-
 - Development instance: https://mindlogger-dev.vasegurt.com
 - Production instance: https://api.mindlogger.info
 - Run a local instance: If one clones our `girder <https://github.com/ChildMindInstitute/mindlogger-app-backend/tree/girder>`_ or `girder-dev <https://github.com/ChildMindInstitute/mindlogger-app-backend/tree/girder-dev>`_ branch of this repository, following `the official Girder documentation <https://girder.readthedocs.io/en/stable/admin-docs.html>`_ should get a local instance running.
 
-|logo| Girder |build-status| |docs-status| |license-badge| |gitter-badge| |codecov-badge|
+|logo| Girder for Mindlogger |build-status| |docs-status| |license-badge| |gitter-badge| |codecov-badge|
 -----------------------------------------------------------------------------------------
 
 **Data Management Platform**
@@ -89,34 +105,3 @@ data and analytics ecosystem.
 
 Documentation of the Girder platform can be found at
 https://girder.readthedocs.io.
-
-For questions, comments, or to get in touch with the maintainers, head to our `Discourse forum <https://discourse.girder.org>`_, or use our `Gitter Chatroom
-<https://gitter.im/girder/girder>`_.
-
-We'd love for you to `contribute to Girder <CONTRIBUTING.rst>`_.
-
-.. |logo| image:: clients/web/static/img/Girder_Favicon.png
-
-.. |kitware-logo| image:: https://www.kitware.com/img/small_logo_over.png
-    :target: https://kitware.com
-    :alt: Kitware Logo
-
-.. |build-status| image:: https://circleci.com/gh/girder/girder.png?style=shield
-    :target: https://circleci.com/gh/girder/girder
-    :alt: Build Status
-
-.. |docs-status| image:: https://readthedocs.org/projects/girder/badge?version=latest
-    :target: https://girder.readthedocs.org
-    :alt: Documentation Status
-
-.. |license-badge| image:: docs/license.png
-    :target: https://pypi.python.org/pypi/girder
-    :alt: License
-
-.. |gitter-badge| image:: https://badges.gitter.im/Join Chat.svg
-    :target: https://gitter.im/girder/girder?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge&utm_content=badge
-    :alt: Gitter Chat
-
-.. |codecov-badge| image:: https://img.shields.io/codecov/c/github/girder/girder.svg
-    :target: https://codecov.io/gh/girder/girder
-    :alt: Coverage Status
