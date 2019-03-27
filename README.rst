@@ -21,7 +21,7 @@ Activity
 ********
 An **activity** folder contains 1 or more
 `Activity Version <#activity-version>`_ folders. If an **activity** is selected
-via the ```/activity/{id}`` <https://mindlogger-dev.vasegurt.com/api/v1#!/activity/activity_getActivity>`_
+via the `/activity/{id} <https://mindlogger-dev.vasegurt.com/api/v1#!/activity/activity_getActivity>`_
 endpoint, the latest activity version is returned. These folders are controlled
 by editors.
 
@@ -29,7 +29,7 @@ Activity Version
 ****************
 An **activity version** folder contains 1 or more screen items and is read-only
 once activated, other than being deactivatible. If an activity version is
-selected via the ```/activity/version/{id}`` <https://mindlogger-dev.vasegurt.com/api/v1#!/activity/activity_getActivityVersion>`_
+selected via the `/activity/version/{id} <https://mindlogger-dev.vasegurt.com/api/v1#!/activity/activity_getActivityVersion>`_
 endpoint, that version will be returned even if a newer version is available.
 These folders are controlled by editors.
 
