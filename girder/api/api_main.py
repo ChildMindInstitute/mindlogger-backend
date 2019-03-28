@@ -20,9 +20,9 @@
 import cherrypy
 
 from . import describe
-from .v1 import activity, api_key, assetstore, file, collection, context,      \
-    folder, group, item, resource, response, screen, system, token, user,      \
-    notification
+from .v1 import activity, api_key, applet, assetstore, file, collection,       \
+    context, folder, group, item, resource, response, screen, system, token,   \
+    user, notification
 
 
 class ApiDocs(object):
@@ -46,6 +46,7 @@ def _addV1ToNode(node):
     node.v1.describe = describe.Describe()
     node.v1.activity = activity.Activity()
     node.v1.api_key = api_key.ApiKey()
+    node.v1.applet = applet.Applet()
     node.v1.assetstore = assetstore.Assetstore()
     node.v1.collection = collection.Collection()
     node.v1.context = context.Context()
