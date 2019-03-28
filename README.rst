@@ -43,19 +43,40 @@ more `Activity <#activity>`_ folders. These folders are controlled by editors.
 
 weak entity (under Assignments)
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+An **applet** folder in the `Assignments <#collection>`_ collection contains 0
+or more `User Settings <#user-settings>`_ items. The applet stores user roles,
+scheduling, and other managerial settings for a single `Applet <#strong-entity>`_.
+These folders are controlled by managers.
 
 weak entity (under Users)
 ^^^^^^^^^^^^^^^^^^^^^^^^^
+An **applet** folder in an `Assignments <#folder>`_ folder under a `User <#user>`_
+in the `Users <#users>`_ collection contains 0 or 1 `Custom User Settings <#custom-user-settings>`_
+item and stores a cipher key for `applet <#strong-entity>`_-specific user ids.
+This folder is private, only accessible its parent user.
 
 Applets
 *******
 The **applets** collection contains 0 or more `Applet <#strong-entity>`_
 folders. This collection is controlled by editors.
 
-A Girder Collection
+Assignments
+***********
+
+collection
+^^^^^^^^^^
+The **assignments** collection contains 0 or more `Applet <#weak-entity-under-assignments>`_
+folders. This collection is controlled by managers.
+
+folder
+^^^^^^
+An **assignments** folder contains 0 or more `Applet <#weak-entity-under-users>`_ folders.
+This folder is private, only accessible to its parent user.
 
 Custom User Settings
 ********************
+A **custom user settings** item contains user-defined overrides to default `User Settings <#user-settings>`_.
+This item is private, only accessible to its parent user.
 
 PHI
 ***
@@ -83,6 +104,11 @@ strong entity
 
 weak entity
 ^^^^^^^^^^^
+
+User Settings
+*************
+A **user settings** item contains user-specific information, such as display
+name and custom scheduling. These items are controlled by managers.
 
 Users
 *****
