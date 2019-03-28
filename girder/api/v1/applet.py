@@ -17,14 +17,19 @@
 #  limitations under the License.
 ###############################################################################
 
+import itertools
+import re
+import uuid
 from ..describe import Description, autoDescribeRoute
 from ..rest import Resource
 from girder.constants import AccessType, SortDir, TokenScope
 from girder.api import access
+from girder.exceptions import ValidationException
 from girder.models.collection import Collection as CollectionModel
 from girder.models.folder import Folder as FolderModel
 from girder.models.item import Item as ItemModel
 from girder.models.user import User as UserModel
+from girder.utility import config
 
 
 class Applet(Resource):
@@ -80,6 +85,15 @@ class Applet(Resource):
         .errorResponse('Write access was denied for the folder or its new parent object.', 403)
     )
     def invite(self, folder, user, role, rsvp, subject):
+        applets = CollectionModel().createCollection(
+            name="Applets",
+            public=True,
+            reuseExisting=True
+        )
+        if not str(folder['baseParentId'])==str(applets['_id']):
+            raise ValidationException(
+                'Invalid applet ID.'
+            )
         thisUser = self.getCurrentUser()
         user = user if user else str(thisUser['_id'])
         assignments = CollectionModel().createCollection(
@@ -119,7 +133,8 @@ class Applet(Resource):
         ] if 'meta' in appletAssignment and 'members' in appletAssignment[
             'meta'
         ] else {}
-        return(getUser(appletAssignment, user))
+        return(getUserCipher(appletAssignment, user))
+
 
 def canonicalUser(user):
     thisUser = Applet().getCurrentUser()
@@ -136,24 +151,116 @@ def canonicalUser(user):
     except:
         return(None)
 
-def getUser(applet, user):
+
+def createCipher(applet, appletAssignments, user):
     thisUser = Applet().getCurrentUser()
-    return(applet)
-    appletAssignments = FolderModel().childFolders(
+    cUser = None
+    try:
+        cUser = UserModel().load(
+            user,
+            level=AccessType.NONE,
+            user=thisUser
+        )['_id']
+    except:
+        cur_config = config.getConfig()
+        if not re.match(cur_config['users']['email_regex'], user):
+            raise ValidationException('Invalid email address.', 'user')
+
+    newCipher = FolderModel().createFolder(
+        parent=applet,
+        name=nextCipher(appletAssignments),
+        parentType='folder',
+        public=False,
+        creator=thisUser
+    )
+    if cUser is None:
+        try:
+            appletName = FolderModel().load(
+                applet['meta']['applet']['@id'],
+                level=AccessType.NONE,
+                user=thisUser
+            )['name']
+        except:
+            raise ValidationException('Invalid assignment folder.', 'applet')
+        cUser = UserModel().createUser(
+            login=appletName.replace(' ', '') + str(newCipher['name']),
+            password=str(uuid.uuid4()),
+            firstName=appletName,
+            lastName=newCipher['name'],
+            email=user,
+            admin=False,
+            public=False,
+            currentUser=thisUser
+        )['_id']
+    return(cUser)
+    newSecretCipher = FolderModel().setMetadata(
+        FolderModel().createFolder(
+            parent=newCipher,
+            name='userID',
+            parentType='folder',
+            public=False,
+            creator=cUser
+        ),
+        {
+            'user': {
+                '@id': cUser
+            }
+        }
+    )
+    return(newCipher['_id'])
+
+
+def getUserCipher(applet, user):
+    """
+    Returns an applet-specific user ID.
+
+    Parameters
+    ----------
+    applet: Mongo Folder cursor
+        Applet folder in Assignments collection
+
+    user: string
+        applet-specific ID, canonical ID or email address
+
+    Returns
+    -------
+    user: string
+        applet-specific ID
+    """
+    thisUser = Applet().getCurrentUser()
+    appletAssignments = list(FolderModel().childFolders(
         parent=applet,
         parentType='folder',
         user=thisUser
-    )
-    return(appletAssignments)
-    user = [
+    ))
+    allCiphers = list(itertools.chain.from_iterable([
+        list(FolderModel().find(
+            query={
+                'parentId': assignment['_id'],
+                'parentCollection': 'folder',
+                'name': 'userID'
+            }
+        )) for assignment in appletAssignments
+    ]))
+    cUser = [
         u for u in [
             decipherUser(user),
             userByEmail(user),
             canonicalUser(user)
         ] if u is not None
     ]
-    user=user[0] if len(user) else None
-    return(user)
+    aUser = [
+        cipher['parentId'] for cipher in allCiphers if (
+            cipher['meta']['user']['@id']==cUser[0]
+        )
+    ] if len(cUser) else []
+    aUser = aUser[0] if len(aUser) else createCipher(
+        applet,
+        appletAssignments,
+        cUser[0] if len(cUser) else user
+    )
+    return(aUser)
+
 
 def decipherUser(appletSpecificId):
     thisUser = Applet().getCurrentUser()
@@ -182,6 +289,19 @@ def decipherUser(appletSpecificId):
         )
     except:
         return(None)
+
+
+def nextCipher(currentCiphers):
+    nCipher = []
+    for c in [
+        cipher['name'] for cipher in currentCiphers
+    ]:
+        try:
+            nCipher.append(int(c))
+        except:
+            nCipher.append(0)
+    return(str(max(nCipher)+1))
+
 
 def userByEmail(email):
     try:
