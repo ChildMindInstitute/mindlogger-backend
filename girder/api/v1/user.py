@@ -25,7 +25,7 @@ import itertools
 from ..describe import Description, autoDescribeRoute
 from girder.api import access
 from girder.api.rest import Resource, filtermodel, setCurrentUser
-from girder.constants import AccessType, SettingKey, TokenScope
+from girder.constants import AccessType, SettingKey, TokenScope, USER_ROLES
 from girder.exceptions import RestException, AccessException
 from girder.models.collection import Collection as CollectionModel
 from girder.models.folder import Folder as FolderModel
@@ -130,7 +130,7 @@ class User(Resource):
         .modelParam('id', model=UserModel, level=AccessType.READ)
         .param(
             'role',
-            'One of {"user", "manager", "editor", or "reviewer"}',
+            'One of ' + str(USER_ROLES),
             required=False,
             default='user'
         )
@@ -159,9 +159,10 @@ class User(Resource):
             }
         }
         role = role.lower()
-        if role not in membershipRoles.keys():
+        if role not in USER_ROLES:
             raise RestException(
-                'Invalid user role.'
+                'Invalid user role.',
+                'role'
             )
         reviewer = self.getCurrentUser()
         applets = []

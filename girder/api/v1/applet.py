@@ -22,7 +22,7 @@ import re
 import uuid
 from ..describe import Description, autoDescribeRoute
 from ..rest import Resource
-from girder.constants import AccessType, SortDir, TokenScope
+from girder.constants import AccessType, SortDir, TokenScope, USER_ROLES
 from girder.api import access
 from girder.exceptions import ValidationException
 from girder.models.collection import Collection as CollectionModel
@@ -61,8 +61,7 @@ class Applet(Resource):
         )
         .param(
             'role',
-            'Role to invite this user to. One of {\'user\', \'editor\', '
-            '\'manager\', \'reviewer\'}',
+            'Role to invite this user to. One of ' + str(USER_ROLES),
             default='user',
             required=False,
             strip=True
@@ -85,6 +84,11 @@ class Applet(Resource):
         .errorResponse('Write access was denied for the folder or its new parent object.', 403)
     )
     def invite(self, folder, user, role, rsvp, subject):
+        if role not in USER_ROLES:
+            raise ValidationException(
+                'Invalid role.',
+                'role'
+            )
         applets = CollectionModel().createCollection(
             name="Applets",
             public=True,
@@ -92,7 +96,8 @@ class Applet(Resource):
         )
         if not str(folder['baseParentId'])==str(applets['_id']):
             raise ValidationException(
-                'Invalid applet ID.'
+                'Invalid applet ID.',
+                'applet'
             )
         thisUser = self.getCurrentUser()
         user = user if user else str(thisUser['_id'])
@@ -128,12 +133,28 @@ class Applet(Resource):
             }
         )
         # TODO: manager, editor, viewer
-        members = appletAssignment['meta'][
-            'members'
-        ] if 'meta' in appletAssignment and 'members' in appletAssignment[
-            'meta'
-        ] else {}
-        return(getUserCipher(appletAssignment, user))
+        meta = appletAssignment['meta'] if 'meta' in appletAssignment else {}
+        members = meta['members'] if 'members' in meta else []
+        cUser = getUserCipher(appletAssignment, user)
+        thisAppletAssignment = {
+            '@id': str(cUser),
+            'roles': [
+                role
+            ]
+        }
+        for i, u in enumerate(members):
+            if '@id' in u and u["@id"]==str(cUser):
+                thisAppletAssignment = members.pop(i)
+                if 'roles' not in thisAppletAssignment:
+                    thisAppletAssignment['roles'] = []
+                thisAppletAssignment['roles'].append(role)
+                thisAppletAssignment['roles'] = list(set(
+                    thisAppletAssignment['roles']
+                ))
+        members.append(thisAppletAssignment)
+        meta['members'] = members
+        appletAssignment = FolderModel().setMetadata(appletAssignment, meta)
+        return(appletAssignment)
 
 
 def canonicalUser(user):
@@ -160,7 +181,7 @@ def createCipher(applet, appletAssignments, user):
             user,
             level=AccessType.NONE,
             user=thisUser
-        )['_id']
+        )
     except:
         cur_config = config.getConfig()
         if not re.match(cur_config['users']['email_regex'], user):
@@ -182,17 +203,35 @@ def createCipher(applet, appletAssignments, user):
             )['name']
         except:
             raise ValidationException('Invalid assignment folder.', 'applet')
-        cUser = UserModel().createUser(
-            login=appletName.replace(' ', '') + str(newCipher['name']),
-            password=str(uuid.uuid4()),
-            firstName=appletName,
-            lastName=newCipher['name'],
-            email=user,
-            admin=False,
-            public=False,
-            currentUser=thisUser
-        )['_id']
-    return(cUser)
+        try:
+            cUser = UserModel().createUser(
+                login="-".join([
+                    appletName.replace(' ', ''),
+                    str(newCipher['name'])
+                ]),
+                password=str(uuid.uuid4()),
+                firstName=appletName,
+                lastName=newCipher['name'],
+                email=user,
+                admin=False,
+                public=False,
+                currentUser=thisUser
+            )
+        except:
+            cUser = UserModel().createUser(
+                login="-".join([
+                    appletName.replace(' ', ''),
+                    str(applet['meta']['applet']['@id']),
+                    str(newCipher['name'])
+                ]),
+                password=str(uuid.uuid4()),
+                firstName=appletName,
+                lastName=newCipher['name'],
+                email=user,
+                admin=False,
+                public=False,
+                currentUser=thisUser
+            )
     newSecretCipher = FolderModel().setMetadata(
         FolderModel().createFolder(
             parent=newCipher,
@@ -203,11 +242,20 @@ def createCipher(applet, appletAssignments, user):
         ),
         {
             'user': {
-                '@id': cUser
+                '@id': str(cUser['_id'])
             }
         }
     )
-    return(newCipher['_id'])
+    for u in [thisUser, cUser]:
+        FolderModel().setUserAccess(
+            doc=newSecretCipher,
+            user=u,
+            level=None,
+            save=True,
+            currentUser=thisUser,
+            force=True
+        )
+    return(newCipher)
 
 
 def getUserCipher(applet, user):
@@ -258,7 +306,7 @@ def getUserCipher(applet, user):
         applet,
         appletAssignments,
         cUser[0] if len(cUser) else user
-    )
+    )['_id']
     return(aUser)
 
 

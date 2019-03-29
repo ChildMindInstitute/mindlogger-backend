@@ -48,6 +48,13 @@ VERSION = {  # Set defaults in case girder-version.json doesn't exist
     'apiVersion': None,
     'date': None
 }
+
+USER_ROLES = {
+    'user',
+    'editor',
+    'manager',
+    'reviewer'
+}
 try:
     with open(os.path.join(PACKAGE_DIR, 'girder-version.json')) as f:
         VERSION.update(json.load(f))
