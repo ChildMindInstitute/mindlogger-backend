@@ -109,9 +109,9 @@ class Applet(Resource):
             )
             assignmentType = 'collection'
         except AccessException:
-            assignments, assignmentType = selfAssignment(user)
+            assignments, assignmentType = selfAssignment()
         if FolderModel().getAccessLevel(assignments, thisUser) < 1:
-            assignments, assignmentType = selfAssignment(user)
+            assignments, assignmentType = selfAssignment()
         appletAssignment = list(FolderModel().childFolders(
             parent=assignments,
             parentType=assignmentType,
@@ -138,24 +138,35 @@ class Applet(Resource):
                 }
             }
         )
-        # TODO: manager, editor, viewer
+        # TODO: manager, editor
         meta = appletAssignment['meta'] if 'meta' in appletAssignment else {}
         members = meta['members'] if 'members' in meta else []
         cUser = getUserCipher(appletAssignment, user)
+        subject = getUserCipher(
+            appletAssignment,
+            subject if subject is not None else str(thisUser['_id'])
+        )
         thisAppletAssignment = {
             '@id': str(cUser),
-            'roles': [
-                role
-            ]
+            'roles': {
+                role: True if role != 'reviewer' else [
+                    subject
+                ]
+            }
         }
         for i, u in enumerate(members):
             if '@id' in u and u["@id"]==str(cUser):
                 thisAppletAssignment = members.pop(i)
                 if 'roles' not in thisAppletAssignment:
-                    thisAppletAssignment['roles'] = []
-                thisAppletAssignment['roles'].append(role)
-                thisAppletAssignment['roles'] = list(set(
-                    thisAppletAssignment['roles']
+                    thisAppletAssignment['roles'] = {}
+                thisAppletAssignment['roles'][
+                    role
+                ] = True if role != 'reviewer' else [
+                    subject
+                ] if 'reviewer' not in thisAppletAssignment[
+                    'roles'
+                ] else list(set(
+                    thisAppletAssignment['roles']['reviewer'].append(subject)
                 ))
         members.append(thisAppletAssignment)
         meta['members'] = members
@@ -243,7 +254,7 @@ def createCipher(applet, appletAssignments, user):
             name='userID',
             parentType='folder',
             public=False,
-            creator=cUser
+            creator=thisUser
         ),
         {
             'user': {
@@ -261,6 +272,16 @@ def createCipher(applet, appletAssignments, user):
             force=True
         )
     return(newCipher)
+
+def getCanonicalUser(user):
+    cUser = [
+        u for u in [
+            decipherUser(user),
+            userByEmail(user),
+            canonicalUser(user)
+        ] if u is not None
+    ]
+    return(cUser[0] if len(cUser) else None)
 
 
 def getUserCipher(applet, user):
@@ -295,24 +316,18 @@ def getUserCipher(applet, user):
             }
         )) for assignment in appletAssignments
     ]))
-    cUser = [
-        u for u in [
-            decipherUser(user),
-            userByEmail(user),
-            canonicalUser(user)
-        ] if u is not None
-    ]
+    cUser = getCanonicalUser(user)
     aUser = [
         cipher['parentId'] for cipher in allCiphers if (
-            cipher['meta']['user']['@id']==cUser[0]
+            cipher['meta']['user']['@id']==cUser
         )
-    ] if len(cUser) and len(allCiphers) else []
+    ] if cUser is not None and len(allCiphers) else []
     aUser = aUser[0] if len(aUser) else createCipher(
         applet,
         appletAssignments,
-        cUser[0] if len(cUser) else user
+        cUser if cUser is not None else user
     )['_id']
-    return(aUser)
+    return(str(aUser))
 
 
 def decipherUser(appletSpecificId):
@@ -358,15 +373,10 @@ def nextCipher(currentCiphers):
     return(str(max(nCipher)+1))
 
 
-def selfAssignment(userId):
+def selfAssignment():
     thisUser = Applet().getCurrentUser()
-    user = UserModel().load(
-        userId,
-        level=AccessType.WRITE,
-        user=thisUser
-    )
     assignmentsFolder = FolderModel().createFolder(
-        parent=user,
+        parent=thisUser,
         parentType='user',
         name='Assignments',
         creator=thisUser,
