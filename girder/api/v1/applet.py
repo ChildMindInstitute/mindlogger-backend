@@ -24,7 +24,7 @@ from ..describe import Description, autoDescribeRoute
 from ..rest import Resource
 from girder.constants import AccessType, SortDir, TokenScope, USER_ROLES
 from girder.api import access
-from girder.exceptions import ValidationException
+from girder.exceptions import AccessException, ValidationException
 from girder.models.collection import Collection as CollectionModel
 from girder.models.folder import Folder as FolderModel
 from girder.models.item import Item as ItemModel
@@ -51,7 +51,7 @@ class Applet(Resource):
     @autoDescribeRoute(
         Description('Invite a user to a role in an applet.')
         .responseClass('Folder')
-        .modelParam('id', model=FolderModel, level=AccessType.WRITE)
+        .modelParam('id', model=FolderModel, level=AccessType.READ)
         .param(
             'user',
             'Applet-specific or canonical ID or email address of the user to '
@@ -101,14 +101,20 @@ class Applet(Resource):
             )
         thisUser = self.getCurrentUser()
         user = user if user else str(thisUser['_id'])
-        assignments = CollectionModel().createCollection(
-            name="Assignments",
-            public=True,
-            reuseExisting=True
-        )
+        try:
+            assignments = CollectionModel().createCollection(
+                name="Assignments",
+                public=True,
+                reuseExisting=True
+            )
+            assignmentType = 'collection'
+        except AccessException:
+            assignments, assignmentType = selfAssignment(user)
+        if FolderModel().getAccessLevel(assignments, thisUser) < 1:
+            assignments, assignmentType = selfAssignment(user)
         appletAssignment = list(FolderModel().childFolders(
             parent=assignments,
-            parentType='collection',
+            parentType=assignmentType,
             user=thisUser,
             filters={
                 'meta.applet.@id': str(folder['_id'])
@@ -120,7 +126,7 @@ class Applet(Resource):
             FolderModel().createFolder(
                 parent=assignments,
                 name=str(folder['name']),
-                parentType='collection',
+                parentType=assignmentType,
                 public=False,
                 creator=thisUser,
                 allowRename=True,
@@ -186,7 +192,6 @@ def createCipher(applet, appletAssignments, user):
         cur_config = config.getConfig()
         if not re.match(cur_config['users']['email_regex'], user):
             raise ValidationException('Invalid email address.', 'user')
-
     newCipher = FolderModel().createFolder(
         parent=applet,
         name=nextCipher(appletAssignments),
@@ -301,7 +306,7 @@ def getUserCipher(applet, user):
         cipher['parentId'] for cipher in allCiphers if (
             cipher['meta']['user']['@id']==cUser[0]
         )
-    ] if len(cUser) else []
+    ] if len(cUser) and len(allCiphers) else []
     aUser = aUser[0] if len(aUser) else createCipher(
         applet,
         appletAssignments,
@@ -340,6 +345,8 @@ def decipherUser(appletSpecificId):
 
 
 def nextCipher(currentCiphers):
+    if not len(currentCiphers):
+        return("1")
     nCipher = []
     for c in [
         cipher['name'] for cipher in currentCiphers
@@ -349,6 +356,27 @@ def nextCipher(currentCiphers):
         except:
             nCipher.append(0)
     return(str(max(nCipher)+1))
+
+
+def selfAssignment(userId):
+    thisUser = Applet().getCurrentUser()
+    user = UserModel().load(
+        userId,
+        level=AccessType.WRITE,
+        user=thisUser
+    )
+    assignmentsFolder = FolderModel().createFolder(
+        parent=user,
+        parentType='user',
+        name='Assignments',
+        creator=thisUser,
+        public=False,
+        reuseExisting=True
+    )
+    return((
+        assignmentsFolder,
+        'folder'
+    ))
 
 
 def userByEmail(email):
