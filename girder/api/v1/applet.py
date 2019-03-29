@@ -182,7 +182,97 @@ class Applet(Resource):
         members.append(thisAppletAssignment)
         meta['members'] = members
         appletAssignment = FolderModel().setMetadata(appletAssignment, meta)
+        return(authorizeReviewers(appletAssignment)) ### DEBUG: not creating User → Responses → Applet folder
         return(appletAssignment)
+
+def authorizeReviewer(applet, reviewer, user):
+    thisUser = Applet().getCurrentUser()
+    try:
+        applet = FolderModel().load(
+            applet,
+            level=AccessType.READ,
+            user=thisUser
+        )
+        responsesCollection = FolderModel().createFolder(
+            parent=user,
+            name='Responses',
+            parentType='user',
+            public=False,
+            creator=thisUser,
+            reuseExisting=True
+        )
+        thisApplet = list(FolderModel().childFolders(
+            parent=responsesCollection,
+            parentType='folder',
+            user=thisUser,
+            filters={
+                'meta.applet.@id': str(applet['_id'])
+            }
+        ))
+        thisApplet = thisApplet[0] if len(
+            thisApplet
+        ) else FolderModel().setMetadata(
+            FolderModel().createFolder(
+                parent=responsesCollection,
+                name=str(applet['name']),
+                parentType='folder',
+                public=False,
+                creator=thisUser,
+                allowRename=True,
+                reuseExisting=False
+            ),
+            {
+                'applet': {
+                    '@id': str(applet['_id'])
+                }
+            }
+        )
+        FolderModel().setUserAccess(
+            doc=thisApplet,
+            user=reviewer,
+            level=AccessType.READ,
+            save=True,
+            currentUser=thisUser,
+            recurse=True
+        )
+    except:
+        pass
+    return(None)
+
+def authorizeReviewers(assignment):
+    thisUser = Applet().getCurrentUser()
+    allUsers = []
+    reviewAll = []
+    members = assignment['members'] if 'members' in assignment else []
+    applet = assignment['applet'][
+        '@id'
+    ] if 'applet' in assignment and '@id' in assignment['applet'] else None
+    for member in [member for member in members if 'roles' in member]:
+        try:
+            if member['roles']['user']:
+                allUsers.append(getCanonicalUser(member["@id"]))
+        except:
+            pass
+        if 'reviewer' in member['roles']:
+            if "ALL" in member['roles']['reviewer']:
+                reviewAll.append(getCanonicalUser(member["@id"]))
+            for user in [
+                user for user in member['roles'][
+                    'reviewer'
+                ] if user not in SPECIAL_SUBJECTS
+            ]:
+                authorizeReviewer(
+                    assignment['applet']['@id'],
+                    getCanonicalUser(member["@id"]),
+                    getCanonicalUser(user)
+                )
+    for reviewer in reviewAll:
+        [authorizeReviewer(
+            assignment['applet']['@id'],
+            reviewer,
+            user
+        ) for user in allUsers]
+    return(None)
 
 
 def canonicalUser(user):
@@ -283,6 +373,7 @@ def createCipher(applet, appletAssignments, user):
             force=True
         )
     return(newCipher)
+
 
 def getCanonicalUser(user):
     cUser = [
