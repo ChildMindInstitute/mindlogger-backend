@@ -32,6 +32,8 @@ from girder.models.user import User as UserModel
 from girder.utility import config
 
 
+SPECIAL_SUBJECTS = ["ALL", "NONE"]
+
 class Applet(Resource):
 
     def __init__(self):
@@ -142,9 +144,10 @@ class Applet(Resource):
         meta = appletAssignment['meta'] if 'meta' in appletAssignment else {}
         members = meta['members'] if 'members' in meta else []
         cUser = getUserCipher(appletAssignment, user)
-        subject = getUserCipher(
+        subject = subject.upper() if subject is not None and subject.upper(
+        ) in SPECIAL_SUBJECTS else getUserCipher(
             appletAssignment,
-            subject if subject is not None else str(thisUser['_id'])
+            str(thisUser['_id']) if subject is None else subject
         )
         thisAppletAssignment = {
             '@id': str(cUser),
@@ -163,11 +166,19 @@ class Applet(Resource):
                     role
                 ] = True if role != 'reviewer' else [
                     subject
-                ] if 'reviewer' not in thisAppletAssignment[
-                    'roles'
-                ] else list(set(
-                    thisAppletAssignment['roles']['reviewer'].append(subject)
-                ))
+                ] if (
+                    subject in SPECIAL_SUBJECTS
+                ) or (
+                    'reviewer' not in thisAppletAssignment[
+                        'roles'
+                    ]
+                ) else list(set(
+                    thisAppletAssignment['roles']['reviewer'] + [subject]
+                ).difference(set(
+                    SPECIAL_SUBJECTS
+                ))) if "ALL" not in thisAppletAssignment['roles'][
+                    'reviewer'
+                ] else ["ALL"]
         members.append(thisAppletAssignment)
         meta['members'] = members
         appletAssignment = FolderModel().setMetadata(appletAssignment, meta)
