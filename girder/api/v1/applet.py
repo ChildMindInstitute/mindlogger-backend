@@ -42,12 +42,36 @@ class Applet(Resource):
         self._model = FolderModel()
         # TODO: self.route('PUT', (':id'), self.deactivateActivity)
         # TODO: self.route('PUT', ('version', ':id'), self.deactivateActivity)
-        # TODO: self.route('GET', (':id',), self.getApplet)
+        self.route('GET', (':id',), self.getApplet)
         # TODO: self.route('POST', (), self.createActivity)
         self.route('POST', (':id', 'invite'), self.invite)
         # TODO: self.route('POST', (':id', 'version'), self.createActivityVersion)
         # TODO: self.route('POST', (':id', 'copy'), self.copyActivity)
         # TODO: self.route('POST', ('version', ':id', 'copy'), self.copyActivityVersion)
+
+    @access.user(scope=TokenScope.DATA_READ)
+    @autoDescribeRoute(
+        Description('Get an applet by ID.')
+        .responseClass('Folder')
+        .modelParam('id', model=FolderModel, level=AccessType.READ)
+        .errorResponse('Invalid applet ID.')
+        .errorResponse('Read access was denied for this applet.', 403)
+    )
+    def getApplet(self, folder):
+        applets = CollectionModel().createCollection(
+            name="Applets",
+            public=True,
+            reuseExisting=True
+        )
+        if not str(folder['baseParentId'])==str(applets['_id']):
+            raise ValidationException(
+                'Invalid applet ID.',
+                'id'
+            )
+        else:
+            return(folder)
+
+
 
     @access.user(scope=TokenScope.DATA_WRITE)
     @autoDescribeRoute(
