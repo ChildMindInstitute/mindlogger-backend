@@ -140,7 +140,6 @@ class Applet(Resource):
                 }
             }
         )
-        # TODO: manager, editor
         meta = appletAssignment['meta'] if 'meta' in appletAssignment else {}
         members = meta['members'] if 'members' in meta else []
         cUser = getUserCipher(appletAssignment, user)
@@ -152,7 +151,10 @@ class Applet(Resource):
         thisAppletAssignment = {
             '@id': str(cUser),
             'roles': {
-                role: True if role != 'reviewer' else [
+                role: True if role not in [
+                    'reviewer',
+                    'user'
+                ] else [
                     subject
                 ]
             }
@@ -164,7 +166,10 @@ class Applet(Resource):
                     thisAppletAssignment['roles'] = {}
                 thisAppletAssignment['roles'][
                     role
-                ] = True if role != 'reviewer' else [
+                ] = True if role not in [
+                    'reviewer',
+                    'user'
+                ] else [
                     subject
                 ] if (
                     subject in SPECIAL_SUBJECTS
@@ -182,8 +187,9 @@ class Applet(Resource):
         members.append(thisAppletAssignment)
         meta['members'] = members
         appletAssignment = FolderModel().setMetadata(appletAssignment, meta)
-        return(authorizeReviewers(appletAssignment)) ### DEBUG: not creating User → Responses → Applet folder
+        authorizeReviewers(appletAssignment)
         return(appletAssignment)
+
 
 def authorizeReviewer(applet, reviewer, user):
     thisUser = Applet().getCurrentUser()
@@ -232,17 +238,22 @@ def authorizeReviewer(applet, reviewer, user):
                 }
             }
         )
-        FolderModel().setUserAccess(
-            doc=thisApplet,
-            user=reviewer,
-            level=AccessType.READ,
+        accessList = thisApplet['access']
+        accessList['users'].append({
+            "id": reviewer,
+            "level": AccessType.READ
+        })
+        thisApplet = FolderModel().setAccessList(
+            thisApplet,
+            accessList,
             save=True,
-            currentUser=thisUser,
-            recurse=True
+            recurse=True,
+            user=thisUser
         )
     except:
-        pass
-    return(None)
+        thisApplet = None
+    return(thisApplet)
+
 
 def authorizeReviewers(assignment):
     assignment = assignment['meta'] if 'meta' in assignment else assignment
@@ -315,7 +326,8 @@ def createCipher(applet, appletAssignments, user):
         name=nextCipher(appletAssignments),
         parentType='folder',
         public=False,
-        creator=thisUser
+        creator=thisUser,
+        reuseExisting=True
     )
     if cUser is None:
         try:
@@ -361,7 +373,8 @@ def createCipher(applet, appletAssignments, user):
             name='userID',
             parentType='folder',
             public=False,
-            creator=thisUser
+            creator=thisUser,
+            reuseExisting=True
         ),
         {
             'user': {
