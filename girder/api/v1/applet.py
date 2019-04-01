@@ -187,6 +187,11 @@ class Applet(Resource):
 
 def authorizeReviewer(applet, reviewer, user):
     thisUser = Applet().getCurrentUser()
+    user = UserModel().load(
+        user,
+        level=AccessType.NONE,
+        user=thisUser
+    )
     try:
         applet = FolderModel().load(
             applet,
@@ -240,6 +245,7 @@ def authorizeReviewer(applet, reviewer, user):
     return(None)
 
 def authorizeReviewers(assignment):
+    assignment = assignment['meta'] if 'meta' in assignment else assignment
     thisUser = Applet().getCurrentUser()
     allUsers = []
     reviewAll = []
