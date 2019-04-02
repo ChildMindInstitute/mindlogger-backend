@@ -20,6 +20,7 @@
 import itertools
 import re
 import uuid
+import requests
 from ..describe import Description, autoDescribeRoute
 from ..rest import Resource
 from girder.constants import AccessType, SortDir, TokenScope, USER_ROLES
@@ -45,6 +46,7 @@ class Applet(Resource):
         self.route('GET', (':id',), self.getApplet)
         # TODO: self.route('POST', (), self.createActivity)
         self.route('POST', (':id', 'invite'), self.invite)
+        self.route('POST', ('invite',), self.inviteFromURL)
         # TODO: self.route('POST', (':id', 'version'), self.createActivityVersion)
         # TODO: self.route('POST', (':id', 'copy'), self.copyActivity)
         # TODO: self.route('POST', ('version', ':id', 'copy'), self.copyActivityVersion)
@@ -125,95 +127,105 @@ class Applet(Resource):
                 'Invalid applet ID.',
                 'applet'
             )
-        thisUser = self.getCurrentUser()
-        user = user if user else str(thisUser['_id'])
-        try:
-            assignments = CollectionModel().createCollection(
-                name="Assignments",
-                public=True,
-                reuseExisting=True
+        return(_invite(folder, user, role, rsvp, subject))
+
+    @access.user(scope=TokenScope.DATA_WRITE)
+    @autoDescribeRoute(
+        Description('Invite a user to a role in an applet by applet URL.')
+        #.responseClass('Folder')
+        .param(
+            'url',
+            'URL of applet, eg, '
+            '`https://raw.githubusercontent.com/ReproNim/schema-standardization/master/activity-sets/example/nda-phq.jsonld`',
+            required=True
+        )
+        .param(
+            'user',
+            'Applet-specific or canonical ID or email address of the user to '
+            'invite. The current user is assumed if this parameter is omitted.',
+            required=False,
+            strip=True
+        )
+        .param(
+            'role',
+            'Role to invite this user to. One of ' + str(USER_ROLES),
+            default='user',
+            required=False,
+            strip=True
+        )
+        .param(
+            'rsvp',
+            'Can the invited user decline the invitation?',
+            default=True,
+            required=False
+        )
+        .param(
+            'subject',
+            'For \'user\' or \'reviewer\' roles, an applet-specific or '
+            'cannonical ID of the subject of that informant or reviewer, an '
+            'iterable thereof, or \'ALL\' or \'NONE\'. The current user is '
+            'assumed if this parameter is omitted.',
+            required=False
+        )
+        .errorResponse('ID was invalid.')
+        .errorResponse('Write access was denied for the folder or its new parent object.', 403)
+    )
+    def inviteFromURL(self, url, user, role, rsvp, subject):
+        if role not in USER_ROLES:
+            raise ValidationException(
+                'Invalid role.',
+                'role'
             )
-            assignmentType = 'collection'
-        except AccessException:
-            assignments, assignmentType = selfAssignment()
-        if FolderModel().getAccessLevel(assignments, thisUser) < 1:
-            assignments, assignmentType = selfAssignment()
-        appletAssignment = list(FolderModel().childFolders(
-            parent=assignments,
-            parentType=assignmentType,
+        try:
+            r = requests.get(url)
+            applet = r.json()
+        except:
+            raise ValidationException(
+                'Invalid applet URL',
+                'url'
+            )
+        applets = CollectionModel().createCollection(
+            name="Applets",
+            public=True,
+            reuseExisting=True
+        )
+        thisUser = self.getCurrentUser()
+        thisApplet = list(FolderModel().childFolders(
+            parent=applets,
+            parentType='collection',
             user=thisUser,
             filters={
-                'meta.applet.@id': str(folder['_id'])
+                'meta.applet.url': url
             }
         ))
-        appletAssignment = appletAssignment[0] if len(
-            appletAssignment
+        thisApplet = thisApplet[0] if len(
+            thisApplet
         ) else FolderModel().setMetadata(
             FolderModel().createFolder(
-                parent=assignments,
-                name=str(folder['name']),
-                parentType=assignmentType,
-                public=False,
+                parent=applets,
+                name=str(applet['skos:prefLabel']),
+                parentType='collection',
+                public=True,
                 creator=thisUser,
                 allowRename=True,
                 reuseExisting=False
             ),
             {
                 'applet': {
-                    '@id': str(folder['_id'])
+                    **applet,
+                    'url': url
                 }
             }
         )
-        meta = appletAssignment['meta'] if 'meta' in appletAssignment else {}
-        members = meta['members'] if 'members' in meta else []
-        cUser = getUserCipher(appletAssignment, user)
-        subject = subject.upper() if subject is not None and subject.upper(
-        ) in SPECIAL_SUBJECTS else getUserCipher(
-            appletAssignment,
-            str(thisUser['_id']) if subject is None else subject
+        return(
+            _invite(
+                applet=thisApplet,
+                user=user,
+                role=role,
+                rsvp=rsvp,
+                subject=subject
+            )
         )
-        thisAppletAssignment = {
-            '@id': str(cUser),
-            'roles': {
-                role: True if role not in [
-                    'reviewer',
-                    'user'
-                ] else [
-                    subject
-                ]
-            }
-        }
-        for i, u in enumerate(members):
-            if '@id' in u and u["@id"]==str(cUser):
-                thisAppletAssignment = members.pop(i)
-                if 'roles' not in thisAppletAssignment:
-                    thisAppletAssignment['roles'] = {}
-                thisAppletAssignment['roles'][
-                    role
-                ] = True if role not in [
-                    'reviewer',
-                    'user'
-                ] else [
-                    subject
-                ] if (
-                    subject in SPECIAL_SUBJECTS
-                ) or (
-                    'reviewer' not in thisAppletAssignment[
-                        'roles'
-                    ]
-                ) else list(set(
-                    thisAppletAssignment['roles']['reviewer'] + [subject]
-                ).difference(set(
-                    SPECIAL_SUBJECTS
-                ))) if "ALL" not in thisAppletAssignment['roles'][
-                    'reviewer'
-                ] else ["ALL"]
-        members.append(thisAppletAssignment)
-        meta['members'] = members
-        appletAssignment = FolderModel().setMetadata(appletAssignment, meta)
-        authorizeReviewers(appletAssignment)
-        return(appletAssignment)
-
 
 def authorizeReviewer(applet, reviewer, user):
     thisUser = Applet().getCurrentUser()
@@ -418,6 +430,35 @@ def createCipher(applet, appletAssignments, user):
     return(newCipher)
 
 
+def decipherUser(appletSpecificId):
+    thisUser = Applet().getCurrentUser()
+    try:
+        ciphered = FolderModel().load(
+            appletSpecificId,
+            level=AccessType.NONE,
+            user=thisUser
+        )
+        userId = list(FolderModel().find(
+            query={
+                'parentId': ciphered['_id'],
+                'parentCollection': 'folder',
+                'name': 'userID'
+            }
+        ))
+    except:
+        return(None)
+    try:
+        return(
+            str(
+                userId[0]['meta']['user']['@id']
+            ) if len(userId) and 'meta' in userId[0] and 'user' in userId[0][
+                'meta'
+            ] and '@id' in userId[0]['meta']['user'] else None
+        )
+    except:
+        return(None)
+
+
 def getCanonicalUser(user):
     cUser = [
         u for u in [
@@ -475,33 +516,99 @@ def getUserCipher(applet, user):
     return(str(aUser))
 
 
-def decipherUser(appletSpecificId):
+def _invite(applet, user, role, rsvp, subject):
     thisUser = Applet().getCurrentUser()
+    user = user if user else str(thisUser['_id'])
     try:
-        ciphered = FolderModel().load(
-            appletSpecificId,
-            level=AccessType.NONE,
-            user=thisUser
+        assignments = CollectionModel().createCollection(
+            name="Assignments",
+            public=True,
+            reuseExisting=True
         )
-        userId = list(FolderModel().find(
-            query={
-                'parentId': ciphered['_id'],
-                'parentCollection': 'folder',
-                'name': 'userID'
+        assignmentType = 'collection'
+    except AccessException:
+        assignments, assignmentType = selfAssignment()
+    appletAssignment = list(FolderModel().childFolders(
+        parent=assignments,
+        parentType=assignmentType,
+        user=thisUser,
+        filters={
+            'meta.applet.@id': str(applet['_id'])
+        }
+    ))
+    appletAssignment = appletAssignment[0] if len(
+        appletAssignment
+    ) else FolderModel().setMetadata(
+        FolderModel().createFolder(
+            parent=assignments,
+            name=str(
+                applet[
+                    'skos:prefLabel'
+                ] if 'skos:prefLabel' in applet else applet[
+                    'name'
+                ] if 'name' in applet else applet['_id']
+            ),
+            parentType=assignmentType,
+            public=False,
+            creator=thisUser,
+            allowRename=True,
+            reuseExisting=False
+        ),
+        {
+            'applet': {
+                '@id': str(applet['_id'])
             }
-        ))
-    except:
-        return(None)
-    try:
-        return(
-            str(
-                userId[0]['meta']['user']['@id']
-            ) if len(userId) and 'meta' in userId[0] and 'user' in userId[0][
-                'meta'
-            ] and '@id' in userId[0]['meta']['user'] else None
-        )
-    except:
-        return(None)
+        }
+    )
+    meta = appletAssignment['meta'] if 'meta' in appletAssignment else {}
+    members = meta['members'] if 'members' in meta else []
+    cUser = getUserCipher(appletAssignment, user)
+    subject = subject.upper() if subject is not None and subject.upper(
+    ) in SPECIAL_SUBJECTS else getUserCipher(
+        appletAssignment,
+        str(thisUser['_id']) if subject is None else subject
+    )
+    thisAppletAssignment = {
+        '@id': str(cUser),
+        'roles': {
+            role: True if role not in [
+                'reviewer',
+                'user'
+            ] else [
+                subject
+            ]
+        }
+    }
+    for i, u in enumerate(members):
+        if '@id' in u and u["@id"]==str(cUser):
+            thisAppletAssignment = members.pop(i)
+            if 'roles' not in thisAppletAssignment:
+                thisAppletAssignment['roles'] = {}
+            thisAppletAssignment['roles'][
+                role
+            ] = True if role not in [
+                'reviewer',
+                'user'
+            ] else [
+                subject
+            ] if (
+                subject in SPECIAL_SUBJECTS
+            ) or (
+                'reviewer' not in thisAppletAssignment[
+                    'roles'
+                ]
+            ) else list(set(
+                thisAppletAssignment['roles']['reviewer'] + [subject]
+            ).difference(set(
+                SPECIAL_SUBJECTS
+            ))) if "ALL" not in thisAppletAssignment['roles'][
+                'reviewer'
+            ] else ["ALL"]
+    members.append(thisAppletAssignment)
+    meta['members'] = members
+    appletAssignment = FolderModel().setMetadata(appletAssignment, meta)
+    authorizeReviewers(appletAssignment)
+    return(appletAssignment)
 
 
 def nextCipher(currentCiphers):
