@@ -27,6 +27,7 @@ from girder.api import access
 from girder.models.folder import Folder
 from girder.models.item import Item as ItemModel
 from girder.models.user import User as UserModel
+from girder.models.upload import Upload as UploadModel
 import tzlocal
 
 
@@ -111,15 +112,19 @@ class ResponseItem(Resource):
         .errorResponse()
         .errorResponse('Write access was denied on the parent folder.', 403)
     )
-    def createResponseItem(self, subject_id, metadata):
+    def createResponseItem(self, subject_id, metadata, params):
         informant = self.getCurrentUser()
+        
         subject_id = subject_id if subject_id is not None else str(
             informant["_id"]
         )
+
         now = datetime.now(tzlocal.get_localzone())
+
         UserResponsesFolder = Folder().createFolder(
             parent=informant, parentType='user', name='Responses',
             creator=informant, reuseExisting=True, public=False)
+
         UserAppletResponsesFolder = Folder().createFolder(
             parent=UserResponsesFolder, parentType='folder',
             name=metadata["applet"]["@id"] if (
@@ -134,9 +139,13 @@ class ResponseItem(Resource):
                 ) == str
             ) else "[Unknown Applet]",
             reuseExisting=True, public=False)
+        # TODO: fix above [Unknown Applet]. Let's pass an appletName
+        # parameter instead.
+
         AppletSubjectResponsesFolder = Folder().createFolder(
             parent=UserAppletResponsesFolder, parentType='folder',
             name=subject_id, reuseExisting=True, public=False)
+
         newItem = self._model.createItem(
             folder=AppletSubjectResponsesFolder,
             name=now.strftime("%Y-%m-%d-%H-%M-%S-%Z"), creator=informant,
@@ -161,6 +170,20 @@ class ResponseItem(Resource):
                 now.strftime("%Y-%m-%d"),
                 now.strftime("%H:%M:%S %Z")
             ), reuseExisting=False)
+        
+        # for each blob in the parameter, upload it to a File under the item.
+        for key, value in params.items():
+            # upload the value (a blob)
+            um = UploadModel()
+            filename = "{}.{}".format(key, metadata[key]['type'].split('/')[-1])
+            newUpload = um.uploadFromFile(value.file, metadata[key]['size'],
+                                          filename, 'item', newItem, informant,
+                                          metadata[key]['type'])
+
+            # now, replace the metadata key with a link to this upload
+            metadata[key] = newUpload['_id']
+
+
         if metadata:
             newItem = self._model.setMetadata(newItem, metadata)
         return newItem
