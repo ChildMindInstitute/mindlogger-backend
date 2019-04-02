@@ -43,6 +43,7 @@ class Applet(Resource):
         self._model = FolderModel()
         # TODO: self.route('PUT', (':id'), self.deactivateActivity)
         # TODO: self.route('PUT', ('version', ':id'), self.deactivateActivity)
+        self.route('GET', (), self.getAppletFromURL)
         self.route('GET', (':id',), self.getApplet)
         # TODO: self.route('POST', (), self.createActivity)
         self.route('POST', (':id', 'invite'), self.invite)
@@ -50,6 +51,7 @@ class Applet(Resource):
         # TODO: self.route('POST', (':id', 'version'), self.createActivityVersion)
         # TODO: self.route('POST', (':id', 'copy'), self.copyActivity)
         # TODO: self.route('POST', ('version', ':id', 'copy'), self.copyActivityVersion)
+
 
     @access.user(scope=TokenScope.DATA_READ)
     @autoDescribeRoute(
@@ -71,8 +73,26 @@ class Applet(Resource):
                 'id'
             )
         else:
-            return(folder)
+            applet = folder['meta'][
+                'applet'
+            ] if 'meta' in folder and 'applet' in folder['meta'] else folder
+            applet = _loadJSON(
+                applet['url'],
+                'applet'
+            ) if 'url' in applet else applet
+            return(applet)
 
+
+    @access.user(scope=TokenScope.DATA_READ)
+    @autoDescribeRoute(
+        Description('Get an applet by URL.')
+        .param('url', 'URL of Applet.', required=True)
+        .errorResponse('Invalid applet URL.')
+        .errorResponse('Read access was denied for this applet.', 403)
+    )
+    def getAppletFromURL(self, url):
+        applet = _loadJSON(url, 'applet')
+        return(applet)
 
 
     @access.user(scope=TokenScope.DATA_WRITE)
@@ -176,14 +196,7 @@ class Applet(Resource):
                 'Invalid role.',
                 'role'
             )
-        try:
-            r = requests.get(url)
-            applet = r.json()
-        except:
-            raise ValidationException(
-                'Invalid applet URL',
-                'url'
-            )
+        applet = _loadJSON(url, 'applet')
         applets = CollectionModel().createCollection(
             name="Applets",
             public=True,
@@ -609,6 +622,18 @@ def _invite(applet, user, role, rsvp, subject):
     appletAssignment = FolderModel().setMetadata(appletAssignment, meta)
     authorizeReviewers(appletAssignment)
     return(appletAssignment)
+
+
+def _loadJSON(url, urlType='applet'):
+    try:
+        r = requests.get(url)
+        data = r.json()
+    except:
+        raise ValidationException(
+            'Invalid ' + urlType + ' URL',
+            'url'
+        )
+    return(data)
 
 
 def nextCipher(currentCiphers):
