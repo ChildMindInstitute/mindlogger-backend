@@ -21,8 +21,8 @@ from ..describe import Description, autoDescribeRoute
 from ..rest import Resource, filtermodel, setResponseHeader, setContentDisposition
 from datetime import datetime
 from girder.utility import ziputil
-from girder.constants import AccessType, TokenScope
-from girder.exceptions import RestException
+from girder.constants import AccessType, TokenScope, PREFERRED_NAMES
+from girder.exceptions import AccessException, RestException, ValidationException
 from girder.api import access
 from girder.models.folder import Folder
 from girder.models.item import Item as ItemModel
@@ -114,7 +114,11 @@ class ResponseItem(Resource):
     )
     def createResponseItem(self, subject_id, metadata, params):
         informant = self.getCurrentUser()
-        
+        if 'applet' in metadata:
+            applet = metadata['applet']
+            appletName = _getName(applet)
+        else:
+            raise ValidationException('Response to unknown applet.')
         subject_id = subject_id if subject_id is not None else str(
             informant["_id"]
         )
@@ -127,17 +131,7 @@ class ResponseItem(Resource):
 
         UserAppletResponsesFolder = Folder().createFolder(
             parent=UserResponsesFolder, parentType='folder',
-            name=metadata["applet"]["@id"] if (
-                "applet" in metadata and "@id" in metadata["applet"]
-            ) else metadata["applet"]["skos:prefLabel"] if (
-                "applet" in metadata and "skos:prefLabel" in metadata["applet"]
-            ) else metadata["applet"]["name"] if (
-                "applet" in metadata and "name" in metadata["applet"]
-            ) else metadata["applet"] if (
-                "applet" in metadata and type(
-                    metadata["applet"]
-                ) == str
-            ) else "[Unknown Applet]",
+            name=appletName,
             reuseExisting=True, public=False)
         # TODO: fix above [Unknown Applet]. Let's pass an appletName
         # parameter instead.
@@ -170,7 +164,7 @@ class ResponseItem(Resource):
                 now.strftime("%Y-%m-%d"),
                 now.strftime("%H:%M:%S %Z")
             ), reuseExisting=False)
-        
+
         # for each blob in the parameter, upload it to a File under the item.
         for key, value in params.items():
             # upload the value (a blob)
@@ -187,3 +181,9 @@ class ResponseItem(Resource):
         if metadata:
             newItem = self._model.setMetadata(newItem, metadata)
         return newItem
+
+def _getName(applet):
+    for name in PREFERRED_NAMES:
+        if name in applet:
+            return(applet['name'])
+    raise ValidationException('Unknown applet.')

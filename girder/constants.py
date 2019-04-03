@@ -48,13 +48,6 @@ VERSION = {  # Set defaults in case girder-version.json doesn't exist
     'apiVersion': None,
     'date': None
 }
-
-USER_ROLES = {
-    'user',
-    'editor',
-    'manager',
-    'reviewer'
-}
 try:
     with open(os.path.join(PACKAGE_DIR, 'girder-version.json')) as f:
         VERSION.update(json.load(f))
@@ -66,7 +59,9 @@ except IOError:
 STATIC_ROOT_DIR = ROOT_DIR
 if not os.path.exists(os.path.join(STATIC_ROOT_DIR, 'clients')):
     STATIC_ROOT_DIR = PACKAGE_DIR
-
+PREFERRED_NAMES = ["skos:prefLabel", "skos:altLabel", "name", "@id"]
+SPECIAL_SUBJECTS = {"ALL", "NONE"}
+USER_ROLES = {'user', 'editor', 'manager', 'reviewer'}
 
 def registerAccessFlag(key, name, description=None, admin=False):
     """
