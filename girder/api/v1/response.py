@@ -175,13 +175,13 @@ class ResponseItem(Resource):
         for key, value in params.items():
             # upload the value (a blob)
             um = UploadModel()
-            filename = "{}.{}".format(key, metadata[key]['type'].split('/')[-1])
-            newUpload = um.uploadFromFile(value.file, metadata[key]['size'],
+            filename = "{}.{}".format(key, metadata['responses'][key]['type'].split('/')[-1])
+            newUpload = um.uploadFromFile(value.file, metadata['responses'][key]['size'],
                                           filename, 'item', newItem, informant,
-                                          metadata[key]['type'])
+                                          metadata['responses'][key]['type'])
 
             # now, replace the metadata key with a link to this upload
-            metadata[key] = newUpload['_id']
+            metadata['responses'][key] = "file::{}".format(newUpload['_id'])
 
 
         if metadata:
