@@ -166,30 +166,6 @@ class User(Resource):
             )
         reviewer = self.getCurrentUser()
         applets = []
-        # Old schema
-        collections = CollectionModel().find()
-        activitySets = list(itertools.chain.from_iterable([
-            [
-                folder for folder in FolderModel().childFolders(
-                    parentType='collection',
-                    parent=collection,
-                    user=reviewer
-                )
-            ] for collection in [
-                collection for collection in collections if collection[
-                    'name'
-                ] == "Volumes"
-            ]
-        ]))
-        activitySets = [
-            applet for applet in activitySets for membershipRole in membershipRoles[
-                role
-            ] if 'meta' in applet and 'members' in applet[
-                'meta'
-            ] and membershipRole in applet['meta']['members'] and str(
-                user['_id']
-            ) in applet['meta']['members'][membershipRole]
-        ]
         # New schema
         collections = CollectionModel().find()
         assignments = list(itertools.chain.from_iterable([
