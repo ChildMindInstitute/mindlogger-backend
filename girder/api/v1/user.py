@@ -25,6 +25,7 @@ import itertools
 from ..describe import Description, autoDescribeRoute
 from girder.api import access
 from girder.api.rest import Resource, filtermodel, setCurrentUser
+from girder.api.v1.applet import parseAppletLevel
 from girder.constants import AccessType, SettingKey, TokenScope, USER_ROLES
 from girder.exceptions import RestException, AccessException
 from girder.models.collection import Collection as CollectionModel
@@ -168,19 +169,34 @@ class User(Resource):
         applets = []
         # New schema
         collections = CollectionModel().find()
-        assignments = list(itertools.chain.from_iterable([
-            [
-                folder for folder in FolderModel().childFolders(
-                    parentType='collection',
-                    parent=collection,
-                    user=reviewer
-                )
-            ] for collection in [
-                collection for collection in collections if collection[
-                    'name'
-                ] == "Assignments"
-            ]
-        ]))
+        assignments = [
+            *list(itertools.chain.from_iterable([
+                [
+                    folder for folder in FolderModel().childFolders(
+                        parentType='collection',
+                        parent=collection,
+                        user=reviewer
+                    )
+                ] for collection in [
+                    collection for collection in collections if collection[
+                        'name'
+                    ] == "Assignments"
+                ]
+            ])),
+            *list(itertools.chain.from_iterable([
+                [
+                    folder for folder in FolderModel().childFolders(
+                        parentType='user',
+                        parent=reviewer,
+                        user=reviewer
+                    )
+                ] for collection in [
+                    collection for collection in collections if collection[
+                        'name'
+                    ] == "Assignments"
+                ]
+            ]))
+        ]
         for assignment in assignments:
             if 'meta' in assignment and 'members' in assignment['meta']:
                 for assignedUser in assignment['meta']['members']:
@@ -215,12 +231,12 @@ class User(Resource):
                             if 'applet' in assignment[
                                 'meta'
                             ] and '@id' in assignment['meta']['applet']:
-                                applets.append(FolderModel().load(
-                                    assignment['meta']['applet']['@id'],
-                                    user=reviewer
-                                ))
-
-        applets.extend(activitySets)
+                                applets.append(
+                                    parseAppletLevel(FolderModel().load(
+                                        assignment['meta']['applet']['@id'],
+                                        user=reviewer
+                                    ))
+                                )
         return(applets)
 
     @access.public(scope=TokenScope.USER_INFO_READ)

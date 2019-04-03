@@ -23,7 +23,8 @@ import uuid
 import requests
 from ..describe import Description, autoDescribeRoute
 from ..rest import Resource
-from girder.constants import AccessType, SortDir, TokenScope, USER_ROLES
+from girder.constants import AccessType, SortDir, TokenScope, SPECIAL_SUBJECTS,\
+    USER_ROLES
 from girder.api import access
 from girder.exceptions import AccessException, ValidationException
 from girder.models.collection import Collection as CollectionModel
@@ -32,8 +33,6 @@ from girder.models.item import Item as ItemModel
 from girder.models.user import User as UserModel
 from girder.utility import config
 
-
-SPECIAL_SUBJECTS = ["ALL", "NONE"]
 
 class Applet(Resource):
 
@@ -73,9 +72,7 @@ class Applet(Resource):
                 'id'
             )
         else:
-            applet = folder['meta'][
-                'applet'
-            ] if 'meta' in folder and 'applet' in folder['meta'] else folder
+            applet = parseAppletLevel(folder)
             applet = _loadJSON(
                 applet['url'],
                 'applet'
@@ -648,6 +645,14 @@ def nextCipher(currentCiphers):
         except:
             nCipher.append(0)
     return(str(max(nCipher)+1))
+
+
+def parseAppletLevel(applet):
+    return(
+        applet['meta'][
+            'applet'
+        ] if 'meta' in applet and 'applet' in applet['meta'] else applet
+    )
 
 
 def selfAssignment():
