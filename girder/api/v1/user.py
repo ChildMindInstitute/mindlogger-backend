@@ -142,23 +142,6 @@ class User(Resource):
         )
     )
     def getUserApplets(self, user, role):
-        membershipRoles = {
-            "user": {
-                "users"
-            },
-            "manager": {
-                "owners",
-                "managers"
-            },
-            "editor": {
-                "editors",
-                "owners"
-            },
-            "reviewer": {
-                "reviewers",
-                "viewers"
-            }
-        }
         role = role.lower()
         if role not in USER_ROLES:
             raise RestException(
