@@ -181,8 +181,8 @@ class User(Resource):
                     if 'roles' in assignedUser and bool(len(list(set(
                         assignedUser['roles']
                     ).intersection(
-                        list(USER_ROLES)
-                    )))):
+                        list(assignedUser['roles'])
+                    )))) and '@id' in assignedUser:
                         if ('_id' in user) and str(user['_id']) in [
                             userId['meta']['user'][
                                 '@id'
