@@ -151,7 +151,6 @@ class User(Resource):
         reviewer = self.getCurrentUser()
         applets = []
         # New schema
-        collections = CollectionModel().find()
         assignments = [
             *list(itertools.chain.from_iterable([
                 [
@@ -160,23 +159,19 @@ class User(Resource):
                         parent=collection,
                         user=reviewer
                     )
-                ] for collection in [
-                    collection for collection in collections if collection[
-                        'name'
-                    ] == "Assignments"
-                ]
+                ] for collection in CollectionModel().find(
+                    {'name': 'Assignments'}
+                )
             ])),
             *list(itertools.chain.from_iterable([
                 [
-                    folder for folder in FolderModel().childFolders(
-                        parentType='user',
-                        parent=reviewer,
-                        user=reviewer
+                    folder for folder in FolderModel().find(
+                        {
+                            'parentId': reviewer['_id'],
+                            'baseParentType': 'user',
+                            'name': 'Assignments'
+                        }
                     )
-                ] for collection in [
-                    collection for collection in collections if collection[
-                        'name'
-                    ] == "Assignments"
                 ]
             ]))
         ]
@@ -186,7 +181,7 @@ class User(Resource):
                     if 'roles' in assignedUser and bool(len(list(set(
                         assignedUser['roles']
                     ).intersection(
-                        list(membershipRoles.keys())
+                        list(USER_ROLES)
                     )))):
                         if ('_id' in user) and str(user['_id']) in [
                             userId['meta']['user'][
