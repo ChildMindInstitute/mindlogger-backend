@@ -176,7 +176,9 @@ class User(Resource):
             ]))
         ]
         for assignment in assignments:
-            if 'meta' in assignment and 'members' in assignment['meta']:
+            if 'meta' in assignment and 'members' in assignment[
+                'meta'
+            ] and assignment['meta']['members'] is not None:
                 for assignedUser in assignment['meta']['members']:
                     if 'roles' in assignedUser and bool(len(list(set(
                         assignedUser['roles']
