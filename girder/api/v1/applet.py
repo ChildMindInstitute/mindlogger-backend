@@ -306,7 +306,9 @@ def authorizeReviewers(assignment):
     thisUser = Applet().getCurrentUser()
     allUsers = []
     reviewAll = []
-    members = assignment['members'] if 'members' in assignment else []
+    members = assignment['members'] if 'members' in assignment and assignment[
+        'members'
+    ] is not None else []
     applet = assignment['applet'][
         '@id'
     ] if 'applet' in assignment and '@id' in assignment['applet'] else None
@@ -571,7 +573,9 @@ def _invite(applet, user, role, rsvp, subject):
         }
     )
     meta = appletAssignment['meta'] if 'meta' in appletAssignment else {}
-    members = meta['members'] if 'members' in meta else []
+    members = meta['members'] if 'members' in meta and meta[
+        'members'
+    ] is not None else []
     cUser = getUserCipher(appletAssignment, user)
     subject = subject.upper() if subject is not None and subject.upper(
     ) in SPECIAL_SUBJECTS else getUserCipher(
