@@ -468,14 +468,17 @@ def decipherUser(appletSpecificId):
 
 
 def getCanonicalUser(user):
-    cUser = [
-        u for u in [
-            decipherUser(user),
-            userByEmail(user),
-            canonicalUser(user)
-        ] if u is not None
-    ]
-    return(cUser[0] if len(cUser) else None)
+    try:
+        cUser = [
+            u for u in [
+                decipherUser(user),
+                userByEmail(user),
+                canonicalUser(user)
+            ] if u is not None
+        ]
+        return(cUser[0] if len(cUser) else None)
+    except:
+        return(None)
 
 
 def getUserCipher(applet, user):
