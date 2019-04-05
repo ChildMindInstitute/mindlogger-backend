@@ -311,25 +311,25 @@ def authorizeReviewers(assignment):
     for member in [member for member in members if 'roles' in member]:
         try:
             if member['roles']['user']:
-                allUsers.append(getCanonicalUser(member["@id"]))
+                allUsers.append(getCanonicalUser(member.get("@id")))
         except:
             pass
         if 'reviewer' in member['roles']:
             if "ALL" in member['roles']['reviewer']:
-                reviewAll.append(getCanonicalUser(member["@id"]))
+                reviewAll.append(getCanonicalUser(member.get("@id")))
             for user in [
                 user for user in member['roles'][
                     'reviewer'
                 ] if user not in SPECIAL_SUBJECTS
             ]:
                 authorizeReviewer(
-                    assignment['applet']['@id'],
-                    getCanonicalUser(member["@id"]),
+                    assignment.get('applet').get('@id'),
+                    getCanonicalUser(member.get('@id')),
                     getCanonicalUser(user)
                 )
     for reviewer in reviewAll:
         [authorizeReviewer(
-            assignment['applet']['@id'],
+            assignment.get('applet').get('@id'),
             reviewer,
             user
         ) for user in allUsers]
@@ -569,7 +569,7 @@ def _invite(applet, user, role, rsvp, subject):
         ),
         {
             'applet': {
-                '@id': str(applet['_id'])
+                '@id': str(applet['_id']) if '_id' in applet else None
             }
         }
     )
