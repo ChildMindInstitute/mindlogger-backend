@@ -302,16 +302,12 @@ def authorizeReviewer(applet, reviewer, user):
 
 
 def authorizeReviewers(assignment):
-    assignment = assignment['meta'] if 'meta' in assignment else assignment
+    assignment = assignment.get('meta', assignment)
     thisUser = Applet().getCurrentUser()
     allUsers = []
     reviewAll = []
-    members = assignment['members'] if 'members' in assignment and assignment[
-        'members'
-    ] is not None else []
-    applet = assignment['applet'][
-        '@id'
-    ] if 'applet' in assignment and '@id' in assignment['applet'] else None
+    members = assignment.get('members', [])
+    applet = assignment.get('applet').get('@id')
     for member in [member for member in members if 'roles' in member]:
         try:
             if member['roles']['user']:
@@ -463,9 +459,9 @@ def decipherUser(appletSpecificId):
         return(
             str(
                 userId[0]['meta']['user']['@id']
-            ) if len(userId) and 'meta' in userId[0] and 'user' in userId[0][
-                'meta'
-            ] and '@id' in userId[0]['meta']['user'] else None
+            ) if len(userId) and type(
+                userId[0]
+            )==dict and userId[0].get('meta').get('user').get('@id') else None
         )
     except:
         return(None)
@@ -554,11 +550,16 @@ def _invite(applet, user, role, rsvp, subject):
         FolderModel().createFolder(
             parent=assignments,
             name=str(
-                applet[
-                    'skos:prefLabel'
-                ] if 'skos:prefLabel' in applet else applet[
-                    'name'
-                ] if 'name' in applet else applet['_id']
+                applet.get(
+                    'skos:prefLabel',
+                    applet.get(
+                        'skos:altLabel',
+                        applet.get(
+                            'name',
+                            applet.get('_id')
+                        )
+                    )
+                )
             ),
             parentType=assignmentType,
             public=False,
@@ -572,10 +573,8 @@ def _invite(applet, user, role, rsvp, subject):
             }
         }
     )
-    meta = appletAssignment['meta'] if 'meta' in appletAssignment else {}
-    members = meta['members'] if 'members' in meta and meta[
-        'members'
-    ] is not None else []
+    meta = appletAssignment.get('meta', {})
+    members = meta.get('members', [])
     cUser = getUserCipher(appletAssignment, user)
     subject = subject.upper() if subject is not None and subject.upper(
     ) in SPECIAL_SUBJECTS else getUserCipher(
@@ -652,11 +651,14 @@ def nextCipher(currentCiphers):
 
 
 def parseAppletLevel(applet):
-    return(
-        applet['meta'][
-            'applet'
-        ] if 'meta' in applet and 'applet' in applet['meta'] else applet
-    )
+    try:
+        return(
+            applet.get('meta').get('applet', applet)
+        )
+    except:
+        return(
+            applet
+        )
 
 
 def selfAssignment():

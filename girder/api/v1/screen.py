@@ -52,6 +52,4 @@ class Screen(Resource):
     )
     def getScreen(self, item):
         screen = item
-        return (
-            screen['meta'] if 'meta' in screen else screen
-        )
+        return (screen.get('meta', screen))

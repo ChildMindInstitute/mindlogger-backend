@@ -139,32 +139,27 @@ class ResponseItem(Resource):
         AppletSubjectResponsesFolder = Folder().createFolder(
             parent=UserAppletResponsesFolder, parentType='folder',
             name=subject_id, reuseExisting=True, public=False)
-
-        newItem = self._model.createItem(
-            folder=AppletSubjectResponsesFolder,
-            name=now.strftime("%Y-%m-%d-%H-%M-%S-%Z"), creator=informant,
-            description="{} response on {} at {}".format(
-                (
-                    metadata["activity"]["@id"] if (
-                        "activity" in metadata and "@id" in metadata["activity"]
-                    ) else metadata["activity"]["skos:prefLabel"] if (
-                        "activity" in metadata and "skos:prefLabel" in metadata[
-                            "activity"
-                        ]
-                    ) else metadata["activity"]["name"] if (
-                        "activity" in metadata and "name" in metadata[
-                            "activity"
-                        ]
-                    ) else metadata["activity"] if (
-                        "activity" in metadata and type(
-                            metadata["activity"]
-                        ) == str
-                    ) else "[Unknown Activity]"
-                ),
-                now.strftime("%Y-%m-%d"),
-                now.strftime("%H:%M:%S %Z")
-            ), reuseExisting=False)
-
+        try:
+            newItem = self._model.createItem(
+                folder=AppletSubjectResponsesFolder,
+                name=now.strftime("%Y-%m-%d-%H-%M-%S-%Z"), creator=informant,
+                description="{} response on {} at {}".format(
+                    metadata.get('activity').get(
+                        'skos:prefLabel',
+                        metadata.get('activity').get(
+                            'skos:altLabel',
+                            metadata.get('activity').get(
+                                'name'
+                            )
+                        )
+                    ),
+                    now.strftime("%Y-%m-%d"),
+                    now.strftime("%H:%M:%S %Z")
+                ), reuseExisting=False)
+        except:
+            raise ValidationException(
+                "Couldn't find activity name for this response."
+            )
         # for each blob in the parameter, upload it to a File under the item.
         for key, value in params.items():
             # upload the value (a blob)

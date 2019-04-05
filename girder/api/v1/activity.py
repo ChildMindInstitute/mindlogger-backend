@@ -58,11 +58,7 @@ class Activity(Resource):
             sort=[('created', SortDir.DESCENDING)],
             limit=1
         )[0] # get latest version
-        return (
-            activityVersion[
-                'meta'
-            ] if 'meta' in activityVersion else activityVersion
-        )
+        return (activityVersion.get('meta', activityVersion))
 
     @access.public(scope=TokenScope.DATA_READ)
     @autoDescribeRoute(
@@ -74,8 +70,4 @@ class Activity(Resource):
     )
     def getActivityVersion(self, folder):
         activityVersion = folder
-        return (
-            activityVersion[
-                'meta'
-            ] if 'meta' in activityVersion else activityVersion
-        )
+        return (activityVersion.get('meta', activityVersion))
