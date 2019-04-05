@@ -541,7 +541,7 @@ def _invite(applet, user, role, rsvp, subject):
         parentType=assignmentType,
         user=thisUser,
         filters={
-            'meta.applet.@id': str(applet['_id'])
+            'meta.applet.@id': str(applet['_id']) if '_id' in applet else None
         }
     ))
     appletAssignment = appletAssignment[0] if len(
