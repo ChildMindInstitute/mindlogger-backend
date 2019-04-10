@@ -42,7 +42,11 @@ class Activity(Resource):
 
     @access.public(scope=TokenScope.DATA_READ)
     @autoDescribeRoute(
-        Description('Get a screen by ID.')
+        Description(
+            'Get an Activity by ID. Use the Activity ID to get the latest '
+            'version, or use an Activity version\'s ID to get that specific'
+            'version.'
+        )
         .responseClass('Folder')
         .modelParam('id', model=ActivityModel, level=AccessType.READ)
         .errorResponse('ID was invalid.')

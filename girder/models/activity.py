@@ -41,7 +41,10 @@ class Activity(Folder):
              force=False, fields=None, exc=False):
         """
         We override load in order to ensure the folder has certain fields
-        within it, and if not, we add them lazily at read time.
+        within it, and if not, we add them lazily at read time. Also, this
+        method will return a specific version of an Activity if given an
+        Activity version ID or the latest version of an Activity if given an
+        Activity ID.
 
         :param id: The id of the resource.
         :type id: string or ObjectId
