@@ -23,8 +23,9 @@ from girder.utility import ziputil
 from girder.constants import AccessType, TokenScope
 from girder.exceptions import RestException
 from girder.api import access
-from girder.models.file import File
-from girder.models.folder import Folder
+from girder.models.activity import Activity as ActivityModel
+from girder.models.file import File as FileModel
+from girder.models.folder import Folder as FolderModel
 from girder.models.item import Item as ItemModel
 
 
@@ -39,8 +40,38 @@ class Screen(Resource):
         self.route('GET', (':id',), self.getScreen)
         # TODO: self.route('GET', (':id', 'files'), self.getFiles)
         # TODO: self.route('GET', (':id', 'download'), self.download)
-        # TODO: self.route('POST', (), self.createScreen)
+        self.route('POST', (), self.createScreen)
         # TODO: self.route('POST', (':id', 'copy'), self.copyScreen)
+
+    @access.public(scope=TokenScope.DATA_WRITE)
+    @autoDescribeRoute(
+        Description('Create a new screen.')
+        .responseClass('Item')
+        .param(
+            'activity',
+            'ID of the parent Activity or Activity version',
+            required=True
+        )
+        .param('screenName', 'Name for the new screen.', required=False)
+        .errorResponse('ID was invalid.')
+        .errorResponse('Read access was denied for the screen.', 403)
+    )
+    def createScreen(self, activity, screenName=None):
+        thisUser = Screen().getCurrentUser()
+        activity = ActivityModel().load(
+            activity,
+            level=AccessType.WRITE,
+            user=thisUser
+        )
+        screen = ItemModel().createItem(
+            name=screenName if screenName is not None else str(len(
+                list(FolderModel().childItems(activity))
+            ) + 1),
+            creator=thisUser,
+            folder=activity,
+            reuseExisting=False
+        )
+        return(screen)
 
     @access.public(scope=TokenScope.DATA_READ)
     @autoDescribeRoute(
