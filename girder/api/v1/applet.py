@@ -569,7 +569,9 @@ def _invite(applet, user, role, rsvp, subject):
         }
     )
     meta = appletAssignment.get('meta', {})
-    members = meta.get('members', [])
+    members = meta.get('members', []) if meta.get(
+        'members'
+    ) is not None else []
     cUser = getUserCipher(appletAssignment, user)
     subject = subject.upper() if subject is not None and subject.upper(
     ) in SPECIAL_SUBJECTS else getUserCipher(
