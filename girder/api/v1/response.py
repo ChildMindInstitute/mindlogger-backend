@@ -21,7 +21,7 @@ from ..describe import Description, autoDescribeRoute
 from ..rest import Resource, filtermodel, setResponseHeader, setContentDisposition
 from datetime import datetime
 from girder.utility import ziputil
-from girder.constants import AccessType, TokenScope, PREFERRED_NAMES
+from girder.constants import AccessType, TokenScope
 from girder.exceptions import AccessException, RestException, ValidationException
 from girder.api import access
 from girder.models.folder import Folder
@@ -60,7 +60,6 @@ class ResponseItem(Resource):
         folder = Folder().load(
             id=appletId, user=user, level=AccessType.NONE, exc=True
         )
-        appletName = folder['name'] # Get by name for old schema, delete later
         UserResponsesFolder = Folder().createFolder(
             parent=user, parentType='user', name='Responses', creator=user,
             reuseExisting=True, public=False)
@@ -69,11 +68,7 @@ class ResponseItem(Resource):
             user=reviewer)
         allResponses = {}
         for appletResponsesFolder in UserAppletResponsesFolders:
-            if appletResponsesFolder['name'] == appletName: # match by name for old schema, delete later
-                allResponses[appletId] = list(Folder().childItems(
-                    folder=appletResponsesFolder, user=reviewer
-                ))
-            elif (
+            if (
                 (
                     'meta' in appletResponsesFolder
                 ) and 'applet' in appletResponsesFolder[
@@ -116,7 +111,7 @@ class ResponseItem(Resource):
         informant = self.getCurrentUser()
         if 'applet' in metadata:
             applet = metadata['applet']
-            appletName = _getName(applet)
+            appletName = Folder().preferredName(applet)
         else:
             raise ValidationException('Response to unknown applet.')
         subject_id = subject_id if subject_id is not None else str(
@@ -144,15 +139,7 @@ class ResponseItem(Resource):
                 folder=AppletSubjectResponsesFolder,
                 name=now.strftime("%Y-%m-%d-%H-%M-%S-%Z"), creator=informant,
                 description="{} response on {} at {}".format(
-                    metadata.get('activity').get(
-                        'skos:prefLabel',
-                        metadata.get('activity').get(
-                            'skos:altLabel',
-                            metadata.get('activity').get(
-                                'name'
-                            )
-                        )
-                    ),
+                    Folder().preferredName(metadata.get('activity')),
                     now.strftime("%Y-%m-%d"),
                     now.strftime("%H:%M:%S %Z")
                 ), reuseExisting=False)
@@ -176,9 +163,3 @@ class ResponseItem(Resource):
         if metadata:
             newItem = self._model.setMetadata(newItem, metadata)
         return newItem
-
-def _getName(applet):
-    for name in PREFERRED_NAMES:
-        if name in applet:
-            return(applet['name'])
-    raise ValidationException('Unknown applet.')

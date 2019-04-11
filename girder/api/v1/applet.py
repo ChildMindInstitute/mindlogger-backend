@@ -187,6 +187,7 @@ class Applet(Resource):
         .errorResponse('ID was invalid.')
         .errorResponse('Write access was denied for the folder or its new parent object.', 403)
     )
+
     def inviteFromURL(self, url, user, role, rsvp, subject):
         if role not in USER_ROLES:
             raise ValidationException(
@@ -213,7 +214,7 @@ class Applet(Resource):
         ) else FolderModel().setMetadata(
             FolderModel().createFolder(
                 parent=applets,
-                name=str(applet['skos:prefLabel']),
+                name=FolderModel().preferredName(applet),
                 parentType='collection',
                 public=True,
                 creator=thisUser,
@@ -271,7 +272,7 @@ def authorizeReviewer(applet, reviewer, user):
         ) else FolderModel().setMetadata(
             FolderModel().createFolder(
                 parent=responsesCollection,
-                name=str(applet['name']),
+                name=FolderModel().preferredName(applet),
                 parentType='folder',
                 public=False,
                 creator=thisUser,
@@ -375,11 +376,13 @@ def createCipher(applet, appletAssignments, user):
     )
     if cUser is None:
         try:
-            appletName = FolderModel().load(
-                applet['meta']['applet']['@id'],
-                level=AccessType.NONE,
-                user=thisUser
-            )['name']
+            appletName = FolderModel().preferredName(
+                FolderModel().load(
+                    applet['meta']['applet']['@id'],
+                    level=AccessType.NONE,
+                    user=thisUser
+                )['name']
+            )
         except:
             raise ValidationException('Invalid assignment folder.', 'applet')
         try:
@@ -401,11 +404,11 @@ def createCipher(applet, appletAssignments, user):
                 login="-".join([
                     appletName.replace(' ', ''),
                     str(applet['meta']['applet']['@id']),
-                    str(newCipher['name'])
+                    str(FolderModel().preferredName(newCipher))
                 ]),
                 password=str(uuid.uuid4()),
                 firstName=appletName,
-                lastName=newCipher['name'],
+                lastName=FolderModel().preferredName(newCipher),
                 email=user,
                 admin=False,
                 public=False,
@@ -552,18 +555,7 @@ def _invite(applet, user, role, rsvp, subject):
     ) else FolderModel().setMetadata(
         FolderModel().createFolder(
             parent=assignments,
-            name=str(
-                applet.get(
-                    'skos:prefLabel',
-                    applet.get(
-                        'skos:altLabel',
-                        applet.get(
-                            'name',
-                            applet.get('_id')
-                        )
-                    )
-                )
-            ),
+            name=FolderModel().preferredName(applet),
             parentType=assignmentType,
             public=False,
             creator=thisUser,
@@ -644,7 +636,9 @@ def nextCipher(currentCiphers):
         return("1")
     nCipher = []
     for c in [
-        cipher['name'] for cipher in currentCiphers
+        cipher.get('name') for cipher in currentCiphers if cipher.get(
+            'name'
+        ) is not None
     ]:
         try:
             nCipher.append(int(c))
