@@ -59,7 +59,9 @@ except IOError:
 STATIC_ROOT_DIR = ROOT_DIR
 if not os.path.exists(os.path.join(STATIC_ROOT_DIR, 'clients')):
     STATIC_ROOT_DIR = PACKAGE_DIR
-
+PREFERRED_NAMES = ["skos:prefLabel", "skos:altLabel", "name", "@id", "url"]
+SPECIAL_SUBJECTS = {"ALL", "NONE"}
+USER_ROLES = {'user', 'editor', 'manager', 'reviewer'}
 
 def registerAccessFlag(key, name, description=None, admin=False):
     """

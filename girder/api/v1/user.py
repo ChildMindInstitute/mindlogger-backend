@@ -25,7 +25,8 @@ import itertools
 from ..describe import Description, autoDescribeRoute
 from girder.api import access
 from girder.api.rest import Resource, filtermodel, setCurrentUser
-from girder.constants import AccessType, SettingKey, TokenScope
+from girder.api.v1.applet import parseAppletLevel
+from girder.constants import AccessType, SettingKey, TokenScope, USER_ROLES
 from girder.exceptions import RestException, AccessException
 from girder.models.collection import Collection as CollectionModel
 from girder.models.folder import Folder as FolderModel
@@ -130,7 +131,7 @@ class User(Resource):
         .modelParam('id', model=UserModel, level=AccessType.READ)
         .param(
             'role',
-            'One of {"user", "manager", "editor", or "reviewer"}',
+            'One of ' + str(USER_ROLES),
             required=False,
             default='user'
         )
@@ -141,77 +142,49 @@ class User(Resource):
         )
     )
     def getUserApplets(self, user, role):
-        membershipRoles = {
-            "user": {
-                "users"
-            },
-            "manager": {
-                "owners",
-                "managers"
-            },
-            "editor": {
-                "editors",
-                "owners"
-            },
-            "reviewer": {
-                "reviewers",
-                "viewers"
-            }
-        }
         role = role.lower()
-        if role not in membershipRoles.keys():
+        if role not in USER_ROLES:
             raise RestException(
-                'Invalid user role.'
+                'Invalid user role.',
+                'role'
             )
         reviewer = self.getCurrentUser()
         applets = []
-        # Old schema
-        collections = CollectionModel().find()
-        activitySets = list(itertools.chain.from_iterable([
-            [
-                folder for folder in FolderModel().childFolders(
-                    parentType='collection',
-                    parent=collection,
-                    user=reviewer
-                )
-            ] for collection in [
-                collection for collection in collections if collection[
-                    'name'
-                ] == "Volumes"
-            ]
-        ]))
-        activitySets = [
-            applet for applet in activitySets for membershipRole in membershipRoles[
-                role
-            ] if 'meta' in applet and 'members' in applet[
-                'meta'
-            ] and membershipRole in applet['meta']['members'] and str(
-                user['_id']
-            ) in applet['meta']['members'][membershipRole]
-        ]
         # New schema
-        collections = CollectionModel().find()
-        assignments = list(itertools.chain.from_iterable([
-            [
-                folder for folder in FolderModel().childFolders(
-                    parentType='collection',
-                    parent=collection,
-                    user=reviewer
+        assignments = [
+            *list(itertools.chain.from_iterable([
+                [
+                    folder for folder in FolderModel().childFolders(
+                        parentType='collection',
+                        parent=collection,
+                        user=reviewer
+                    )
+                ] for collection in CollectionModel().find(
+                    {'name': 'Assignments'}
                 )
-            ] for collection in [
-                collection for collection in collections if collection[
-                    'name'
-                ] == "Assignments"
-            ]
-        ]))
+            ])),
+            *list(itertools.chain.from_iterable([
+                [
+                    folder for folder in FolderModel().find(
+                        {
+                            'parentId': reviewer['_id'],
+                            'baseParentType': 'user',
+                            'name': 'Assignments'
+                        }
+                    )
+                ]
+            ]))
+        ]
         for assignment in assignments:
-            if 'meta' in assignment and 'members' in assignment['meta']:
+            if 'meta' in assignment and 'members' in assignment[
+                'meta'
+            ] and assignment['meta']['members'] is not None:
                 for assignedUser in assignment['meta']['members']:
                     if 'roles' in assignedUser and bool(len(list(set(
                         assignedUser['roles']
                     ).intersection(
-                        list(membershipRoles.keys())
-                    )))):
+                        list(assignedUser['roles'])
+                    )))) and '@id' in assignedUser:
                         if ('_id' in user) and str(user['_id']) in [
                             userId['meta']['user'][
                                 '@id'
@@ -238,12 +211,12 @@ class User(Resource):
                             if 'applet' in assignment[
                                 'meta'
                             ] and '@id' in assignment['meta']['applet']:
-                                applets.append(FolderModel().load(
-                                    assignment['meta']['applet']['@id'],
-                                    user=reviewer
-                                ))
-
-        applets.extend(activitySets)
+                                applets.append(
+                                    parseAppletLevel(FolderModel().load(
+                                        assignment['meta']['applet']['@id'],
+                                        user=reviewer
+                                    ))
+                                )
         return(applets)
 
     @access.public(scope=TokenScope.USER_INFO_READ)

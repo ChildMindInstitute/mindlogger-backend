@@ -28,7 +28,8 @@ from bson.objectid import ObjectId
 from bson.errors import InvalidId
 from pymongo.errors import WriteError
 from girder import events, logprint, logger, auditLogger
-from girder.constants import AccessType, CoreEventHandler, ACCESS_FLAGS, TEXT_SCORE_SORT_MAX
+from girder.constants import AccessType, CoreEventHandler, ACCESS_FLAGS, \
+    PREFERRED_NAMES, TEXT_SCORE_SORT_MAX
 from girder.external.mongodb_proxy import MongoProxy
 from girder.models import getDbConnection
 from girder.utility.model_importer import ModelImporter
@@ -442,6 +443,21 @@ class Model(ModelImporter):
                     field: {'$regex': '^%s' % re.escape(query)}
                 })
         return filters
+
+    def preferredName(self, doc):
+        """
+        Get the preferred name, based on the sequence defined in
+        `../constants.py`, of the document.
+
+        :param doc: The document to get the preferred name of
+        :type doc: dict
+        :returns: A string, either the most-preferred name as defined in
+            constants or an empty string.
+        """
+        nameOptions = [
+            doc.get(key) for key in PREFERRED_NAMES if doc.get(key) is not None
+        ]
+        return(nameOptions[0] if len(nameOptions) else "")
 
     def prefixSearch(self, query, offset=0, limit=0, sort=None, fields=None,
                      filters=None, prefixSearchFields=None, **kwargs):

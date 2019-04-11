@@ -22,7 +22,7 @@ from ..rest import Resource, filtermodel, setResponseHeader, setContentDispositi
 from datetime import datetime
 from girder.utility import ziputil
 from girder.constants import AccessType, TokenScope
-from girder.exceptions import RestException
+from girder.exceptions import AccessException, RestException, ValidationException
 from girder.api import access
 from girder.models.folder import Folder
 from girder.models.item import Item as ItemModel
@@ -60,7 +60,6 @@ class ResponseItem(Resource):
         folder = Folder().load(
             id=appletId, user=user, level=AccessType.NONE, exc=True
         )
-        appletName = folder['name'] # Get by name for old schema, delete later
         UserResponsesFolder = Folder().createFolder(
             parent=user, parentType='user', name='Responses', creator=user,
             reuseExisting=True, public=False)
@@ -69,11 +68,7 @@ class ResponseItem(Resource):
             user=reviewer)
         allResponses = {}
         for appletResponsesFolder in UserAppletResponsesFolders:
-            if appletResponsesFolder['name'] == appletName: # match by name for old schema, delete later
-                allResponses[appletId] = list(Folder().childItems(
-                    folder=appletResponsesFolder, user=reviewer
-                ))
-            elif (
+            if (
                 (
                     'meta' in appletResponsesFolder
                 ) and 'applet' in appletResponsesFolder[
@@ -114,7 +109,11 @@ class ResponseItem(Resource):
     )
     def createResponseItem(self, subject_id, metadata, params):
         informant = self.getCurrentUser()
-        
+        if 'applet' in metadata:
+            applet = metadata['applet']
+            appletName = Folder().preferredName(applet)
+        else:
+            raise ValidationException('Response to unknown applet.')
         subject_id = subject_id if subject_id is not None else str(
             informant["_id"]
         )
@@ -127,17 +126,7 @@ class ResponseItem(Resource):
 
         UserAppletResponsesFolder = Folder().createFolder(
             parent=UserResponsesFolder, parentType='folder',
-            name=metadata["applet"]["@id"] if (
-                "applet" in metadata and "@id" in metadata["applet"]
-            ) else metadata["applet"]["skos:prefLabel"] if (
-                "applet" in metadata and "skos:prefLabel" in metadata["applet"]
-            ) else metadata["applet"]["name"] if (
-                "applet" in metadata and "name" in metadata["applet"]
-            ) else metadata["applet"] if (
-                "applet" in metadata and type(
-                    metadata["applet"]
-                ) == str
-            ) else "[Unknown Applet]",
+            name=appletName,
             reuseExisting=True, public=False)
         # TODO: fix above [Unknown Applet]. Let's pass an appletName
         # parameter instead.
@@ -145,32 +134,19 @@ class ResponseItem(Resource):
         AppletSubjectResponsesFolder = Folder().createFolder(
             parent=UserAppletResponsesFolder, parentType='folder',
             name=subject_id, reuseExisting=True, public=False)
-
-        newItem = self._model.createItem(
-            folder=AppletSubjectResponsesFolder,
-            name=now.strftime("%Y-%m-%d-%H-%M-%S-%Z"), creator=informant,
-            description="{} response on {} at {}".format(
-                (
-                    metadata["activity"]["@id"] if (
-                        "activity" in metadata and "@id" in metadata["activity"]
-                    ) else metadata["activity"]["skos:prefLabel"] if (
-                        "activity" in metadata and "skos:prefLabel" in metadata[
-                            "activity"
-                        ]
-                    ) else metadata["activity"]["name"] if (
-                        "activity" in metadata and "name" in metadata[
-                            "activity"
-                        ]
-                    ) else metadata["activity"] if (
-                        "activity" in metadata and type(
-                            metadata["activity"]
-                        ) == str
-                    ) else "[Unknown Activity]"
-                ),
-                now.strftime("%Y-%m-%d"),
-                now.strftime("%H:%M:%S %Z")
-            ), reuseExisting=False)
-        
+        try:
+            newItem = self._model.createItem(
+                folder=AppletSubjectResponsesFolder,
+                name=now.strftime("%Y-%m-%d-%H-%M-%S-%Z"), creator=informant,
+                description="{} response on {} at {}".format(
+                    Folder().preferredName(metadata.get('activity')),
+                    now.strftime("%Y-%m-%d"),
+                    now.strftime("%H:%M:%S %Z")
+                ), reuseExisting=False)
+        except:
+            raise ValidationException(
+                "Couldn't find activity name for this response."
+            )
         # for each blob in the parameter, upload it to a File under the item.
         for key, value in params.items():
             # upload the value (a blob)
