@@ -29,7 +29,7 @@ from bson.errors import InvalidId
 from pymongo.errors import WriteError
 from girder import events, logprint, logger, auditLogger
 from girder.constants import AccessType, CoreEventHandler, ACCESS_FLAGS, \
-PREFERRED_NAMES, TEXT_SCORE_SORT_MAX
+    PREFERRED_NAMES, TEXT_SCORE_SORT_MAX
 from girder.external.mongodb_proxy import MongoProxy
 from girder.models import getDbConnection
 from girder.utility.model_importer import ModelImporter
