@@ -187,7 +187,6 @@ class Applet(Resource):
         .errorResponse('ID was invalid.')
         .errorResponse('Write access was denied for the folder or its new parent object.', 403)
     )
-
     def inviteFromURL(self, url, user, role, rsvp, subject):
         if role not in USER_ROLES:
             raise ValidationException(
