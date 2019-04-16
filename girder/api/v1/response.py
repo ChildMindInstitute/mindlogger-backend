@@ -181,13 +181,15 @@ class ResponseItem(Resource):
             'applet',
             model=AppletModel,
             level=AccessType.READ,
-            destName='applet'
+            destName='applet',
+            description='The ID of the Applet this response is to.'
         )
         .modelParam(
             'activity',
             model=ActivityModel,
             level=AccessType.READ,
-            destName='activity'
+            destName='activity',
+            description='The ID of the Activity this response is to.'
         )
         .jsonParam('metadata',
                    'A JSON object containing the metadata keys to add.',
