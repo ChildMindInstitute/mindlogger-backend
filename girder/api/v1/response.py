@@ -24,9 +24,11 @@ from girder.utility import ziputil
 from girder.constants import AccessType, TokenScope
 from girder.exceptions import AccessException, RestException, ValidationException
 from girder.api import access
-from girder.api.v1.applet import getCanonicalUser
+from girder.api.v1.applet import getCanonicalUser, getUserCipher
 from girder.api.v1.context import listFromString
 from girder.models.activity import Activity as ActivityModel
+from girder.models.applet import Applet as AppletModel
+from girder.models.assignment import Assignment as AssignmentModel
 from girder.models.folder import Folder
 from girder.models.item import Item as ItemModel
 from girder.models.user import User as UserModel
@@ -42,7 +44,7 @@ class ResponseItem(Resource):
         self.resourceName = 'response'
         self._model = ItemModel()
         self.route('GET', (), self.getResponses)
-        self.route('POST', (), self.createResponseItem)
+        self.route('POST', ('{applet}', '{activity}'), self.createResponseItem)
 
     """
     TODO 🚧:
@@ -107,6 +109,9 @@ class ResponseItem(Resource):
                     getCanonicalUser(u) for u in respondent
                 ] if cu is not None
             ]))
+            respondents = respondents if len(respondents) else [
+                u['_id'] for u in list(UserModel().search(user=reviewer))
+            ]
         except:
             raise ValidationException(
                 'Invalid parameter.',
@@ -155,39 +160,211 @@ class ResponseItem(Resource):
                 'screen'
             )
         del respondent, subject, applet, activity, screen
-        return(", ".join([str(respondents), str(subjects), str(applets), str(activities), str(screens)]))
-        ## 🚧 continue from here
         for respondent in respondents:
-            allResponses.append(
-                *this._getUserResponses(
-                    respondent=respondent,
-                    subjects=subjects,
-                    applets=applets,
-                    activities=activities,
-                    screens=screens
-                )
+            allResponses += _getUserResponses(
+                reviewer=reviewer,
+                respondent=respondent,
+                subjects=subjects,
+                applets=applets,
+                activities=activities,
+                screens=screens
             )
         return(allResponses)
 
-    def _getUserResponsesFolder(self, user):
+
+    @access.user(scope=TokenScope.DATA_WRITE)
+    @filtermodel(model=ItemModel)
+    @autoDescribeRoute(
+        Description('Create a new user response item.')
+        .responseClass('Item')
+        .param(
+            'applet',
+            'The ID of the applet to which the response is responding.',
+            required=True
+        )
+        .param(
+            'activity',
+            'The ID of the activity or activity version to which the response '
+            'is responding.',
+            required=True
+        )
+        .jsonParam('metadata',
+                   'A JSON object containing the metadata keys to add.',
+                   paramType='form', requireObject=True, required=True)
+        .param('subject_id', 'The ID (canonical or applet-specific) of the '
+               'user that is the subject.',
+               required=False, default=None)
+        .errorResponse()
+        .errorResponse('Write access was denied on the parent folder.', 403)
+    )
+    def createResponseItem(self, applet, activity, metadata, params, subject_id=None):
+        informant = self.getCurrentUser()
+        return(subject_id)
+        try:
+            applet = AppletModel().load(
+                id=applet,
+                user=informant,
+                level=AccessType.READ
+            )
+        except:
+            if 'applet' in metadata:
+                applet = metadata.get('applet')
+                appletName = Folder().preferredName(applet)
+            else:
+                raise ValidationException('Response to unknown applet')
+        try:
+            activity = ActivityModel().load(
+                id=activity,
+                user=informant,
+                level=AccessType.NONE,
+                force=True
+            )
+        except:
+            if 'activity' in metadata:
+                activity = metadata.get('activity')
+                activity = Folder().preferredName(activity)
+        subject_id = subject_id if subject_id is not None else str(
+            informant['_id']
+        )
+        subject_id = getUserCipher(
+            applet=AssigmentModel().load(
+                id=applet["_id"],
+                user=informant,
+                level=AccessType.READ
+            ),
+            user=subject_id
+        )
+        return(subject_id)
+        now = datetime.now(tzlocal.get_localzone())
+
+        UserResponsesFolder = Folder().createFolder(
+            parent=informant, parentType='user', name='Responses',
+            creator=informant, reuseExisting=True, public=False)
+
+        UserAppletResponsesFolder = Folder().createFolder(
+            parent=UserResponsesFolder, parentType='folder',
+            name=appletName,
+            reuseExisting=True, public=False)
+
+        AppletSubjectResponsesFolder = Folder().createFolder(
+            parent=UserAppletResponsesFolder, parentType='folder',
+            name=subject_id, reuseExisting=True, public=False)
+        try:
+            newItem = self._model.createItem(
+                folder=AppletSubjectResponsesFolder,
+                name=now.strftime("%Y-%m-%d-%H-%M-%S-%Z"), creator=informant,
+                description="{} response on {} at {}".format(
+                    Folder().preferredName(activity),
+                    now.strftime("%Y-%m-%d"),
+                    now.strftime("%H:%M:%S %Z")
+                ), reuseExisting=False)
+        except:
+            raise ValidationException(
+                "Couldn't find activity name for this response."
+            )
+        # for each blob in the parameter, upload it to a File under the item.
+        for key, value in params.items():
+            # upload the value (a blob)
+            um = UploadModel()
+            filename = "{}.{}".format(
+                key,
+                metadata['responses'][key]['type'].split('/')[-1]
+            )
+            newUpload = um.uploadFromFile(
+                value.file,
+                metadata['responses'][key]['size'],
+                filename,
+                'item',
+                newItem,
+                informant,
+                metadata['responses'][key]['type']
+            )
+            # now, replace the metadata key with a link to this upload
+            metadata['responses'][key] = "file::{}".format(newUpload['_id'])
+
+        if metadata:
+            newItem = self._model.setMetadata(newItem, metadata)
+        return newItem
+
+
+def _getUserResponsesFolder(reviewer, user):
+    """
+    Gets a given User's `Responses` folder if the logged-in user has access
+    to that folder, else returns None.
+
+    Parameters
+    ----------
+    reviewer: UserModel
+        the logged-in user
+
+    user: string
+        canonical ID
+
+    Returns
+    -------
+    UserResponsesFolder: Folder or None
+    """
+    try:
         user = UserModel().load(
             id=user, user=reviewer, level=AccessType.NONE, exc=True
         )
-        UserResponsesFolder = Folder().createFolder(
-            parent=user, parentType='user', name='Responses', creator=user,
-            reuseExisting=True, public=False)
+        if reviewer['_id']==user['_id']:
+            UserResponsesFolder = Folder().createFolder(
+                parent=user, parentType='user', name='Responses',
+                creator=user, reuseExisting=True, public=False)
+        else:
+            UserResponsesFolder = Folder().load(
+                id=Folder().findOne({
+                    parent: user,
+                    parentType: 'user',
+                    name: 'Responses'
+                }).get('_id'),
+                user=reviewer,
+                level=AccessType.READ
+            )
         return(UserResponsesFolder)
+    except:
+        return(None)
 
 
-    def _getUserResponses(
-        self,
-        respondent,
-        subjects=[],
-        applets=[],
-        activities=[],
-        screens=[]
-    ):
-        UserResponsesFolder = this._getUserResponsesFolder(respondent)
+def _getUserResponses(
+    reviewer,
+    respondent,
+    subjects=[],
+    applets=[],
+    activities=[],
+    screens=[]
+):
+    """
+    Gets a given User's `Responses` folder if the logged-in user has access
+    to that folder, else returns None.
+
+    Parameters
+    ----------
+    reviewer: UserModel
+        the logged-in user
+
+    respondent: str
+        canonical user ID
+
+    subjects: list
+        list of strings, canonical user IDs
+
+    applets: list
+        list of strings, applet IDs
+
+    activities: list
+        list of strings, activity IDs
+
+    screens: list
+        list of strings, screen IDs
+
+    Returns
+    -------
+    allResponses: list of Items or empty list
+    """
+    UserResponsesFolder = _getUserResponsesFolder(reviewer, respondent)
+    if UserResponsesFolder is not None:
         UserAppletResponsesFolders = Folder().childFolders(
             parent=UserResponsesFolder, parentType='folder',
             user=reviewer)
@@ -247,104 +424,33 @@ class ResponseItem(Resource):
                 ))
             ]
         return(allResponses)
+    else:
+        return([])
 
 
-        folder = Folder().load(
-            id=appletId, user=user, level=AccessType.NONE, exc=True
-        )
-        allResponses = {}
-        for appletResponsesFolder in UserAppletResponsesFolders:
-            if (
-                (
-                    'meta' in appletResponsesFolder
-                ) and 'applet' in appletResponsesFolder[
-                    'meta'
-                ] and appletResponsesFolder[
-                    'meta'
-                ]['applet']['@id']==appletId
-            ):
-                allResponses[appletId] = []
-                folder = Folder().load(
-                    id=appletResponsesFolder["_id"], user=reviewer,
-                    level=AccessType.READ, exc=True
-                )
-                subjectFolders = Folder().childFolders(
-                    parent=folder, parentType='folder', user=reviewer
-                )
-                for subjectFolder in subjectFolders:
-                    allResponses[appletId] += list(Folder().childItems(
-                        folder=subjectFolder, user=reviewer
-                    ))
-
-
-    @access.user(scope=TokenScope.DATA_WRITE)
-    @filtermodel(model=ItemModel)
-    @autoDescribeRoute(
-        Description('Create a new user response item.')
-        .responseClass('Item')
-        .jsonParam('metadata',
-                   'A JSON object containing the metadata keys to add. Requires'
-                   ' the following keys: ["applet", "activity"], each of which'
-                   ' takes an Object for its value.',
-                   paramType='form', requireObject=True, required=True)
-        .param('subject_id', 'The ID of the user that is the subject.',
-               required=False, default=None)
-        .errorResponse()
-        .errorResponse('Write access was denied on the parent folder.', 403)
+    folder = Folder().load(
+        id=appletId, user=user, level=AccessType.NONE, exc=True
     )
-    def createResponseItem(self, subject_id, metadata, params):
-        informant = self.getCurrentUser()
-        if 'applet' in metadata:
-            applet = metadata['applet']
-            appletName = Folder().preferredName(applet)
-        else:
-            raise ValidationException('Response to unknown applet.')
-        subject_id = subject_id if subject_id is not None else str(
-            informant["_id"]
-        )
-
-        now = datetime.now(tzlocal.get_localzone())
-
-        UserResponsesFolder = Folder().createFolder(
-            parent=informant, parentType='user', name='Responses',
-            creator=informant, reuseExisting=True, public=False)
-
-        UserAppletResponsesFolder = Folder().createFolder(
-            parent=UserResponsesFolder, parentType='folder',
-            name=appletName,
-            reuseExisting=True, public=False)
-        # TODO: fix above [Unknown Applet]. Let's pass an appletName
-        # parameter instead.
-
-        AppletSubjectResponsesFolder = Folder().createFolder(
-            parent=UserAppletResponsesFolder, parentType='folder',
-            name=subject_id, reuseExisting=True, public=False)
-        try:
-            newItem = self._model.createItem(
-                folder=AppletSubjectResponsesFolder,
-                name=now.strftime("%Y-%m-%d-%H-%M-%S-%Z"), creator=informant,
-                description="{} response on {} at {}".format(
-                    Folder().preferredName(metadata.get('activity')),
-                    now.strftime("%Y-%m-%d"),
-                    now.strftime("%H:%M:%S %Z")
-                ), reuseExisting=False)
-        except:
-            raise ValidationException(
-                "Couldn't find activity name for this response."
+    allResponses = {}
+    for appletResponsesFolder in UserAppletResponsesFolders:
+        if (
+            (
+                'meta' in appletResponsesFolder
+            ) and 'applet' in appletResponsesFolder[
+                'meta'
+            ] and appletResponsesFolder[
+                'meta'
+            ]['applet']['@id']==appletId
+        ):
+            allResponses[appletId] = []
+            folder = Folder().load(
+                id=appletResponsesFolder["_id"], user=reviewer,
+                level=AccessType.READ, exc=True
             )
-        # for each blob in the parameter, upload it to a File under the item.
-        for key, value in params.items():
-            # upload the value (a blob)
-            um = UploadModel()
-            filename = "{}.{}".format(key, metadata['responses'][key]['type'].split('/')[-1])
-            newUpload = um.uploadFromFile(value.file, metadata['responses'][key]['size'],
-                                          filename, 'item', newItem, informant,
-                                          metadata['responses'][key]['type'])
-
-            # now, replace the metadata key with a link to this upload
-            metadata['responses'][key] = "file::{}".format(newUpload['_id'])
-
-
-        if metadata:
-            newItem = self._model.setMetadata(newItem, metadata)
-        return newItem
+            subjectFolders = Folder().childFolders(
+                parent=folder, parentType='folder', user=reviewer
+            )
+            for subjectFolder in subjectFolders:
+                allResponses[appletId] += list(Folder().childItems(
+                    folder=subjectFolder, user=reviewer
+                ))

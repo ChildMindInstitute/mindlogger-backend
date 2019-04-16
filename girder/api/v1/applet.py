@@ -483,13 +483,13 @@ def getCanonicalUser(user):
         return(None)
 
 
-def getUserCipher(applet, user):
+def getUserCipher(appletAssignment, user):
     """
     Returns an applet-specific user ID.
 
     Parameters
     ----------
-    applet: Mongo Folder cursor
+    assignment: Mongo Folder cursor
         Applet folder in Assignments collection
 
     user: string
@@ -502,7 +502,7 @@ def getUserCipher(applet, user):
     """
     thisUser = Applet().getCurrentUser()
     appletAssignments = list(FolderModel().childFolders(
-        parent=applet,
+        parent=appletAssignment,
         parentType='folder',
         user=thisUser
     ))
