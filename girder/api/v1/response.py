@@ -44,7 +44,7 @@ class ResponseItem(Resource):
         self.resourceName = 'response'
         self._model = ItemModel()
         self.route('GET', (), self.getResponses)
-        self.route('POST', ('{applet}', '{activity}'), self.createResponseItem)
+        self.route('POST', (':applet', ':activity'), self.createResponseItem)
 
     """
     TODO 🚧:
@@ -177,16 +177,17 @@ class ResponseItem(Resource):
     @autoDescribeRoute(
         Description('Create a new user response item.')
         .responseClass('Item')
-        .param(
+        .modelParam(
             'applet',
-            'The ID of the applet to which the response is responding.',
-            required=True
+            model=AppletModel,
+            level=AccessType.READ,
+            destName='applet'
         )
-        .param(
+        .modelParam(
             'activity',
-            'The ID of the activity or activity version to which the response '
-            'is responding.',
-            required=True
+            model=ActivityModel,
+            level=AccessType.READ,
+            destName='activity'
         )
         .jsonParam('metadata',
                    'A JSON object containing the metadata keys to add.',
@@ -198,6 +199,7 @@ class ResponseItem(Resource):
         .errorResponse('Write access was denied on the parent folder.', 403)
     )
     def createResponseItem(self, applet, activity, metadata, params, subject_id=None):
+        return(applet)
         informant = self.getCurrentUser()
         return(subject_id)
         try:
@@ -223,8 +225,9 @@ class ResponseItem(Resource):
             if 'activity' in metadata:
                 activity = metadata.get('activity')
                 activity = Folder().preferredName(activity)
+        return(activity)
         subject_id = subject_id if subject_id is not None else str(
-            informant['_id']
+            informant['_id'] ##################### !!!!!!!!!!!!!!!!!! ??????????????
         )
         subject_id = getUserCipher(
             applet=AssigmentModel().load(
