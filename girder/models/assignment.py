@@ -38,6 +38,40 @@ class Assignment(Folder):
     Assignments are access-controlled Folders, each of which contains
     managerially-controlled Applet Folders.
     """
+    def create(self, applet, user):
+        """
+        Create an Assignment for a given Applet, returning an existing
+        Assignment if one or more exists.
+
+        :param applet: The ID of the Applet for which to find Assignments.
+        :type applet: str
+        :param user: User
+        :type user: User
+        :returns: New Assignments
+        """
+        # validate Applet ID
+        try:
+            applet = Applet().load(id=applet, force=True)
+        except:
+            raise ValidationException(
+                message='Invalid Applet ID',
+                field='applet'
+            )
+        assignmentsCollection = Collection().findOne({'name': 'Assignments'})
+        try:
+            assignment = Folder().createFolder(
+                parent=assignmentsCollection, parentType='collection',
+                name=Applet().preferredName(applet), creator=user,
+                reuseExisting=True, public=False)
+        except:
+            assignmentsCollection = Folder().createFolder(
+                parent=user, parentType='user', name='Assignments',
+                creator=user, reuseExisting=True, public=False)
+            assignment = Folder().createFolder(
+                parent=assignmentsCollection, parentType='folder',
+                name=Applet().preferredName(applet), creator=user,
+                reuseExisting=True, public=False)
+        return(assignment)
 
     def findAssignments(self, applet):
         """
@@ -78,7 +112,7 @@ class Assignment(Folder):
                 ]
             }
         )
-        return(foundAssignments)
+        return(list(foundAssignments))
 
 
     def load(self, id, level=AccessType.ADMIN, user=None, objectId=True,

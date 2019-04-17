@@ -514,15 +514,17 @@ def getUserCipher(appletAssignment, user):
                 'name': 'userID'
             }
         )) for assignment in appletAssignments
-    ]))
+    ])) if len(appletAssignments) else []
     cUser = getCanonicalUser(user)
     aUser = [
         cipher['parentId'] for cipher in allCiphers if (
             cipher['meta']['user']['@id']==cUser
-        )
-    ] if cUser is not None and len(allCiphers) else []
+        ) if cipher.get('meta') and cipher['meta'].get('user') and cipher[
+            'meta'
+        ]['user'].get('@id') and cipher.get('parentId')
+    ] if cUser and len(allCiphers) else []
     aUser = aUser[0] if len(aUser) else createCipher(
-        applet,
+        appletAssignment,
         appletAssignments,
         cUser if cUser is not None else user
     )['_id']

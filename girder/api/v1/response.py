@@ -204,31 +204,25 @@ class ResponseItem(Resource):
         subject_id = subject_id if subject_id else str(
             informant['_id']
         )
-        return(AssignmentModel().findAssignments(applet['_id']))
-        return(AssignmentModel().load(
-            id=applet['_id'],
-            user=informant,
-            level=AccessType.READ
-        ))
-        subject_id = getUserCipher(
-            applet=AssignmentModel().load(
-                id=applet['_id'],
-                user=informant,
-                level=AccessType.READ
-            ),
-            user=subject_id
-        )
-        return(subject_id)
+        appletAssignments = AssignmentModel().findAssignments(applet['_id'])
+        appletAssignments = [
+            AssignmentModel().create(applet['_id'], informant)
+        ] if not len(appletAssignments) else appletAssignments
+        subject_id = [
+            getUserCipher(
+                appletAssignment=assignment,
+                user=subject_id
+            ) for assignment in appletAssignments
+        ][0]
         now = datetime.now(tzlocal.get_localzone())
-
+        appletName=AppletModel().preferredName(applet)
         UserResponsesFolder = Folder().createFolder(
             parent=informant, parentType='user', name='Responses',
             creator=informant, reuseExisting=True, public=False)
 
         UserAppletResponsesFolder = Folder().createFolder(
             parent=UserResponsesFolder, parentType='folder',
-            name=appletName,
-            reuseExisting=True, public=False)
+            name=appletName, reuseExisting=True, public=False)
 
         AppletSubjectResponsesFolder = Folder().createFolder(
             parent=UserAppletResponsesFolder, parentType='folder',
