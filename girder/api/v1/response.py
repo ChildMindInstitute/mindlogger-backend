@@ -31,6 +31,7 @@ from girder.models.applet import Applet as AppletModel
 from girder.models.assignment import Assignment as AssignmentModel
 from girder.models.folder import Folder
 from girder.models.item import Item as ItemModel
+from girder.models.response_folder import ResponseFolder as ResponseFolderModel
 from girder.models.user import User as UserModel
 from girder.models.upload import Upload as UploadModel
 import itertools
@@ -199,20 +200,27 @@ class ResponseItem(Resource):
         .param('subject_id', 'The ID (canonical or applet-specific) of the '
                'user that is the subject.',
                required=False, default=None)
+        .param(
+            'pending',
+            'Boolean, is this response in-progress rather than complete. '
+            '(_not yet implemented_)',
+            required=False, default=False)
         .jsonParam('metadata',
                    'A JSON object containing the metadata keys to add.',
                    paramType='form', requireObject=True, required=True)
         .errorResponse()
         .errorResponse('Write access was denied on the parent folder.', 403)
     )
-    def createResponseItem(self, applet, activity, metadata, subject_id, params):
+    def createResponseItem(self, applet, activity, metadata, subject_id, pending, params):
         metadata['applet'] = {
             "@id": applet.get('_id'),
-            "name": AppletModel().preferredName(applet)
+            "name": AppletModel().preferredName(applet),
+            "url": applet.get('url')
         }
         metadata['activity'] = {
             "@id": activity.get('_id'),
-            "name": ActivityModel().preferredName(activity)
+            "name": ActivityModel().preferredName(activity),
+            "url": activity.get('url')
         }
         informant = self.getCurrentUser()
         subject_id = subject_id if subject_id else str(
@@ -239,10 +247,12 @@ class ResponseItem(Resource):
         metadata['subject']['@id'] = subject_id
         now = datetime.now(tzlocal.get_localzone())
         appletName=AppletModel().preferredName(applet)
-        UserResponsesFolder = Folder().createFolder(
-            parent=informant, parentType='user', name='Responses',
-            creator=informant, reuseExisting=True, public=False)
-
+        UserResponsesFolder = ResponseFolderModel().load(
+            user=informant,
+            reviewer=informant,
+            force=True
+        )
+        return(UserResponsesFolder)
         UserAppletResponsesFolder = Folder().createFolder(
             parent=UserResponsesFolder, parentType='folder',
             name=appletName, reuseExisting=True, public=False)
@@ -285,6 +295,23 @@ class ResponseItem(Resource):
 
         if metadata:
             newItem = self._model.setMetadata(newItem, metadata)
+        accessList = Folder().getFullAccessList(AppletSubjectResponsesFolder)
+        return(AppletSubjectResponsesFolder)
+        return(accessList)
+        Folder().setAccessList(
+            doc=newItem,
+            access={
+                k: {
+                    {
+                        e: AccessType.READ if accessList[k][
+                            e
+                        ]>=AccessType.READ else accessList[k][
+                            e
+                        ] for e in accessList[k]
+                    }
+                } for k in {'user', 'group'}
+            }
+        )
         return(newItem)
 
 
@@ -365,6 +392,7 @@ def _getUserResponses(
     allResponses: list of Items or empty list
     """
     UserResponsesFolder = _getUserResponsesFolder(reviewer, respondent)
+    return(UserResponsesFolder)
     if UserResponsesFolder is not None:
         UserAppletResponsesFolders = Folder().childFolders(
             parent=UserResponsesFolder, parentType='folder',
@@ -372,7 +400,7 @@ def _getUserResponses(
         allResponses = []
         for appletResponsesFolder in UserAppletResponsesFolders:
             folder = Folder().load(
-                id=appletResponsesFolder["_id"], user=reviewer,
+                id=appletResponsesFolder['_id'], user=reviewer,
                 level=AccessType.READ, exc=True
             )
             #TODO if len(subjects):
