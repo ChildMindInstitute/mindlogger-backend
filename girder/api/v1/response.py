@@ -114,7 +114,7 @@ class ResponseItem(Resource):
             ]
         except:
             raise ValidationException(
-                'Invalid parameter.',
+                'Invalid parameter',
                 'respondent'
             )
         try:
@@ -126,15 +126,21 @@ class ResponseItem(Resource):
             ]))
         except:
             raise ValidationException(
-                'Invalid parameter.',
+                'Invalid parameter',
                 'subject'
             )
         try:
-            applets = listFromString(applet)
-            # TODO: validate applet ID and/or URL
+            applets = [
+                a['_id'] for a in [
+                    AppletModel().load(
+                        id=a,
+                        force=True
+                    ) for a in listFromString(applet)
+                ] if a.get('_id')
+            ]
         except:
             raise ValidationException(
-                'Invalid parameter.',
+                'Invalid parameter',
                 'applet'
             )
         try:
@@ -149,14 +155,14 @@ class ResponseItem(Resource):
             ]
         except:
             raise ValidationException(
-                'Invalid parameter.',
+                'Invalid parameter',
                 'activity'
             )
         try:
             screens = listFromString(screen)
         except:
             raise ValidationException(
-                'Invalid parameter.',
+                'Invalid parameter',
                 'screen'
             )
         del respondent, subject, applet, activity, screen
@@ -200,6 +206,14 @@ class ResponseItem(Resource):
         .errorResponse('Write access was denied on the parent folder.', 403)
     )
     def createResponseItem(self, applet, activity, metadata, subject_id, params):
+        metadata['applet'] = {
+            "@id": applet.get('_id'),
+            "name": AppletModel().preferredName(applet)
+        }
+        metadata['activity'] = {
+            "@id": activity.get('_id'),
+            "name": ActivityModel().preferredName(activity)
+        }
         informant = self.getCurrentUser()
         subject_id = subject_id if subject_id else str(
             informant['_id']
@@ -214,6 +228,15 @@ class ResponseItem(Resource):
                 user=subject_id
             ) for assignment in appletAssignments
         ][0]
+        subject_info = Folder().load(
+            id=subject_id,
+            user=informant,
+            level=AccessType.READ
+        )
+        metadata['subject'] = subject_info['meta'] if subject_info.get(
+            'meta'
+        ) else {}
+        metadata['subject']['@id'] = subject_id
         now = datetime.now(tzlocal.get_localzone())
         appletName=AppletModel().preferredName(applet)
         UserResponsesFolder = Folder().createFolder(
@@ -262,7 +285,7 @@ class ResponseItem(Resource):
 
         if metadata:
             newItem = self._model.setMetadata(newItem, metadata)
-        return newItem
+        return(newItem)
 
 
 def _getUserResponsesFolder(reviewer, user):
@@ -326,7 +349,7 @@ def _getUserResponses(
         canonical user ID
 
     subjects: list
-        list of strings, canonical user IDs
+        list of strings, canonical or applet-specific user IDs
 
     applets: list
         list of strings, applet IDs
@@ -352,83 +375,49 @@ def _getUserResponses(
                 id=appletResponsesFolder["_id"], user=reviewer,
                 level=AccessType.READ, exc=True
             )
-            if len(subjects):
-                subjectFolders = {}
-                for subject in subjects:
-                    subjectFolders[subject] = Folder().childFolders(
-                        parent=folder, parentType='folder', user=reviewer,
-                        filters={'name': str(subject)}
-                    )
+            #TODO if len(subjects):
+            subjectFolders = {
+                responseFolder[
+                    'name'
+                ]: responseFolder for responseFolder in Folder(
+                ).childFolders(
+                    parent=folder,
+                    parentType='folder',
+                    user=reviewer
+                )
+            }
+            if not len(applets): # don't filter by applet
+                for subjectFolder in subjectFolders:
+                    allResponses += list(Folder().childItems(
+                        folder=subjectFolders[subjectFolder], user=reviewer
+                    ))
             else:
-                subjectFolders = {
-                    responseFolder[
-                        'name'
-                    ]: responseFolder for responseFolder in Folder(
-                    ).childFolders(
-                        parent=folder,
-                        parentType='folder',
-                        user=reviewer
-                    )
-                }
-        if not len(applets): # don't filter by applet
-            for subjectFolder in subjectFolders:
-                allResponses += list(Folder().childItems(
-                    folder=subjectFolders[subjectFolder], user=reviewer
-                ))
-        else:
-            for applet in applets: # filter by applet
-                try:
-                    for subjectFolder in subjectFolders:
-                        allResponses += list(Folder().childItems(
-                            folder=subjectFolders[subjectFolder],
-                            user=reviewer,
-                            filters={
-                                '$or': [
-                                    {'meta.applet.@id': str(applet)},
-                                    {'meta.applet.url': str(applet)}
-                                ]
-                            }
+                for applet in applets: # filter by applet
+                    try:
+                        for subjectFolder in subjectFolders:
+                            allResponses += list(Folder().childItems(
+                                folder=subjectFolders[subjectFolder],
+                                user=reviewer,
+                                filters={
+                                    '$or': [
+                                        {'meta.applet.@id': str(applet)},
+                                        {'meta.applet.url': str(applet)}
+                                    ]
+                                }
+                            ))
+                    except:
+                        pass
+            if len(activities):
+                for activity in activities:
+                    allResponses = [
+                        response for response in allResponses if ((
+                            response.get('activity')==str(activity)
+                        ) or (
+                            response.get('activity').get('@id')==str(activity)
+                        ) or (
+                            response.get('activity').get('url')==str(activity)
                         ))
-                except:
-                    pass
-        for activity in activities:
-            allResponses = [
-                response for response in allResponses if ((
-                    response.get('activity')==str(activity)
-                ) or (
-                    response.get('activity').get('@id')==str(activity)
-                ) or (
-                    response.get('activity').get('url')==str(activity)
-                ))
-            ]
+                    ]
         return(allResponses)
     else:
         return([])
-
-
-    folder = Folder().load(
-        id=appletId, user=user, level=AccessType.NONE, exc=True
-    )
-    allResponses = {}
-    for appletResponsesFolder in UserAppletResponsesFolders:
-        if (
-            (
-                'meta' in appletResponsesFolder
-            ) and 'applet' in appletResponsesFolder[
-                'meta'
-            ] and appletResponsesFolder[
-                'meta'
-            ]['applet']['@id']==appletId
-        ):
-            allResponses[appletId] = []
-            folder = Folder().load(
-                id=appletResponsesFolder["_id"], user=reviewer,
-                level=AccessType.READ, exc=True
-            )
-            subjectFolders = Folder().childFolders(
-                parent=folder, parentType='folder', user=reviewer
-            )
-            for subjectFolder in subjectFolders:
-                allResponses[appletId] += list(Folder().childItems(
-                    folder=subjectFolder, user=reviewer
-                ))
