@@ -24,6 +24,8 @@ import os
 import six
 
 from bson.objectid import ObjectId
+from .applet import Applet
+from .collection import Collection
 from .folder import Folder
 from girder import events
 from girder.constants import AccessType, SortDir
@@ -36,6 +38,48 @@ class Assignment(Folder):
     Assignments are access-controlled Folders, each of which contains
     managerially-controlled Applet Folders.
     """
+
+    def findAssignments(self, applet):
+        """
+        Find all Assignments for a given Applet.
+
+        :param applet: The ID of the Applet for which to find Assignments.
+        :type applet: str
+        :returns: list of Assignments
+        """
+        # validate Applet ID
+        try:
+            Applet().load(id=applet, force=True)
+        except:
+            raise ValidationException(
+                message='Invalid Applet ID',
+                field='applet'
+            )
+        allAssignments = [
+            {
+                '_id': a['_id'],
+                '_modelType': 'collection'
+            } for a in Collection().find({'name': 'Assignments'})
+        ] + [
+            {
+                '_id': a['_id'],
+                '_modelType': 'folder'
+            } for a in Folder().find({'name': 'Assignments'})
+        ]
+        foundAssignments = Folder().find(
+            {   '$and': [
+                    {'$or': [
+                        {'meta.applet.@id': str(applet)},
+                        {'meta.applet.url': str(applet)}
+                    ]},
+                    {'$or': [
+                        {'parentId': parent['_id']} for parent in allAssignments
+                    ]}
+                ]
+            }
+        )
+        return(foundAssignments)
+
 
     def load(self, id, level=AccessType.ADMIN, user=None, objectId=True,
              force=False, fields=None, exc=False):
@@ -84,12 +128,13 @@ class Assignment(Folder):
             try:
                 parent = pathFromRoot[-1]['object']
                 if (
-                    parent['name']=="Assignments" and
+                    parent['name']=="Assigments" and
                     doc['baseParentType'] in {'collection', 'user'}
                 ):
                     """
-                    Check if parent is "Applets" collection or user
-                    folder, ie, if this is an Applet. If so, return Applet.
+                    Check if parent is "Assignments" collection or user
+                    folder, ie, if this is an Assignment. If so, return
+                    Assignment.
                     """
                     appletAssignment = list(FolderModel().childFolders(
                         parent=doc,

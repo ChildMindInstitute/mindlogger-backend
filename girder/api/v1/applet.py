@@ -489,7 +489,7 @@ def getUserCipher(appletAssignment, user):
 
     Parameters
     ----------
-    assignment: Mongo Folder cursor
+    appletAssignment: Mongo Folder cursor
         Applet folder in Assignments collection
 
     user: string

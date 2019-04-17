@@ -173,10 +173,9 @@ class ResponseItem(Resource):
 
 
     @access.user(scope=TokenScope.DATA_WRITE)
-    @filtermodel(model=ItemModel)
     @autoDescribeRoute(
         Description('Create a new user response item.')
-        .responseClass('Item')
+        #.responseClass('Item')
         .modelParam(
             'applet',
             model=AppletModel,
@@ -191,49 +190,29 @@ class ResponseItem(Resource):
             destName='activity',
             description='The ID of the Activity this response is to.'
         )
-        .jsonParam('metadata',
-                   'A JSON object containing the metadata keys to add.',
-                   paramType='form', requireObject=True, required=True)
         .param('subject_id', 'The ID (canonical or applet-specific) of the '
                'user that is the subject.',
                required=False, default=None)
+        .jsonParam('metadata',
+                   'A JSON object containing the metadata keys to add.',
+                   paramType='form', requireObject=True, required=True)
         .errorResponse()
         .errorResponse('Write access was denied on the parent folder.', 403)
     )
-    def createResponseItem(self, applet, activity, metadata, params, subject_id=None):
-        return(applet)
+    def createResponseItem(self, applet, activity, metadata, subject_id, params):
         informant = self.getCurrentUser()
-        return(subject_id)
-        try:
-            applet = AppletModel().load(
-                id=applet,
-                user=informant,
-                level=AccessType.READ
-            )
-        except:
-            if 'applet' in metadata:
-                applet = metadata.get('applet')
-                appletName = Folder().preferredName(applet)
-            else:
-                raise ValidationException('Response to unknown applet')
-        try:
-            activity = ActivityModel().load(
-                id=activity,
-                user=informant,
-                level=AccessType.NONE,
-                force=True
-            )
-        except:
-            if 'activity' in metadata:
-                activity = metadata.get('activity')
-                activity = Folder().preferredName(activity)
-        return(activity)
-        subject_id = subject_id if subject_id is not None else str(
-            informant['_id'] ##################### !!!!!!!!!!!!!!!!!! ??????????????
+        subject_id = subject_id if subject_id else str(
+            informant['_id']
         )
+        return(AssignmentModel().findAssignments(applet['_id']))
+        return(AssignmentModel().load(
+            id=applet['_id'],
+            user=informant,
+            level=AccessType.READ
+        ))
         subject_id = getUserCipher(
-            applet=AssigmentModel().load(
-                id=applet["_id"],
+            applet=AssignmentModel().load(
+                id=applet['_id'],
                 user=informant,
                 level=AccessType.READ
             ),

@@ -75,9 +75,12 @@ class Applet(Folder):
                 }})
             if 'lowerName' not in doc:
                 doc['lowerName'] = doc['name'].lower()
-                self.update({'_id': doc['_id']}, {'$set': {
-                    'lowerName': doc['lowerName']
-                }})
+                self.update(
+                    {'_id': doc['_id']},
+                    {'$set': {
+                        'lowerName': doc['lowerName']
+                    }}
+                )
             if '_modelType' not in doc:
                 doc['_modelType'] = 'folder'
             self._removeSupplementalFields(doc, fields)
