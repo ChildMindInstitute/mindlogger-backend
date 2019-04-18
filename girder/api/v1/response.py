@@ -60,12 +60,6 @@ class ResponseItem(Resource):
             required=False
         )
         .param(
-            'applet',
-            'The ID of the applet for which to get responses or an Array '
-            'thereof.',
-            required=False
-        )
-        .param(
             'activity',
             'The ID of the activity for which to get responses or an Array '
             'thereof.',
@@ -87,6 +81,12 @@ class ResponseItem(Resource):
             'respondent',
             'The ID (canonical or applet-specific) of the respondent for whom '
             'to get responses or an Array thereof.',
+            required=False
+        )
+        .param(
+            'applet',
+            'The ID of the applet for which to get responses or an Array '
+            'thereof.',
             required=False
         )
         .errorResponse('ID was invalid.')
@@ -172,12 +172,21 @@ class ResponseItem(Resource):
         for respondent in respondents:
             allResponses += _getUserResponses(
                 reviewer=reviewer,
-                respondent=respondent,
-                subjects=subjects,
-                applets=applets,
-                activities=activities,
-                screens=screens
+                respondent=respondent
             )
+        allResponses = [
+            r for r in allResponses if any(
+                [
+                    str(r.get(
+                        'meta',
+                        {}
+                    ).get(
+                        'applet',
+                        {}
+                    ).get('@id'))==str(applet) for applet in applets
+                ]
+            )
+        ] if len(applets) else allResponses
         return(allResponses)
 
 
@@ -304,15 +313,11 @@ class ResponseItem(Resource):
 
 def _getUserResponses(
     reviewer,
-    respondent,
-    subjects=[],
-    applets=[],
-    activities=[],
-    screens=[]
+    respondent
 ):
     """
-    Gets a given User's `Responses` folder if the logged-in user has access
-    to that folder, else returns None.
+    Gets a list of a given User's `Responses/{Applet}/{subject}` Folders if the
+    logged-in user has access to that folder, else returns an empty list.
 
     Parameters
     ----------
@@ -321,18 +326,6 @@ def _getUserResponses(
 
     respondent: str
         canonical user ID
-
-    subjects: list
-        list of strings, canonical or applet-specific user IDs
-
-    applets: list
-        list of strings, applet IDs
-
-    activities: list
-        list of strings, activity IDs
-
-    screens: list
-        list of strings, screen IDs
 
     Returns
     -------
@@ -375,6 +368,7 @@ def _getUserResponses(
                 allResponses += list(Folder().childItems(
                     folder=subjectFolders[subjectFolder], user=reviewer
                 ))
+
         return(allResponses)
     else:
         return([])
