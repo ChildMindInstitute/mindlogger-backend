@@ -78,8 +78,8 @@ class ResponseItem(Resource):
             'Get all responses for a given user.'
         )
         .param(
-            'respondent',
-            'The ID (canonical or applet-specific) of the respondent for whom '
+            'informant',
+            'The ID (canonical or applet-specific) of the informant for whom '
             'to get responses or an Array thereof.',
             required=False
         )
@@ -97,7 +97,7 @@ class ResponseItem(Resource):
     )
     def getResponses(
         self,
-        respondent=[],
+        informant=[],
         subject=[],
         applet=[],
         activity=[],
@@ -106,19 +106,19 @@ class ResponseItem(Resource):
         reviewer = self.getCurrentUser()
         allResponses = []
         try:
-            respondent = listFromString(respondent)
-            respondents = list(set([cu for cu in
+            informant = listFromString(informant)
+            informants = list(set([cu for cu in
                 [
-                    getCanonicalUser(u) for u in respondent
+                    getCanonicalUser(u) for u in informant
                 ] if cu is not None
             ]))
-            respondents = respondents if len(respondents) else [
+            informants = informants if len(informants) else [
                 u['_id'] for u in list(UserModel().search(user=reviewer))
             ]
         except:
             raise ValidationException(
                 'Invalid parameter',
-                'respondent'
+                'informant'
             )
         try:
             subject = listFromString(subject)
@@ -168,11 +168,11 @@ class ResponseItem(Resource):
                 'Invalid parameter',
                 'screen'
             )
-        del respondent, subject, applet, activity, screen
-        for respondent in respondents:
+        del informant, subject, applet, activity, screen
+        for informant in informants:
             allResponses += _getUserResponses(
                 reviewer=reviewer,
-                respondent=respondent
+                informant=informant
             )
         allResponses = [
             r for r in allResponses if any(
@@ -313,7 +313,7 @@ class ResponseItem(Resource):
 
 def _getUserResponses(
     reviewer,
-    respondent
+    informant
 ):
     """
     Gets a list of a given User's `Responses/{Applet}/{subject}` Folders if the
@@ -324,7 +324,7 @@ def _getUserResponses(
     reviewer: UserModel
         the logged-in user
 
-    respondent: str
+    informant: str
         canonical user ID
 
     Returns
@@ -332,8 +332,8 @@ def _getUserResponses(
     allResponses: list of Items or empty list
     """
     try:
-        respondent = UserModel().load(
-            respondent,
+        informant = UserModel().load(
+            informant,
             level=AccessType.NONE,
             user=reviewer
         )
@@ -341,7 +341,7 @@ def _getUserResponses(
         return([])
     allResponses = []
     UserResponsesFolder = ResponseFolderModel().load(
-        user=respondent,
+        user=informant,
         level=AccessType.READ,
         reviewer=reviewer
     )
