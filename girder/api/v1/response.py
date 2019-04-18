@@ -30,8 +30,7 @@ from girder.models.activity import Activity as ActivityModel
 from girder.models.applet import Applet as AppletModel
 from girder.models.assignment import Assignment as AssignmentModel
 from girder.models.folder import Folder
-from girder.models.item import Item as ItemModel
-from girder.models.response_folder import ResponseFolder as ResponseFolderModel
+from girder.models.response_folder import ResponseFolder as ResponseFolderModel, ResponseItem as ResponseItemModel
 from girder.models.user import User as UserModel
 from girder.models.upload import Upload as UploadModel
 import itertools
@@ -43,32 +42,17 @@ class ResponseItem(Resource):
     def __init__(self):
         super(ResponseItem, self).__init__()
         self.resourceName = 'response'
-        self._model = ItemModel()
+        self._model = ResponseItemModel()
         self.route('GET', (), self.getResponses)
         self.route('POST', (':applet', ':activity'), self.createResponseItem)
 
     """
     TODO 🚧:
-        .param(
-            'screen',
-            'The ID of the screen for which to get responses or an Array '
-            'thereof.',
-            required=False
-        )
-    """
-    @access.public(scope=TokenScope.DATA_READ)
-    @autoDescribeRoute(
-        Description(
-            'Get all responses for a given user, applet, and/or activity. '
-            'Parameters act as cumulative filters, so mutually '
-            'exclusive combinations will return an empty Array.'
-        )
-        .param(
-            'respondent',
-            'The ID (canonical or applet-specific) of the respondent for whom '
-            'to get responses or an Array thereof.',
-            required=False
-        )
+        '…, applet, and/or activity. '
+        'Parameters act as cumulative filters, so mutually '
+        'exclusive combinations will return an empty Array; called without '
+        'any parameters returns all responses to which the logged-in user '
+        'has access.'
         .param(
             'subject',
             'The ID (canonical or applet-specific) of the subject about whom '
@@ -85,6 +69,24 @@ class ResponseItem(Resource):
             'activity',
             'The ID of the activity for which to get responses or an Array '
             'thereof.',
+            required=False
+        )
+        .param(
+            'screen',
+            'The ID of the screen for which to get responses or an Array '
+            'thereof.',
+            required=False
+        )
+    """
+    @access.public(scope=TokenScope.DATA_READ)
+    @autoDescribeRoute(
+        Description(
+            'Get all responses for a given user.'
+        )
+        .param(
+            'respondent',
+            'The ID (canonical or applet-specific) of the respondent for whom '
+            'to get responses or an Array thereof.',
             required=False
         )
         .errorResponse('ID was invalid.')
@@ -132,7 +134,7 @@ class ResponseItem(Resource):
             )
         try:
             applets = [
-                a['_id'] for a in [
+                str(a['_id']) for a in [
                     AppletModel().load(
                         id=a,
                         force=True
@@ -252,7 +254,6 @@ class ResponseItem(Resource):
             reviewer=informant,
             force=True
         )
-        return(UserResponsesFolder)
         UserAppletResponsesFolder = Folder().createFolder(
             parent=UserResponsesFolder, parentType='folder',
             name=appletName, reuseExisting=True, public=False)
@@ -261,7 +262,7 @@ class ResponseItem(Resource):
             parent=UserAppletResponsesFolder, parentType='folder',
             name=subject_id, reuseExisting=True, public=False)
         try:
-            newItem = self._model.createItem(
+            newItem = self._model.createResponseItem(
                 folder=AppletSubjectResponsesFolder,
                 name=now.strftime("%Y-%m-%d-%H-%M-%S-%Z"), creator=informant,
                 description="{} response on {} at {}".format(
@@ -271,7 +272,7 @@ class ResponseItem(Resource):
                 ), reuseExisting=False)
         except:
             raise ValidationException(
-                "Couldn't find activity name for this response."
+                "Couldn't find activity name for this response"
             )
         # for each blob in the parameter, upload it to a File under the item.
         for key, value in params.items():
@@ -295,64 +296,10 @@ class ResponseItem(Resource):
 
         if metadata:
             newItem = self._model.setMetadata(newItem, metadata)
-        accessList = Folder().getFullAccessList(AppletSubjectResponsesFolder)
-        return(AppletSubjectResponsesFolder)
-        return(accessList)
-        Folder().setAccessList(
-            doc=newItem,
-            access={
-                k: {
-                    {
-                        e: AccessType.READ if accessList[k][
-                            e
-                        ]>=AccessType.READ else accessList[k][
-                            e
-                        ] for e in accessList[k]
-                    }
-                } for k in {'user', 'group'}
-            }
-        )
+
+        if not pending:
+            newItem['readOnly'] = True
         return(newItem)
-
-
-def _getUserResponsesFolder(reviewer, user):
-    """
-    Gets a given User's `Responses` folder if the logged-in user has access
-    to that folder, else returns None.
-
-    Parameters
-    ----------
-    reviewer: UserModel
-        the logged-in user
-
-    user: string
-        canonical ID
-
-    Returns
-    -------
-    UserResponsesFolder: Folder or None
-    """
-    try:
-        user = UserModel().load(
-            id=user, user=reviewer, level=AccessType.NONE, exc=True
-        )
-        if reviewer['_id']==user['_id']:
-            UserResponsesFolder = Folder().createFolder(
-                parent=user, parentType='user', name='Responses',
-                creator=user, reuseExisting=True, public=False)
-        else:
-            UserResponsesFolder = Folder().load(
-                id=Folder().findOne({
-                    parent: user,
-                    parentType: 'user',
-                    name: 'Responses'
-                }).get('_id'),
-                user=reviewer,
-                level=AccessType.READ
-            )
-        return(UserResponsesFolder)
-    except:
-        return(None)
 
 
 def _getUserResponses(
@@ -391,19 +338,29 @@ def _getUserResponses(
     -------
     allResponses: list of Items or empty list
     """
-    UserResponsesFolder = _getUserResponsesFolder(reviewer, respondent)
-    return(UserResponsesFolder)
-    if UserResponsesFolder is not None:
+    try:
+        respondent = UserModel().load(
+            respondent,
+            level=AccessType.NONE,
+            user=reviewer
+        )
+    except:
+        return([])
+    allResponses = []
+    UserResponsesFolder = ResponseFolderModel().load(
+        user=respondent,
+        level=AccessType.READ,
+        reviewer=reviewer
+    )
+    if type(UserResponsesFolder)!=list:
         UserAppletResponsesFolders = Folder().childFolders(
             parent=UserResponsesFolder, parentType='folder',
             user=reviewer)
-        allResponses = []
         for appletResponsesFolder in UserAppletResponsesFolders:
             folder = Folder().load(
-                id=appletResponsesFolder['_id'], user=reviewer,
+                id=appletResponsesFolder["_id"], user=reviewer,
                 level=AccessType.READ, exc=True
             )
-            #TODO if len(subjects):
             subjectFolders = {
                 responseFolder[
                     'name'
@@ -414,38 +371,10 @@ def _getUserResponses(
                     user=reviewer
                 )
             }
-            if not len(applets): # don't filter by applet
-                for subjectFolder in subjectFolders:
-                    allResponses += list(Folder().childItems(
-                        folder=subjectFolders[subjectFolder], user=reviewer
-                    ))
-            else:
-                for applet in applets: # filter by applet
-                    try:
-                        for subjectFolder in subjectFolders:
-                            allResponses += list(Folder().childItems(
-                                folder=subjectFolders[subjectFolder],
-                                user=reviewer,
-                                filters={
-                                    '$or': [
-                                        {'meta.applet.@id': str(applet)},
-                                        {'meta.applet.url': str(applet)}
-                                    ]
-                                }
-                            ))
-                    except:
-                        pass
-            if len(activities):
-                for activity in activities:
-                    allResponses = [
-                        response for response in allResponses if ((
-                            response.get('activity')==str(activity)
-                        ) or (
-                            response.get('activity').get('@id')==str(activity)
-                        ) or (
-                            response.get('activity').get('url')==str(activity)
-                        ))
-                    ]
+            for subjectFolder in subjectFolders:
+                allResponses += list(Folder().childItems(
+                    folder=subjectFolders[subjectFolder], user=reviewer
+                ))
         return(allResponses)
     else:
         return([])
