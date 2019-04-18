@@ -63,8 +63,8 @@ class Activity(Folder):
             fields=loadFields, exc=exc)
         if doc is not None:
             pathFromRoot = Folder().parentsToRoot(doc, user=user, force=True)
+            baseParent = pathFromRoot[0]
             if 'baseParentType' not in doc:
-                baseParent = pathFromRoot[0]
                 doc['baseParentId'] = baseParent['object']['_id']
                 doc['baseParentType'] = baseParent['type']
                 self.update({'_id': doc['_id']}, {'$set': {
@@ -80,6 +80,11 @@ class Activity(Folder):
                 doc['_modelType'] = 'folder'
             self._removeSupplementalFields(doc, fields)
             try:
+                if(
+                    baseParent['object']['name'].lower()=='activities' and
+                    doc['baseParentType']=='collection'
+                ):
+                    return([str(doc['_id']) if '_id' in doc else str(id)])
                 parent = pathFromRoot[-1]['object']
                 grandparent = pathFromRoot[-2]['object']
                 if (
@@ -111,7 +116,7 @@ class Activity(Folder):
                     return([str(doc['_id']) if '_id' in doc else str(id)])
             except:
                 raise ValidationException(
-                    "Invalid {Activity, Activity version} ID."
+                    "Invalid Activity ID."
                 )
 
 
@@ -143,8 +148,8 @@ class Activity(Folder):
             fields=loadFields, exc=exc)
         if doc is not None:
             pathFromRoot = Folder().parentsToRoot(doc, user=user, force=True)
+            baseParent = pathFromRoot[0]
             if 'baseParentType' not in doc:
-                baseParent = pathFromRoot[0]
                 doc['baseParentId'] = baseParent['object']['_id']
                 doc['baseParentType'] = baseParent['type']
                 self.update({'_id': doc['_id']}, {'$set': {
@@ -160,6 +165,11 @@ class Activity(Folder):
                 doc['_modelType'] = 'folder'
             self._removeSupplementalFields(doc, fields)
             try:
+                if(
+                    baseParent['object']['name'].lower()=='activities' and
+                    doc['baseParentType']=='collection'
+                ):
+                    return(doc)
                 parent = pathFromRoot[-1]['object']
                 grandparent = pathFromRoot[-2]['object']
                 if (
@@ -192,5 +202,5 @@ class Activity(Folder):
                     return(doc)
             except:
                 raise ValidationException(
-                    "Invalid {Activity, Activity version} ID."
+                    "Invalid Activity ID."
                 )

@@ -21,7 +21,9 @@ from ..describe import Description, autoDescribeRoute
 from ..rest import Resource
 from girder.constants import AccessType, SortDir, TokenScope
 from girder.api import access
+from girder.api.v1.resource import loadJSON
 from girder.models.activity import Activity as ActivityModel
+from girder.models.collection import Collection as CollectionModel
 from girder.models.folder import Folder as FolderModel
 from girder.models.item import Item as ItemModel
 
@@ -35,6 +37,7 @@ class Activity(Resource):
         # TODO: self.route('PUT', (':id'), self.deactivateActivity)
         # TODO: self.route('PUT', ('version', ':id'), self.deactivateActivity)
         self.route('GET', (':id',), self.getActivity)
+        self.route('GET', (), self.getActivityByURL)
         # TODO: self.route('POST', (), self.createActivity)
         # TODO: self.route('POST', (':id', 'version'), self.createActivityVersion)
         # TODO: self.route('POST', (':id', 'copy'), self.copyActivity)
@@ -54,3 +57,48 @@ class Activity(Resource):
     )
     def getActivity(self, folder):
         return (folder)
+
+    @access.public(scope=TokenScope.DATA_READ)
+    @autoDescribeRoute(
+        Description(
+            'Get an Activity by URL.'
+        )
+        .responseClass('Folder')
+        .param('url', 'URL of Activity.', required=True)
+        .errorResponse('ID was invalid.')
+        .errorResponse('Read access was denied for the activity.', 403)
+    )
+    def getActivityByURL(self, url):
+        activity = ActivityModel().findOne({
+            'meta.activity.url': url
+        })
+        if activity:
+            _id = activity.get('_id')
+            activity = activity.get('meta', {}).get('activity')
+            activity['_id'] = _id
+        else:
+            activity = loadJSON(url, 'activity')
+            thisUser = self.getCurrentUser()
+            activities = CollectionModel().createCollection(
+                name="Activities",
+                public=True,
+                reuseExisting=True
+            )
+            activity = FolderModel().setMetadata(
+                FolderModel().createFolder(
+                    parent=activities,
+                    name=FolderModel().preferredName(activity),
+                    parentType='collection',
+                    public=True,
+                    creator=thisUser,
+                    allowRename=True,
+                    reuseExisting=False
+                ),
+                {
+                    'activity': {
+                        **activity,
+                        'url': url
+                    }
+                }
+            )
+        return (activity)

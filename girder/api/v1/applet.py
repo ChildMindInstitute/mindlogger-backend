@@ -26,7 +26,9 @@ from ..rest import Resource
 from girder.constants import AccessType, SortDir, TokenScope, SPECIAL_SUBJECTS,\
     USER_ROLES
 from girder.api import access
+from girder.api.v1.resource import loadJSON
 from girder.exceptions import AccessException, ValidationException
+from girder.models.applet import Applet as AppletModel
 from girder.models.collection import Collection as CollectionModel
 from girder.models.folder import Folder as FolderModel
 from girder.models.item import Item as ItemModel
@@ -73,7 +75,7 @@ class Applet(Resource):
             )
         else:
             applet = parseAppletLevel(folder)
-            applet = _loadJSON(
+            applet = loadJSON(
                 applet['url'],
                 'applet'
             ) if 'url' in applet else applet
@@ -88,7 +90,15 @@ class Applet(Resource):
         .errorResponse('Read access was denied for this applet.', 403)
     )
     def getAppletFromURL(self, url):
-        applet = _loadJSON(url, 'applet')
+        applet = AppletModel().findOne({
+            'meta.applet.url': url
+        })
+        if applet:
+            _id = applet.get('_id')
+            applet = applet.get('meta', {}).get('applet')
+            applet['_id'] = _id
+        else:
+            applet = loadJSON(url, 'applet')
         return(applet)
 
 
@@ -193,7 +203,7 @@ class Applet(Resource):
                 'Invalid role.',
                 'role'
             )
-        applet = _loadJSON(url, 'applet')
+        applet = loadJSON(url, 'applet')
         applets = CollectionModel().createCollection(
             name="Applets",
             public=True,
@@ -620,18 +630,6 @@ def _invite(applet, user, role, rsvp, subject):
     appletAssignment = FolderModel().setMetadata(appletAssignment, meta)
     authorizeReviewers(appletAssignment)
     return(appletAssignment)
-
-
-def _loadJSON(url, urlType='applet'):
-    try:
-        r = requests.get(url)
-        data = r.json()
-    except:
-        raise ValidationException(
-            'Invalid ' + urlType + ' URL',
-            'url'
-        )
-    return(data)
 
 
 def nextCipher(currentCiphers):

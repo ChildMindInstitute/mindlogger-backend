@@ -226,12 +226,18 @@ class ResponseItem(Resource):
         metadata['applet'] = {
             "@id": applet.get('_id'),
             "name": AppletModel().preferredName(applet),
-            "url": applet.get('url')
+            "url": applet.get(
+                'url',
+                applet.get('meta', {}).get('applet', {}).get('url')
+            )
         }
         metadata['activity'] = {
             "@id": activity.get('_id'),
             "name": ActivityModel().preferredName(activity),
-            "url": activity.get('url')
+            "url": activity.get(
+                'url',
+                activity.get('meta', {}).get('activity', {}).get('url')
+            )
         }
         informant = self.getCurrentUser()
         subject_id = subject_id if subject_id else str(
