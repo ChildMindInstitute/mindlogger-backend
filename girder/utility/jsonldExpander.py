@@ -55,6 +55,27 @@ def expand_value_constraints(original_items_expanded):
     return(items_expanded)
 
 
+def formatLdObject(obj, mesoPrefix='folder'):
+    """
+    Function to take a compacted JSON-LD Object within a Girder for Mindlogger
+    database and return an exapanded JSON-LD Object including an _id.
+
+    :param obj: Compacted JSON-LD Object
+    :type obj: dict
+    :param mesoPrefix: Girder for Mindlogger entity type, defaults to 'folder'
+                       if not provided
+    :type mesoPrefix: str
+    :returns: Expanded JSON-LD Object (dict)
+    """
+    if type(obj)==list:
+        return([formatLdObject(obj, mesoPrefix) for o in obj])
+    if not type(obj)==dict:
+        raise TypeError("JSON-LD must be an Object or Array.")
+    newObj = obj.get('meta', obj)
+    newObj['_id'] = "/".join([mesoPrefix, obj.get('_id', 'undefined')])
+    return(jsonld.expand(newObj))
+
+
 def get_activities(applet_expanded):
     activities = [
         a['@id'] for a in applet_expanded[0][
