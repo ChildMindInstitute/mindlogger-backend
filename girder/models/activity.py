@@ -28,7 +28,9 @@ from .folder import Folder
 from girder import events
 from girder.constants import AccessType, SortDir
 from girder.exceptions import ValidationException, GirderException
+from girder.utility.jsonldExpander import formatLdObject
 from girder.utility.progress import noProgress, setResponseTimeLimit
+from pyld import jsonld
 
 
 class Activity(Folder):
@@ -169,7 +171,7 @@ class Activity(Folder):
                     baseParent['object']['name'].lower()=='activities' and
                     doc['baseParentType']=='collection'
                 ):
-                    return(doc)
+                    return(formatLdObject(doc, 'activity'))
                 parent = pathFromRoot[-1]['object']
                 grandparent = pathFromRoot[-2]['object']
                 if (
@@ -188,7 +190,7 @@ class Activity(Folder):
                         sort=[('created', SortDir.DESCENDING)],
                         limit=1
                     )
-                    return(latest[0])
+                    return(formatLdObject(latest[0], 'activity'))
                 greatGrandparent = pathFromRoot[-3]['object']
                 if (
                     greatGrandparent['lowerName']=="applets" and
@@ -199,7 +201,7 @@ class Activity(Folder):
                     folder, ie, if this is an Activity version. If so, return
                     this version.
                     """
-                    return(doc)
+                    return(formatLdObject(doc, 'activity'))
             except:
                 raise ValidationException(
                     "Invalid Activity ID."

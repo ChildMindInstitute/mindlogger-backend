@@ -61,19 +61,24 @@ def formatLdObject(obj, mesoPrefix='folder'):
     database and return an exapanded JSON-LD Object including an _id.
 
     :param obj: Compacted JSON-LD Object
-    :type obj: dict
+    :type obj: dict or list
     :param mesoPrefix: Girder for Mindlogger entity type, defaults to 'folder'
                        if not provided
     :type mesoPrefix: str
-    :returns: Expanded JSON-LD Object (dict)
+    :returns: Expanded JSON-LD Object (dict or list)
     """
     if type(obj)==list:
         return([formatLdObject(obj, mesoPrefix) for o in obj])
     if not type(obj)==dict:
         raise TypeError("JSON-LD must be an Object or Array.")
     newObj = obj.get('meta', obj)
-    newObj['_id'] = "/".join([mesoPrefix, obj.get('_id', 'undefined')])
-    return(jsonld.expand(newObj))
+    newObj = newObj.get(mesoPrefix, newObj)
+    newObj = jsonld.expand(newObj)
+    if type(newObj)==list and len(newObj)==1:
+        newObj = newObj[0]
+    if(type(newObj)==dict):
+        newObj['_id'] = "/".join([mesoPrefix, str(obj.get('_id', 'undefined'))])
+    return(newObj)
 
 
 def get_activities(applet_expanded):
