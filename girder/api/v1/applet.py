@@ -41,7 +41,7 @@ class Applet(Resource):
     def __init__(self):
         super(Applet, self).__init__()
         self.resourceName = 'applet'
-        self._model = FolderModel()
+        self._model = AppletModel()
         # TODO: self.route('PUT', (':id'), self.deactivateActivity)
         # TODO: self.route('PUT', ('version', ':id'), self.deactivateActivity)
         self.route('GET', (), self.getAppletFromURL)
@@ -58,28 +58,12 @@ class Applet(Resource):
     @autoDescribeRoute(
         Description('Get an applet by ID.')
         .responseClass('Folder')
-        .modelParam('id', model=FolderModel, level=AccessType.READ)
+        .modelParam('id', model=AppletModel, level=AccessType.READ)
         .errorResponse('Invalid applet ID.')
         .errorResponse('Read access was denied for this applet.', 403)
     )
     def getApplet(self, folder):
-        applets = CollectionModel().createCollection(
-            name="Applets",
-            public=True,
-            reuseExisting=True
-        )
-        if not str(folder['baseParentId'])==str(applets['_id']):
-            raise ValidationException(
-                'Invalid applet ID.',
-                'id'
-            )
-        else:
-            applet = parseAppletLevel(folder)
-            applet = loadJSON(
-                applet['url'],
-                'applet'
-            ) if 'url' in applet else applet
-            return(applet)
+        return(folder)
 
 
     @access.user(scope=TokenScope.DATA_READ)
