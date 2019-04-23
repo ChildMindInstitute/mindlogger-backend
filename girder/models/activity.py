@@ -31,7 +31,6 @@ from girder.constants import AccessType, SortDir
 from girder.exceptions import ValidationException, GirderException
 from girder.models.applet import Applet as AppletModel
 from girder.models.collection import Collection as CollectionModel
-from girder.utility import jsonld_expander
 from girder.utility.progress import noProgress, setResponseTimeLimit
 from pyld import jsonld
 
@@ -63,6 +62,7 @@ class Activity(Folder):
         })
         if not activity:
             activity = loadJSON(url, 'activity')
+            prefName=self.preferredName(activity)
             try:
                 applet = AppletModel().load(
                     id=applet,
@@ -70,21 +70,34 @@ class Activity(Folder):
                     user=user
                 )
             except:
-                applet=applet
-            parent = {
-                'parentEntity': applet if applet else CollectionModel(
-                ).createCollection(
-                    name="Activities",
+                applet=None
+            try:
+                parent = self.createFolder(
+                    parent=applet,
+                    name=prefName,
+                    parentType='folder',
                     public=True,
+                    creator=user,
                     reuseExisting=True
-                ),
-                'parentType': 'folder' if applet else 'collection'
-            }
+                )
+            except:
+                parent = self.createFolder(
+                    parent=CollectionModel().createCollection(
+                        name="Activities",
+                        public=True,
+                        reuseExisting=True
+                    ),
+                    name=prefName,
+                    parentType='collection',
+                    public=True,
+                    creator=user,
+                    reuseExisting=True
+                )
             activity = self.setMetadata(
                 self.createFolder(
-                    parent=parent['parentEntity'],
-                    name=self.preferredName(activity),
-                    parentType=parent['parentType'],
+                    parent=parent,
+                    name=prefName,
+                    parentType='folder',
                     public=True,
                     creator=user,
                     allowRename=True,
@@ -169,9 +182,9 @@ class Activity(Folder):
                         sort=[('created', SortDir.DESCENDING)]
                     )
                     return([str(actVer['_id']) for actVer in list(latest)])
-                greatGrandparent = pathFromRoot[-3]['object']
+                greatgrandparent = pathFromRoot[-3]['object']
                 if (
-                    greatGrandparent['lowerName']=="applets" and
+                    greatgrandparent['lowerName']=="applets" and
                     parent['baseParentType'] in {'collection', 'user'}
                 ):
                     """
@@ -235,7 +248,7 @@ class Activity(Folder):
                     baseParent['object']['name'].lower()=='activities' and
                     doc['baseParentType']=='collection'
                 ):
-                    return(jsonld_expander.formatLdObject(doc, 'activity'))
+                    return(doc)
                 parent = pathFromRoot[-1]['object']
                 grandparent = pathFromRoot[-2]['object']
                 if (
@@ -254,12 +267,10 @@ class Activity(Folder):
                         sort=[('created', SortDir.DESCENDING)],
                         limit=1
                     )
-                    return(
-                        jsonld_expander.formatLdObject(latest[0], 'activity')
-                    )
-                greatGrandparent = pathFromRoot[-3]['object']
+                    return(latest[0])
+                greatgrandparent = pathFromRoot[-3]['object']
                 if (
-                    greatGrandparent['lowerName']=="applets" and
+                    greatgrandparent['lowerName']=="applets" and
                     parent['baseParentType'] in {'collection', 'user'}
                 ):
                     """
@@ -267,7 +278,7 @@ class Activity(Folder):
                     folder, ie, if this is an Activity version. If so, return
                     this version.
                     """
-                    return(jsonld_expander.formatLdObject(doc, 'activity'))
+                    return(doc)
             except:
                 raise ValidationException(
                     "Invalid Activity ID."

@@ -27,6 +27,7 @@ from girder.models.applet import Applet as AppletModel
 from girder.models.collection import Collection as CollectionModel
 from girder.models.folder import Folder as FolderModel
 from girder.models.item import Item as ItemModel
+from girder.utility import jsonld_expander
 
 
 class Activity(Resource):
@@ -51,13 +52,12 @@ class Activity(Resource):
             'version, or use an Activity version\'s ID to get that specific'
             'version.'
         )
-        .responseClass('Folder')
         .modelParam('id', model=ActivityModel, level=AccessType.READ)
         .errorResponse('ID was invalid.')
         .errorResponse('Read access was denied for the activity.', 403)
     )
     def getActivity(self, folder):
-        return (folder)
+        return(jsonld_expander.formatLdObject(folder, 'activity'))
 
     @access.public(scope=TokenScope.DATA_READ)
     @autoDescribeRoute(

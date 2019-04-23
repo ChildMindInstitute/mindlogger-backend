@@ -58,14 +58,14 @@ class Applet(Resource):
     @access.user(scope=TokenScope.DATA_READ)
     @autoDescribeRoute(
         Description('Get an applet by ID.')
-        .responseClass('Folder')
         .modelParam('id', model=AppletModel, level=AccessType.READ)
         .errorResponse('Invalid applet ID.')
         .errorResponse('Read access was denied for this applet.', 403)
     )
     def getApplet(self, folder):
         applet = folder
-        return(folder)
+        user = Applet().getCurrentUser()
+        return(formatLdObject(applet, 'applet', user))
 
 
     @access.user(scope=TokenScope.DATA_READ)

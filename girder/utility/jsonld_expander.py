@@ -1,4 +1,5 @@
 from copy import deepcopy
+from girder.models.activity import Activity as ActivityModel
 from pyld import jsonld
 import json
 
@@ -55,7 +56,7 @@ def expand_value_constraints(original_items_expanded):
     return(items_expanded)
 
 
-def formatLdObject(obj, mesoPrefix='folder'):
+def formatLdObject(obj, mesoPrefix='folder', user=None):
     """
     Function to take a compacted JSON-LD Object within a Girder for Mindlogger
     database and return an exapanded JSON-LD Object including an _id.
@@ -65,6 +66,8 @@ def formatLdObject(obj, mesoPrefix='folder'):
     :param mesoPrefix: Girder for Mindlogger entity type, defaults to 'folder'
                        if not provided
     :type mesoPrefix: str
+    :param user: User making the call
+    :type user: User
     :returns: Expanded JSON-LD Object (dict or list)
     """
     if type(obj)==list:
@@ -81,14 +84,24 @@ def formatLdObject(obj, mesoPrefix='folder'):
     if mesoPrefix=='applet':
         applet = {'applet': newObj}
         applet['activities'] = [
-            activity.get(
-                '_id',
-                ActivityModel().importActivity(
-                    activity.get(
-                        'url',
-                        activity.get('@id')
-                    )
-                )
+            formatLdObject(
+                ActivityModel().load(
+                    activity.get('_id')
+                ) if '_id' in activity else ActivityModel().importActivity(
+                        url=activity.get(
+                            'url',
+                            activity.get('@id')
+                        ),
+                        applet=newObj.get(
+                            '_id'
+                        ).split('/')[1] if newObj.get(
+                            '_id',
+                            ''
+                        ).startswith('applet') else None,
+                        user=user
+                ),
+                'activity',
+                user
             ) for order in newObj[
                 "https://schema.repronim.org/order"
             ] for activity in order.get("@list", [])
