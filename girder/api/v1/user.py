@@ -211,13 +211,16 @@ class User(Resource):
                             if 'applet' in assignment[
                                 'meta'
                             ] and '@id' in assignment['meta']['applet']:
-                                applets.append(
-                                    AppletModel().load(
-                                        assignment['meta']['applet']['@id'],
-                                        AccessType.READ,
-                                        reviewer
+                                try:
+                                    applets.append(
+                                        AppletModel().load(
+                                            assignment['meta']['applet']['@id'],
+                                            AccessType.READ,
+                                            reviewer
+                                        )
                                     )
-                                )
+                                except:
+                                    pass
         return(
             [
                 jsonld_expander.formatLdObject(
