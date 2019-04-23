@@ -78,13 +78,14 @@ class Applet(Resource):
         applet = AppletModel().findOne({
             'meta.applet.url': url
         })
+        thisUser=self.getCurrentUser()
         if applet:
             _id = applet.get('_id')
             applet = applet.get('meta', {}).get('applet')
             applet['_id'] = _id
         else:
             applet = loadJSON(url, 'applet')
-        return(applet)
+        return(jsonld_expander.formatLdObject(applet, 'applet', thisUser))
 
 
     @access.user(scope=TokenScope.DATA_WRITE)
@@ -139,6 +140,7 @@ class Applet(Resource):
                 'Invalid applet ID.',
                 'applet'
             )
+        jsonld_expander.formatLdObject(folder, 'applet', user)
         return(_invite(folder, user, role, rsvp, subject))
 
     @access.user(scope=TokenScope.DATA_WRITE)
@@ -222,6 +224,7 @@ class Applet(Resource):
                 }
             }
         )
+        jsonld_expander.formatLdObject(thisApplet, 'applet', thisUser)
         return(
             _invite(
                 applet=thisApplet,
@@ -631,17 +634,6 @@ def nextCipher(currentCiphers):
         except:
             nCipher.append(0)
     return(str(max(nCipher)+1))
-
-
-def parseAppletLevel(applet):
-    try:
-        return(
-            applet.get('meta').get('applet', applet)
-        )
-    except:
-        return(
-            applet
-        )
 
 
 def selfAssignment():

@@ -51,6 +51,8 @@ def formatLdObject(obj, mesoPrefix='folder', user=None):
     :type user: User
     :returns: Expanded JSON-LD Object (dict or list)
     """
+    if obj is None:
+        return(None)
     if type(obj)==list:
         return([formatLdObject(obj, mesoPrefix) for o in obj])
     if not type(obj)==dict:

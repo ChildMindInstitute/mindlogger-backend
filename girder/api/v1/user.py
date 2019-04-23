@@ -25,16 +25,16 @@ import itertools
 from ..describe import Description, autoDescribeRoute
 from girder.api import access
 from girder.api.rest import Resource, filtermodel, setCurrentUser
-from girder.api.v1.applet import parseAppletLevel
 from girder.constants import AccessType, SettingKey, TokenScope, USER_ROLES
 from girder.exceptions import RestException, AccessException
+from girder.models.applet import Applet as AppletModel
 from girder.models.collection import Collection as CollectionModel
 from girder.models.folder import Folder as FolderModel
 from girder.models.password import Password
 from girder.models.setting import Setting
 from girder.models.token import Token
 from girder.models.user import User as UserModel
-from girder.utility import mail_utils
+from girder.utility import jsonld_expander, mail_utils
 
 
 class User(Resource):
@@ -212,12 +212,21 @@ class User(Resource):
                                 'meta'
                             ] and '@id' in assignment['meta']['applet']:
                                 applets.append(
-                                    parseAppletLevel(FolderModel().load(
+                                    AppletModel().load(
                                         assignment['meta']['applet']['@id'],
-                                        user=reviewer
-                                    ))
+                                        AccessType.READ,
+                                        reviewer
+                                    )
                                 )
-        return(applets)
+        return(
+            [
+                jsonld_expander.formatLdObject(
+                    applet,
+                    'applet',
+                    reviewer
+                ) for applet in applets if applet is not None
+            ]
+        )
 
     @access.public(scope=TokenScope.USER_INFO_READ)
     @filtermodel(model=UserModel)
