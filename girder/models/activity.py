@@ -28,7 +28,7 @@ from .folder import Folder
 from girder import events
 from girder.constants import AccessType, SortDir
 from girder.exceptions import ValidationException, GirderException
-from girder.utility.jsonldExpander import formatLdObject
+from girder.utility.jsonld_expander import formatLdObject
 from girder.utility.progress import noProgress, setResponseTimeLimit
 from pyld import jsonld
 
