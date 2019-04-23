@@ -1,5 +1,6 @@
 from copy import deepcopy
 from girder.models.activity import Activity as ActivityModel
+from girder.models.screen import Screen as ScreenModel
 from pyld import jsonld
 import json
 
@@ -13,26 +14,6 @@ def check_for_unexpanded_value_constraints(item_exp):
                 return(True)
 
     return(False)
-
-
-def expand_full(appletURL):
-    applet_expanded = jsonld.expand(appletURL)
-
-    activities_expanded = get_activities(applet_expanded)
-
-    items_expanded = get_items(activities_expanded)
-    expItems1 = expand_value_constraints(items_expanded)
-
-    # re-expand the items in case any multiparters were added
-    expItems2 = expand_value_constraints(expItems1)
-
-    return (
-        dict(
-            activities = activities_expanded,
-            items = items_expanded,
-            applet = applet_expanded
-        )
-    )
 
 
 def expand_value_constraints(original_items_expanded):
@@ -106,38 +87,46 @@ def formatLdObject(obj, mesoPrefix='folder', user=None):
                 "https://schema.repronim.org/order"
             ] for activity in order.get("@list", [])
         ]
-        applet['items'] = [
-            screen for activity in applet.get(
+        applet['items'] = {
+            screen.get(
+                'url',
+                screen.get('@id')
+            ): formatLdObject(
+                ScreenModel().load(
+                    screen.get('_id'),
+                    level=AccessType.READ,
+                    user=user,
+                    force=True
+                ) if '_id' in screen else ScreenModel().importScreen(
+                    url=screen.get(
+                        'url',
+                        screen.get('@id')
+                    ),
+                    activity=activity.get('_id').split(
+                        '/'
+                    )[1] if activity.get('_id').startswith(
+                        'activity'
+                    ) else ActivityModel().importActivity(
+                        activity.get(
+                            'url',
+                            activity.get('@id')
+                        ),
+                        applet=applet.get('_id'),
+                        user=user
+                    ),
+                    user=user
+                ),
+                'screen',
+                user
+            ) for activity in applet.get(
                 'activities',
                 {}
             ) for order in activity.get(
                 "https://schema.repronim.org/order",
                 []
             ) for screen in order.get("@list", [])
-        ]
+        }
         return(applet)
     if mesoPrefix=='activity':
         activity = newObj
-
     return(newObj)
-
-
-def get_activities(applet_expanded):
-    activities = [
-        a['@id'] for a in applet_expanded[0][
-            'https://schema.repronim.org/order'
-        ][0]['@list']
-    ]
-
-    activities_expanded = {a: jsonld.expand(a) for a in activities}
-    return(activities_expanded)
-
-
-def get_items(activities_expanded):
-    items_expanded = {}
-    for a in activities_expanded.keys():
-        for i in activities_expanded[a][0][
-            'https://schema.repronim.org/order'
-        ][0]['@list']:
-            items_expanded[i['@id']] = jsonld.expand(i['@id'])
-    return(items_expanded)

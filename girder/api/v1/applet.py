@@ -33,8 +33,7 @@ from girder.models.collection import Collection as CollectionModel
 from girder.models.folder import Folder as FolderModel
 from girder.models.item import Item as ItemModel
 from girder.models.user import User as UserModel
-from girder.utility import config
-from girder.utility.jsonld_expander import formatLdObject
+from girder.utility import config, jsonld_expander
 
 
 class Applet(Resource):
@@ -65,7 +64,7 @@ class Applet(Resource):
     def getApplet(self, folder):
         applet = folder
         user = Applet().getCurrentUser()
-        return(formatLdObject(applet, 'applet', user))
+        return(jsonld_expander.formatLdObject(applet, 'applet', user))
 
 
     @access.user(scope=TokenScope.DATA_READ)

@@ -27,6 +27,8 @@ from girder.models.activity import Activity as ActivityModel
 from girder.models.file import File as FileModel
 from girder.models.folder import Folder as FolderModel
 from girder.models.item import Item as ItemModel
+from girder.models.screen import Screen as ScreenModel
+from girder.utility import jsonld_expander
 
 
 class Screen(Resource):
@@ -40,13 +42,13 @@ class Screen(Resource):
         self.route('GET', (':id',), self.getScreen)
         # TODO: self.route('GET', (':id', 'files'), self.getFiles)
         # TODO: self.route('GET', (':id', 'download'), self.download)
+        self.route('GET', (), self.getScreenByURL)
         self.route('POST', (), self.createScreen)
         # TODO: self.route('POST', (':id', 'copy'), self.copyScreen)
 
     @access.public(scope=TokenScope.DATA_WRITE)
     @autoDescribeRoute(
         Description('Create a new screen.')
-        .responseClass('Item')
         .param(
             'activity',
             'ID of the parent Activity or Activity version',
@@ -63,7 +65,7 @@ class Screen(Resource):
             level=AccessType.WRITE,
             user=thisUser
         )
-        screen = ItemModel().createItem(
+        screen = ScreenModel().createScreen(
             name=screenName if screenName is not None else str(len(
                 list(FolderModel().childItems(activity))
             ) + 1),
@@ -71,16 +73,36 @@ class Screen(Resource):
             folder=activity,
             reuseExisting=False
         )
-        return(screen)
+        return(jsonld_expander.formatLdObject(screen, 'screen', thisUser))
 
     @access.public(scope=TokenScope.DATA_READ)
     @autoDescribeRoute(
         Description('Get a screen by ID.')
-        .responseClass('Item')
-        .modelParam('id', model=ItemModel, level=AccessType.READ)
+        .modelParam('id', model=ScreenModel, level=AccessType.READ)
         .errorResponse('ID was invalid.')
         .errorResponse('Read access was denied for the screen.', 403)
     )
-    def getScreen(self, item):
-        screen = item
-        return (screen.get('meta', screen))
+    def getScreen(self, screen):
+        user = self.getCurrentUser()
+        return (jsonld_expander.formatLdObject(screen, 'screen', user))
+
+
+    @access.public(scope=TokenScope.DATA_READ)
+    @autoDescribeRoute(
+        Description(
+            'Get a screen by URL.'
+        )
+        .responseClass('Item')
+        .param('url', 'URL of Screen.', required=True)
+        .param('activity', 'ID of parent Activity.', required=True)
+        .errorResponse('ID was invalid.')
+        .errorResponse('Read access was denied for the activity.', 403)
+    )
+    def getScreenByURL(self, url, activity):
+        thisUser = self.getCurrentUser()
+        screen = ScreenModel().importScreen(
+            url,
+            activity=activity,
+            user=thisUser
+        )
+        return(jsonld_expander.formatLdObject(screen, 'screen', thisUser))
