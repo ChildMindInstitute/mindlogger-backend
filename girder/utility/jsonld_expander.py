@@ -64,8 +64,11 @@ def formatLdObject(obj, mesoPrefix='folder', user=None):
         newObj['_id'] = "/".join([mesoPrefix, str(obj.get('_id', 'undefined'))])
     if mesoPrefix=='applet':
         applet = {'applet': newObj}
-        applet['activities'] = [
-            formatLdObject(
+        applet['activities'] = {
+            activity.get(
+                'url',
+                activity.get('@id')
+            ): formatLdObject(
                 ActivityModel().load(
                     activity.get('_id')
                 ) if '_id' in activity else ActivityModel().importActivity(
@@ -86,7 +89,7 @@ def formatLdObject(obj, mesoPrefix='folder', user=None):
             ) for order in newObj[
                 "https://schema.repronim.org/order"
             ] for activity in order.get("@list", [])
-        ]
+        }
         applet['items'] = {
             screen.get(
                 'url',
@@ -118,13 +121,13 @@ def formatLdObject(obj, mesoPrefix='folder', user=None):
                 ),
                 'screen',
                 user
-            ) for activity in applet.get(
+            ) for activityURL, activity in applet.get(
                 'activities',
                 {}
-            ) for order in activity.get(
+            ).items() for order in activity.get(
                 "https://schema.repronim.org/order",
                 []
-            ) for screen in order.get("@list", [])
+            ) for screen in order.get("@list", order.get("@set", []))
         }
         return(applet)
     if mesoPrefix=='activity':
