@@ -34,6 +34,7 @@ from girder.models.folder import Folder as FolderModel
 from girder.models.item import Item as ItemModel
 from girder.models.user import User as UserModel
 from girder.utility import config
+from girder.utility.jsonld_expander import formatLdObject
 
 
 class Applet(Resource):
@@ -63,6 +64,7 @@ class Applet(Resource):
         .errorResponse('Read access was denied for this applet.', 403)
     )
     def getApplet(self, folder):
+        applet = folder
         return(folder)
 
 

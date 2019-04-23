@@ -1,5 +1,5 @@
-from pyld import jsonld
 from copy import deepcopy
+from pyld import jsonld
 import json
 
 
@@ -76,8 +76,24 @@ def formatLdObject(obj, mesoPrefix='folder'):
     newObj = jsonld.expand(newObj)
     if type(newObj)==list and len(newObj)==1:
         newObj = newObj[0]
-    if(type(newObj)==dict):
+    if type(newObj)==dict:
         newObj['_id'] = "/".join([mesoPrefix, str(obj.get('_id', 'undefined'))])
+    if mesoPrefix=='applet':
+        applet = {'applet': newObj}
+        applet['activities'] = [
+            activity.get(
+                '_id',
+                ActivityModel().importActivity(
+                    activity.get(
+                        'url',
+                        activity.get('@id')
+                    )
+                )
+            ) for order in newObj[
+                "https://schema.repronim.org/order"
+            ] for activity in order.get("@list", [])
+        ]
+        return(applet)
     return(newObj)
 
 

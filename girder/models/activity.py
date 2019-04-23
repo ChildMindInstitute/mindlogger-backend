@@ -26,9 +26,12 @@ import six
 from bson.objectid import ObjectId
 from .folder import Folder
 from girder import events
+from girder.api.v1.resource import loadJSON
 from girder.constants import AccessType, SortDir
 from girder.exceptions import ValidationException, GirderException
-from girder.utility.jsonld_expander import formatLdObject
+from girder.models.applet import Applet as AppletModel
+from girder.models.collection import Collection as CollectionModel
+from girder.utility import jsonld_expander
 from girder.utility.progress import noProgress, setResponseTimeLimit
 from pyld import jsonld
 
@@ -38,6 +41,67 @@ class Activity(Folder):
     Activities are access-controlled Folders stored in Applets, each of which
     contains versions which are also Folders.
     """
+    def importActivity(self, url, applet=None, user=None, dynamic=False):
+        """
+        Looks for a given activity in Girder for MindLogger. If none is found,
+        adds that activity.
+
+        :param url: The URL of an accessible Activity in [ReproNim/schema-standardization](https://github.com/ReproNim/schema-standardization)
+                    format.
+        :type url: str
+        :param applet: The ID of the Activity's parent Applet, if any.
+        :type applet: str or None
+        :param user: The user importing the activity
+        :type user: dict
+        :param dynamic: Does the URL point to a version that might change, ie,
+                        `latest`?
+        :param dynamic: false
+        :returns: Activity, loaded into Girder for MindLogger
+        """
+        activity = self.findOne({
+            'meta.activity.url': url
+        })
+        if not activity:
+            activity = loadJSON(url, 'activity')
+            try:
+                applet = AppletModel().load(
+                    id=applet,
+                    level=AccessType.WRITE,
+                    user=user
+                )
+            except:
+                applet=applet
+            parent = {
+                'parentEntity': applet if applet else CollectionModel(
+                ).createCollection(
+                    name="Activities",
+                    public=True,
+                    reuseExisting=True
+                ),
+                'parentType': 'folder' if applet else 'collection'
+            }
+            activity = self.setMetadata(
+                self.createFolder(
+                    parent=parent['parentEntity'],
+                    name=self.preferredName(activity),
+                    parentType=parent['parentType'],
+                    public=True,
+                    creator=user,
+                    allowRename=True,
+                    reuseExisting=False
+                ),
+                {
+                    'activity': {
+                        **activity,
+                        'url': url
+                    }
+                }
+            )
+        _id = activity.get('_id')
+        activity = activity.get('meta', {}).get('activity')
+        activity['_id'] = _id
+        return(activity)
+
 
     def listVersionId(self, id, level=AccessType.ADMIN, user=None,
                       objectId=True, force=False, fields=None, exc=False):
@@ -171,7 +235,7 @@ class Activity(Folder):
                     baseParent['object']['name'].lower()=='activities' and
                     doc['baseParentType']=='collection'
                 ):
-                    return(formatLdObject(doc, 'activity'))
+                    return(jsonld_expander.formatLdObject(doc, 'activity'))
                 parent = pathFromRoot[-1]['object']
                 grandparent = pathFromRoot[-2]['object']
                 if (
@@ -190,7 +254,9 @@ class Activity(Folder):
                         sort=[('created', SortDir.DESCENDING)],
                         limit=1
                     )
-                    return(formatLdObject(latest[0], 'activity'))
+                    return(
+                        jsonld_expander.formatLdObject(latest[0], 'activity')
+                    )
                 greatGrandparent = pathFromRoot[-3]['object']
                 if (
                     greatGrandparent['lowerName']=="applets" and
@@ -201,7 +267,7 @@ class Activity(Folder):
                     folder, ie, if this is an Activity version. If so, return
                     this version.
                     """
-                    return(formatLdObject(doc, 'activity'))
+                    return(jsonld_expander.formatLdObject(doc, 'activity'))
             except:
                 raise ValidationException(
                     "Invalid Activity ID."

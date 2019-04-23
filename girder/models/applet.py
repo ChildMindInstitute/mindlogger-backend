@@ -28,7 +28,6 @@ from .folder import Folder
 from girder import events
 from girder.constants import AccessType, SortDir
 from girder.exceptions import ValidationException, GirderException
-from girder.utility.jsonld_expander import formatLdObject
 from girder.utility.progress import noProgress, setResponseTimeLimit
 
 
@@ -95,7 +94,7 @@ class Applet(Folder):
                     Check if parent is "Applets" collection or user
                     folder, ie, if this is an Applet. If so, return Applet.
                     """
-                    return(formatLdObject(doc, 'applet'))
+                    return(doc)
             except:
                 raise ValidationException(
                     "Invalid Applet ID."

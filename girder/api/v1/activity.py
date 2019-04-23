@@ -23,6 +23,7 @@ from girder.constants import AccessType, SortDir, TokenScope
 from girder.api import access
 from girder.api.v1.resource import loadJSON
 from girder.models.activity import Activity as ActivityModel
+from girder.models.applet import Applet as AppletModel
 from girder.models.collection import Collection as CollectionModel
 from girder.models.folder import Folder as FolderModel
 from girder.models.item import Item as ItemModel
@@ -65,40 +66,15 @@ class Activity(Resource):
         )
         .responseClass('Folder')
         .param('url', 'URL of Activity.', required=True)
+        .param('applet', 'ID of parent Applet.', required=False)
         .errorResponse('ID was invalid.')
         .errorResponse('Read access was denied for the activity.', 403)
     )
-    def getActivityByURL(self, url):
-        activity = ActivityModel().findOne({
-            'meta.activity.url': url
-        })
-        if activity:
-            _id = activity.get('_id')
-            activity = activity.get('meta', {}).get('activity')
-            activity['_id'] = _id
-        else:
-            activity = loadJSON(url, 'activity')
-            thisUser = self.getCurrentUser()
-            activities = CollectionModel().createCollection(
-                name="Activities",
-                public=True,
-                reuseExisting=True
-            )
-            activity = FolderModel().setMetadata(
-                FolderModel().createFolder(
-                    parent=activities,
-                    name=FolderModel().preferredName(activity),
-                    parentType='collection',
-                    public=True,
-                    creator=thisUser,
-                    allowRename=True,
-                    reuseExisting=False
-                ),
-                {
-                    'activity': {
-                        **activity,
-                        'url': url
-                    }
-                }
-            )
-        return (activity)
+    def getActivityByURL(self, url, applet=None):
+        thisUser = self.getCurrentUser()
+        activity = ActivityModel().importActivity(
+            url,
+            applet=applet,
+            user=thisUser
+        )
+        return(activity)
