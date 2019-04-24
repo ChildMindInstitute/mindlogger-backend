@@ -203,14 +203,13 @@ class User(AccessControlledModel):
         # This has the same behavior as User.canLogin, but returns more
         # detailed error messages
         if user.get('status', 'enabled') == 'disabled':
-            raise AccessException('Account is disabled.', extra='disabled')
+            return { 'exception' : 'Account is disabled.' }
 
         if self.emailVerificationRequired(user):
-            raise AccessException(
-                'Email verification required.', extra='emailVerification')
+            return { 'exception' : 'Email verification is required.' }
 
         if self.adminApprovalRequired(user):
-            raise AccessException('Account approval required.', extra='accountApproval')
+            return { 'exception' : 'Admin approval required' }
 
         return user
 

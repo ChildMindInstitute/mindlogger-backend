@@ -265,6 +265,9 @@ class User(Resource):
             otpToken = cherrypy.request.headers.get('Girder-OTP')
             user = self._model.authenticate(login, password, otpToken)
 
+            if type(user) is dict and 'exception' in user:
+                return user;
+
             setCurrentUser(user)
             token = self.sendAuthTokenCookie(user)
 
