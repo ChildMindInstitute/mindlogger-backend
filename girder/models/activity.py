@@ -26,9 +26,13 @@ import six
 from bson.objectid import ObjectId
 from .folder import Folder
 from girder import events
+from girder.api.v1.resource import loadJSON
 from girder.constants import AccessType, SortDir
 from girder.exceptions import ValidationException, GirderException
+from girder.models.applet import Applet as AppletModel
+from girder.models.collection import Collection as CollectionModel
 from girder.utility.progress import noProgress, setResponseTimeLimit
+from pyld import jsonld
 
 
 class Activity(Folder):
@@ -36,6 +40,164 @@ class Activity(Folder):
     Activities are access-controlled Folders stored in Applets, each of which
     contains versions which are also Folders.
     """
+    def importActivity(self, url, applet=None, user=None, dynamic=False):
+        """
+        Looks for a given activity in Girder for MindLogger. If none is found,
+        adds that activity.
+
+        :param url: The URL of an accessible Activity in [ReproNim/schema-standardization](https://github.com/ReproNim/schema-standardization)
+                    format.
+        :type url: str
+        :param applet: The ID of the Activity's parent Applet, if any.
+        :type applet: str or None
+        :param user: The user importing the activity
+        :type user: dict
+        :param dynamic: Does the URL point to a version that might change, ie,
+                        `latest`?
+        :param dynamic: false
+        :returns: Activity, loaded into Girder for MindLogger
+        """
+        activity = self.findOne({
+            'meta.activity.url': url
+        })
+        if not activity:
+            activity = loadJSON(url, 'activity')
+            prefName=self.preferredName(activity)
+            try:
+                applet = AppletModel().load(
+                    id=applet,
+                    level=AccessType.WRITE,
+                    user=user
+                )
+            except:
+                applet=None
+            try:
+                parent = self.createFolder(
+                    parent=applet,
+                    name=prefName,
+                    parentType='folder',
+                    public=True,
+                    creator=user,
+                    reuseExisting=True
+                )
+            except:
+                parent = self.createFolder(
+                    parent=CollectionModel().createCollection(
+                        name="Activities",
+                        public=True,
+                        reuseExisting=True
+                    ),
+                    name=prefName,
+                    parentType='collection',
+                    public=True,
+                    creator=user,
+                    reuseExisting=True
+                )
+            activity = self.setMetadata(
+                self.createFolder(
+                    parent=parent,
+                    name=prefName,
+                    parentType='folder',
+                    public=True,
+                    creator=user,
+                    allowRename=True,
+                    reuseExisting=False
+                ),
+                {
+                    'activity': {
+                        **activity,
+                        'url': url
+                    }
+                }
+            )
+        _id = activity.get('_id')
+        activity = activity.get('meta', {}).get('activity')
+        activity['_id'] = _id
+        return(activity)
+
+
+    def listVersionId(self, id, level=AccessType.ADMIN, user=None,
+                      objectId=True, force=False, fields=None, exc=False):
+        """
+        Returns a list of activity version IDs for an Activity or a list
+        containing only the given activty version IDs if an activity version ID
+        is passed in.
+
+        :param id: The id of the resource.
+        :type id: string or ObjectId
+        :param user: The user to check access against.
+        :type user: dict or None
+        :param level: The required access type for the object.
+        :type level: AccessType
+        :param force: If you explicitly want to circumvent access
+                      checking on this resource, set this to True.
+        :type force: bool
+        """
+        # Ensure we include extra fields to do the migration below
+        extraFields = {'baseParentId', 'baseParentType', 'parentId',
+                       'parentCollection', 'name', 'lowerName'}
+        loadFields = self._supplementFields(fields, extraFields)
+        doc = super(Folder, self).load(
+            id=id, level=level, user=user, objectId=objectId, force=force,
+            fields=loadFields, exc=exc)
+        if doc is not None:
+            pathFromRoot = Folder().parentsToRoot(doc, user=user, force=True)
+            baseParent = pathFromRoot[0]
+            if 'baseParentType' not in doc:
+                doc['baseParentId'] = baseParent['object']['_id']
+                doc['baseParentType'] = baseParent['type']
+                self.update({'_id': doc['_id']}, {'$set': {
+                    'baseParentId': doc['baseParentId'],
+                    'baseParentType': doc['baseParentType']
+                }})
+            if 'lowerName' not in doc:
+                doc['lowerName'] = doc['name'].lower()
+                self.update({'_id': doc['_id']}, {'$set': {
+                    'lowerName': doc['lowerName']
+                }})
+            if '_modelType' not in doc:
+                doc['_modelType'] = 'folder'
+            self._removeSupplementalFields(doc, fields)
+            try:
+                if(
+                    baseParent['object']['name'].lower()=='activities' and
+                    doc['baseParentType']=='collection'
+                ):
+                    return([str(doc['_id']) if '_id' in doc else str(id)])
+                parent = pathFromRoot[-1]['object']
+                grandparent = pathFromRoot[-2]['object']
+                if (
+                    grandparent['lowerName']=="applets" and
+                    parent['baseParentType'] in {'collection', 'user'}
+                ):
+                    """
+                    Check if grandparent is "Applets" collection or user
+                    folder, ie, if this is an Activity. If so, return latest
+                    version.
+                    """
+                    latest = Folder().childFolders(
+                        parentType='folder',
+                        parent=doc,
+                        user=user,
+                        sort=[('created', SortDir.DESCENDING)]
+                    )
+                    return([str(actVer['_id']) for actVer in list(latest)])
+                greatgrandparent = pathFromRoot[-3]['object']
+                if (
+                    greatgrandparent['lowerName']=="applets" and
+                    parent['baseParentType'] in {'collection', 'user'}
+                ):
+                    """
+                    Check if greatgrandparent is "Applets" collection or user
+                    folder, ie, if this is an Activity version. If so, return
+                    this version.
+                    """
+                    return([str(doc['_id']) if '_id' in doc else str(id)])
+            except:
+                raise ValidationException(
+                    "Invalid Activity ID."
+                )
+
 
     def load(self, id, level=AccessType.ADMIN, user=None, objectId=True,
              force=False, fields=None, exc=False):
@@ -65,8 +227,8 @@ class Activity(Folder):
             fields=loadFields, exc=exc)
         if doc is not None:
             pathFromRoot = Folder().parentsToRoot(doc, user=user, force=True)
+            baseParent = pathFromRoot[0]
             if 'baseParentType' not in doc:
-                baseParent = pathFromRoot[0]
                 doc['baseParentId'] = baseParent['object']['_id']
                 doc['baseParentType'] = baseParent['type']
                 self.update({'_id': doc['_id']}, {'$set': {
@@ -82,6 +244,11 @@ class Activity(Folder):
                 doc['_modelType'] = 'folder'
             self._removeSupplementalFields(doc, fields)
             try:
+                if(
+                    baseParent['object']['name'].lower()=='activities' and
+                    doc['baseParentType']=='collection'
+                ):
+                    return(doc)
                 parent = pathFromRoot[-1]['object']
                 grandparent = pathFromRoot[-2]['object']
                 if (
@@ -101,9 +268,9 @@ class Activity(Folder):
                         limit=1
                     )
                     return(latest[0])
-                greatGrandparent = pathFromRoot[-3]['object']
+                greatgrandparent = pathFromRoot[-3]['object']
                 if (
-                    greatGrandparent['lowerName']=="applets" and
+                    greatgrandparent['lowerName']=="applets" and
                     parent['baseParentType'] in {'collection', 'user'}
                 ):
                     """
@@ -114,5 +281,5 @@ class Activity(Folder):
                     return(doc)
             except:
                 raise ValidationException(
-                    "Invalid {Activity, Activity version} ID."
+                    "Invalid Activity ID."
                 )

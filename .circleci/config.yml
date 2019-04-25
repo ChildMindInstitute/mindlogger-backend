@@ -508,4 +508,9 @@ workflows:
             - py3_coverage
           filters:
             branches:
-              only: master
+              ignore:
+                - stopgap
+                - originalMaster
+                - 2018-september
+                - scores
+                - S3

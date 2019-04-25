@@ -58,6 +58,7 @@ pyasn1==0.4.3
 pyasn1-modules==0.2.2
 pycparser==2.18
 pydicom==1.1.0
+pyld>=1.0.4
 pyldap==3.0.0.post1
 pymongo==3.7.0
 pyOpenSSL>=0.14

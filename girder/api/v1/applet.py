@@ -26,12 +26,14 @@ from ..rest import Resource
 from girder.constants import AccessType, SortDir, TokenScope, SPECIAL_SUBJECTS,\
     USER_ROLES
 from girder.api import access
+from girder.api.v1.resource import loadJSON
 from girder.exceptions import AccessException, ValidationException
+from girder.models.applet import Applet as AppletModel
 from girder.models.collection import Collection as CollectionModel
 from girder.models.folder import Folder as FolderModel
 from girder.models.item import Item as ItemModel
 from girder.models.user import User as UserModel
-from girder.utility import config
+from girder.utility import config, jsonld_expander
 
 
 class Applet(Resource):
@@ -39,7 +41,7 @@ class Applet(Resource):
     def __init__(self):
         super(Applet, self).__init__()
         self.resourceName = 'applet'
-        self._model = FolderModel()
+        self._model = AppletModel()
         # TODO: self.route('PUT', (':id'), self.deactivateActivity)
         # TODO: self.route('PUT', ('version', ':id'), self.deactivateActivity)
         self.route('GET', (), self.getAppletFromURL)
@@ -55,29 +57,14 @@ class Applet(Resource):
     @access.user(scope=TokenScope.DATA_READ)
     @autoDescribeRoute(
         Description('Get an applet by ID.')
-        .responseClass('Folder')
-        .modelParam('id', model=FolderModel, level=AccessType.READ)
+        .modelParam('id', model=AppletModel, level=AccessType.READ)
         .errorResponse('Invalid applet ID.')
         .errorResponse('Read access was denied for this applet.', 403)
     )
     def getApplet(self, folder):
-        applets = CollectionModel().createCollection(
-            name="Applets",
-            public=True,
-            reuseExisting=True
-        )
-        if not str(folder['baseParentId'])==str(applets['_id']):
-            raise ValidationException(
-                'Invalid applet ID.',
-                'id'
-            )
-        else:
-            applet = parseAppletLevel(folder)
-            applet = _loadJSON(
-                applet['url'],
-                'applet'
-            ) if 'url' in applet else applet
-            return(applet)
+        applet = folder
+        user = Applet().getCurrentUser()
+        return(jsonld_expander.formatLdObject(applet, 'applet', user))
 
 
     @access.user(scope=TokenScope.DATA_READ)
@@ -88,8 +75,17 @@ class Applet(Resource):
         .errorResponse('Read access was denied for this applet.', 403)
     )
     def getAppletFromURL(self, url):
-        applet = _loadJSON(url, 'applet')
-        return(applet)
+        applet = AppletModel().findOne({
+            'meta.applet.url': url
+        })
+        thisUser=self.getCurrentUser()
+        if applet:
+            _id = applet.get('_id')
+            applet = applet.get('meta', {}).get('applet')
+            applet['_id'] = _id
+        else:
+            applet = loadJSON(url, 'applet')
+        return(jsonld_expander.formatLdObject(applet, 'applet', thisUser))
 
 
     @access.user(scope=TokenScope.DATA_WRITE)
@@ -144,6 +140,7 @@ class Applet(Resource):
                 'Invalid applet ID.',
                 'applet'
             )
+        jsonld_expander.formatLdObject(folder, 'applet', user)
         return(_invite(folder, user, role, rsvp, subject))
 
     @access.user(scope=TokenScope.DATA_WRITE)
@@ -187,14 +184,13 @@ class Applet(Resource):
         .errorResponse('ID was invalid.')
         .errorResponse('Write access was denied for the folder or its new parent object.', 403)
     )
-
     def inviteFromURL(self, url, user, role, rsvp, subject):
         if role not in USER_ROLES:
             raise ValidationException(
                 'Invalid role.',
                 'role'
             )
-        applet = _loadJSON(url, 'applet')
+        applet = loadJSON(url, 'applet')
         applets = CollectionModel().createCollection(
             name="Applets",
             public=True,
@@ -228,6 +224,7 @@ class Applet(Resource):
                 }
             }
         )
+        jsonld_expander.formatLdObject(thisApplet, 'applet', thisUser)
         return(
             _invite(
                 applet=thisApplet,
@@ -484,13 +481,13 @@ def getCanonicalUser(user):
         return(None)
 
 
-def getUserCipher(applet, user):
+def getUserCipher(appletAssignment, user):
     """
     Returns an applet-specific user ID.
 
     Parameters
     ----------
-    applet: Mongo Folder cursor
+    appletAssignment: Mongo Folder cursor
         Applet folder in Assignments collection
 
     user: string
@@ -503,7 +500,7 @@ def getUserCipher(applet, user):
     """
     thisUser = Applet().getCurrentUser()
     appletAssignments = list(FolderModel().childFolders(
-        parent=applet,
+        parent=appletAssignment,
         parentType='folder',
         user=thisUser
     ))
@@ -515,15 +512,17 @@ def getUserCipher(applet, user):
                 'name': 'userID'
             }
         )) for assignment in appletAssignments
-    ]))
+    ])) if len(appletAssignments) else []
     cUser = getCanonicalUser(user)
     aUser = [
         cipher['parentId'] for cipher in allCiphers if (
             cipher['meta']['user']['@id']==cUser
-        )
-    ] if cUser is not None and len(allCiphers) else []
+        ) if cipher.get('meta') and cipher['meta'].get('user') and cipher[
+            'meta'
+        ]['user'].get('@id') and cipher.get('parentId')
+    ] if cUser and len(allCiphers) else []
     aUser = aUser[0] if len(aUser) else createCipher(
-        applet,
+        appletAssignment,
         appletAssignments,
         cUser if cUser is not None else user
     )['_id']
@@ -621,18 +620,6 @@ def _invite(applet, user, role, rsvp, subject):
     return(appletAssignment)
 
 
-def _loadJSON(url, urlType='applet'):
-    try:
-        r = requests.get(url)
-        data = r.json()
-    except:
-        raise ValidationException(
-            'Invalid ' + urlType + ' URL',
-            'url'
-        )
-    return(data)
-
-
 def nextCipher(currentCiphers):
     if not len(currentCiphers):
         return("1")
@@ -647,17 +634,6 @@ def nextCipher(currentCiphers):
         except:
             nCipher.append(0)
     return(str(max(nCipher)+1))
-
-
-def parseAppletLevel(applet):
-    try:
-        return(
-            applet.get('meta').get('applet', applet)
-        )
-    except:
-        return(
-            applet
-        )
 
 
 def selfAssignment():
