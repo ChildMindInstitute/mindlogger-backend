@@ -424,7 +424,7 @@ class Folder(AccessControlledModel):
         return Item().find(q, limit=limit, offset=offset, sort=sort, **kwargs)
 
     def childFolders(self, parent, parentType, user=None, limit=0, offset=0,
-                     sort=None, filters=None, **kwargs):
+                     sort=None, filters=None, force=False, **kwargs):
         """
         This generator will yield child folders of a user, collection, or
         folder, with access policy filtering.  Passes any kwargs to the find
@@ -440,6 +440,8 @@ class Folder(AccessControlledModel):
         :param offset: Result offset.
         :param sort: The sort structure to pass to pymongo.
         :param filters: Additional query operators.
+        :param force: Ignore permissions
+        :type force: bool
         """
         if not filters:
             filters = {}
@@ -455,7 +457,14 @@ class Folder(AccessControlledModel):
         q.update(filters)
 
         cursor = self.findWithPermissions(
-            q, sort=sort, user=user, level=AccessType.READ, limit=limit, offset=offset, **kwargs)
+            q,
+            sort=sort,
+            user=user,
+            level=None if force else AccessType.READ,
+            limit=limit,
+            offset=offset,
+            **kwargs
+        )
 
         return iter(cursor)
 

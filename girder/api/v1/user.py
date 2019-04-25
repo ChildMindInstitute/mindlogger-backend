@@ -193,9 +193,11 @@ class User(Resource):
                                 parent=FolderModel().load(
                                     assignedUser['@id'],
                                     level=AccessType.NONE,
-                                    user=reviewer
+                                    user=reviewer,
+                                    force=True
                                 ),
-                                user=reviewer
+                                user=reviewer,
+                                force=True
                             ) if (
                                 'lowerName' in userId
                             ) and (
