@@ -253,11 +253,14 @@ class ResponseItem(Resource):
                 user=subject_id
             ) for assignment in appletAssignments
         ][0]
-        subject_info = Folder().load(
-            id=subject_id,
-            user=informant,
-            level=AccessType.READ
-        )
+        try:
+            subject_info = Folder().load(
+                id=subject_id,
+                user=informant,
+                level=AccessType.READ
+            )
+        except AccessException:
+            subject_info = {}
         metadata['subject'] = subject_info['meta'] if subject_info.get(
             'meta'
         ) else {}
@@ -346,11 +349,14 @@ def _getUserResponses(
     except:
         return([])
     allResponses = []
-    UserResponsesFolder = ResponseFolderModel().load(
-        user=informant,
-        level=AccessType.READ,
-        reviewer=reviewer
-    )
+    try:
+        UserResponsesFolder = ResponseFolderModel().load(
+            user=informant,
+            level=AccessType.READ,
+            reviewer=reviewer
+        )
+    except AccessException:
+        UserResponsesFolder = []
     if type(UserResponsesFolder)!=list:
         UserAppletResponsesFolders = Folder().childFolders(
             parent=UserResponsesFolder, parentType='folder',
