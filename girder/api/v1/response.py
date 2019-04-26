@@ -253,11 +253,14 @@ class ResponseItem(Resource):
                 user=subject_id
             ) for assignment in appletAssignments
         ][0]
-        subject_info = Folder().load(
-            id=subject_id,
-            user=informant,
-            level=AccessType.READ
-        )
+        try:
+            subject_info = Folder().load(
+                id=subject_id,
+                user=informant,
+                level=AccessType.READ
+            )
+        except AccessException:
+            subject_info = {}
         metadata['subject'] = subject_info['meta'] if subject_info.get(
             'meta'
         ) else {}

@@ -435,6 +435,15 @@ def createCipher(applet, appletAssignments, user):
             currentUser=thisUser,
             force=True
         )
+    for u in [thisUser, cUser]:
+        FolderModel().setUserAccess(
+            doc=newSecretCipher,
+            user=u,
+            level=AccessType.READ,
+            save=True,
+            currentUser=thisUser,
+            force=True
+        )
     return(newCipher)
 
 
@@ -456,13 +465,20 @@ def decipherUser(appletSpecificId):
     except:
         return(None)
     try:
-        return(
-            str(
-                userId[0]['meta']['user']['@id']
-            ) if len(userId) and type(
-                userId[0]
-            )==dict and userId[0].get('meta').get('user').get('@id') else None
+        cUser = str(
+            userId[0]['meta']['user']['@id']
+        ) if len(userId) and type(
+            userId[0]
+        )==dict and userId[0].get('meta').get('user').get('@id') else None
+        FolderModel().setUserAccess(
+            doc=ciphered,
+            user=UserModel().load(id=cUser, user=cUser),
+            level=AccessType.READ,
+            save=True,
+            currentUser=thisUser,
+            force=True
         )
+        return(cUser)
     except:
         return(None)
 
