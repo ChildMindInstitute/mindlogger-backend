@@ -349,11 +349,14 @@ def _getUserResponses(
     except:
         return([])
     allResponses = []
-    UserResponsesFolder = ResponseFolderModel().load(
-        user=informant,
-        level=AccessType.READ,
-        reviewer=reviewer
-    )
+    try:
+        UserResponsesFolder = ResponseFolderModel().load(
+            user=informant,
+            level=AccessType.READ,
+            reviewer=reviewer
+        )
+    except AccessException:
+        UserResponsesFolder = []
     if type(UserResponsesFolder)!=list:
         UserAppletResponsesFolders = Folder().childFolders(
             parent=UserResponsesFolder, parentType='folder',
