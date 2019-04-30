@@ -1,22 +1,4 @@
-#!/usr/bin/env python
 # -*- coding: utf-8 -*-
-
-###############################################################################
-#  Copyright 2013 Kitware Inc.
-#
-#  Licensed under the Apache License, Version 2.0 ( the "License" );
-#  you may not use this file except in compliance with the License.
-#  You may obtain a copy of the License at
-#
-#    http://www.apache.org/licenses/LICENSE-2.0
-#
-#  Unless required by applicable law or agreed to in writing, software
-#  distributed under the License is distributed on an "AS IS" BASIS,
-#  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-#  See the License for the specific language governing permissions and
-#  limitations under the License.
-###############################################################################
-
 import boto3
 import httmock
 import io
@@ -878,12 +860,12 @@ class FileTestCase(base.TestCase):
     @moto.mock_s3
     def testS3Assetstore(self):
         botoParams = makeBotoConnectParams('access', 'secret')
-        mock_s3.createBucket(botoParams, 'b')
+        mock_s3.createBucket(botoParams, 'bname')
 
         Assetstore().remove(Assetstore().getCurrent())
         assetstore = Assetstore().createS3Assetstore(
-            name='test', bucket='b', accessKeyId='access', secret='secret',
-            prefix='test')
+            name='test', bucket='bname', accessKeyId='access', secret='secret',
+            prefix='test', serverSideEncryption=True)
         self.assetstore = assetstore
 
         # Initialize the upload
@@ -923,6 +905,8 @@ class FileTestCase(base.TestCase):
             path='/file/offset', method='GET', user=self.user, params={'uploadId': uploadId})
         self.assertStatusOk(resp)
 
+        initRequests = []
+
         @httmock.all_requests
         def mockChunkUpload(url, request):
             """
@@ -930,15 +914,19 @@ class FileTestCase(base.TestCase):
             S3, however we now no longer use the boto API to do so internally,
             and must mock this out at the level of requests.
             """
-            if url.netloc != 's3.amazonaws.com':
+            if url.netloc != 'bname.s3.amazonaws.com':
                 raise Exception('Unexpected request to host ' + url.netloc)
 
             body = request.body.read(65536)  # sufficient for now, we have short bodies
 
+            if 'x-amz-meta-uploader-ip' in url.query:
+                # this is an init request, not a chunk upload
+                initRequests.append(request)
+
             # Actually set the key in moto
-            self.assertEqual(url.path[:3], '/b/')
+            self.assertTrue(url.path.startswith('/test/'))
             client = boto3.client('s3')
-            client.put_object(Bucket='b', Key=url.path[3:], Body=body)
+            client.put_object(Bucket='bname', Key=url.path[1:], Body=body)
 
             return {
                 'status_code': 200
@@ -956,6 +944,8 @@ class FileTestCase(base.TestCase):
             'type': 'validation',
             'message': 'Received too many bytes.'
         })
+        self.assertEqual(len(initRequests), 1)
+        self.assertEqual(initRequests[-1].headers['x-amz-server-side-encryption'], 'AES256')
 
         # The offset should not have changed
         resp = self.request(
@@ -970,6 +960,8 @@ class FileTestCase(base.TestCase):
             resp = self.multipartRequest(
                 path='/file/chunk', user=self.user, fields=fields, files=files)
         self.assertStatusOk(resp)
+        self.assertEqual(len(initRequests), 2)
+        self.assertEqual(initRequests[-1].headers['x-amz-server-side-encryption'], 'AES256')
 
         file = File().load(resp.json['_id'], force=True)
 
@@ -985,9 +977,34 @@ class FileTestCase(base.TestCase):
         self.assertStatusOk(resp)
 
         # Make sure our metadata got updated in S3
-        obj = boto3.client('s3').get_object(Bucket='b', Key=file['s3Key'])
+        obj = boto3.client('s3').get_object(Bucket='bname', Key=file['s3Key'])
         self.assertEqual(obj['ContentDisposition'], 'attachment; filename="new name"')
         self.assertEqual(obj['ContentType'], 'application/csv')
+
+        # Test with SSE disabled
+        self.assetstore['serverSideEncryption'] = False
+        self.assetstore = Assetstore().save(self.assetstore)
+        initRequests = []
+
+        resp = self.request(
+            path='/file', method='POST', user=self.user, params={
+                'parentType': 'folder',
+                'parentId': self.privateFolder['_id'],
+                'name': 'hello.txt',
+                'size': len(chunk1) + len(chunk2),
+                'mimeType': 'text/plain'
+            })
+        self.assertStatusOk(resp)
+        uploadId = resp.json['_id']
+
+        files = [('chunk', 'hello.txt', chunk1 + chunk2)]
+        fields = [('offset', 0), ('uploadId', uploadId)]
+        with httmock.HTTMock(mockChunkUpload):
+            resp = self.multipartRequest(
+                path='/file/chunk', user=self.user, fields=fields, files=files)
+        self.assertStatusOk(resp)
+        self.assertEqual(len(initRequests), 1)
+        self.assertNotIn('x-amz-server-side-encryption', initRequests[0].headers)
 
         # Enable testing of multi-chunk proxied upload
         S3AssetstoreAdapter.CHUNK_LEN = 5
@@ -1048,7 +1065,7 @@ class FileTestCase(base.TestCase):
         file = File().load(file['_id'], force=True)
 
         # Mock Serve range requests
-        @httmock.urlmatch(netloc=r'^s3.amazonaws.com')
+        @httmock.urlmatch(netloc=r'^bname.s3.amazonaws.com')
         def s3_range_mock(url, request):
             data = chunk1 + chunk2
             if request.headers.get('range', '').startswith('bytes='):

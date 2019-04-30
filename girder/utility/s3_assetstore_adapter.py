@@ -1,22 +1,4 @@
-#!/usr/bin/env python
 # -*- coding: utf-8 -*-
-
-###############################################################################
-#  Copyright 2014 Kitware Inc.
-#
-#  Licensed under the Apache License, Version 2.0 ( the "License" );
-#  you may not use this file except in compliance with the License.
-#  You may obtain a copy of the License at
-#
-#    http://www.apache.org/licenses/LICENSE-2.0
-#
-#  Unless required by applicable law or agreed to in writing, software
-#  distributed under the License is distributed on an "AS IS" BASIS,
-#  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-#  See the License for the specific language governing permissions and
-#  limitations under the License.
-###############################################################################
-
 import boto3
 import botocore
 import cherrypy
@@ -117,13 +99,17 @@ class S3AssetstoreAdapter(AbstractAssetstoreAdapter):
             self.client = S3AssetstoreAdapter._s3Client(self.connectParams)
 
     def _getRequestHeaders(self, upload):
-        return {
+        headers = {
             'Content-Disposition': setContentDisposition(upload['name'], setHeader=False),
             'Content-Type': upload.get('mimeType', ''),
             'x-amz-acl': 'private',
             'x-amz-meta-uploader-id': str(upload['userId']),
             'x-amz-meta-uploader-ip': str(cherrypy.request.remote.ip)
         }
+        if self.assetstore.get('serverSideEncryption'):
+            headers['x-amz-server-side-encryption'] = 'AES256'
+
+        return headers
 
     def _generatePresignedUrl(self, *args, **kwargs):
         """
@@ -169,6 +155,10 @@ class S3AssetstoreAdapter(AbstractAssetstoreAdapter):
                 'uploader-ip': headers['x-amz-meta-uploader-ip']
             }
         }
+
+        if self.assetstore.get('serverSideEncryption'):
+            params['ServerSideEncryption'] = 'AES256'
+
         requestInfo = {
             'headers': headers,
             'method': 'PUT'
@@ -316,7 +306,7 @@ class S3AssetstoreAdapter(AbstractAssetstoreAdapter):
                 'You should not call requestOffset on a chunked direct-to-S3 upload.')
 
         headers = self._getRequestHeaders(upload)
-        url = self._generatePresignedUrl(ClientMethod='put_object', Params={
+        params = {
             'Bucket': self.assetstore['bucket'],
             'Key': upload['s3']['key'],
             'ACL': headers['x-amz-acl'],
@@ -327,7 +317,12 @@ class S3AssetstoreAdapter(AbstractAssetstoreAdapter):
                 'uploader-id': headers['x-amz-meta-uploader-id'],
                 'uploader-ip': headers['x-amz-meta-uploader-ip']
             }
-        })
+        }
+
+        if self.assetstore.get('serverSideEncryption'):
+            params['ServerSideEncryption'] = 'AES256'
+
+        url = self._generatePresignedUrl(ClientMethod='put_object', Params=params)
 
         return {
             'method': 'PUT',

@@ -1,22 +1,4 @@
-#!/usr/bin/env python
 # -*- coding: utf-8 -*-
-
-###############################################################################
-#  Copyright 2013 Kitware Inc.
-#
-#  Licensed under the Apache License, Version 2.0 ( the "License" );
-#  you may not use this file except in compliance with the License.
-#  You may obtain a copy of the License at
-#
-#    http://www.apache.org/licenses/LICENSE-2.0
-#
-#  Unless required by applicable law or agreed to in writing, software
-#  distributed under the License is distributed on an "AS IS" BASIS,
-#  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-#  See the License for the specific language governing permissions and
-#  limitations under the License.
-###############################################################################
-
 from ..describe import Description, autoDescribeRoute
 from ..rest import Resource, filtermodel, setResponseHeader, setContentDisposition
 from girder.api import access
@@ -38,6 +20,7 @@ class Collection(Resource):
         self.route('GET', (), self.find)
         self.route('GET', (':id',), self.getCollection)
         self.route('GET', (':id', 'details'), self.getCollectionDetails)
+        self.route('GET', ('details',), self.getCollectionsDetails)
         self.route('GET', (':id', 'download'), self.downloadCollection)
         self.route('GET', (':id', 'access'), self.getCollectionAccess)
         self.route('POST', (), self.createCollection)
@@ -113,6 +96,16 @@ class Collection(Resource):
 
     @access.public(scope=TokenScope.DATA_READ)
     @autoDescribeRoute(
+        Description('Get detailed information of accessible collections.')
+    )
+    def getCollectionsDetails(self):
+        count = self._model.findWithPermissions(user=self.getCurrentUser()).count()
+        return {
+            'nCollections': count
+        }
+
+    @access.public(scope=TokenScope.DATA_READ)
+    @autoDescribeRoute(
         Description('Get detailed information about a collection.')
         .modelParam('id', model=CollectionModel, level=AccessType.READ)
         .errorResponse()
@@ -124,8 +117,7 @@ class Collection(Resource):
                 collection, user=self.getCurrentUser(), level=AccessType.READ)
         }
 
-    @access.cookie
-    @access.public(scope=TokenScope.DATA_READ)
+    @access.public(scope=TokenScope.DATA_READ, cookie=True)
     @autoDescribeRoute(
         Description('Download an entire collection as a zip archive.')
         .modelParam('id', model=CollectionModel, level=AccessType.READ)

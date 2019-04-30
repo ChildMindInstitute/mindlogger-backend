@@ -1,22 +1,4 @@
-#!/usr/bin/env python
 # -*- coding: utf-8 -*-
-
-###############################################################################
-#  Copyright 2015 Kitware Inc.
-#
-#  Licensed under the Apache License, Version 2.0 ( the "License" );
-#  you may not use this file except in compliance with the License.
-#  You may obtain a copy of the License at
-#
-#    http://www.apache.org/licenses/LICENSE-2.0
-#
-#  Unless required by applicable law or agreed to in writing, software
-#  distributed under the License is distributed on an "AS IS" BASIS,
-#  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-#  See the License for the specific language governing permissions and
-#  limitations under the License.
-###############################################################################
-
 import datetime
 import json
 import os
@@ -30,6 +12,8 @@ from girder.models.folder import Folder
 from girder.models.setting import Setting
 from girder.models.user import User
 from girder.utility.system import formatSize
+
+from girder_user_quota import constants
 
 
 def setUpModule():
@@ -183,8 +167,6 @@ class QuotaTestCase(base.TestCase):
                         matches this.
         :param error: if set, this is a substring expected in an error message.
         """
-        from girder.plugins.user_quota import constants
-
         if model == 'user':
             key = constants.PluginSettings.QUOTA_DEFAULT_USER_QUOTA
         elif model == 'collection':

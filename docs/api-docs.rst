@@ -190,12 +190,6 @@ Utility
 .. automodule:: girder.utility.gridfs_assetstore_adapter
    :members:
 
-.. automodule:: girder.utility.hash_state
-   :members:
-
-.. automodule:: girder.utility.install
-   :members:
-
 .. automodule:: girder.utility.mail_utils
    :members:
 
@@ -203,9 +197,6 @@ Utility
    :members:
 
 .. automodule:: girder.utility.path
-   :members:
-
-.. automodule:: girder.utility.plugin_utilities
    :members:
 
 .. automodule:: girder.utility.progress
@@ -255,6 +246,11 @@ Exceptions
 Logging
 ~~~~~~~
 .. automodule:: girder
+   :members:
+
+Plugins
+~~~~~~~
+.. automodule:: girder.plugin
    :members:
 
 Python Client

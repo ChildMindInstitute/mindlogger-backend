@@ -81,6 +81,8 @@ Links
 
 **Data Management Platform**
 
+This source code is a customization of `:octocat: girder/girder <https://github.com/girder/girder/tree/292690e7e4c269ed3b34757ba86ddfa2713f9f16>`_
+
 Girder is a free and open source web-based data management platform developed by
 `Kitware <https://kitware.com>`_ as part of the `Resonant <http://resonant.kitware.com>`_
 data and analytics ecosystem.
@@ -95,7 +97,7 @@ For questions, comments, or to get in touch with the maintainers, head to our `D
 
 We'd love for you to `contribute to Girder <CONTRIBUTING.rst>`_.
 
-.. |logo| image:: clients/web/static/img/Girder_Favicon.png
+.. |logo| image:: girder/web_client/static/img/Girder_Favicon.png
 
 .. |kitware-logo| image:: https://www.kitware.com/img/small_logo_over.png
     :target: https://kitware.com

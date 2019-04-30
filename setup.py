@@ -1,64 +1,31 @@
-#!/usr/bin/env python
 # -*- coding: utf-8 -*-
-
-###############################################################################
-#  Copyright 2013 Kitware Inc.
-#
-#  Licensed under the Apache License, Version 2.0 ( the "License" );
-#  you may not use this file except in compliance with the License.
-#  You may obtain a copy of the License at
-#
-#    http://www.apache.org/licenses/LICENSE-2.0
-#
-#  Unless required by applicable law or agreed to in writing, software
-#  distributed under the License is distributed on an "AS IS" BASIS,
-#  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-#  See the License for the specific language governing permissions and
-#  limitations under the License.
-###############################################################################
-
 import os
-import re
-import shutil
 import itertools
 
 from setuptools import setup, find_packages
-from setuptools.command.install import install
-from distutils.dir_util import copy_tree
 
 
-class InstallWithOptions(install):
-    def mergeDir(self, path, dest):
-        """
-        We don't want to delete the old dir, since it might contain third
-        party plugin content from previous installations; we simply want to
-        merge the existing directory with the new one.
-        """
-        copy_tree(path, os.path.join(dest, path), preserve_symlinks=True)
+def prerelease_local_scheme(version):
+    """Return local scheme version unless building on master in CircleCI.
+    This function returns the local scheme version number
+    (e.g. 0.0.0.dev<N>+g<HASH>) unless building on CircleCI for a
+    pre-release in which case it ignores the hash and produces a
+    PEP440 compliant pre-release version number (e.g. 0.0.0.dev<N>).
+    """
 
-    def run(self, *arg, **kw):
-        """
-        We override the default install command in order to copy our required
-        package data underneath the package directory; in the egg, it is
-        adjacent to the package dir.
-        """
-        install.run(self, *arg, **kw)
+    from setuptools_scm.version import get_local_node_and_date
 
-        dest = os.path.join(self.install_lib, 'girder')
-        shutil.copy('Gruntfile.js', dest)
-        shutil.copy('package.json', dest)
-        self.mergeDir(os.path.join('clients', 'web', 'src'), dest)
-        self.mergeDir(os.path.join('clients', 'web', 'static'), dest)
-        shutil.copy(os.path.join('clients', 'web', 'src', 'assets', 'fontello.config.json'),
-                    os.path.join(dest, 'clients', 'web', 'src', 'assets'))
-        self.mergeDir('grunt_tasks', dest)
-        self.mergeDir('plugins', dest)
+    if os.getenv('CIRCLE_BRANCH') == 'master':
+        return ''
+    else:
+        return get_local_node_and_date(version)
 
 
 with open('README.rst') as f:
     readme = f.read()
 
 installReqs = [
+    'bcrypt',
     'boto3',
     'botocore',
     # CherryPy version is restricted due to a bug in versions >=11.1
@@ -72,10 +39,11 @@ installReqs = [
     'jsonschema',
     'Mako',
     'passlib [bcrypt,totp]',
-    'pymongo>=3.5',
+    'pymongo>=3.6',
     'PyYAML',
     'psutil',
-    'python-dateutil<2.7',  # required for compatibility with botocore=1.9.8
+    'pyOpenSSL',
+    'python-dateutil',
     'pytz',
     'requests',
     'shutilwhich ; python_version < \'3\'',
@@ -83,50 +51,19 @@ installReqs = [
     'tzlocal>=1.5.1'
 ]
 
-extrasReqs = {}
-# To avoid conflict with the `girder-install plugin' command, this only adds built-in plugins with
-# extras requirements.
-# Note: the usage of automatically-parsed plugin-specific 'requirements.txt' is a temporary
-# measure to keep plugin requirements close to plugin code. It will be removed when pip-installable
-# plugins are added. It should not be used by other projects.
-with open(os.path.join('plugins', '.gitignore')) as builtinPluginsIgnoreStream:
-    builtinPlugins = set()
-    for line in builtinPluginsIgnoreStream:
-        # Plugin .gitignore entries should end with a /, but we will tolerate those that don't;
-        # (accordingly, note the non-greedy qualifier for the match group)
-        builtinPluginNameRe = re.match(r'^!(.+?)/?$', line)
-        if builtinPluginNameRe:
-            builtinPluginName = builtinPluginNameRe.group(1)
-            if os.path.isdir(os.path.join('plugins', builtinPluginName)):
-                builtinPlugins.add(builtinPluginName)
-for pluginName in os.listdir('plugins'):
-    pluginReqsFile = os.path.join('plugins', pluginName, 'requirements.txt')
-    if pluginName in builtinPlugins and os.path.isfile(pluginReqsFile):
-        with open(pluginReqsFile) as pluginReqsStream:
-            pluginExtrasReqs = []
-            for line in pluginReqsStream:
-                line = line.strip()
-                if line and not line.startswith('#'):
-                    pluginExtrasReqs.append(line)
-            extrasReqs[pluginName] = pluginExtrasReqs
-
-extrasReqs['plugins'] = list(set(itertools.chain.from_iterable(extrasReqs.values())))
-extrasReqs['sftp'] = [
-    'paramiko',
-]
-extrasReqs['mount'] = [
-    'fusepy>=2.0.4,<3.0',
-]
-
-init = os.path.join(os.path.dirname(__file__), 'girder', '__init__.py')
-with open(init) as fd:
-    version = re.search(
-        r'^__version__\s*=\s*[\'"]([^\'"]*)[\'"]',
-        fd.read(), re.MULTILINE).group(1)
+extrasReqs = {
+    'sftp': [
+        'paramiko'
+    ],
+    'mount': [
+        'fusepy>=3.0'
+    ]
+}
 
 setup(
     name='girder',
-    version=version,
+    use_scm_version={'local_scheme': prerelease_local_scheme},
+    setup_requires=['setuptools-scm'],
     description='Web-based data management platform',
     long_description=readme,
     author='Kitware, Inc.',
@@ -147,27 +84,14 @@ setup(
     packages=find_packages(
         exclude=('girder.test', 'tests.*', 'tests', '*.plugin_tests.*', '*.plugin_tests')
     ),
-    package_data={
-        'girder': [
-            'girder-version.json',
-            'conf/girder.dist.cfg',
-            'mail_templates/*.mako',
-            'mail_templates/**/*.mako',
-            'utility/*.mako',
-            'api/api_docs.mako'
-        ]
-    },
+    include_package_data=True,
     python_requires='>=2.7, !=3.0.*, !=3.1.*, !=3.2.*, !=3.3.*, !=3.4.*',
     install_requires=installReqs,
     extras_require=extrasReqs,
     zip_safe=False,
-    cmdclass={
-        'install': InstallWithOptions
-    },
     entry_points={
         'console_scripts': [
             'girder-server = girder.cli.serve:main',
-            'girder-install = girder.utility.install:main',
             'girder-sftpd = girder.cli.sftpd:main',
             'girder-shell = girder.cli.shell:main',
             'girder = girder.cli:main'
@@ -176,7 +100,8 @@ setup(
             'serve = girder.cli.serve:main',
             'mount = girder.cli.mount:main',
             'shell = girder.cli.shell:main',
-            'sftpd = girder.cli.sftpd:main'
+            'sftpd = girder.cli.sftpd:main',
+            'build = girder.cli.build:main'
         ]
     }
 )

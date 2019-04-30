@@ -1,35 +1,16 @@
-#!/usr/bin/env python
 # -*- coding: utf-8 -*-
-
-###############################################################################
-#  Copyright Kitware Inc.
-#
-#  Licensed under the Apache License, Version 2.0 ( the "License" );
-#  you may not use this file except in compliance with the License.
-#  You may obtain a copy of the License at
-#
-#    http://www.apache.org/licenses/LICENSE-2.0
-#
-#  Unless required by applicable law or agreed to in writing, software
-#  distributed under the License is distributed on an "AS IS" BASIS,
-#  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-#  See the License for the specific language governing permissions and
-#  limitations under the License.
-###############################################################################
-
 import json
 import mock
 import os
 import time
 import six
 
-from subprocess import check_output, CalledProcessError
-
 from .. import base
 from girder.api import access
-from girder.api.describe import describeRoute, API_VERSION
+from girder.api.describe import describeRoute
 from girder.api.rest import getApiUrl, loadmodel, Resource
-from girder.constants import AccessType, SettingKey, SettingDefault, registerAccessFlag, ROOT_DIR
+from girder.constants import AccessType, SettingKey, SettingDefault, registerAccessFlag, ROOT_DIR, \
+    VERSION
 from girder.exceptions import AccessException, ValidationException
 from girder.models.collection import Collection
 from girder.models.file import File
@@ -85,28 +66,8 @@ class SystemTestCase(base.TestCase):
             del conf['plugins']
 
     def testGetVersion(self):
-        usingGit = True
         resp = self.request(path='/system/version', method='GET')
-        self.assertEqual(resp.json['apiVersion'], API_VERSION)
-
-        try:
-            # Get the current Git head
-            sha = check_output(
-                ['git', 'rev-parse', 'HEAD'],
-                cwd=ROOT_DIR
-            ).decode().strip()
-        except CalledProcessError:
-            usingGit = False
-
-        # Ensure a valid response
-        self.assertEqual(usingGit, resp.json['git'])
-        if usingGit:
-            self.assertEqual(resp.json['SHA'], sha)
-            self.assertEqual(sha.find(resp.json['shortSHA']), 0)
-
-            resp = self.request(path='/system/version', method='GET', params={'fromGit': True})
-            self.assertStatusOk(resp)
-            self.assertEqual(resp.json['SHA'], resp.json['gitVersions']['core']['SHA'])
+        self.assertEqual(resp.json['release'], VERSION['release'])
 
     def testSettings(self):
         users = self.users
@@ -120,10 +81,9 @@ class SystemTestCase(base.TestCase):
             self.assertStatus(resp, 403)
 
         # Only valid setting keys should be allowed
-        obj = ['oauth', 'geospatial', '_invalid_']
         resp = self.request(path='/system/setting', method='PUT', params={
             'key': 'foo',
-            'value': json.dumps(obj)
+            'value': 'bar'
         }, user=users[0])
         self.assertStatus(resp, 400)
         self.assertEqual(resp.json['field'], 'key')
@@ -141,45 +101,45 @@ class SystemTestCase(base.TestCase):
 
         # Set an invalid setting value, should fail
         resp = self.request(path='/system/setting', method='PUT', params={
-            'key': SettingKey.PLUGINS_ENABLED,
-            'value': json.dumps(obj)
+            'key': SettingKey.BANNER_COLOR,
+            'value': 'bar'
         }, user=users[0])
         self.assertStatus(resp, 400)
         self.assertEqual(resp.json['message'],
-                         'Required plugin _invalid_ does not exist.')
+                         'The banner color must be a hex color triplet')
 
         # Set a valid value
         resp = self.request(path='/system/setting', method='PUT', params={
-            'key': SettingKey.PLUGINS_ENABLED,
-            'value': json.dumps(['geospatial', 'oauth'])
+            'key': SettingKey.BANNER_COLOR,
+            'value': '#121212'
         }, user=users[0])
         self.assertStatusOk(resp)
 
         # We should now be able to retrieve it
         resp = self.request(path='/system/setting', method='GET', params={
-            'key': SettingKey.PLUGINS_ENABLED
+            'key': SettingKey.BANNER_COLOR
         }, user=users[0])
         self.assertStatusOk(resp)
-        self.assertEqual(set(resp.json), set(['geospatial', 'oauth']))
+        self.assertEqual(resp.json, '#121212')
 
         # We should now clear the setting
         resp = self.request(path='/system/setting', method='DELETE', params={
-            'key': SettingKey.PLUGINS_ENABLED
+            'key': SettingKey.BANNER_COLOR
         }, user=users[0])
         self.assertStatusOk(resp)
 
-        # Setting should now be ()
-        setting = Setting().get(SettingKey.PLUGINS_ENABLED)
-        self.assertEqual(setting, [])
+        # Setting should now be default
+        setting = Setting().get(SettingKey.BANNER_COLOR)
+        self.assertEqual(setting, SettingDefault.defaults[SettingKey.BANNER_COLOR])
 
         # We should be able to ask for a different default
-        setting = Setting().get(SettingKey.PLUGINS_ENABLED, default=None)
+        setting = Setting().get(SettingKey.BANNER_COLOR, default=None)
         self.assertEqual(setting, None)
 
         # We should also be able to put several setting using a JSON list
         resp = self.request(path='/system/setting', method='PUT', params={
             'list': json.dumps([
-                {'key': SettingKey.PLUGINS_ENABLED, 'value': json.dumps(())},
+                {'key': SettingKey.BANNER_COLOR, 'value': '#121212'},
                 {'key': SettingKey.COOKIE_LIFETIME, 'value': None},
             ])
         }, user=users[0])
@@ -188,21 +148,21 @@ class SystemTestCase(base.TestCase):
         # We can get a list as well
         resp = self.request(path='/system/setting', method='GET', params={
             'list': json.dumps([
-                SettingKey.PLUGINS_ENABLED,
+                SettingKey.BANNER_COLOR,
                 SettingKey.COOKIE_LIFETIME,
             ])
         }, user=users[0])
         self.assertStatusOk(resp)
-        self.assertEqual(resp.json[SettingKey.PLUGINS_ENABLED], [])
+        self.assertEqual(resp.json[SettingKey.BANNER_COLOR], '#121212')
 
         # We can get the default values, or ask for no value if the current
         # value is taken from the default
         resp = self.request(path='/system/setting', method='GET', params={
-            'key': SettingKey.PLUGINS_ENABLED,
+            'key': SettingKey.BANNER_COLOR,
             'default': 'default'
         }, user=users[0])
         self.assertStatusOk(resp)
-        self.assertEqual(resp.json, [])
+        self.assertEqual(resp.json, SettingDefault.defaults[SettingKey.BANNER_COLOR])
 
         resp = self.request(path='/system/setting', method='GET', params={
             'key': SettingKey.COOKIE_LIFETIME,
@@ -257,93 +217,6 @@ class SystemTestCase(base.TestCase):
                 'default': 'default'
             }, user=users[0])
             self.assertStatusOk(resp)
-
-    @mock.patch('girder.utility.plugin_utilities.logprint.exception')
-    def testPlugins(self, logprint):
-        resp = self.request(path='/system/plugins', user=self.users[0])
-        self.assertStatusOk(resp)
-        self.assertIn('all', resp.json)
-        self.assertNotIn('.gitignore', resp.json['all'])
-
-        testPluginPath = os.path.normpath(os.path.join(
-            os.path.dirname(os.path.abspath(__file__)), '..', '..', 'test', 'test_plugins'
-        ))
-        self.mockPluginDir(testPluginPath)
-
-        resp = self.request(
-            path='/system/plugins', method='PUT', user=self.users[0],
-            params={'plugins': 'not_a_json_list'})
-        self.assertStatus(resp, 400)
-        resp = self.request(
-            path='/system/plugins', method='PUT', user=self.users[0],
-            params={'plugins': '["has_deps"]'})
-        self.assertStatusOk(resp)
-        enabled = resp.json['value']
-        self.assertEqual(len(enabled), 3)
-        self.assertTrue('test_plugin' in enabled)
-        self.assertTrue('does_nothing' in enabled)
-        resp = self.request(
-            path='/system/plugins', method='PUT', user=self.users[0],
-            params={'plugins': '["has_nonexistent_deps"]'},
-            exception=True)
-        self.assertStatus(resp, 400)
-        self.assertEqual(resp.json['message'],
-                         ("Required plugin a_plugin_that_does_not_exist"
-                          " does not exist."))
-        resp = self.request(
-            path='/system/plugins', method='PUT', user=self.users[0],
-            params={'plugins': '["has_deps", "has_sub_deps"]'})
-        self.assertStatusOk(resp)
-        enabled = resp.json['value']
-        self.assertEqual(len(enabled), 6)
-        self.assertTrue('test_plugin' in enabled)
-        self.assertTrue('does_nothing' in enabled)
-        self.assertTrue('has_other_deps' in enabled)
-        self.assertTrue('plugin_yaml' in enabled)
-        self.unmockPluginDir()
-
-    @mock.patch('girder.utility.plugin_utilities.logprint.exception')
-    def testBadPlugin(self, logprint):
-        pluginRoot = os.path.normpath(os.path.join(
-            os.path.dirname(os.path.abspath(__file__)), '..', '..', 'test', 'test_plugins'
-        ))
-        self.mockPluginDir(pluginRoot)
-
-        # Enabling plugins with bad JSON/YML should still work.
-        resp = self.request(
-            path='/system/plugins', method='PUT', user=self.users[0],
-            params={'plugins': '["bad_json","bad_yaml"]'})
-        self.assertStatusOk(resp)
-        enabled = set(resp.json['value'])
-        self.assertEqual({'bad_json', 'bad_yaml'}, enabled)
-
-        resp = self.request(path='/system/plugins', user=self.users[0])
-        self.assertStatusOk(resp)
-        self.assertIn('failed', resp.json)
-        self.assertHasKeys(resp.json['failed'], ['bad_json', 'bad_yaml'])
-        self.assertIn('traceback', resp.json['failed']['bad_json'])
-        self.assertIn('traceback', resp.json['failed']['bad_yaml'])
-        # Python < 3.5 throw ValueError, >= 3.5 throw JSONDecodeError
-        self.assertTrue(
-            'ValueError:' in resp.json['failed']['bad_json']['traceback'] or
-            'JSONDecodeError:' in resp.json['failed']['bad_json']['traceback'])
-        self.assertIn('ScannerError:', resp.json['failed']['bad_yaml']['traceback'])
-
-        self.unmockPluginDir()
-
-    def testRestart(self):
-        resp = self.request(path='/system/restart', method='PUT',
-                            user=self.users[0])
-        self.assertStatusOk(resp)
-
-    def testRestartWhenNotUsingCherryPyServer(self):
-        # Restart should be disallowed
-        conf = config.getConfig()
-        conf['server']['cherrypy_server'] = False
-
-        resp = self.request(path='/system/restart', method='PUT',
-                            user=self.users[0])
-        self.assertStatus(resp, 403)
 
     def testCheck(self):
         resp = self.request(path='/token/session', method='GET')
@@ -501,16 +374,19 @@ class SystemTestCase(base.TestCase):
         del config.getConfig()['logging']
 
     def testLogLevel(self):
-        from girder import logger
+        from girder import logger, _attachFileLogHandlers
+        _attachFileLogHandlers()
         for handler in logger.handlers:
             if getattr(handler, '_girderLogHandler') == 'info':
+                handler.emit = mock.MagicMock()
                 infoEmit = handler.emit
             elif getattr(handler, '_girderLogHandler') == 'error':
+                handler.emit = mock.MagicMock()
                 errorEmit = handler.emit
         # We should be an info level
         resp = self.request(path='/system/log/level', user=self.users[0])
         self.assertStatusOk(resp)
-        self.assertEqual(resp.json, 'INFO')
+        self.assertEqual(resp.json, 'DEBUG')
         levels = [{
             'level': 'INFO',
             'debug': (0, 0),

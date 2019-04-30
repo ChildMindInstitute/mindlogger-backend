@@ -1,21 +1,13 @@
-#!/usr/bin/env python
 # -*- coding: utf-8 -*-
+from pkg_resources import DistributionNotFound, get_distribution
 
-###############################################################################
-#  Copyright Kitware Inc.
-#
-#  Licensed under the Apache License, Version 2.0 ( the "License" );
-#  you may not use this file except in compliance with the License.
-#  You may obtain a copy of the License at
-#
-#    http://www.apache.org/licenses/LICENSE-2.0
-#
-#  Unless required by applicable law or agreed to in writing, software
-#  distributed under the License is distributed on an "AS IS" BASIS,
-#  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-#  See the License for the specific language governing permissions and
-#  limitations under the License.
-###############################################################################
+try:
+    __version__ = get_distribution(__name__).version
+except DistributionNotFound:
+    # package is not installed
+    __version__ = None
+
+__license__ = 'Apache 2.0'
 
 import diskcache
 import errno
@@ -34,25 +26,12 @@ import tempfile
 from contextlib import contextmanager
 from requests_toolbelt import MultipartEncoder
 
-__version__ = '2.4.0'
-__license__ = 'Apache 2.0'
-
 DEFAULT_PAGE_LIMIT = 20000  # Number of results to fetch per request
 REQ_BUFFER_SIZE = 65536  # Chunk size when iterating a download body
 
 _safeNameRegex = re.compile(r'^[/\\]+')
 
 _logger = logging.getLogger('girder_client.lib')
-
-
-def _compareDicts(x, y):
-    """
-    Compare two dictionaries with metadata.
-
-    :param x: First metadata item.
-    :param y: Second metadata item.
-    """
-    return len(x) == len(y) == len(set(x.items()) & set(y.items()))
 
 
 def _safeMakedirs(path):
@@ -96,6 +75,13 @@ class HttpError(requests.HTTPError):
 
     def __str__(self):
         return super(HttpError, self).__str__() + '\nResponse text: ' + self.responseText
+
+
+class IncompleteResponseError(requests.RequestException):
+    def __init__(self, message, expected, received, response=None):
+        super(IncompleteResponseError, self).__init__('%s (%d of %d bytes received)' % (
+            message, received, expected
+        ), response=response)
 
 
 class _NoopProgressReporter(object):
@@ -248,6 +234,7 @@ class GirderClient(object):
         self.token = ''
         self._folderUploadCallbacks = []
         self._itemUploadCallbacks = []
+        self._serverVersion = []
         self._serverApiDescription = {}
         self.incomingMetadata = {}
         self.localMetadata = {}
@@ -370,9 +357,17 @@ class GirderClient(object):
         :type useCached: bool
         :return: The API version as a list (e.g. ``['1', '0', '0']``)
         """
-        description = self.getServerAPIDescription(useCached)
-        version = description.get('info', {}).get('version')
-        return version.split('.') if version else None
+        if not self._serverVersion or not useCached:
+            response = self.get('system/version')
+            if 'release' in response:
+                release = response['release']  # girder >= 3
+            else:
+                release = response['apiVersion']  # girder < 3
+
+            # Do not include any more than 3 version components in the patch version
+            self._serverVersion = release.split('.', 2)
+
+        return self._serverVersion
 
     def getServerAPIDescription(self, useCached=True):
         """
@@ -1211,7 +1206,8 @@ class GirderClient(object):
         :param fileId: The ID of the Girder file to download.
         :param path: The path to write the file to, or a file-like object.
         """
-        created = created or self.getFile(fileId)['created']
+        fileObj = self.getFile(fileId)
+        created = created or fileObj['created']
         cacheKey = '\n'.join([self.urlBase, fileId, created])
 
         # see if file is in local cache
@@ -1235,6 +1231,11 @@ class GirderClient(object):
                 for chunk in req.iter_content(chunk_size=REQ_BUFFER_SIZE):
                     reporter.update(len(chunk))
                     tmp.write(chunk)
+
+        size = os.stat(tmp.name).st_size
+        if size != fileObj['size']:
+            os.remove(tmp.name)
+            raise IncompleteResponseError('File %s download' % fileId, fileObj['size'], size)
 
         # save file in cache
         if self.cache is not None:
@@ -1357,8 +1358,7 @@ class GirderClient(object):
             for item in items:
                 _id = item['_id']
                 self.incomingMetadata[_id] = item
-                if (sync and _id in self.localMetadata and
-                        _compareDicts(item, self.localMetadata[_id])):
+                if sync and _id in self.localMetadata and item == self.localMetadata[_id]:
                     continue
                 self.downloadItem(item['_id'], dest, name=item['name'])
 

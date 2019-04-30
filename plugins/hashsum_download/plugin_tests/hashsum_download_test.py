@@ -1,22 +1,4 @@
-#!/usr/bin/env python
 # -*- coding: utf-8 -*-
-
-###############################################################################
-#  Copyright 2016 Kitware Inc.
-#
-#  Licensed under the Apache License, Version 2.0 ( the "License" );
-#  you may not use this file except in compliance with the License.
-#  You may obtain a copy of the License at
-#
-#    http://www.apache.org/licenses/LICENSE-2.0
-#
-#  Unless required by applicable law or agreed to in writing, software
-#  distributed under the License is distributed on an "AS IS" BASIS,
-#  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-#  See the License for the specific language governing permissions and
-#  limitations under the License.
-###############################################################################
-
 import hashlib
 import six
 import time
@@ -28,6 +10,8 @@ from girder.models.setting import Setting
 from girder.models.upload import Upload
 from girder.models.user import User
 from tests import base
+
+import girder_hashsum_download as hashsum_download
 
 
 def setUpModule():
@@ -268,7 +252,6 @@ class HashsumDownloadTest(base.TestCase):
         six.assertRegex(self, resp.json['message'], '^Read access denied')
 
     def testAutoComputeHashes(self):
-        from girder.plugins import hashsum_download
         with self.assertRaises(ValidationException):
             Setting().set(hashsum_download.PluginSettings.AUTO_COMPUTE, 'bad')
 
@@ -300,7 +283,6 @@ class HashsumDownloadTest(base.TestCase):
         hashsum_download.SUPPORTED_ALGORITHMS = old
 
     def testManualComputeHashes(self):
-        from girder.plugins import hashsum_download
         Setting().set(hashsum_download.PluginSettings.AUTO_COMPUTE, False)
         old = hashsum_download.SUPPORTED_ALGORITHMS
         hashsum_download.SUPPORTED_ALGORITHMS = {'sha512', 'sha256'}

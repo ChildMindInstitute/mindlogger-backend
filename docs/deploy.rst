@@ -16,7 +16,7 @@ server.  For example, if you have a server accepting requests at
 
 Anytime you deploy behind a proxy, Girder must be configured properly in order to serve
 content correctly.  This can be accomplished by setting a few parameters in
-your local configuration file at ``girder/conf/girder.local.cfg``.  In this
+your local configuration file (see :ref:`Configuration <configuration>`).  In this
 example, we have the following:
 
 .. code-block:: ini
@@ -28,7 +28,6 @@ example, we have the following:
 
     [server]
     api_root = "/girder/api/v1"
-    static_root = "/girder/static"
 
 .. note:: If your chosen proxy server does not add the appropriate
    ``X-Forwarded-Host`` header (containing the host used in http requests,
@@ -100,7 +99,7 @@ like `uWSGI`.
 A simple example of running Girder with ``uwsgi`` instead of CherryPy's built in HTTP server
 would be::
 
-  uwsgi --lazy --http :8080 --module girder.wsgi --check-static clients/web
+  uwsgi --lazy --http :8080 --module girder.wsgi --check-static `python -c "import sys; print(sys.prefix)"`/share/girder
 
 .. seealso::
 
@@ -117,7 +116,7 @@ information, see the
 `Docker Hub Page <https://registry.hub.docker.com/u/girder/girder/>`_. Since the
 container does not run a database, you'll need to run a command in the form: ::
 
-   $ docker run -p 8080:8080 girder/girder -d mongodb://db-server-external-ip:27017/girder
+   $ docker run -p 8080:8080 girder/girder -d mongodb://db-server-external-ip:27017/girder --host 0.0.0.0
 
 Google Container Engine
 -----------------------
@@ -264,17 +263,13 @@ that will ask various questions about your setup (see above for supported platfo
 
 Build Girder and its client-side assets locally: ::
 
-  $ pip install -e .[plugins]  # optionally build specific plugins
-  $ girder-install web --all-plugins  # optionally build specific plugins with --plugins
+  $ pip install -e .
+  $ pip install -e plugins/jobs # optionally install specific plugins
+  $ girder build
 
 .. seealso::
 
    `Building specific plugins with pip <http://girder.readthedocs.io/en/latest/installation.html#installing-extra-dependencies-with-pip>`_.
-
-.. note:: Since Girder is unable to restart and load plugins in the Beanstalk environment,
-	  plugins may be enabled/disabled but will require a restart of Beanstalk application
-	  servers to take effect. Restarting application servers can be performed from the
-	  `Environment Management Console <http://docs.aws.amazon.com/elasticbeanstalk/latest/dg/environments-console.html>`_.
 
 Create a requirements.txt for the Beanstalk application, overwriting the default Girder requirements.txt: ::
 

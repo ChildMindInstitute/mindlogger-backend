@@ -1,33 +1,15 @@
-#!/usr/bin/env python
 # -*- coding: utf-8 -*-
-
-###############################################################################
-#  Copyright Kitware Inc.
-#
-#  Licensed under the Apache License, Version 2.0 ( the "License" );
-#  you may not use this file except in compliance with the License.
-#  You may obtain a copy of the License at
-#
-#    http://www.apache.org/licenses/LICENSE-2.0
-#
-#  Unless required by applicable law or agreed to in writing, software
-#  distributed under the License is distributed on an "AS IS" BASIS,
-#  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-#  See the License for the specific language governing permissions and
-#  limitations under the License.
-###############################################################################
-
 from collections import OrderedDict
 import cherrypy
 import pymongo
 import six
 import re
 
-from ..constants import GIRDER_ROUTE_ID, GIRDER_STATIC_ROUTE_ID, SettingDefault, SettingKey
+from ..constants import GIRDER_ROUTE_ID, SettingDefault, SettingKey
 from .model_base import Model
 from girder import logprint
 from girder.exceptions import ValidationException
-from girder.utility import config, setting_utilities
+from girder.utility import config, mail_utils, setting_utilities
 from girder.utility._cache import cache
 from bson.objectid import ObjectId
 
@@ -212,22 +194,6 @@ class Setting(Model):
         return config.getConfig()['server']['mode'] == 'production'
 
     @staticmethod
-    @setting_utilities.validator(SettingKey.PLUGINS_ENABLED)
-    def validateCorePluginsEnabled(doc):
-        """
-        Ensures that the set of plugins passed in is a list of valid plugin
-        names. Removes any invalid plugin names, removes duplicates, and adds
-        all transitive dependencies to the enabled list.
-        """
-        from girder.utility import plugin_utilities
-
-        if not isinstance(doc['value'], list):
-            raise ValidationException('Plugins enabled setting must be a list.', 'value')
-
-        # Add all transitive dependencies and store in toposorted order
-        doc['value'] = list(plugin_utilities.getToposortedPlugins(doc['value']))
-
-    @staticmethod
     @setting_utilities.validator(SettingKey.ADD_TO_GROUP_POLICY)
     def validateCoreAddToGroupPolicy(doc):
         doc['value'] = doc['value'].lower()
@@ -322,14 +288,18 @@ class Setting(Model):
     @staticmethod
     @setting_utilities.validator(SettingKey.EMAIL_FROM_ADDRESS)
     def validateCoreEmailFromAddress(doc):
+        # mail_utils.validateEmailAddress cannot be used here, as RFC 5322 allows this to accept an
+        # an address which includes a display name too
         if not doc['value']:
             raise ValidationException('Email from address must not be blank.', 'value')
 
     @staticmethod
     @setting_utilities.validator(SettingKey.CONTACT_EMAIL_ADDRESS)
     def validateCoreContactEmailAddress(doc):
-        if not doc['value']:
-            raise ValidationException('Contact email address must not be blank.', 'value')
+        # This is typically used within an RFC 6068 "mailto:" scheme, so no display name is allowed
+        if not mail_utils.validateEmailAddress(doc['value']):
+            raise ValidationException(
+                'Contact email address must be a valid email address.', 'value')
 
     @staticmethod
     @setting_utilities.validator(SettingKey.EMAIL_HOST)
@@ -380,19 +350,12 @@ class Setting(Model):
     @setting_utilities.validator(SettingKey.ROUTE_TABLE)
     def validateCoreRouteTable(doc):
         nonEmptyRoutes = [route for route in doc['value'].values() if route]
-        for key in [GIRDER_ROUTE_ID, GIRDER_STATIC_ROUTE_ID]:
-            if key not in doc['value'] or not doc['value'][key]:
-                raise ValidationException('Girder and static root must be routable.')
+        if GIRDER_ROUTE_ID not in doc['value'] or not doc['value'][GIRDER_ROUTE_ID]:
+            raise ValidationException('Girder root must be routable.')
 
         for key in doc['value']:
-            if (key != GIRDER_STATIC_ROUTE_ID and doc['value'][key] and
-                    not doc['value'][key].startswith('/')):
+            if (doc['value'][key] and not doc['value'][key].startswith('/')):
                 raise ValidationException('Routes must begin with a forward slash.')
-        if doc['value'].get(GIRDER_STATIC_ROUTE_ID):
-            if (not doc['value'][GIRDER_STATIC_ROUTE_ID].startswith('/') and
-                    '://' not in doc['value'][GIRDER_STATIC_ROUTE_ID]):
-                raise ValidationException(
-                    'Static root must begin with a forward slash or contain a URL scheme.')
 
         if len(nonEmptyRoutes) > len(set(nonEmptyRoutes)):
             raise ValidationException('Routes must be unique.')
@@ -401,8 +364,7 @@ class Setting(Model):
     @setting_utilities.default(SettingKey.ROUTE_TABLE)
     def defaultCoreRouteTable():
         return {
-            GIRDER_ROUTE_ID: '/',
-            GIRDER_STATIC_ROUTE_ID: '/static'
+            GIRDER_ROUTE_ID: '/'
         }
 
     @staticmethod

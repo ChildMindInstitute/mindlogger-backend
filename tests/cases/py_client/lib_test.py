@@ -1,22 +1,4 @@
-#!/usr/bin/env python
 # -*- coding: utf-8 -*-
-
-###############################################################################
-#  Copyright Kitware Inc.
-#
-#  Licensed under the Apache License, Version 2.0 ( the "License" );
-#  you may not use this file except in compliance with the License.
-#  You may obtain a copy of the License at
-#
-#    http://www.apache.org/licenses/LICENSE-2.0
-#
-#  Unless required by applicable law or agreed to in writing, software
-#  distributed under the License is distributed on an "AS IS" BASIS,
-#  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-#  See the License for the specific language governing permissions and
-#  limitations under the License.
-###############################################################################
-
 import girder
 import girder_client
 import json
@@ -378,6 +360,28 @@ class PythonClientTestCase(base.TestCase):
                     self.client, 'getServerVersion', return_value=version.split('.')):
                 self._testUploadMethod(expected_non_multipart_hits=0, expected_multipart_hits=1)
 
+    def testGetServerVersion2(self):
+        @httmock.urlmatch(path=r'.*/system/version')
+        def mock(url, request):
+            return {
+                'status_code': 200,
+                'content-type': 'application/json',
+                'content': {'apiVersion': '2.5.0'}
+            }
+        with httmock.HTTMock(mock):
+            self.assertEqual(self.client.getServerVersion(), ['2', '5', '0'])
+
+    def testGetServerVersion3(self):
+        @httmock.urlmatch(path=r'.*/system/version')
+        def mock(url, request):
+            return {
+                'status_code': 200,
+                'content-type': 'application/json',
+                'content': {'release': '3.0.0a5.dev1'}
+            }
+        with httmock.HTTMock(mock):
+            self.assertEqual(self.client.getServerVersion(), ['3', '0', '0a5.dev1'])
+
     def _testUploadMethod(self, expected_non_multipart_hits=0, expected_multipart_hits=0):
 
         # track API calls
@@ -419,58 +423,57 @@ class PythonClientTestCase(base.TestCase):
         def processEvent(event):
             eventList.append(event.info)
 
-        events.bind('model.file.finalizeUpload.after', 'lib_test', processEvent)
+        with events.bound('model.file.finalizeUpload.after', 'lib_test', processEvent):
+            path = os.path.join(self.libTestDir, 'sub0', 'f')
+            size = os.path.getsize(path)
+            with open(path) as fh:
+                self.client.uploadFile(
+                    self.publicFolder['_id'], fh, name='test1', size=size, parentType='folder',
+                    reference='test1_reference')
+            self.assertEqual(len(eventList), 1)
+            self.assertEqual(eventList[0]['upload']['reference'], 'test1_reference')
 
-        path = os.path.join(self.libTestDir, 'sub0', 'f')
-        size = os.path.getsize(path)
-        with open(path) as fh:
-            self.client.uploadFile(
-                self.publicFolder['_id'], fh, name='test1', size=size, parentType='folder',
-                reference='test1_reference')
-        self.assertEqual(len(eventList), 1)
-        self.assertEqual(eventList[0]['upload']['reference'], 'test1_reference')
+            self.client.uploadFileToItem(str(eventList[0]['file']['itemId']), path,
+                                         reference='test2_reference')
+            self.assertEqual(len(eventList), 2)
+            self.assertEqual(eventList[1]['upload']['reference'], 'test2_reference')
+            self.assertNotEqual(eventList[0]['file']['_id'],
+                                eventList[1]['file']['_id'])
 
-        self.client.uploadFileToItem(str(eventList[0]['file']['itemId']), path,
-                                     reference='test2_reference')
-        self.assertEqual(len(eventList), 2)
-        self.assertEqual(eventList[1]['upload']['reference'], 'test2_reference')
-        self.assertNotEqual(eventList[0]['file']['_id'],
-                            eventList[1]['file']['_id'])
+            with open(path, 'ab') as fh:
+                fh.write(b'test')
 
-        with open(path, 'ab') as fh:
-            fh.write(b'test')
+            size = os.path.getsize(path)
+            self.client.uploadFileToItem(str(eventList[0]['file']['itemId']), path,
+                                         reference='test3_reference')
+            self.assertEqual(len(eventList), 3)
+            self.assertEqual(eventList[2]['upload']['reference'], 'test3_reference')
+            self.assertNotEqual(eventList[0]['file']['_id'],
+                                eventList[2]['file']['_id'])
+            self.assertEqual(eventList[1]['file']['_id'],
+                             eventList[2]['file']['_id'])
 
-        size = os.path.getsize(path)
-        self.client.uploadFileToItem(str(eventList[0]['file']['itemId']), path,
-                                     reference='test3_reference')
-        self.assertEqual(len(eventList), 3)
-        self.assertEqual(eventList[2]['upload']['reference'], 'test3_reference')
-        self.assertNotEqual(eventList[0]['file']['_id'],
-                            eventList[2]['file']['_id'])
-        self.assertEqual(eventList[1]['file']['_id'],
-                         eventList[2]['file']['_id'])
+            item = self.client.createItem(self.publicFolder['_id'], 'a second item')
+            # Test explicit MIME type setting
+            file = self.client.uploadFileToItem(item['_id'], path,
+                                                mimeType='image/jpeg')
+            self.assertEqual(file['mimeType'], 'image/jpeg')
 
-        item = self.client.createItem(self.publicFolder['_id'], 'a second item')
-        # Test explicit MIME type setting
-        file = self.client.uploadFileToItem(item['_id'], path,
-                                            mimeType='image/jpeg')
-        self.assertEqual(file['mimeType'], 'image/jpeg')
+            # Test guessing of MIME type
+            testPath = os.path.join(self.libTestDir, 'out.txt')
+            with open(testPath, 'w') as fh:
+                fh.write('test')
 
-        # Test guessing of MIME type
-        testPath = os.path.join(self.libTestDir, 'out.txt')
-        with open(testPath, 'w') as fh:
-            fh.write('test')
+            file = self.client.uploadFileToItem(item['_id'], testPath)
+            self.assertEqual(file['mimeType'], 'text/plain')
 
-        file = self.client.uploadFileToItem(item['_id'], testPath)
-        self.assertEqual(file['mimeType'], 'text/plain')
-
-        # Test uploading to a folder
-        self.client.uploadFileToFolder(
-            str(self.publicFolder['_id']), path, reference='test4_reference')
-        self.assertEqual(len(eventList), 6)
-        self.assertEqual(eventList[-1]['upload']['reference'], 'test4_reference')
-        self.assertNotEqual(eventList[2]['file']['_id'],
-                            eventList[-1]['file']['_id'])
+            # Test uploading to a folder
+            self.client.uploadFileToFolder(
+                str(self.publicFolder['_id']), path, reference='test4_reference')
+            self.assertEqual(len(eventList), 6)
+            self.assertEqual(eventList[-1]['upload']['reference'], 'test4_reference')
+            self.assertNotEqual(eventList[2]['file']['_id'],
+                                eventList[-1]['file']['_id'])
 
     def testUploadFileToFolder(self):
         filepath = os.path.join(self.libTestDir, 'sub0', 'f')
@@ -824,15 +827,14 @@ class PythonClientTestCase(base.TestCase):
         self.assertEqual(uploadedFile['name'], 'g2')
 
     def testGetServerVersion(self):
-
         # track describe API calls
         hits = []
 
-        @httmock.urlmatch(path=r'.*/describe$')
+        @httmock.urlmatch(path=r'.*/system/version$')
         def mock(url, request):
             hits.append(url)
 
-        expected_version = girder.constants.VERSION['apiVersion']
+        expected_version = girder.constants.VERSION['release']
 
         with httmock.HTTMock(mock):
             self.assertEqual(
@@ -848,7 +850,6 @@ class PythonClientTestCase(base.TestCase):
             self.assertEqual(len(hits), 2)
 
     def testGetServerAPIDescription(self):
-
         # track system/version APIi calls
         hits = []
 
@@ -860,7 +861,7 @@ class PythonClientTestCase(base.TestCase):
             self.assertEqual(description['basePath'], '/api/v1')
             self.assertEqual(description['definitions'], {})
             self.assertEqual(description['info']['title'], 'Girder REST API')
-            self.assertEqual(description['info']['version'], girder.constants.VERSION['apiVersion'])
+            self.assertEqual(description['info']['version'], girder.constants.VERSION['release'])
             self.assertGreater(len(description['paths']), 0)
 
         with httmock.HTTMock(mock):

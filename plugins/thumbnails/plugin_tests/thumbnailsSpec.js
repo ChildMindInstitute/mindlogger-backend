@@ -1,4 +1,4 @@
-girderTest.importPlugin('jobs', 'thumbnails');
+girderTest.importPlugin('thumbnails');
 girderTest.startApp();
 
 describe('Test the thumbnail creation UI.', function () {
@@ -33,7 +33,7 @@ describe('Test the thumbnail creation UI.', function () {
                    $('.g-empty-parent-message:visible').length === 1;
         }, 'descending into Public folder');
 
-        girderTest.binaryUpload('clients/web/src/assets/Girder_Mark.png');
+        girderTest.binaryUpload('girder/web_client/src/assets/Girder_Mark.png');
 
         runs(function () {
             $('.g-item-list-link:first').click();

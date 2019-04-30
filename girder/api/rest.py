@@ -1,22 +1,4 @@
-#!/usr/bin/env python
 # -*- coding: utf-8 -*-
-
-###############################################################################
-#  Copyright 2013 Kitware Inc.
-#
-#  Licensed under the Apache License, Version 2.0 ( the "License" );
-#  you may not use this file except in compliance with the License.
-#  You may obtain a copy of the License at
-#
-#    http://www.apache.org/licenses/LICENSE-2.0
-#
-#  Unless required by applicable law or agreed to in writing, software
-#  distributed under the License is distributed on an "AS IS" BASIS,
-#  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-#  See the License for the specific language governing permissions and
-#  limitations under the License.
-###############################################################################
-
 import cgi
 import cherrypy
 import collections
@@ -30,6 +12,7 @@ import sys
 import traceback
 import types
 import unicodedata
+import uuid
 
 from dogpile.cache.util import kwarg_function_key_generator
 from girder.external.mongodb_proxy import MongoProxy
@@ -337,7 +320,7 @@ def getParamJson(name, params, default=None):
         raise RestException('The %s parameter must be valid JSON.' % name)
 
 
-class loadmodel(ModelImporter):  # noqa: class name
+class loadmodel(object):  # noqa: class name
     """
     This is a decorator that can be used to load a model based on an ID param.
     For access controlled models, it will check authorization for the current
@@ -372,7 +355,7 @@ class loadmodel(ModelImporter):  # noqa: class name
 
         self.level = level
         self.force = force
-        self.modelName = model
+        self.model = model
         self.plugin = plugin
         self.exc = exc
         self.kwargs = kwargs
@@ -389,7 +372,7 @@ class loadmodel(ModelImporter):  # noqa: class name
     def __call__(self, fun):
         @six.wraps(fun)
         def wrapped(*args, **kwargs):
-            model = self.model(self.modelName, self.plugin)
+            model = ModelImporter.model(self.model, self.plugin)
 
             for raw, converted in six.viewitems(self.map):
                 id = self._getIdValue(kwargs, raw)
@@ -557,7 +540,6 @@ def _handleAccessException(e):
         cherrypy.response.status = 401
     else:
         cherrypy.response.status = 403
-        logger.exception('403 Error')
     val = {'message': e.message, 'type': 'access'}
     if e.extra is not None:
         val['extra'] = e.extra
@@ -626,6 +608,9 @@ def endpoint(fun):
     def endpointDecorator(self, *path, **params):
         _setCommonCORSHeaders()
         cherrypy.lib.caching.expires(0)
+        cherrypy.request.girderRequestUid = str(uuid.uuid4())
+        setResponseHeader('Girder-Request-Uid', cherrypy.request.girderRequestUid)
+
         try:
             val = fun(self, path, params)
 
@@ -664,7 +649,7 @@ def endpoint(fun):
             # These are unexpected failures; send a 500 status
             logger.exception('500 Error')
             cherrypy.response.status = 500
-            val = dict(type='internal')
+            val = dict(type='internal', uid=cherrypy.request.girderRequestUid)
 
             if config.getConfig()['server']['mode'] == 'production':
                 # Sanitize errors in production mode
@@ -728,16 +713,15 @@ def _setCommonCORSHeaders():
         setResponseHeader(
             'Access-Control-Expose-Headers', Setting().get(SettingKey.CORS_EXPOSE_HEADERS))
 
-        allowed_list = [o.strip() for o in allowed.split(',')]
-        key = 'Access-Control-Allow-Origin'
+        allowedList = {o.strip() for o in allowed.split(',')}
 
-        if len(allowed_list) == 1:
-            setResponseHeader(key, allowed_list[0])
-        elif origin in allowed_list:
-            setResponseHeader(key, origin)
+        if origin in allowedList:
+            setResponseHeader('Access-Control-Allow-Origin', origin)
+        elif '*' in allowedList:
+            setResponseHeader('Access-Control-Allow-Origin', '*')
 
 
-class Resource(ModelImporter):
+class Resource(object):
     """
     All REST resources should inherit from this class, which provides utilities
     for adding resources/routes to the REST API.
@@ -818,16 +802,6 @@ class Resource(ModelImporter):
             routePath = '/'.join([resource] + list(route))
             logprint.warning(
                 'WARNING: No access level specified for route %s %s' % (
-                    method, routePath))
-
-        if method.lower() not in ('head', 'get') \
-            and hasattr(handler, 'cookieAuth') \
-            and not (isinstance(handler.cookieAuth, tuple) and
-                     handler.cookieAuth[1]):
-            routePath = '/'.join([resource] + list(route))
-            logprint.warning(
-                'WARNING: Cannot allow cookie authentication for '
-                'route %s %s without specifying "force=True"' % (
                     method, routePath))
 
     def removeRoute(self, method, route, handler=None, resource=None):
@@ -935,18 +909,8 @@ class Resource(ModelImporter):
         cherrypy.request.requiredScopes = getattr(
             handler, 'requiredScopes', None) or TokenScope.USER_AUTH
 
-        if hasattr(handler, 'cookieAuth'):
-            if isinstance(handler.cookieAuth, tuple):
-                cookieAuth, forceCookie = handler.cookieAuth
-            else:
-                # previously, cookieAuth was not set by a decorator, so the
-                # legacy way must be supported too
-                cookieAuth = handler.cookieAuth
-                forceCookie = False
-            if cookieAuth:
-                if forceCookie or method in ('head', 'get'):
-                    # Allow cookies for the rest of the request
-                    setattr(cherrypy.request, 'girderAllowCookie', True)
+        if getattr(handler, 'cookieAuth', False):
+            setattr(cherrypy.request, 'girderAllowCookie', True)
 
         kwargs['params'] = params
         # Add before call for the API method. Listeners can return
@@ -1265,8 +1229,7 @@ def boundHandler(fun, ctx=None):
     specific to a Resource subclass.
 
     Plugins that add new routes to existing API resources are encouraged to use
-    this to gain access to bound convenience methods like ``self.model``,
-    ``self.boolParam``, ``self.requireParams``, etc.
+    this to gain access to bound convenience methods like ``self.getCurrentUser``, etc.
 
     :param fun: A REST endpoint.
     :type fun: callable

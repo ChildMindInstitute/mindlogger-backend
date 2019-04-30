@@ -1,24 +1,7 @@
-#!/usr/bin/env python
 # -*- coding: utf-8 -*-
-
-###############################################################################
-#  Copyright 2014 Kitware Inc.
-#
-#  Licensed under the Apache License, Version 2.0 ( the "License" );
-#  you may not use this file except in compliance with the License.
-#  You may obtain a copy of the License at
-#
-#    http://www.apache.org/licenses/LICENSE-2.0
-#
-#  Unless required by applicable law or agreed to in writing, software
-#  distributed under the License is distributed on an "AS IS" BASIS,
-#  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-#  See the License for the specific language governing permissions and
-#  limitations under the License.
-###############################################################################
-
 import cherrypy
 import os
+import re
 import six
 import smtplib
 
@@ -27,6 +10,25 @@ from mako.lookup import TemplateLookup
 from girder import events
 from girder import logger
 from girder.constants import SettingKey, PACKAGE_DIR
+
+
+def validateEmailAddress(address):
+    """
+    Determines whether a string is a valid email address.
+
+    This implements the grammar from 4.10.5.1.5 of the HTML Standard.
+
+    :param address: The string to test.
+    :type address: str
+    :rtype: bool
+    """
+    # https://html.spec.whatwg.org/multipage/input.html#valid-e-mail-address
+    return re.match(
+        r'^[a-zA-Z0-9.!#$%&\'*+/=?^_`{|}~-]+'
+        r'@[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?'
+        r'(?:\.[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)*$',
+        address
+    ) is not None
 
 
 def getEmailUrlPrefix():

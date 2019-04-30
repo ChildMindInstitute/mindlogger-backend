@@ -1,22 +1,4 @@
-#!/usr/bin/env python
 # -*- coding: utf-8 -*-
-
-###############################################################################
-#  Copyright 2013 Kitware Inc.
-#
-#  Licensed under the Apache License, Version 2.0 ( the "License" );
-#  you may not use this file except in compliance with the License.
-#  You may obtain a copy of the License at
-#
-#    http://www.apache.org/licenses/LICENSE-2.0
-#
-#  Unless required by applicable law or agreed to in writing, software
-#  distributed under the License is distributed on an "AS IS" BASIS,
-#  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-#  See the License for the specific language governing permissions and
-#  limitations under the License.
-###############################################################################
-
 import cherrypy
 import errno
 import os
@@ -32,6 +14,7 @@ from girder.models.item import Item
 from girder.models.upload import Upload
 from girder.api import access
 from girder.utility import RequestBodyStream
+from girder.utility.model_importer import ModelImporter
 from girder.utility.progress import ProgressContext
 
 
@@ -106,7 +89,7 @@ class File(Resource):
         in the designated parent.
         """
         user = self.getCurrentUser()
-        parent = self.model(parentType).load(
+        parent = ModelImporter.model(parentType).load(
             id=parentId, user=user, level=AccessType.WRITE, exc=True)
 
         if linkUrl is not None:
@@ -265,8 +248,7 @@ class File(Resource):
                 raise Exception('Failed to store upload.')
             raise
 
-    @access.cookie
-    @access.public(scope=TokenScope.DATA_READ)
+    @access.public(scope=TokenScope.DATA_READ, cookie=True)
     @autoDescribeRoute(
         Description('Download a file.')
         .notes('This endpoint also accepts the HTTP "Range" header for partial '
@@ -305,8 +287,7 @@ class File(Resource):
             file, offset, endByte=endByte, contentDisposition=contentDisposition,
             extraParameters=extraParameters)
 
-    @access.cookie
-    @access.public(scope=TokenScope.DATA_READ)
+    @access.public(scope=TokenScope.DATA_READ, cookie=True)
     @describeRoute(
         Description('Download a file.')
         .param('id', 'The ID of the file.', paramType='path')

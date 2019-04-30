@@ -1,29 +1,10 @@
-#!/usr/bin/env python
 # -*- coding: utf-8 -*-
-
-###############################################################################
-#  Copyright 2013 Kitware Inc.
-#
-#  Licensed under the Apache License, Version 2.0 ( the "License" );
-#  you may not use this file except in compliance with the License.
-#  You may obtain a copy of the License at
-#
-#    http://www.apache.org/licenses/LICENSE-2.0
-#
-#  Unless required by applicable law or agreed to in writing, software
-#  distributed under the License is distributed on an "AS IS" BASIS,
-#  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-#  See the License for the specific language governing permissions and
-#  limitations under the License.
-###############################################################################
-
 import base64
 import codecs
 import cherrypy
 import io
 import json
 import logging
-import mock
 import os
 import shutil
 import signal
@@ -35,7 +16,6 @@ import warnings
 
 from six import BytesIO
 from six.moves import urllib
-from girder.utility import model_importer, plugin_utilities
 from girder.utility._cache import cache, requestCache
 from girder.utility.server import setup as setupServer
 from girder.constants import AccessType, ROOT_DIR, SettingKey
@@ -71,6 +51,7 @@ def startServer(mock=True, mockS3=False):
     dbName = cherrypy.config['database']['uri'].split('/')[-1]
     usedDBs[dbName] = True
 
+    # By default, this passes "[]" to "plugins", disabling any installed plugins
     server = setupServer(test=True, plugins=enabledPlugins)
 
     if mock:
@@ -131,7 +112,7 @@ def dropTestDatabase(dropModels=True):
 
     if 'girder_test_' not in dbName:
         raise Exception('Expected a testing database name, but got %s' % dbName)
-    if dbName in db_connection.database_names():
+    if dbName in db_connection.list_database_names():
         if dbName not in usedDBs and 'newdb' in os.environ.get('EXTRADEBUG', '').split():
             raise Exception('Warning: database %s already exists' % dbName)
         db_connection.drop_database(dbName)
@@ -147,7 +128,7 @@ def dropGridFSDatabase(dbName):
     :param dbName: the name of the database to drop.
     """
     db_connection = getDbConnection()
-    if dbName in db_connection.database_names():
+    if dbName in db_connection.list_database_names():
         if dbName not in usedDBs and 'newdb' in os.environ.get('EXTRADEBUG', '').split():
             raise Exception('Warning: database %s already exists' % dbName)
         db_connection.drop_database(dbName)
@@ -165,26 +146,7 @@ def dropFsAssetstore(path):
         shutil.rmtree(path)
 
 
-def mockPluginDir(path):
-    """
-    Modify the location that the server will search when loading plugins. Call this prior to
-    calling startServer. Returns the original un-mocked function.
-
-    :param path: The directory in which to search for plugins.
-    """
-    oldFn = plugin_utilities.getPluginDir
-    plugin_utilities.getPluginDir = mock.Mock(return_value=path)
-    return oldFn
-
-
-def unmockPluginDir(oldFn):
-    """
-    Restore the getPluginDir function to its original un-mocked version.
-    """
-    plugin_utilities.getPluginDir = oldFn
-
-
-class TestCase(unittest.TestCase, model_importer.ModelImporter):
+class TestCase(unittest.TestCase):
     """
     Test case base class for the application. Adds helpful utilities for
     database and HTTP communication.
@@ -239,7 +201,6 @@ class TestCase(unittest.TestCase, model_importer.ModelImporter):
         settings = Setting()
         settings.set(SettingKey.SMTP_HOST, addr)
         settings.set(SettingKey.UPLOAD_MINIMUM_CHUNK_SIZE, 0)
-        settings.set(SettingKey.PLUGINS_ENABLED, enabledPlugins)
 
         if os.environ.get('GIRDER_TEST_DATABASE_CONFIG'):
             setup_database.main(os.environ['GIRDER_TEST_DATABASE_CONFIG'])
@@ -255,12 +216,6 @@ class TestCase(unittest.TestCase, model_importer.ModelImporter):
         # Invalidate cache regions which persist across tests
         cache.invalidate()
         requestCache.invalidate()
-
-    def mockPluginDir(self, path):
-        self._oldPluginDirFn = mockPluginDir(path)
-
-    def unmockPluginDir(self):
-        unmockPluginDir(self._oldPluginDirFn)
 
     def assertStatusOk(self, response):
         """

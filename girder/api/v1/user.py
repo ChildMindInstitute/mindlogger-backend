@@ -1,22 +1,4 @@
-#!/usr/bin/env python
 # -*- coding: utf-8 -*-
-
-###############################################################################
-#  Copyright 2013 Kitware Inc.
-#
-#  Licensed under the Apache License, Version 2.0 ( the "License" );
-#  you may not use this file except in compliance with the License.
-#  You may obtain a copy of the License at
-#
-#    http://www.apache.org/licenses/LICENSE-2.0
-#
-#  Unless required by applicable law or agreed to in writing, software
-#  distributed under the License is distributed on an "AS IS" BASIS,
-#  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-#  See the License for the specific language governing permissions and
-#  limitations under the License.
-###############################################################################
-
 import base64
 import cherrypy
 import datetime
@@ -70,7 +52,7 @@ class User(Resource):
         self.route('PUT', (':id', 'verification'), self.verifyEmail)
         self.route('POST', ('verification',), self.sendVerificationEmail)
 
-    @access.public
+    @access.user
     @filtermodel(model=UserModel)
     @autoDescribeRoute(
         Description('List or search for users.')
@@ -359,13 +341,12 @@ class User(Resource):
         self._model.remove(user)
         return {'message': 'Deleted user %s.' % user['login']}
 
-    @access.admin
+    @access.user
     @autoDescribeRoute(
-        Description('Get detailed information about all users.')
-        .errorResponse('You are not a system administrator.', 403)
+        Description('Get detailed information of accessible users.')
     )
     def getUsersDetails(self):
-        nUsers = self._model.find().count()
+        nUsers = self._model.findWithPermissions(user=self.getCurrentUser()).count()
         return {'nUsers': nUsers}
 
     @access.user
