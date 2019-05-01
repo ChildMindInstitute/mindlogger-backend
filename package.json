@@ -1,15 +1,15 @@
 {
-    "name": "@girder/lint",
-    "version": "2.5.0",
-    "description": "Extensible data management platform",
-    "homepage": "https://girder.readthedocs.org",
+    "name": "@girder-for-mindlogger",
+    "version": "0.2.1",
+    "description": "Backend administration console for customizing and storing data from the Mindlogger data collection platform",
+    "homepage": "https://mindlogger.info",
     "bugs": {
-        "url": "https://github.com/girder/girder/issues"
+        "url": "https://github.com/ChildMindInstitute/mindlogger-app-backend/issues"
     },
     "license": "Apache-2.0",
     "repository": {
         "type": "git",
-        "url": "https://github.com/girder/girder.git"
+        "url": "https://github.com/ChildMindInstitute/mindlogger-app-backend.git"
     },
     "engines": {
         "node": ">=8.0",

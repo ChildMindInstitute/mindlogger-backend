@@ -1,3 +1,19 @@
+.. |masterbranch| replace:: ``master`` branch
+
+*********************
+Girder for MindLogger
+*********************
+
+Version 0.2
+===========
+
+Changes
+-------
+
+* Rebase from Girder 2.5 to Girder Unreleased
+
+Below is the changelog of the upstream Girder project's `|masterbranch| <https://github.com/girder/girder/tree/master>`_
+
 =============
 Release Notes
 =============

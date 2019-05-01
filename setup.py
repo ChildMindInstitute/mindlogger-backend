@@ -33,6 +33,7 @@ installReqs = [
     'CherryPy<11.1',
     'click',
     'click-plugins',
+    'cryptography>=2.3',
     'dogpile.cache',
     'filelock',
     'funcsigs ; python_version < \'3\'',

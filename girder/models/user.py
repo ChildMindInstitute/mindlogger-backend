@@ -5,8 +5,8 @@ import re
 from passlib.totp import TOTP, TokenError
 import six
 
-from .model_base import AccessControlledModel
-from .setting import Setting
+from girder.models.model_base import AccessControlledModel
+from girder.models.setting import Setting
 from girder import events
 from girder.constants import AccessType, CoreEventHandler, SettingKey, TokenScope
 from girder.exceptions import AccessException, ValidationException
