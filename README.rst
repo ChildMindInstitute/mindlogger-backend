@@ -42,7 +42,7 @@ Installation
 
    1. kill Girder for Mindlogger,
 
-      ``<Ctrl>``+``c``
+      ``<Ctrl>`` + ``c``
 
    2. kill MongoDB, and
 
@@ -50,7 +50,7 @@ Installation
 
          fg
 
-      ``<Ctrl>``+``c``
+      ``<Ctrl>`` + ``c``
 
    3. deactivate your virtual environment.
 
