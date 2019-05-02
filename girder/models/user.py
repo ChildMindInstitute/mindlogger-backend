@@ -5,13 +5,13 @@ import re
 from passlib.totp import TOTP, TokenError
 import six
 
-from girder.models.model_base import AccessControlledModel
-from girder.models.setting import Setting
 from girder import events
 from girder.constants import AccessType, CoreEventHandler, SettingKey, TokenScope
 from girder.exceptions import AccessException, ValidationException
 from girder.utility import config, mail_utils
 from girder.utility._cache import rateLimitBuffer
+from .model_base import AccessControlledModel
+from .setting import Setting
 
 
 class User(AccessControlledModel):

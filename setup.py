@@ -43,6 +43,7 @@ installReqs = [
     'pymongo>=3.6',
     'PyYAML',
     'psutil',
+    'pyld>=1.0.4',
     'pyOpenSSL',
     'python-dateutil',
     'pytz',

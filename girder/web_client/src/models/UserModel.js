@@ -2,7 +2,7 @@ import _ from 'underscore';
 
 import { fetchCurrentUser, setCurrentToken, setCurrentUser } from '@girder/core/auth';
 import events from '@girder/core/events';
-import AccessControlledModel from 'girder/models/AccessControlledModel';
+import AccessControlledModel from '@girder/core/models/AccessControlledModel';
 import { restRequest } from '@girder/core/rest';
 import eventStream from '@girder/core/utilities/EventStream';
 
