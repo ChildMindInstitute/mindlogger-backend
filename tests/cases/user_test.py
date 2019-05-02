@@ -8,13 +8,14 @@ import six
 from .. import base
 
 from girder import events
-from girder.constants import AccessType, SettingKey, TokenScope
+from girder.constants import AccessType, TokenScope
 from girder.exceptions import ValidationException
 from girder.models.folder import Folder
 from girder.models.group import Group
 from girder.models.setting import Setting
 from girder.models.token import Token
 from girder.models.user import User
+from girder.settings import SettingKey
 
 
 def setUpModule():
@@ -789,22 +790,8 @@ class UserTestCase(base.TestCase):
         self.assertStatusOk(resp)
         itemId = resp.json['_id']
 
-        resp = self.request(
-            path='/file', method='POST', user=pvt, params={
-                'parentType': 'item',
-                'parentId': itemId,
-                'name': 'foo.txt',
-                'size': 5,
-                'mimeType': 'text/plain'
-            })
-        self.assertStatusOk(resp)
-
-        fields = [('offset', 0), ('uploadId', resp.json['_id'])]
-        files = [('chunk', 'foo.txt', 'hello')]
-        resp = self.multipartRequest(
-            path='/file/chunk', user=pvt, fields=fields, files=files)
-        self.assertStatusOk(resp)
-        self.assertEqual(resp.json['itemId'], itemId)
+        file = self.uploadFile('hi.txt', 'hello', user=pvt, parent=resp.json, parentType='item')
+        self.assertEqual(str(file['itemId']), itemId)
 
     def testUsersDetails(self):
         """

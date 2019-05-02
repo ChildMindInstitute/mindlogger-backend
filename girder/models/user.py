@@ -6,8 +6,9 @@ from passlib.totp import TOTP, TokenError
 import six
 
 from girder import events
-from girder.constants import AccessType, CoreEventHandler, SettingKey, TokenScope
+from girder.constants import AccessType, CoreEventHandler, TokenScope
 from girder.exceptions import AccessException, ValidationException
+from girder.settings import SettingKey
 from girder.utility import config, mail_utils
 from girder.utility._cache import rateLimitBuffer
 from .model_base import AccessControlledModel

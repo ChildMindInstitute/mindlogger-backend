@@ -7,7 +7,7 @@ import itertools
 from ..describe import Description, autoDescribeRoute
 from girder.api import access
 from girder.api.rest import Resource, filtermodel, setCurrentUser
-from girder.constants import AccessType, SettingKey, TokenScope, USER_ROLES
+from girder.constants import AccessType, TokenScope
 from girder.exceptions import RestException, AccessException
 from girder.models.applet import Applet as AppletModel
 from girder.models.collection import Collection as CollectionModel
@@ -16,6 +16,7 @@ from girder.models.password import Password
 from girder.models.setting import Setting
 from girder.models.token import Token
 from girder.models.user import User as UserModel
+from girder.settings import SettingKey
 from girder.utility import jsonld_expander, mail_utils
 
 
@@ -260,9 +261,6 @@ class User(Resource):
             login, password = credentials.split(':', 1)
             otpToken = cherrypy.request.headers.get('Girder-OTP')
             user = self._model.authenticate(login, password, otpToken)
-
-            if type(user) is dict and 'exception' in user:
-                return user;
 
             setCurrentUser(user)
             token = self.sendAuthTokenCookie(user)
