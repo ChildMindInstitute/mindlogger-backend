@@ -11,22 +11,22 @@ Reqirements
 Installation
 ------------
 
-1. Create and activate a virtual environment (replace ``~/girder_env`` if you want your virtual environment somewhere else). On launches after the first, only the line beginning with ``source`` is necessary.:
+1. Create and activate a virtual environment (replace ``~/girder_env`` if you want your virtual environment somewhere else). On launches after the first, only the line beginning with ``source`` is necessary. ::
 
    python3 -m venv ~/girder_env
    source ~/girder_env/bin/activate
    pip install -U pip setuptools
 
-2. Start MongoDB.:
+2. Start MongoDB. ::
 
    mongod &
 
-3. From the root of this repository, install and build Girder for Mindlogger.:
+3. From the root of this repository, install and build Girder for Mindlogger. ::
 
    pip install -e .
    girder build
 
-4. Start Girder for Mindlogger.:
+4. Start Girder for Mindlogger. ::
 
    girder serve
 
@@ -36,13 +36,13 @@ Installation
 
       ``<Ctrl>``+``c``
 
-   2. kill MongoDB, and:
+   2. kill MongoDB, and ::
 
       fg
 
       ``<Ctrl>``+``c``
 
-   3. deactivate your virtual environment.:
+   3. deactivate your virtual environment. ::
 
       deactivate
 
