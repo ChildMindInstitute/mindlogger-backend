@@ -359,14 +359,3 @@ class Resource(BaseResource):
                     elif kind == 'folder':
                         model.copyFolder(
                             doc, parent=parent, parentType=parentType, creator=user, progress=ctx)
-
-def loadJSON(url, urlType='applet'):
-    try:
-        r = requests.get(url)
-        data = r.json()
-    except:
-        raise ValidationException(
-            'Invalid ' + urlType + ' URL',
-            'url'
-        )
-    return(data)

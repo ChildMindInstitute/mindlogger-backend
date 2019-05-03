@@ -26,12 +26,12 @@ import six
 from bson.objectid import ObjectId
 from .folder import Folder
 from girder import events
-from girder.api.v1.resource import loadJSON
 from girder.constants import AccessType, SortDir
 from girder.exceptions import ValidationException, GirderException
 from girder.models.applet import Applet as AppletModel
 from girder.models.collection import Collection as CollectionModel
 from girder.utility.progress import noProgress, setResponseTimeLimit
+from girder.utility.resource import loadJSON
 from pyld import jsonld
 
 
