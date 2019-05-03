@@ -131,43 +131,46 @@ class Screen(Item):
             'meta.screen.url': url
         })
         if not screen:
-            screen = loadJSON(url, 'screen')
-            prefName=self.preferredName(screen)
             try:
-                activity = ActivityModel().load(
-                    id=activity,
-                    level=AccessType.WRITE,
-                    user=user
+                screen = loadJSON(url, 'screen')
+                prefName=self.preferredName(screen)
+                try:
+                    activity = ActivityModel().load(
+                        id=activity,
+                        level=AccessType.WRITE,
+                        user=user
+                    )
+                except:
+                    activity = FolderModel().createFolder(
+                        parent=FolderModel().createFolder(
+                            name="Activities",
+                            public=False,
+                            reuseExisting=True,
+                            parentType='user',
+                            parent=user
+                        ),
+                        name=prefName,
+                        parentType='folder',
+                        public=True,
+                        creator=user,
+                        reuseExisting=True
+                    )
+                screen = self.setMetadata(
+                    self.createScreen(
+                        name=prefName,
+                        activity=activity,
+                        creator=user,
+                        readOnly=not dynamic
+                    ),
+                    {
+                        'screen': {
+                            **screen,
+                            'url': url
+                        }
+                    }
                 )
             except:
-                activity = FolderModel().createFolder(
-                    parent=FolderModel().createFolder(
-                        name="Activities",
-                        public=False,
-                        reuseExisting=True,
-                        parentType='user',
-                        parent=user
-                    ),
-                    name=prefName,
-                    parentType='folder',
-                    public=True,
-                    creator=user,
-                    reuseExisting=True
-                )
-            screen = self.setMetadata(
-                self.createScreen(
-                    name=prefName,
-                    activity=activity,
-                    creator=user,
-                    readOnly=not dynamic
-                ),
-                {
-                    'screen': {
-                        **screen,
-                        'url': url
-                    }
-                }
-            )
+                return({})
         _id = screen.get('_id')
         screen = screen.get('meta', {}).get('screen')
         screen['_id'] = _id
