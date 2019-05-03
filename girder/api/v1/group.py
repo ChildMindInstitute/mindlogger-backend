@@ -106,6 +106,7 @@ class Group(Resource):
         group['requests'] = list(groupModel.getFullRequestList(group))
         return group
 
+    @access.user
     @filtermodel(model=GroupModel, addFields={'access'})
     @autoDescribeRoute(
         Description('Update the access control list for a group.')

@@ -33,7 +33,6 @@ docutils==0.14
 dogpile.cache==0.6.6
 filelock==3.0.4
 geojson==2.4.0
--e git+https://github.com/girder/girder.git@ea56f0bd839ce6cda2b699ceefebdc7f2b85c4dc#egg=girder
 girder-client==2.4.0
 girder-worker==0.5.0
 girder-worker-utils==0.8.3
