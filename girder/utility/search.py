@@ -56,7 +56,7 @@ def _commonSearchModeHandler(mode, query, types, user, level, limit, offset):
     The common handler for `text` and `prefix` search modes.
     """
     # Avoid circular import
-    from girder.api.v1.resource import allowedSearchTypes
+    from girder.utility.resource import allowedSearchTypes
 
     method = '%sSearch' % mode
     results = {}
