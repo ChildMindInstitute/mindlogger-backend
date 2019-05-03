@@ -32,7 +32,7 @@ setup(
     ],
     packages=find_packages(),
     install_requires=[
-        'girder>=3.0.0a1',
+        'girder',
         'mock',
         'mongomock',
         'pytest>=3.6',
