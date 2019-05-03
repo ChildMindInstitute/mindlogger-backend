@@ -140,13 +140,13 @@ class Screen(Item):
                     user=user
                 )
             except:
-                activity = self.createFolder(
+                activity = FolderModel().createFolder(
                     parent=FolderModel().createFolder(
                         name="Activities",
                         public=False,
                         reuseExisting=True,
                         parentType='user',
-                        parentId=user.get('_id')
+                        parent=user
                     ),
                     name=prefName,
                     parentType='folder',

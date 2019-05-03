@@ -1,7 +1,9 @@
 import cherrypy
+import requests
 import six
 
 from girder.api.rest import Resource
+from girder.exceptions import AccessException, ValidationException
 
 allowedSearchTypes = {'collection', 'file', 'folder', 'group', 'item', 'user'}
 
@@ -28,7 +30,7 @@ def loadJSON(url, urlType='applet'):
         data = r.json()
     except:
         raise ValidationException(
-            'Invalid ' + urlType + ' URL',
+            'Invalid ' + urlType + ' URL: ' + url,
             'url'
         )
     return(data)
