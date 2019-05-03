@@ -32,11 +32,11 @@ from .folder import Folder as FolderModel
 from .item import Item
 from .model_base import AccessControlledModel
 from girder import events
-from girder.api.v1.applet import getUserCipher
-from girder.api.v1.resource import loadJSON
 from girder.constants import AccessType
 from girder.exceptions import ValidationException, GirderException
+from girder.models.applet import getUserCipher
 from girder.utility.progress import noProgress, setResponseTimeLimit
+from girder.utility.resource import loadJSON
 
 class Screen(Item):
     def initialize(self):

@@ -26,9 +26,9 @@ from ..rest import Resource
 from girder.constants import AccessType, SortDir, TokenScope, SPECIAL_SUBJECTS,\
     USER_ROLES
 from girder.api import access
-from girder.api.v1.resource import loadJSON
+from girder.utility.resource import loadJSON
 from girder.exceptions import AccessException, ValidationException
-from girder.models.applet import Applet as AppletModel
+from girder.models.applet import Applet as AppletModel, getCanonicalUser, getUserCipher
 from girder.models.collection import Collection as CollectionModel
 from girder.models.folder import Folder as FolderModel
 from girder.models.item import Item as ItemModel
@@ -481,68 +481,6 @@ def decipherUser(appletSpecificId):
         return(cUser)
     except:
         return(None)
-
-
-def getCanonicalUser(user):
-    try:
-        cUser = [
-            u for u in [
-                decipherUser(user),
-                userByEmail(user),
-                canonicalUser(user)
-            ] if u is not None
-        ]
-        return(cUser[0] if len(cUser) else None)
-    except:
-        return(None)
-
-
-def getUserCipher(appletAssignment, user):
-    """
-    Returns an applet-specific user ID.
-
-    Parameters
-    ----------
-    appletAssignment: Mongo Folder cursor
-        Applet folder in Assignments collection
-
-    user: string
-        applet-specific ID, canonical ID or email address
-
-    Returns
-    -------
-    user: string
-        applet-specific ID
-    """
-    thisUser = Applet().getCurrentUser()
-    appletAssignments = list(FolderModel().childFolders(
-        parent=appletAssignment,
-        parentType='folder',
-        user=thisUser
-    ))
-    allCiphers = list(itertools.chain.from_iterable([
-        list(FolderModel().find(
-            query={
-                'parentId': assignment['_id'],
-                'parentCollection': 'folder',
-                'name': 'userID'
-            }
-        )) for assignment in appletAssignments
-    ])) if len(appletAssignments) else []
-    cUser = getCanonicalUser(user)
-    aUser = [
-        cipher['parentId'] for cipher in allCiphers if (
-            cipher['meta']['user']['@id']==cUser
-        ) if cipher.get('meta') and cipher['meta'].get('user') and cipher[
-            'meta'
-        ]['user'].get('@id') and cipher.get('parentId')
-    ] if cUser and len(allCiphers) else []
-    aUser = aUser[0] if len(aUser) else createCipher(
-        appletAssignment,
-        appletAssignments,
-        cUser if cUser is not None else user
-    )['_id']
-    return(str(aUser))
 
 
 def _invite(applet, user, role, rsvp, subject):

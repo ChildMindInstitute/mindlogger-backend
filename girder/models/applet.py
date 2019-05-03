@@ -99,3 +99,65 @@ class Applet(Folder):
                 raise ValidationException(
                     "Invalid Applet ID."
                 )
+
+
+def getCanonicalUser(user):
+    try:
+        cUser = [
+            u for u in [
+                decipherUser(user),
+                userByEmail(user),
+                canonicalUser(user)
+            ] if u is not None
+        ]
+        return(cUser[0] if len(cUser) else None)
+    except:
+        return(None)
+
+
+def getUserCipher(appletAssignment, user):
+    """
+    Returns an applet-specific user ID.
+
+    Parameters
+    ----------
+    appletAssignment: Mongo Folder cursor
+        Applet folder in Assignments collection
+
+    user: string
+        applet-specific ID, canonical ID or email address
+
+    Returns
+    -------
+    user: string
+        applet-specific ID
+    """
+    thisUser = Applet().getCurrentUser()
+    appletAssignments = list(FolderModel().childFolders(
+        parent=appletAssignment,
+        parentType='folder',
+        user=thisUser
+    ))
+    allCiphers = list(itertools.chain.from_iterable([
+        list(FolderModel().find(
+            query={
+                'parentId': assignment['_id'],
+                'parentCollection': 'folder',
+                'name': 'userID'
+            }
+        )) for assignment in appletAssignments
+    ])) if len(appletAssignments) else []
+    cUser = getCanonicalUser(user)
+    aUser = [
+        cipher['parentId'] for cipher in allCiphers if (
+            cipher['meta']['user']['@id']==cUser
+        ) if cipher.get('meta') and cipher['meta'].get('user') and cipher[
+            'meta'
+        ]['user'].get('@id') and cipher.get('parentId')
+    ] if cUser and len(allCiphers) else []
+    aUser = aUser[0] if len(aUser) else createCipher(
+        appletAssignment,
+        appletAssignments,
+        cUser if cUser is not None else user
+    )['_id']
+    return(str(aUser))

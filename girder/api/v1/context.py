@@ -75,19 +75,3 @@ class Context(Resource):
                 len(contextFolder) and 'meta' in contextFolder[0]
             ) else contextFolder
         )
-
-
-def listFromString(string):
-    if type(string) not in (str, list):
-        if string is None:
-            return([])
-        raise ValidationException(
-            'Not a string or list.',
-            str(string)
-        )
-    elif type(string)==list:
-        return(string)
-    elif string.startswith('['):
-        return(literal_eval(string))
-    else:
-        return([string])

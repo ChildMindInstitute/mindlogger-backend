@@ -31,7 +31,7 @@ from .folder import Folder
 from .item import Item
 from .model_base import AccessControlledModel
 from girder import events
-from girder.api.v1.applet import getUserCipher
+from girder.models.applet import getUserCipher
 from girder.constants import AccessType
 from girder.exceptions import ValidationException, GirderException
 from girder.utility.progress import noProgress, setResponseTimeLimit

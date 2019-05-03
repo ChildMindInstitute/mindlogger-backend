@@ -24,15 +24,14 @@ from girder.utility import ziputil
 from girder.constants import AccessType, TokenScope
 from girder.exceptions import AccessException, RestException, ValidationException
 from girder.api import access
-from girder.api.v1.applet import getCanonicalUser, getUserCipher
-from girder.api.v1.context import listFromString
 from girder.models.activity import Activity as ActivityModel
-from girder.models.applet import Applet as AppletModel
+from girder.models.applet import Applet as AppletModel, getCanonicalUser, getUserCipher
 from girder.models.assignment import Assignment as AssignmentModel
 from girder.models.folder import Folder
 from girder.models.response_folder import ResponseFolder as ResponseFolderModel, ResponseItem as ResponseItemModel
 from girder.models.user import User as UserModel
 from girder.models.upload import Upload as UploadModel
+from girder.utility.resource import listFromString
 import itertools
 import tzlocal
 
