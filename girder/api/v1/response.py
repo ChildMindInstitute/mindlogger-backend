@@ -174,7 +174,7 @@ class ResponseItem(Resource):
                 informant=informant
             )
         allResponses = [
-            r for r in allResponses if any(
+            r for r in allResponses if isinstance(r, dict) and any(
                 [
                     str(r.get(
                         'meta',
@@ -203,10 +203,7 @@ class ResponseItem(Resource):
                             {}
                         ),
                         dict
-                    ) else r.get('meta') if isinstance(
-                        r,
-                        dict
-                    ) else r)==str(applet) for applet in applets
+                    ) else r.get('meta'))==str(applet) for applet in applets
                 ]
             )
         ] if len(applets) else allResponses
