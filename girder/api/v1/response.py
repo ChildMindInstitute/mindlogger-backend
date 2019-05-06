@@ -197,7 +197,16 @@ class ResponseItem(Resource):
                     ).get(
                         'applet',
                         {}
-                    ))==str(applet) for applet in applets
+                    ) if isinstance(
+                        r.get(
+                            'meta',
+                            {}
+                        ),
+                        dict
+                    ) else r.get('meta') if isinstance(
+                        r,
+                        dict
+                    ) else r)==str(applet) for applet in applets
                 ]
             )
         ] if len(applets) else allResponses
