@@ -805,11 +805,9 @@ class Resource(object):
                 'WARNING: No access level specified for route %s %s' % (
                     method, routePath))
 
-    def removeRoute(self, method, route, handler=None, resource=None):
+    def removeRoute(self, method, route, resource=None):
         """
         Remove a route from the handler and documentation.
-
-        .. deprecated :: 2.3.0
 
         :param method: The HTTP method, e.g. 'GET', 'POST', 'PUT'
         :type method: str
@@ -817,9 +815,6 @@ class Resource(object):
                       resource root. Elements of this list starting with ':'
                       are assumed to be wildcards.
         :type route: tuple[str]
-        :param handler: The method called for the route; this is necessary to
-                        remove the documentation.
-        :type handler: Function
         :param resource: the name of the resource at the root of this route.
         """
         self._ensureInit()
@@ -830,6 +825,8 @@ class Resource(object):
                 handler = registeredHandler
                 del nLengthRoutes[i]
                 break
+        else:
+            raise GirderException('No such route: %s %s' % (method, '/'.join(route)))
 
         # Remove the api doc
         if resource is None:
@@ -1158,8 +1155,7 @@ class Resource(object):
         cherrypy.lib.caching.expires(0)
 
         allowHeaders = Setting().get(SettingKey.CORS_ALLOW_HEADERS)
-        allowMethods = Setting().get(SettingKey.CORS_ALLOW_METHODS)\
-            or 'GET, POST, PUT, HEAD, DELETE'
+        allowMethods = Setting().get(SettingKey.CORS_ALLOW_METHODS)
 
         setResponseHeader('Access-Control-Allow-Methods', allowMethods)
         setResponseHeader('Access-Control-Allow-Headers', allowHeaders)
