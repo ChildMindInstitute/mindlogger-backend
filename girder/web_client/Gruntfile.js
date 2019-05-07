@@ -37,7 +37,7 @@ module.exports = function (grunt) {
         pkg: grunt.file.readJSON('package.json'),
         staticDir: '.',
         builtPath: path.resolve(grunt.option('static-path') || '.', 'built'),
-        staticPublicPath: grunt.option('static-public-path') || 'static',
+        staticPublicPath: grunt.option('static-public-path') || '/static',
         default: {}
     });
 
