@@ -69,7 +69,7 @@ def configureServer(test=False, plugins=None, curConfig=None):
         curConfig['server']['mode'] = 'testing'
 
     mode = curConfig['server']['mode'].lower()
-    logprint.info('Running in mode: ' + mode)
+    logprint.debug('Running in mode: ' + mode)
     cherrypy.config['engine.autoreload.on'] = mode == 'development'
 
     _setupCache()
