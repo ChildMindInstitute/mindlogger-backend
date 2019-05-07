@@ -23,7 +23,7 @@ _GIRDER_BUILD_ASSETS_PATH = os.path.realpath(
         'web_client'
     )
 ) if not os.path.exists(
-    '/opt/python/current/app/girder/web_client'
+    '/opt/python/current/app/girder'
 ) else '/opt/python/current/app/girder/web_client'
 
 
