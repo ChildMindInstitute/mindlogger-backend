@@ -1,6 +1,6 @@
 {
-    "name": "@girder",
-    "version": "0.2.1",
+    "name": "@girder/lint",
+    "version": "2.5.0",
     "description": "Backend administration console for customizing and storing data from the Mindlogger data collection platform",
     "homepage": "https://mindlogger.info",
     "bugs": {
