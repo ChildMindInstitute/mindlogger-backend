@@ -8,7 +8,7 @@ import sys
 
 import click
 import six
-
+import girder
 from girder.constants import STATIC_ROOT_DIR
 from girder.plugin import allPlugins, getPlugin
 from girder.utility import server
