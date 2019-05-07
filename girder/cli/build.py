@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 import json
 import os
+from girder import logprint
 from pkg_resources import resource_filename
 from subprocess import check_call
 import shutil
@@ -77,6 +78,7 @@ def main(dev, watch, watch_plugin, npm, reinstall):
         '--static-public-path=%s' % server.getStaticPublicPath(),
         quiet
     ]
+    logprint.info(buildCommand)
     if watch:
         buildCommand.append('--watch')
     if watch_plugin:
