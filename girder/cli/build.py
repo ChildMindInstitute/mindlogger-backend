@@ -103,7 +103,10 @@ def _generatePackageJSON(staging, source):
     with open(source, 'r') as f:
         sourceJSON = json.load(f)
     deps = sourceJSON['dependencies']
-    deps['@girder/core'] = 'file:%s' % '/opt/python/current/app/girder/web_client/src'
+    deps['@girder/core'] = 'file:%s' % os.path.join(
+        os.path.dirname(source),
+        'src'
+    )
     plugins = _collectPluginDependencies()
     deps.update(plugins)
     sourceJSON['girder'] = {
