@@ -17,7 +17,12 @@ from girder.utility import server
 if not six.PY3:
     import shutilwhich  # noqa
 
-_GIRDER_BUILD_ASSETS_PATH = '/opt/python/current/app/girder/web_client'
+_GIRDER_BUILD_ASSETS_PATH = os.path.realpath(
+    resource_filename(
+        'girder',
+        'web_client'
+    )
+)
 
 
 @click.command(name='build', help='Build web client static assets.')
@@ -45,7 +50,13 @@ def main(dev, watch, watch_plugin, npm, reinstall):
         reinstall = False
 
     staging = _GIRDER_BUILD_ASSETS_PATH
-    _generatePackageJSON(staging, os.path.join(_GIRDER_BUILD_ASSETS_PATH, 'package.json.template'))
+    _generatePackageJSON(
+        staging,
+        os.path.join(
+            _GIRDER_BUILD_ASSETS_PATH,
+            'package.json.template'
+        )
+    )
 
     if not os.path.isdir(os.path.join(staging, 'node_modules')) or reinstall:
         # The autogeneration of package.json breaks how package-lock.json is
@@ -92,7 +103,7 @@ def _generatePackageJSON(staging, source):
     with open(source, 'r') as f:
         sourceJSON = json.load(f)
     deps = sourceJSON['dependencies']
-    deps['@girder/core'] = 'file:%s' % os.path.join(os.path.dirname(source), 'src')
+    deps['@girder/core'] = 'file:%s' % '/opt/python/current/app/girder/web_client/src'
     plugins = _collectPluginDependencies()
     deps.update(plugins)
     sourceJSON['girder'] = {
