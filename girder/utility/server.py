@@ -159,7 +159,7 @@ def setup(test=False, plugins=None, curConfig=None):
         girderWebroot, str(routeTable[constants.GIRDER_ROUTE_ID]), appconf)
 
     # Mount static files
-    cherrypy.tree.mount(None, '/static',
+    cherrypy.tree.mount(None, 'static',
                         {'/':
                          {'tools.staticdir.on': True,
                           'tools.staticdir.dir': os.path.join(constants.STATIC_ROOT_DIR),

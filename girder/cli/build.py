@@ -8,7 +8,7 @@ import sys
 
 import click
 import six
-import girder
+
 from girder.constants import STATIC_ROOT_DIR
 from girder.plugin import allPlugins, getPlugin
 from girder.utility import server
@@ -77,7 +77,6 @@ def main(dev, watch, watch_plugin, npm, reinstall):
         '--static-public-path=%s' % server.getStaticPublicPath(),
         quiet
     ]
-    girder.logprint(buildCommand)
     if watch:
         buildCommand.append('--watch')
     if watch_plugin:
