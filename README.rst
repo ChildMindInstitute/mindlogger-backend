@@ -6,6 +6,7 @@ Reqirements
 
 - MongoDB >= 3.6
 - Python >= 3.5
+  - CherryPy <=11.0.0
 - Node >= 8.0
 
 Installation
