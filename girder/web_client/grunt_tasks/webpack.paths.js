@@ -1,7 +1,7 @@
 var path = require('path');
 
 module.exports = {
-    node_modules: path.resolve(__dirname, 'node_modules'),
+    node_modules: path.resolve('node_modules'),
     plugins: path.resolve(__dirname, 'plugins'),
-    static: path.resolve(__dirname, 'static')
+    static: path.resolve('static')
 };
