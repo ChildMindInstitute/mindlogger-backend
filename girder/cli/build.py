@@ -77,6 +77,7 @@ def main(dev, watch, watch_plugin, npm, reinstall):
         '--static-public-path=%s' % server.getStaticPublicPath(),
         quiet
     ]
+    girder.logprint(buildCommand)
     if watch:
         buildCommand.append('--watch')
     if watch_plugin:
