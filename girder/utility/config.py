@@ -70,6 +70,5 @@ def loadConfig():
 def getConfig():
     if 'database' not in cherrypy.config:
         loadConfig()
-    # When in Sphinx, cherrypy may be mocked and returning None
-    girder.logprint(str(cherrypy.config))
+    # When in Sphinx, cherrypy may be mocked and returning None\
     return cherrypy.config or {}
