@@ -62,7 +62,12 @@ def main(dev, watch, watch_plugin, npm, reinstall):
     quiet = '--no-progress=false' if sys.stdout.isatty() else '--no-progress=true'
     buildCommand = [
         npm, 'run', 'build', '--',
-        '--static-path=%s' % STATIC_ROOT_DIR,
+        '--static-path=%s' % os.path.join(
+            os.getcwd(),
+            'girder',
+            'web_client',
+            'static'
+        ),
         '--static-public-path=%s' % server.getStaticPublicPath(),
         quiet
     ]
