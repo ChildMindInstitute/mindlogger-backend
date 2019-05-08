@@ -69,7 +69,7 @@ def configureServer(test=False, plugins=None, curConfig=None):
         curConfig['server']['mode'] = 'testing'
 
     mode = curConfig['server']['mode'].lower()
-    logprint.info('Running in mode: ' + mode)
+    logprint.debug('Running in mode: ' + mode)
     cherrypy.config['engine.autoreload.on'] = mode == 'development'
 
     _setupCache()
@@ -157,9 +157,9 @@ def setup(test=False, plugins=None, curConfig=None):
     # Mount Girder
     application = cherrypy.tree.mount(
         girderWebroot, str(routeTable[constants.GIRDER_ROUTE_ID]), appconf)
-
+    logprint.info(str(appconf))
     # Mount static files
-    cherrypy.tree.mount(None, '/static',
+    cherrypy.tree.mount(None, 'static',
                         {'/':
                          {'tools.staticdir.on': True,
                           'tools.staticdir.dir': os.path.join(constants.STATIC_ROOT_DIR),

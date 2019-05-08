@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 import json
 import os
+from girder import logprint
 from pkg_resources import resource_filename
 from subprocess import check_call
 import shutil
@@ -17,7 +18,12 @@ from girder.utility import server
 if not six.PY3:
     import shutilwhich  # noqa
 
-_GIRDER_BUILD_ASSETS_PATH = os.path.join(resource_filename('girder', 'web_client'))
+_GIRDER_BUILD_ASSETS_PATH = os.path.realpath(
+    resource_filename(
+        'girder',
+        'web_client'
+    )
+)
 
 
 @click.command(name='build', help='Build web client static assets.')
@@ -45,7 +51,13 @@ def main(dev, watch, watch_plugin, npm, reinstall):
         reinstall = False
 
     staging = _GIRDER_BUILD_ASSETS_PATH
-    _generatePackageJSON(staging, os.path.join(_GIRDER_BUILD_ASSETS_PATH, 'package.json.template'))
+    _generatePackageJSON(
+        staging,
+        os.path.join(
+            _GIRDER_BUILD_ASSETS_PATH,
+            'package.json.template'
+        )
+    )
 
     if not os.path.isdir(os.path.join(staging, 'node_modules')) or reinstall:
         # The autogeneration of package.json breaks how package-lock.json is
@@ -66,6 +78,7 @@ def main(dev, watch, watch_plugin, npm, reinstall):
         '--static-public-path=%s' % server.getStaticPublicPath(),
         quiet
     ]
+    logprint.debug(str(buildCommand))
     if watch:
         buildCommand.append('--watch')
     if watch_plugin:
