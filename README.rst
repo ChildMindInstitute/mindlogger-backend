@@ -59,6 +59,14 @@ Installation
 
       deactivate
 
+Deployment
+----------
+
+Elastic Beanstalk
+#################
+
+If you're updating an existing Girder 2.x instance of Elastic Beanstalk, be sure to change your static files path from ``clients/web/static`` to ``girder/web_client/static/``. 
+
 
 Data Structure
 --------------
