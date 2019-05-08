@@ -1,35 +1,18 @@
-#!/usr/bin/env python
 # -*- coding: utf-8 -*-
-
-###############################################################################
-#  Copyright 2013 Kitware Inc.
-#
-#  Licensed under the Apache License, Version 2.0 ( the "License" );
-#  you may not use this file except in compliance with the License.
-#  You may obtain a copy of the License at
-#
-#    http://www.apache.org/licenses/LICENSE-2.0
-#
-#  Unless required by applicable law or agreed to in writing, software
-#  distributed under the License is distributed on an "AS IS" BASIS,
-#  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-#  See the License for the specific language governing permissions and
-#  limitations under the License.
-###############################################################################
-
 import datetime
 import os
 import re
 from passlib.totp import TOTP, TokenError
 import six
 
-from .model_base import AccessControlledModel
-from .setting import Setting
 from girder import events
-from girder.constants import AccessType, CoreEventHandler, SettingKey, TokenScope
+from girder.constants import AccessType, CoreEventHandler, TokenScope
 from girder.exceptions import AccessException, ValidationException
+from girder.settings import SettingKey
 from girder.utility import config, mail_utils
 from girder.utility._cache import rateLimitBuffer
+from .model_base import AccessControlledModel
+from .setting import Setting
 
 
 class User(AccessControlledModel):
@@ -105,7 +88,7 @@ class User(AccessControlledModel):
             raise ValidationException(
                 cur_config['users']['login_description'], 'login')
 
-        if not re.match(cur_config['users']['email_regex'], doc['email']):
+        if not mail_utils.validateEmailAddress(doc['email']):
             raise ValidationException('Invalid email address.', 'email')
 
         # Ensure unique logins
@@ -436,8 +419,8 @@ class User(AccessControlledModel):
         yet verified their email address.
         """
         from .setting import Setting
-        return (not user['emailVerified']) and Setting().get(
-            SettingKey.EMAIL_VERIFICATION) == 'required'
+        return (not user['emailVerified']) and \
+            Setting().get(SettingKey.EMAIL_VERIFICATION) == 'required'
 
     def adminApprovalRequired(self, user):
         """
@@ -507,7 +490,7 @@ class User(AccessControlledModel):
         from .folder import Folder
         from .setting import Setting
 
-        if Setting().get(SettingKey.USER_DEFAULT_FOLDERS, 'public_private') == 'public_private':
+        if Setting().get(SettingKey.USER_DEFAULT_FOLDERS) == 'public_private':
             user = event.info
 
             publicFolder = Folder().createFolder(

@@ -32,11 +32,11 @@ from .folder import Folder as FolderModel
 from .item import Item
 from .model_base import AccessControlledModel
 from girder import events
-from girder.api.v1.applet import getUserCipher
-from girder.api.v1.resource import loadJSON
 from girder.constants import AccessType
 from girder.exceptions import ValidationException, GirderException
+from girder.models.applet import getUserCipher
 from girder.utility.progress import noProgress, setResponseTimeLimit
+from girder.utility.resource import loadJSON
 
 class Screen(Item):
     def initialize(self):
@@ -131,43 +131,46 @@ class Screen(Item):
             'meta.screen.url': url
         })
         if not screen:
-            screen = loadJSON(url, 'screen')
-            prefName=self.preferredName(screen)
             try:
-                activity = ActivityModel().load(
-                    id=activity,
-                    level=AccessType.WRITE,
-                    user=user
+                screen = loadJSON(url, 'screen')
+                prefName=self.preferredName(screen)
+                try:
+                    activity = ActivityModel().load(
+                        id=activity,
+                        level=AccessType.WRITE,
+                        user=user
+                    )
+                except:
+                    activity = FolderModel().createFolder(
+                        parent=FolderModel().createFolder(
+                            name="Activities",
+                            public=False,
+                            reuseExisting=True,
+                            parentType='user',
+                            parent=user
+                        ),
+                        name=prefName,
+                        parentType='folder',
+                        public=True,
+                        creator=user,
+                        reuseExisting=True
+                    )
+                screen = self.setMetadata(
+                    self.createScreen(
+                        name=prefName,
+                        activity=activity,
+                        creator=user,
+                        readOnly=not dynamic
+                    ),
+                    {
+                        'screen': {
+                            **screen,
+                            'url': url
+                        }
+                    }
                 )
             except:
-                activity = self.createFolder(
-                    parent=FolderModel().createFolder(
-                        name="Activities",
-                        public=False,
-                        reuseExisting=True,
-                        parentType='user',
-                        parentId=user.get('_id')
-                    ),
-                    name=prefName,
-                    parentType='folder',
-                    public=True,
-                    creator=user,
-                    reuseExisting=True
-                )
-            screen = self.setMetadata(
-                self.createScreen(
-                    name=prefName,
-                    activity=activity,
-                    creator=user,
-                    readOnly=not dynamic
-                ),
-                {
-                    'screen': {
-                        **screen,
-                        'url': url
-                    }
-                }
-            )
+                return({})
         _id = screen.get('_id')
         screen = screen.get('meta', {}).get('screen')
         screen['_id'] = _id

@@ -1,7 +1,39 @@
 import cherrypy
+import requests
 import six
 
 from girder.api.rest import Resource
+from girder.exceptions import AccessException, ValidationException
+
+allowedSearchTypes = {'collection', 'file', 'folder', 'group', 'item', 'user'}
+
+
+def listFromString(string):
+    if type(string) not in (str, list):
+        if string is None:
+            return([])
+        raise ValidationException(
+            'Not a string or list.',
+            str(string)
+        )
+    elif type(string)==list:
+        return(string)
+    elif string.startswith('['):
+        return(literal_eval(string))
+    else:
+        return([string])
+
+
+def loadJSON(url, urlType='applet'):
+    try:
+        r = requests.get(url)
+        data = r.json()
+    except:
+        raise ValidationException(
+            'Invalid ' + urlType + ' URL: ' + url,
+            'url'
+        )
+    return(data)
 
 
 def _walkTree(node, path=()):

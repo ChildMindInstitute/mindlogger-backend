@@ -1,6 +1,73 @@
 Girder for Mindlogger
 ====================
 
+Reqirements
+-----------
+
+- MongoDB >= 3.6
+- Python >= 3.5
+  - CherryPy <=11.0.0
+- Node >= 8.0
+
+Installation
+------------
+
+1. Create and activate a virtual environment (replace ``~/girder_env`` if you want your virtual environment somewhere else). On launches after the first, only the line beginning with ``source`` is necessary.
+
+   .. code-block:: shell
+
+      python3 -m venv ~/girder_env
+      source ~/girder_env/bin/activate
+      pip install -U pip setuptools
+
+2. Start MongoDB.
+
+   .. code-block:: shell
+
+      mongod &
+
+3. From the root of this repository, install and build Girder for Mindlogger.
+
+   .. code-block:: shell
+
+      pip install -e .
+      girder build
+
+4. Start Girder for Mindlogger.
+
+   .. code-block:: shell
+
+      girder serve
+
+5. When you're finished
+
+   1. kill Girder for Mindlogger,
+
+      ``<Ctrl>`` + ``c``
+
+   2. kill MongoDB, and
+
+      .. code-block:: shell
+
+         fg
+
+      ``<Ctrl>`` + ``c``
+
+   3. deactivate your virtual environment.
+
+   .. code-block:: shell
+
+      deactivate
+
+Deployment
+----------
+
+Elastic Beanstalk
+#################
+
+If you're updating an existing Girder 2.x instance of Elastic Beanstalk, be sure to change your static files path from ``clients/web/static`` to ``girder/web_client/static/``. 
+
+
 Data Structure
 --------------
 
@@ -81,6 +148,8 @@ Links
 
 **Data Management Platform**
 
+This source code is a customization of `:octocat: girder/girder <https://github.com/girder/girder/tree/292690e7e4c269ed3b34757ba86ddfa2713f9f16>`_
+
 Girder is a free and open source web-based data management platform developed by
 `Kitware <https://kitware.com>`_ as part of the `Resonant <http://resonant.kitware.com>`_
 data and analytics ecosystem.
@@ -95,7 +164,7 @@ For questions, comments, or to get in touch with the maintainers, head to our `D
 
 We'd love for you to `contribute to Girder <CONTRIBUTING.rst>`_.
 
-.. |logo| image:: clients/web/static/img/Girder_Favicon.png
+.. |logo| image:: girder/web_client/static/img/Girder_Favicon.png
 
 .. |kitware-logo| image:: https://www.kitware.com/img/small_logo_over.png
     :target: https://kitware.com
