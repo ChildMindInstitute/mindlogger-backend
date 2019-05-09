@@ -185,7 +185,7 @@ module.exports = function (grunt) {
                         allChunks: true
                     }),
                     new CopyWebpackPlugin([{
-                        from: 'static/img/Girder_Favicon.png',
+                        from: 'static/img/ML_Favicon.png',
                         to: grunt.config.get('builtPath'),
                         toType: 'dir'
                     }])

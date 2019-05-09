@@ -62,14 +62,14 @@ def testWebRootProperlyHandlesCustomStaticPublicPath(server):
     assertStatusOk(resp)
     body = getResponseBody(resp)
 
-    assert 'href="http://my-cdn-url.com/static/built/Girder_Favicon.png"' in body
+    assert 'href="http://my-cdn-url.com/static/built/ML_Favicon.png"' in body
 
     # Same assertion should hold true for Swagger
     resp = server.request(path='/', method='GET', isJson=False)
     assertStatusOk(resp)
     body = getResponseBody(resp)
 
-    assert 'href="http://my-cdn-url.com/static/built/Girder_Favicon.png"' in body
+    assert 'href="http://my-cdn-url.com/static/built/ML_Favicon.png"' in body
 
     cherrypy.config['server']['static_public_path'] = '/static'
 
