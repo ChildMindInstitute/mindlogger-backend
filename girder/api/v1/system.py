@@ -25,6 +25,7 @@ from girder.utility import config, system
 from girder.utility.progress import ProgressContext
 from ..describe import Description, autoDescribeRoute
 from ..rest import Resource
+import skin
 
 ModuleStartTime = datetime.datetime.utcnow()
 LOG_BUF_SIZE = 65536
@@ -53,6 +54,7 @@ class System(Resource):
         self.route('PUT', ('log', 'level'), self.setLogLevel)
         self.route('GET', ('setting', 'collection_creation_policy', 'access'),
                    self.getCollectionCreationPolicyAccess)
+        self.route('GET', ('skin'), self.getSkin)
 
     @access.admin
     @autoDescribeRoute(
@@ -163,6 +165,17 @@ class System(Resource):
         version = dict(**VERSION)
         version['serverStartDate'] = ModuleStartTime
         return version
+
+    @access.public
+    @autoDescribeRoute(
+        Description('Get the application skinning information for this server.')
+    )
+    def getSkin(self):
+        skinDict = {}
+        skinDict['name'] = skin.NAME
+        skinDict['about'] = skin.ABOUT
+        skinDict['colors'] = {'primary': skin.PRIMARY_COLOR, 'secondary': skin.SECONDARY_COLOR}
+        return skinDict
 
     @access.admin
     @autoDescribeRoute(
