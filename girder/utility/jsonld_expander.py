@@ -21,17 +21,18 @@ def expand(obj, keepUndefined=False):
     newObj = newObj[0] if (
         isinstance(newObj, list) and len(newObj)==1
     ) else newObj
-    if keepUndefined:
-        if isinstance(newObj, dict):
-            und = {uKey: obj[uKey] for uKey in [
-                    k for k in list(obj.keys()) if k not in keyExpansion(
-                        list(newObj.keys())
-                    )
-            ]}
-            return(und)
-        else:
-            newObj = [expand(n, keepUndefined) for n in newObj]
-            return(newObj)
+    if isinstance(
+        newObj,
+        dict
+    ):
+        newObj.update({
+            k: obj[k] for k in obj.keys() if k not in keyExpansion(
+                list(newObj.keys())
+            )
+        })
+        return(newObj)
+    else:
+        return([expand(n, keepUndefined) for n in newObj])
 
 
 def expand_value_constraints(original_items_expanded):
@@ -55,7 +56,7 @@ def expand_value_constraints(original_items_expanded):
     return(items_expanded)
 
 
-def formatLdObject(obj, mesoPrefix='folder', user=None):
+def formatLdObject(obj, mesoPrefix='folder', user=None, keepUndefined=False):
     """
     Function to take a compacted JSON-LD Object within a Girder for Mindlogger
     database and return an exapanded JSON-LD Object including an _id.
@@ -77,7 +78,7 @@ def formatLdObject(obj, mesoPrefix='folder', user=None):
         raise TypeError("JSON-LD must be an Object or Array.")
     newObj = obj.get('meta', obj)
     newObj = newObj.get(mesoPrefix, newObj)
-    newObj = expand(newObj, keepUndefined=True)
+    newObj = expand(newObj, keepUndefined=keepUndefined)
     if type(newObj)==list and len(newObj)==1:
         newObj = newObj[0]
     if type(newObj)==dict:
@@ -158,5 +159,10 @@ def formatLdObject(obj, mesoPrefix='folder', user=None):
 
 def keyExpansion(keys):
     return(list(set([
-        k.split(delimiter)[-1] for k in keys for delimiter in [':', '/']
+        k.split(delimiter)[-1] for k in keys for delimiter in [
+            ':',
+            '/'
+        ] if delimiter in k
+    ] + [
+        k for k in keys if (':' not in k and '/' not in k)
     ])))
