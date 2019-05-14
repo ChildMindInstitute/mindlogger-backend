@@ -21,11 +21,13 @@ import itertools
 import re
 import uuid
 import requests
+from dictdiffer import diff
 from ..describe import Description, autoDescribeRoute
 from ..rest import Resource
 from girder.constants import AccessType, SortDir, TokenScope, SPECIAL_SUBJECTS,\
     USER_ROLES
 from girder.api import access
+from girder.api.rest import getApiUrl
 from girder.utility.resource import loadJSON
 from girder.exceptions import AccessException, ValidationException
 from girder.models.applet import Applet as AppletModel, getCanonicalUser, getUserCipher
@@ -75,16 +77,27 @@ class Applet(Resource):
         .errorResponse('Read access was denied for this applet.', 403)
     )
     def getAppletFromURL(self, url):
-        applet = AppletModel().findOne({
+        cachedApplet = AppletModel().findOne({
             'meta.applet.url': url
         })
         thisUser=self.getCurrentUser()
-        if applet:
-            _id = applet.get('_id')
-            applet = applet.get('meta', {}).get('applet')
-            applet['_id'] = _id
+        if cachedApplet:
+            cachedAppletid = str(cachedApplet.get('_id'))
+            cachedApplet = cachedApplet.get('meta', {}).get('applet')
         else:
-            applet = loadJSON(url, 'applet')
+            cachedAppletid = None
+            cachedApplet = {}
+        applet = loadJSON(url, 'applet')
+        applet_diff = list(diff(cachedApplet, applet))
+        if len(applet_diff):
+            if cachedAppletid:
+                applet['schema:isBasedOn'] = {
+                    '@id': '/'.join([
+                        getApiUrl(),
+                        'applet',
+                        cachedAppletid
+                    ])
+                }
         return(jsonld_expander.formatLdObject(applet, 'applet', thisUser))
 
 

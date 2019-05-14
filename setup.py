@@ -34,6 +34,7 @@ installReqs = [
     'click',
     'click-plugins',
     'cryptography>=2.3',
+    'dictdiffer',
     'dogpile.cache',
     'filelock',
     'funcsigs ; python_version < \'3\'',
