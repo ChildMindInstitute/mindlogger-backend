@@ -286,7 +286,7 @@ def getUserCipher(appletAssignment, user):
     user: string
         applet-specific ID
     """
-    if not isinstance(user, string):
+    if not isinstance(user, str):
         return([getUserCipher(appletAssignment, u) for u in list(user)])
     thisUser = getCurrentUser()
     appletAssignments = list(FolderModel().childFolders(

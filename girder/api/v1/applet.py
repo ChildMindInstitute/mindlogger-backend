@@ -182,9 +182,9 @@ class Applet(Resource):
                 'role'
             )
         thisUser = self.getCurrentUser()
-        applet = AppletModel().load(
-            updateFromURL(url, 'applet', thisUser).get(
-                '_applet',
+        thisApplet = AppletModel().load(
+            jsonld_expander.updateFromURL(url, 'applet', thisUser).get(
+                'applet',
                 {}
             ).get('_id', '').split('applet/')[-1],
             level=AccessType.READ,
