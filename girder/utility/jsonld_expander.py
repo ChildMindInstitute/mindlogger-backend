@@ -1,9 +1,24 @@
-from copy import deepcopy
-from girder.models.activity import Activity as ActivityModel
-from girder.models.screen import Screen as ScreenModel
-from pyld import jsonld
 import json
+from copy import deepcopy
+from dictdiffer import diff
+from girder.api.rest import getApiUrl
+from girder.constants import AccessType
+from girder.exceptions import AccessException
+from girder.models.activity import Activity as ActivityModel
+from girder.models.collection import Collection as CollectionModel
+from girder.models.folder import Folder as FolderModel
+from girder.models.item import Item as ItemModel
+from girder.models.screen import Screen as ScreenModel
+from girder.models.user import User as UserModel
+from .resource import loadJSON
+from pyld import jsonld
 
+MODELS = {
+    'collection': CollectionModel(),
+    'folder': FolderModel(),
+    'item': ItemModel(),
+    'user': UserModel()
+}
 
 def check_for_unexpanded_value_constraints(item_exp):
     vc = item_exp[0]
@@ -135,3 +150,128 @@ def formatLdObject(obj, mesoPrefix='folder', user=None):
     if mesoPrefix=='activity':
         activity = newObj
     return(newObj)
+
+
+def updateFromURL(url, docType, user):
+    """
+    Function to update a document in the database from a URL.
+
+    :param url: URL to load
+    :type url: str
+    :param docType: {"applet", "activity", "screen", …}
+    :type docType: str
+    :param user: User making the call
+    :type user: User
+    :returns: Expanded JSON-LD Object (dict or list)
+    """
+    folderModels = ['applet', 'activity']
+    docType = docType.lower()
+    fm = docType in folderModels
+    model = FolderModel() if fm else ItemModel()
+    cached = list(model.find(
+        query={'.'.join(['meta', docType, 'url']): url},
+        sort=[("created", -1)]
+    ))
+    cachedDoc = cached[0] if len(cached) else None
+    if cachedDoc:
+        cachedId = str(cachedDoc.get('_id'))
+        docParent = {
+            'type': cachedDoc.get('parentCollection'),
+            'id': cachedDoc.get('parentId')
+        } if fm else {
+            'type': 'folder',
+            'id': cachedDoc.get('folderId')
+        }
+        cachedDocObj = cachedDoc.get('meta', {}).get(docType, {})
+        cachedDocObj.pop('url', None)
+        cachedDocObj.pop('schema:isBasedOn', None)
+    else:
+        cachedId = None
+        cachedDocObj = {}
+    doc = loadJSON(url, docType)
+    if not cachedDocObj or len(list(diff(cachedDocObj, doc))):
+        if cachedId:
+            doc['schema:isBasedOn'] = {
+                '@id': '/'.join([
+                    getApiUrl(),
+                    docType,
+                    cachedId
+                ])
+            }
+        else:
+            docParent={
+                'type': 'collection',
+                'id': CollectionModel().createCollection(
+                    name="{}s".format(docType.title()),
+                    creator=user,
+                    public=True,
+                    reuseExisting=True
+                ).get('_id')
+            }
+        docName = model.preferredName(doc)
+        try:
+            parent = MODELS[docParent['type']].load(
+                docParent['id'],
+                level=AccessType.WRITE,
+                user=user
+            )
+        except AccessException:
+            parent = CollectionModel().createCollection(
+                name="{}s".format(docType.title()),
+                creator=user,
+                public=True,
+                reuseExisting=True
+            ) if fm else FolderModel().createFolder(
+                parent=CollectionModel().createCollection(
+                    name='Screens',
+                    creator=user,
+                    public=True,
+                    reuseExisting=True
+                ),
+                parentType='collection',
+                name='Screens',
+                creator=user,
+                allowRename=True,
+                reuseExisting=True
+            )
+        doc = model.setMetadata(
+            model.createFolder(
+                name=docName,
+                parent=parent,
+                parentType=docParent['type'],
+                public=True,
+                creator=user,
+                allowRename=True,
+                reuseExisting=False
+            ),
+            {
+                docType: {
+                    **doc,
+                    'url': url
+                }
+            }
+        ) if fm else model.setMetadata(
+            model.createItem(
+                name=docName if docName else str(len(list(
+                    FolderModel().childItems(
+                        FolderModel().load(
+                            parent,
+                            level=AccessType.NONE,
+                            user=user,
+                            force=True
+                        )
+                    )
+                )) + 1),
+                creator=user,
+                folder=parent['id'],
+                reuseExisting=False
+            ),
+            {
+                docType: {
+                    **doc,
+                    'url': url
+                }
+            }
+        )
+        return(formatLdObject(doc, docType, user))
+    return(formatLdObject(cachedDoc, docType, user))

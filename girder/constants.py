@@ -4,7 +4,6 @@ Constants should be defined here.
 """
 import os
 import sys
-
 import girder
 
 PACKAGE_DIR = os.path.dirname(os.path.abspath(__file__))
