@@ -54,7 +54,7 @@ class System(Resource):
         self.route('PUT', ('log', 'level'), self.setLogLevel)
         self.route('GET', ('setting', 'collection_creation_policy', 'access'),
                    self.getCollectionCreationPolicyAccess)
-        self.route('GET', ('skin'), self.getSkin)
+        self.route('GET', ('skin',), self.getSkin)
 
     @access.admin
     @autoDescribeRoute(
