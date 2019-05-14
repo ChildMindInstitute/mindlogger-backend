@@ -181,41 +181,15 @@ class Applet(Resource):
                 'Invalid role.',
                 'role'
             )
-        applet = loadJSON(url, 'applet')
-        applets = CollectionModel().createCollection(
-            name="Applets",
-            public=True,
-            reuseExisting=True
-        )
         thisUser = self.getCurrentUser()
-        thisApplet = list(FolderModel().childFolders(
-            parent=applets,
-            parentType='collection',
-            user=thisUser,
-            filters={
-                'meta.applet.url': url
-            }
-        ))
-        thisApplet = thisApplet[0] if len(
-            thisApplet
-        ) else FolderModel().setMetadata(
-            FolderModel().createFolder(
-                parent=applets,
-                name=FolderModel().preferredName(applet),
-                parentType='collection',
-                public=True,
-                creator=thisUser,
-                allowRename=True,
-                reuseExisting=False
-            ),
-            {
-                'applet': {
-                    **applet,
-                    'url': url
-                }
-            }
+        applet = AppletModel().load(
+            updateFromURL(url, 'applet', thisUser).get(
+                '_applet',
+                {}
+            ).get('_id', '').split('applet/')[-1],
+            level=AccessType.READ,
+            user=thisUser
         )
-        jsonld_expander.formatLdObject(thisApplet, 'applet', thisUser)
         return(
             _invite(
                 applet=thisApplet,
@@ -326,6 +300,22 @@ def authorizeReviewers(assignment):
 
 
 def _invite(applet, user, role, rsvp, subject):
+    """
+
+    :param applet: Applet to invite user to
+    :type applet: AppletModel
+    :param user: ID (canonical or applet-specific) or email address of user to
+                 invite
+    :type user: string
+    :param role: Role to invite user to
+    :type role: string
+    :param rsvp: Require user acceptance?
+    :type rsvp: boolean
+    :param subject: Subject about 'user' role can inform or about which
+                    'reviewer' role can review
+    :type subject: string or literal
+    :returns: New assignment (dictionary)
+    """
     thisUser = Applet().getCurrentUser()
     user = user if user else str(thisUser['_id'])
     try:

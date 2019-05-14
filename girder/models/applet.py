@@ -278,7 +278,7 @@ def getUserCipher(appletAssignment, user):
     appletAssignment: Mongo Folder cursor
         Applet folder in Assignments collection
 
-    user: string
+    user: string or list
         applet-specific ID, canonical ID or email address
 
     Returns
@@ -286,6 +286,8 @@ def getUserCipher(appletAssignment, user):
     user: string
         applet-specific ID
     """
+    if not isinstance(user, string):
+        return([getUserCipher(appletAssignment, u) for u in list(user)])
     thisUser = getCurrentUser()
     appletAssignments = list(FolderModel().childFolders(
         parent=appletAssignment,
