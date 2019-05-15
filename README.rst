@@ -1,5 +1,13 @@
-Girder for MindLogger
-=====================
+|logo| Girder for MindLogger |build-status| |license-badge| |gitter-badge| |codecov-badge|
+==========================================================================================
+
+**Data Management Platform**
+
+Contents
+--------
+1. `Data Structure <#data-structure>`_
+2. `Links <#links>`_
+3. `Girder Source <#girder-source>`_
 
 Data Structure
 --------------
@@ -12,8 +20,6 @@ Girder for MindLogger has the following underlying data structure:
     :target: ./docs/images/Mindlogger-DB-ER.dia
     The above `entity-relationship diagram <https://cacoo.com/blog/er-diagrams-vs-eer-diagrams-whats-the-difference/>`_ was created with `dia 0.97+git <https://live.gnome.org/Dia>`_.
 
-
-
 Links
 -----
 - `ReproNim Schema specification <https://github.com/ReproNim/schema-standardization>`_
@@ -21,49 +27,48 @@ Links
 - `Production instance <https://api.mindlogger.info>`_
 - `Run a local instance <#requirements>`_
 
-|logo| Girder for MindLogger |build-status| |docs-status| |license-badge| |gitter-badge| |codecov-badge|
---------------------------------------------------------------------------------------------------------
+Girder Source
+-------------
 
-**Data Management Platform**
+This source code is a customization of `:octocat: girder/girder@5ed7bdd <https://github.com/girder/girder/tree/5ed7bdd850e9dc8657cf25984627628374811048>`_
 
-This source code is a customization of `:octocat: girder/girder <https://github.com/girder/girder/tree/5ed7bdd850e9dc8657cf25984627628374811048>`_
-
-Girder is a free and open source web-based data management platform developed by
-`Kitware <https://kitware.com>`_ as part of the `Resonant <http://resonant.kitware.com>`_
-data and analytics ecosystem.
-
-|kitware-logo|
+|girder-logo| Girder is a free and open source web-based data management platform developed by
+|kitware-logo| as part of the |resonant-logo| data and analytics ecosystem.
 
 Documentation of the Girder platform can be found at
-https://girder.readthedocs.io.
+`:book: Read the Docs <https://girder.readthedocs.io/en/latest>`_.
 
-For questions, comments, or to get in touch with the maintainers, head to their `Discourse forum <https://discourse.girder.org>`_, or use our `Gitter Chatroom
+For questions, comments, or to get in touch with the maintainers, head to their `Discourse forum <https://discourse.girder.org>`_, or use their `Gitter Chatroom
 <https://gitter.im/girder/girder>`_.
 
 We'd love for you to `contribute to Girder <CONTRIBUTING.rst>`_.
 
-.. |logo| image:: girder/web_client/static/src/assets/ML-logo.png
+.. |logo| image:: ./girder/web_client/src/assets/ML-logo.png
+    :width: 25px
+    :alt: Girder for MindLogger
+
+.. |girder-logo| image:: ./girder/web_client/src/assets/Girder_Mark.png
+    :width: 25px
+    :alt: Girder for MindLogger
 
 .. |kitware-logo| image:: https://www.kitware.com/img/small_logo_over.png
     :target: https://kitware.com
-    :alt: Kitware Logo
+    :alt: Kitware
+    :width: 100px
 
-.. |build-status| image:: https://circleci.com/gh/girder/girder.png?style=shield
-    :target: https://circleci.com/gh/girder/girder
+.. |resonant-logo| image:: https://resonant.kitware.com/img/Resonant_Mark_Text.png
+    :target: https://resonant.kitware.com
+    :alt: Resonant
+    :width: 100px
+
+.. |build-status| image:: https://circleci.com/gh/ChildMindInstitute/mindlogger-app-backend.svg?style=svg
+    :target: https://circleci.com/gh/ChildMindInstitute/mindlogger-app-backend
     :alt: Build Status
 
-.. |docs-status| image:: https://readthedocs.org/projects/girder/badge?version=latest
-    :target: https://girder.readthedocs.org
-    :alt: Documentation Status
-
 .. |license-badge| image:: docs/license.png
-    :target: https://pypi.python.org/pypi/girder
+    :target: LICENSE
     :alt: License
 
-.. |gitter-badge| image:: https://badges.gitter.im/Join Chat.svg
-    :target: https://gitter.im/girder/girder?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge&utm_content=badge
-    :alt: Gitter Chat
-
-.. |codecov-badge| image:: https://img.shields.io/codecov/c/github/girder/girder.svg
-    :target: https://codecov.io/gh/girder/girder
+.. |codecov-badge| image:: https://img.shields.io/codecov/c/github/ChildMindInstitute/mindlogger-app-backend.svg
+    :target: https://codecov.io/gh/ChildMindInstitute/mindlogger-app-backend
     :alt: Coverage Status
