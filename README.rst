@@ -91,7 +91,7 @@ Settings for an `assignment <#assignment>`_ that are altered from the default fo
 
 User-Defined User Settings
 ^^^^^^^^^^^^^^^^^^^^^^^^^^
-Settings for an `assignment <#assignment>`_ that are altered from the default for a given `user <#user>`_ by themself. 
+Settings for an `assignment <#assignment>`_ that are altered from the default for a given `user <#user>`_ by themself.
 
 Links
 -----
@@ -109,7 +109,7 @@ This source code is a customization of `:octocat: girder/girder@5ed7bdd <https:/
 |kitware-logo| as part of the |resonant-logo| data and analytics ecosystem.
 
 Documentation of the Girder platform can be found at
-`:book: Read the Docs <https://girder.readthedocs.io/en/latest>`_.
+`:closed_book: Read the Docs <https://girder.readthedocs.io/en/latest>`_.
 
 For questions, comments, or to get in touch with the maintainers, head to their `Discourse forum <https://discourse.girder.org>`_, or use their `Gitter Chatroom
 <https://gitter.im/girder/girder>`_.
@@ -120,9 +120,8 @@ We'd love for you to `contribute to Girder <CONTRIBUTING.rst>`_.
     :width: 25px
     :alt: Girder for MindLogger
 
-.. |girder-logo| image:: ./girder/web_client/src/assets/Girder_Mark.png
-    :width: 20px
-    :alt: Girder for MindLogger
+.. |girder-logo| raw:: html
+    <img src="./girder/web_client/src/assets/Girder_Mark.png" width="20px" alt="Girder" />
 
 .. |kitware-logo| image:: https://www.kitware.com/img/small_logo_over.png
     :target: https://kitware.com
