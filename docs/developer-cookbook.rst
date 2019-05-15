@@ -59,14 +59,14 @@ Upload a file
 ^^^^^^^^^^^^^
 
 If you are using the Girder javascript client library, you can simply call the ``upload``
-method of the ``girder/models/FileModel``. The first argument is the parent model
+method of the ``@girder/core/models/FileModel``. The first argument is the parent model
 object (an ``ItemModel`` or ``FolderModel`` instance) to upload into, and the second
 is a browser ``File`` object that was selected via a file input element. You can
 bind to several events of that model, as in the example below.
 
 .. code-block:: javascript
 
-    import FileModel from 'girder/models/FileModel';
+    import FileModel from '@girder/core/models/FileModel';
 
     var fileModel = new FileModel();
     fileModel.on('g:upload.complete', function () {
@@ -83,7 +83,7 @@ bind to several events of that model, as in the example below.
     fileModel.upload(parentFolder, fileObject);
 
 If you don't feel like making your own upload interface, you can simply use
-the ``girder/views/widgets/UploadWidget`` to provide a nice GUI interface for uploading.
+the ``@girder/core/views/widgets/UploadWidget`` to provide a nice GUI interface for uploading.
 It will prompt the user to drag and drop or browse for files, and then shows
 a current and overall progress bar and also provides controls for resuming a
 failed upload.
@@ -105,7 +105,7 @@ by passing in options like so:
 
 .. code-block:: javascript
 
-    import UploadWidget from 'girder/views/widgets/UploadWidget';
+    import UploadWidget from '@girder/core/views/widgets/UploadWidget';
 
     new UploadWidget({
         option: value,
@@ -251,8 +251,7 @@ where the static file should be served from.
 .. note:: If a relative path is passed to ``staticFile``, it will be interpreted
   relative to the current working directory, which may vary. If your static
   file resides within your plugin, it is recommended to use the special
-  ``PLUGIN_ROOT_DIR`` property of your server module, or the equivalent
-  ``info['pluginRootDir']`` value passed to the ``load`` method.
+  ``PLUGIN_ROOT_DIR`` property of your server module.
 
 Sending Emails
 ^^^^^^^^^^^^^^
@@ -278,8 +277,12 @@ below: ::
         mail_utils.sendEmail(to=email, subject='My mail from Girder', text=html)
 
 If you wish to send email from within a plugin, simply create a
-**server/mail_templates** directory within your plugin, and it will be
-automatically added to the mail template search path when your plugin is loaded.
+**mail_templates** directory within your plugin and register it inside your
+plugin's load method as follows ::
+
+  from girder.utility import mail_utils
+  mail_utils.addTemplateDirectory(os.path.join(PLUGIN_ROOT_DIR, 'mail_templates'))
+
 To avoid name collisions, convention dictates that mail templates within your
 plugin should be prefixed by your plugin name, e.g.,
 ``my_plugin.my_template.mako``.
@@ -424,6 +427,35 @@ appropriate function name of course):
    <https://docs.pytest.org/en/latest/fixture.html>`_ for more
    information on using dependency injection in this manner.
 
+**Enabling a plugin inside a test**
+
+By default, pytest tests do not enable any plugins.  You can decorate your test with
+the **plugin** mark to enable a plugin that installed into the python environment.  For
+example,
+
+.. code-block:: python
+
+    @pytest.mark.plugin('jobs')
+    def testWithJobsEnabled(server):
+        pass
+
+You can also define a "test plugin" that will be injected into runtime environment without
+actually being installed.  This is done by passing a class derived from **GirderPlugin**
+into the mark.  For example,
+
+.. code-block:: python
+
+    from girder.plugin import GirderPlugin
+
+    class TestPlugin(GirderPlugin):
+        def load(self, info):
+            pass
+
+    @pytest.mark.plugin('test_plugin', TestPlugin)
+    def testWithTestPlugin(server):
+        pass
+
+
 .. _use_external_data:
 
 Downloading External Data Artifacts for Test Cases
@@ -507,7 +539,7 @@ as you wish. In your plugin's ``load`` method, you would follow this convention:
 
 .. code-block:: python
 
-    from girder.utility.plugin_utilities import registerPluginWebroot
+    from girder.plugin import registerPluginWebroot
     registerPluginWebroot(CustomAppRoot(), info['name'])
 
 This will register your ``CustomAppRoot`` with Girder so that it can then be mounted
@@ -525,19 +557,16 @@ browser to a download endpoint that serves its content as an attachment.
 In such cases, you may allow specific REST API routes to authenticate using the
 Cookie. To avoid vulnerabilities to Cross-Site Request Forgery attacks, you
 should only do this if the endpoint is "read-only" (that is, the endpoint does
-not make modifications to data on the server). Accordingly, only routes for
-``HEAD`` and ``GET`` requests allow cookie authentication to be enabled (without
-an additional override).
+not make modifications to data on the server).
 
 In order to allow cookie authentication for your route, simply add the
-``cookie`` decorator to your route handler function. Example:
+``cookie=True`` option to the access decorator on your function. Example:
 
 .. code-block:: python
 
     from girder.api import access
 
-    @access.cookie
-    @access.public
+    @access.public(cookie=True)
     def download(self, params):
         ...
 

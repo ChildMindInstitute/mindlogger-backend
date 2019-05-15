@@ -1,27 +1,10 @@
-#!/usr/bin/env python
 # -*- coding: utf-8 -*-
-
-###############################################################################
-#  Copyright 2013 Kitware Inc.
-#
-#  Licensed under the Apache License, Version 2.0 ( the "License" );
-#  you may not use this file except in compliance with the License.
-#  You may obtain a copy of the License at
-#
-#    http://www.apache.org/licenses/LICENSE-2.0
-#
-#  Unless required by applicable law or agreed to in writing, software
-#  distributed under the License is distributed on an "AS IS" BASIS,
-#  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-#  See the License for the specific language governing permissions and
-#  limitations under the License.
-###############################################################################
-
 import cherrypy
 
 from . import describe
-from .v1 import api_key, assetstore, file, collection, folder, group, item,\
-    resource, response, system, token, user, notification
+from .v1 import activity, api_key, applet, assetstore, file, collection,       \
+    context, folder, group, item, resource, response, screen, system, token,   \
+    user, notification
 
 
 class ApiDocs(object):
@@ -43,10 +26,12 @@ def addApiToNode(node):
 def _addV1ToNode(node):
     node.v1 = describe.ApiDocs()
     node.v1.describe = describe.Describe()
-
+    node.v1.activity = activity.Activity()
     node.v1.api_key = api_key.ApiKey()
+    node.v1.applet = applet.Applet()
     node.v1.assetstore = assetstore.Assetstore()
     node.v1.collection = collection.Collection()
+    node.v1.context = context.Context()
     node.v1.file = file.File()
     node.v1.folder = folder.Folder()
     node.v1.group = group.Group()
@@ -54,6 +39,7 @@ def _addV1ToNode(node):
     node.v1.notification = notification.Notification()
     node.v1.resource = resource.Resource()
     node.v1.response = response.ResponseItem()
+    node.v1.screen = screen.Screen()
     node.v1.system = system.System()
     node.v1.token = token.Token()
     node.v1.user = user.User()

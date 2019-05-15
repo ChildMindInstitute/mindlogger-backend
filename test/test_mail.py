@@ -1,27 +1,21 @@
-#!/usr/bin/env python
 # -*- coding: utf-8 -*-
-
-###############################################################################
-#  Copyright Kitware Inc.
-#
-#  Licensed under the Apache License, Version 2.0 ( the "License" );
-#  you may not use this file except in compliance with the License.
-#  You may obtain a copy of the License at
-#
-#    http://www.apache.org/licenses/LICENSE-2.0
-#
-#  Unless required by applicable law or agreed to in writing, software
-#  distributed under the License is distributed on an "AS IS" BASIS,
-#  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-#  See the License for the specific language governing permissions and
-#  limitations under the License.
-###############################################################################
+import os
 
 import pytest
-from girder.constants import SettingKey
+
 from girder.models.setting import Setting
 from girder.models.user import User
 from girder.utility import mail_utils
+from girder.plugin import GirderPlugin
+from girder.settings import SettingKey
+
+
+class MailPlugin(GirderPlugin):
+    def load(self, info):
+        mail_utils.addTemplateDirectory(
+            os.path.join(os.path.dirname(__file__), 'data', 'mail_templates'),
+            prepend=True
+        )
 
 
 def testEmailAdmins(smtp):
@@ -64,7 +58,7 @@ def testEmailAdmins(smtp):
         mail_utils.sendEmail(text='hello', to=None)
 
 
-@pytest.mark.testPlugin('mail_test')
+@pytest.mark.plugin('mail_test', MailPlugin)
 def testPluginTemplates(server):
     val = 'OVERRIDE CORE FOOTER'
     assert mail_utils.renderTemplate('_footer.mako').strip() == val

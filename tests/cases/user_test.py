@@ -1,22 +1,4 @@
-#!/usr/bin/env python
 # -*- coding: utf-8 -*-
-
-###############################################################################
-#  Copyright 2013 Kitware Inc.
-#
-#  Licensed under the Apache License, Version 2.0 ( the "License" );
-#  you may not use this file except in compliance with the License.
-#  You may obtain a copy of the License at
-#
-#    http://www.apache.org/licenses/LICENSE-2.0
-#
-#  Unless required by applicable law or agreed to in writing, software
-#  distributed under the License is distributed on an "AS IS" BASIS,
-#  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-#  See the License for the specific language governing permissions and
-#  limitations under the License.
-###############################################################################
-
 import cherrypy
 import collections
 import datetime
@@ -26,13 +8,14 @@ import six
 from .. import base
 
 from girder import events
-from girder.constants import AccessType, SettingKey, TokenScope
+from girder.constants import AccessType, TokenScope
 from girder.exceptions import ValidationException
 from girder.models.folder import Folder
 from girder.models.group import Group
 from girder.models.setting import Setting
 from girder.models.token import Token
 from girder.models.user import User
+from girder.settings import SettingKey
 
 
 def setUpModule():
@@ -392,12 +375,12 @@ class UserTestCase(base.TestCase):
         """
         # Create some users.
         for x in ('c', 'a', 'b'):
-            User().createUser(
+            user = User().createUser(
                 'usr%s' % x, 'passwd', 'tst', '%s_usr' % x, 'u%s@u.com' % x)
         resp = self.request(path='/user', method='GET', params={
             'limit': 2,
             'offset': 1
-        })
+        }, user=user)
         self.assertStatusOk(resp)
 
         # Make sure the limit, order, and offset are respected, and that our
@@ -807,22 +790,8 @@ class UserTestCase(base.TestCase):
         self.assertStatusOk(resp)
         itemId = resp.json['_id']
 
-        resp = self.request(
-            path='/file', method='POST', user=pvt, params={
-                'parentType': 'item',
-                'parentId': itemId,
-                'name': 'foo.txt',
-                'size': 5,
-                'mimeType': 'text/plain'
-            })
-        self.assertStatusOk(resp)
-
-        fields = [('offset', 0), ('uploadId', resp.json['_id'])]
-        files = [('chunk', 'foo.txt', 'hello')]
-        resp = self.multipartRequest(
-            path='/file/chunk', user=pvt, fields=fields, files=files)
-        self.assertStatusOk(resp)
-        self.assertEqual(resp.json['itemId'], itemId)
+        file = self.uploadFile('hi.txt', 'hello', user=pvt, parent=resp.json, parentType='item')
+        self.assertEqual(str(file['itemId']), itemId)
 
     def testUsersDetails(self):
         """
@@ -834,14 +803,16 @@ class UserTestCase(base.TestCase):
             email='admin@admin.com', password='adminadmin')
         # Create a couple of users
         users = [User().createUser(
-            'usr%s' % num, 'passwd', 'tst', 'usr', 'u%s@u.com' % num)
+            'usr%s' % num, 'passwd', 'tst', 'usr', 'u%s@u.com' % num, public=False)
             for num in [0, 1]]
         resp = self.request(path='/user/details', user=admin, method='GET')
         self.assertStatusOk(resp)
         self.assertEqual(resp.json['nUsers'], 3)
         # test for a non-admin user
         resp = self.request(path='/user/details', user=users[0], method='GET')
-        self.assertStatus(resp, 403)
+        self.assertStatusOk(resp)
+        # will find the public admin user and the user itself
+        self.assertEqual(resp.json['nUsers'], 2)
         # test for a non-user
         resp = self.request(path='/user/details', method='GET')
         self.assertStatus(resp, 401)

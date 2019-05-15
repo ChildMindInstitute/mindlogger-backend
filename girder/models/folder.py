@@ -1,22 +1,4 @@
-#!/usr/bin/env python
 # -*- coding: utf-8 -*-
-
-###############################################################################
-#  Copyright 2013 Kitware Inc.
-#
-#  Licensed under the Apache License, Version 2.0 ( the "License" );
-#  you may not use this file except in compliance with the License.
-#  You may obtain a copy of the License at
-#
-#    http://www.apache.org/licenses/LICENSE-2.0
-#
-#  Unless required by applicable law or agreed to in writing, software
-#  distributed under the License is distributed on an "AS IS" BASIS,
-#  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-#  See the License for the specific language governing permissions and
-#  limitations under the License.
-###############################################################################
-
 import copy
 import datetime
 import json
@@ -28,6 +10,7 @@ from .model_base import AccessControlledModel
 from girder import events
 from girder.constants import AccessType
 from girder.exceptions import ValidationException, GirderException
+from girder.utility.model_importer import ModelImporter
 from girder.utility.progress import noProgress, setResponseTimeLimit
 
 
@@ -319,7 +302,7 @@ class Folder(AccessControlledModel):
         if (folder['baseParentType'], folder['baseParentId']) !=\
            (rootType, rootId):
             def propagateSizeChange(folder, inc):
-                self.model(folder['baseParentType']).increment(query={
+                ModelImporter.model(folder['baseParentType']).increment(query={
                     '_id': folder['baseParentId']
                 }, field='size', amount=inc, multi=False)
 
@@ -424,7 +407,7 @@ class Folder(AccessControlledModel):
         return Item().find(q, limit=limit, offset=offset, sort=sort, **kwargs)
 
     def childFolders(self, parent, parentType, user=None, limit=0, offset=0,
-                     sort=None, filters=None, **kwargs):
+                     sort=None, filters=None, force=False, **kwargs):
         """
         This generator will yield child folders of a user, collection, or
         folder, with access policy filtering.  Passes any kwargs to the find
@@ -440,6 +423,8 @@ class Folder(AccessControlledModel):
         :param offset: Result offset.
         :param sort: The sort structure to pass to pymongo.
         :param filters: Additional query operators.
+        :param force: Ignore permissions
+        :type force: bool
         """
         if not filters:
             filters = {}
@@ -455,7 +440,14 @@ class Folder(AccessControlledModel):
         q.update(filters)
 
         cursor = self.findWithPermissions(
-            q, sort=sort, user=user, level=AccessType.READ, limit=limit, offset=offset, **kwargs)
+            q,
+            sort=sort,
+            user=user,
+            level=None if force else AccessType.READ,
+            limit=limit,
+            offset=offset,
+            **kwargs
+        )
 
         return iter(cursor)
 
@@ -532,7 +524,7 @@ class Folder(AccessControlledModel):
         }
 
         if parentType in ('folder', 'collection') and (parent['name'] not in [
-            "Volumes", "Activity Sets", "Applets"
+            "Volumes", "Activity Sets", "Applets", "Assignments"
         ]):
             self.copyAccessPolicies(src=parent, dest=folder, save=False)
 
@@ -576,13 +568,13 @@ class Folder(AccessControlledModel):
         curParentType = folder['parentCollection']
 
         if curParentType in ('user', 'collection'):
-            curParentObject = self.model(curParentType).load(
+            curParentObject = ModelImporter.model(curParentType).load(
                 curParentId, user=user, level=level, force=force)
 
             if force:
                 parentFiltered = curParentObject
             else:
-                parentFiltered = self.model(curParentType).filter(curParentObject, user)
+                parentFiltered = ModelImporter.model(curParentType).filter(curParentObject, user)
 
             return [{
                 'type': curParentType,
@@ -750,7 +742,7 @@ class Folder(AccessControlledModel):
             raise ValidationException('The parentType must be folder, '
                                       'collection, or user.')
         if parent is None:
-            parent = self.model(parentType).load(srcFolder['parentId'], force=True)
+            parent = ModelImporter.model(parentType).load(srcFolder['parentId'], force=True)
         if name is None:
             name = srcFolder['name']
         if description is None:
@@ -881,7 +873,7 @@ class Folder(AccessControlledModel):
         :param folder: The folder to check.
         :type folder: dict
         """
-        return not self.model(folder.get('parentCollection')).load(
+        return not ModelImporter.model(folder.get('parentCollection')).load(
             folder.get('parentId'), force=True)
 
     def updateSize(self, doc):

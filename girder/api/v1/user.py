@@ -1,22 +1,4 @@
-#!/usr/bin/env python
 # -*- coding: utf-8 -*-
-
-###############################################################################
-#  Copyright 2013 Kitware Inc.
-#
-#  Licensed under the Apache License, Version 2.0 ( the "License" );
-#  you may not use this file except in compliance with the License.
-#  You may obtain a copy of the License at
-#
-#    http://www.apache.org/licenses/LICENSE-2.0
-#
-#  Unless required by applicable law or agreed to in writing, software
-#  distributed under the License is distributed on an "AS IS" BASIS,
-#  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-#  See the License for the specific language governing permissions and
-#  limitations under the License.
-###############################################################################
-
 import base64
 import cherrypy
 import datetime
@@ -25,15 +7,17 @@ import itertools
 from ..describe import Description, autoDescribeRoute
 from girder.api import access
 from girder.api.rest import Resource, filtermodel, setCurrentUser
-from girder.constants import AccessType, SettingKey, TokenScope
+from girder.constants import AccessType, TokenScope, USER_ROLES
 from girder.exceptions import RestException, AccessException
+from girder.models.applet import Applet as AppletModel
 from girder.models.collection import Collection as CollectionModel
 from girder.models.folder import Folder as FolderModel
 from girder.models.password import Password
 from girder.models.setting import Setting
 from girder.models.token import Token
 from girder.models.user import User as UserModel
-from girder.utility import mail_utils
+from girder.settings import SettingKey
+from girder.utility import jsonld_expander, mail_utils
 
 
 class User(Resource):
@@ -69,7 +53,7 @@ class User(Resource):
         self.route('PUT', (':id', 'verification'), self.verifyEmail)
         self.route('POST', ('verification',), self.sendVerificationEmail)
 
-    @access.public
+    @access.user
     @filtermodel(model=UserModel)
     @autoDescribeRoute(
         Description('List or search for users.')
@@ -130,7 +114,7 @@ class User(Resource):
         .modelParam('id', model=UserModel, level=AccessType.READ)
         .param(
             'role',
-            'One of {"user", "manager", "editor", or "reviewer"}',
+            'One of ' + str(USER_ROLES),
             required=False,
             default='user'
         )
@@ -141,77 +125,49 @@ class User(Resource):
         )
     )
     def getUserApplets(self, user, role):
-        membershipRoles = {
-            "user": {
-                "users"
-            },
-            "manager": {
-                "owners",
-                "managers"
-            },
-            "editor": {
-                "editors",
-                "owners"
-            },
-            "reviewer": {
-                "reviewers",
-                "viewers"
-            }
-        }
         role = role.lower()
-        if role not in membershipRoles.keys():
+        if role not in USER_ROLES:
             raise RestException(
-                'Invalid user role.'
+                'Invalid user role.',
+                'role'
             )
         reviewer = self.getCurrentUser()
         applets = []
-        # Old schema
-        collections = CollectionModel().find()
-        activitySets = list(itertools.chain.from_iterable([
-            [
-                folder for folder in FolderModel().childFolders(
-                    parentType='collection',
-                    parent=collection,
-                    user=reviewer
-                )
-            ] for collection in [
-                collection for collection in collections if collection[
-                    'name'
-                ] == "Volumes"
-            ]
-        ]))
-        activitySets = [
-            applet for applet in activitySets for membershipRole in membershipRoles[
-                role
-            ] if 'meta' in applet and 'members' in applet[
-                'meta'
-            ] and membershipRole in applet['meta']['members'] and str(
-                user['_id']
-            ) in applet['meta']['members'][membershipRole]
-        ]
         # New schema
-        collections = CollectionModel().find()
-        assignments = list(itertools.chain.from_iterable([
-            [
-                folder for folder in FolderModel().childFolders(
-                    parentType='collection',
-                    parent=collection,
-                    user=reviewer
+        assignments = [
+            *list(itertools.chain.from_iterable([
+                [
+                    folder for folder in FolderModel().childFolders(
+                        parentType='collection',
+                        parent=collection,
+                        user=reviewer
+                    )
+                ] for collection in CollectionModel().find(
+                    {'name': 'Assignments'}
                 )
-            ] for collection in [
-                collection for collection in collections if collection[
-                    'name'
-                ] == "Assignments"
-            ]
-        ]))
+            ])),
+            *list(itertools.chain.from_iterable([
+                [
+                    folder for folder in FolderModel().find(
+                        {
+                            'parentId': reviewer['_id'],
+                            'baseParentType': 'user',
+                            'name': 'Assignments'
+                        }
+                    )
+                ]
+            ]))
+        ]
         for assignment in assignments:
-            if 'meta' in assignment and 'members' in assignment['meta']:
+            if 'meta' in assignment and 'members' in assignment[
+                'meta'
+            ] and assignment['meta']['members'] is not None:
                 for assignedUser in assignment['meta']['members']:
                     if 'roles' in assignedUser and bool(len(list(set(
                         assignedUser['roles']
                     ).intersection(
-                        list(membershipRoles.keys())
-                    )))):
+                        list(assignedUser['roles'])
+                    )))) and '@id' in assignedUser:
                         if ('_id' in user) and str(user['_id']) in [
                             userId['meta']['user'][
                                 '@id'
@@ -220,9 +176,11 @@ class User(Resource):
                                 parent=FolderModel().load(
                                     assignedUser['@id'],
                                     level=AccessType.NONE,
-                                    user=reviewer
+                                    user=reviewer,
+                                    force=True
                                 ),
-                                user=reviewer
+                                user=reviewer,
+                                force=True
                             ) if (
                                 'lowerName' in userId
                             ) and (
@@ -238,13 +196,25 @@ class User(Resource):
                             if 'applet' in assignment[
                                 'meta'
                             ] and '@id' in assignment['meta']['applet']:
-                                applets.append(FolderModel().load(
-                                    assignment['meta']['applet']['@id'],
-                                    user=reviewer
-                                ))
-
-        applets.extend(activitySets)
-        return(applets)
+                                try:
+                                    applets.append(
+                                        AppletModel().load(
+                                            assignment['meta']['applet']['@id'],
+                                            AccessType.READ,
+                                            reviewer
+                                        )
+                                    )
+                                except:
+                                    pass
+        return(
+            [
+                jsonld_expander.formatLdObject(
+                    applet,
+                    'applet',
+                    reviewer
+                ) for applet in applets if applet is not None
+            ]
+        )
 
     @access.public(scope=TokenScope.USER_INFO_READ)
     @filtermodel(model=UserModel)
@@ -369,13 +339,12 @@ class User(Resource):
         self._model.remove(user)
         return {'message': 'Deleted user %s.' % user['login']}
 
-    @access.admin
+    @access.user
     @autoDescribeRoute(
-        Description('Get detailed information about all users.')
-        .errorResponse('You are not a system administrator.', 403)
+        Description('Get detailed information of accessible users.')
     )
     def getUsersDetails(self):
-        nUsers = self._model.find().count()
+        nUsers = self._model.findWithPermissions(user=self.getCurrentUser()).count()
         return {'nUsers': nUsers}
 
     @access.user
