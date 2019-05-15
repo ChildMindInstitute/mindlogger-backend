@@ -6,6 +6,8 @@
 Contents
 --------
 1. `Data Structure <#data-structure>`_
+    1. `Diagram <#diagram>`_
+    2. `Glossary <#glossary>`_
 2. `Links <#links>`_
 3. `Girder Source <#girder-source>`_
 
@@ -13,12 +15,83 @@ Data Structure
 --------------
 Girder for MindLogger has the following underlying data structure:
 
+Diagram
+#######
 .. figure:: ./docs/images/Mindlogger-DB-ER.png
     :align: center
     :alt: MindLogger database entity-relationship diagram
     :figclass: align-center
     :target: ./docs/images/Mindlogger-DB-ER.dia
     The above `entity-relationship diagram <https://cacoo.com/blog/er-diagrams-vs-eer-diagrams-whats-the-difference/>`_ was created with `dia 0.97+git <https://live.gnome.org/Dia>`_.
+
+Glossary
+########
+
+Activity
+^^^^^^^^
+An "individual assessment", as defined in `ReproNim schema <https://github.com/ReproNim/schema-standardization/tree/0fb4abd67d209e76325e6f42d428d7c275252ec6#20-need-for-standardizing-assessments>`_: `Activity <https://raw.githubusercontent.com/ReproNim/schema-standardization/master/schemas/Activity.jsonld>`_.
+
+Applet
+^^^^^^
+A "collection[…] of `activities <#activity>`_ performed by a `participant <#user>`_" as defined in `ReproNim schema <https://github.com/ReproNim/schema-standardization/tree/0fb4abd67d209e76325e6f42d428d7c275252ec6#20-need-for-standardizing-assessments>`_: `ActivitySet <https://raw.githubusercontent.com/ReproNim/schema-standardization/master/schemas/ActivitySet.jsonld>`_.
+
+Assignment
+^^^^^^^^^^
+A document assigning one or more `applets <#applet>`_ to one or more `users <#user>`_ with or without scheduling and other constraints.
+
+Assignment-specific User ID
+^^^^^^^^^^^^^^^^^^^^^^^^^^^
+An identifier for a given `user <#user>`_ for an `assignment <#assignment>`_ that does not expose that user's other data to anyone authorized to view information related to that assignment.
+
+Context
+^^^^^^^
+    A set of rules for interpreting a JSON-LD document [from this database] as specified in The Context of the JSON-LD Syntax specification."
+
+This definition comes from `JSON-LD 1.1 <https://json-ld.org/spec/latest/json-ld/>`_ `context <https://json-ld.org/spec/latest/json-ld/#dfn-contexts>`_.
+
+Icon
+^^^^
+
+Illustration
+^^^^^^^^^^^^
+
+Protected health information
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    Any information about health status, provision of health care, or payment for health care that […] can be linked to a specific `individual <#user>`_.
+
+This definition comes from the Wikipedia article `Protected health information <https://en.wikipedia.org/wiki/Protected_health_information>`_.
+
+Response
+^^^^^^^^
+Data collected when a `user <#user>`_ responds to an `activity <#activity>`_.
+
+Screen
+^^^^^^
+One or more "elements of individual assessments" displayed in a single screen or page view, as defined in `ReproNim schema <https://github.com/ReproNim/schema-standardization/tree/0fb4abd67d209e76325e6f42d428d7c275252ec6#20-need-for-standardizing-assessments>`_: `Item <https://raw.githubusercontent.com/ReproNim/schema-standardization/master/schemas/Field.jsonld>`_ and `Issue #85 <https://github.com/ReproNim/schema-standardization/issues/85>`_.
+
+Skin
+^^^^
+Color scheme and other branding and appearance-related metadata.
+
+Subject
+^^^^^^^
+The person being informed about by the `user <#user>`_ `responding <#response>`_ to an `activity <#activity>`_. For self-report, the same user as the informant.
+
+Text
+^^^^
+Copy included in the mobile and web app, including "About MindLogger" and helper text.
+
+User
+^^^^
+An individual using a MindLogger mobile application or MindLogger web application to `respond <#response>`_ to `activities <#activity>`_.
+
+Manager-Defined User Settings
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+Settings for an `assignment <#assignment>`_ that are altered from the default for a given `user <#user>`_ by another user.
+
+User-Defined User Settings
+^^^^^^^^^^^^^^^^^^^^^^^^^^
+Settings for an `assignment <#assignment>`_ that are altered from the default for a given `user <#user>`_ by themself. 
 
 Links
 -----
@@ -48,7 +121,7 @@ We'd love for you to `contribute to Girder <CONTRIBUTING.rst>`_.
     :alt: Girder for MindLogger
 
 .. |girder-logo| image:: ./girder/web_client/src/assets/Girder_Mark.png
-    :width: 25px
+    :width: 20px
     :alt: Girder for MindLogger
 
 .. |kitware-logo| image:: https://www.kitware.com/img/small_logo_over.png
