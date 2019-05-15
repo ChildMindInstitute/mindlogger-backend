@@ -1,7 +1,9 @@
-|logo| Girder for MindLogger |build-status| |license-badge| |gitter-badge| |codecov-badge|
-==========================================================================================
+Girder for MindLogger |build-status| |license-badge| |codecov-badge|
+===========================================================================
 
 **Data Management Platform**
+
+|logo|
 
 Contents
 --------
@@ -105,8 +107,8 @@ Girder Source
 
 This source code is a customization of `:octocat: girder/girder@5ed7bdd <https://github.com/girder/girder/tree/5ed7bdd850e9dc8657cf25984627628374811048>`_
 
-|girder-logo| Girder is a free and open source web-based data management platform developed by
-|kitware-logo| as part of the |resonant-logo| data and analytics ecosystem.
+Girder is a free and open source web-based data management platform developed by
+`Kitware <https://kitware.com>`_ as part of the `Resonant <https://resonant.kitware.com>`_ data and analytics ecosystem.
 
 Documentation of the Girder platform can be found at
 `:closed_book: Read the Docs <https://girder.readthedocs.io/en/latest>`_.
@@ -119,19 +121,6 @@ We'd love for you to `contribute to Girder <CONTRIBUTING.rst>`_.
 .. |logo| image:: ./girder/web_client/src/assets/ML-logo.png
     :width: 25px
     :alt: Girder for MindLogger
-
-.. |girder-logo| raw:: html
-    <img src="./girder/web_client/src/assets/Girder_Mark.png" width="20px" alt="Girder" />
-
-.. |kitware-logo| image:: https://www.kitware.com/img/small_logo_over.png
-    :target: https://kitware.com
-    :alt: Kitware
-    :width: 100px
-
-.. |resonant-logo| image:: https://resonant.kitware.com/img/Resonant_Mark_Text.png
-    :target: https://resonant.kitware.com
-    :alt: Resonant
-    :width: 100px
 
 .. |build-status| image:: https://circleci.com/gh/ChildMindInstitute/mindlogger-app-backend.svg?style=svg
     :target: https://circleci.com/gh/ChildMindInstitute/mindlogger-app-backend
