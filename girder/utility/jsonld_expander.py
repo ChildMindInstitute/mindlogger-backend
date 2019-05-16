@@ -1,5 +1,7 @@
 from copy import deepcopy
 from girder.models.activity import Activity as ActivityModel
+from girder.models.collection import Collection as CollectionModel
+from girder.models.folder import Folder as FolderModel
 from girder.models.screen import Screen as ScreenModel
 from pyld import jsonld
 import json
@@ -135,3 +137,76 @@ def formatLdObject(obj, mesoPrefix='folder', user=None):
     if mesoPrefix=='activity':
         activity = newObj
     return(newObj)
+
+
+def getByLanguage(object, tag=None):
+    """
+    Function to get a value or IRI by a language tag following https://tools.ietf.org/html/bcp47.
+
+    :param object: The JSON-LD Object to language-parse
+    :type object: dict or list
+    :param tag: The language tag to use.
+    :type tag: str
+    :returns: str, either a literal or an IRI.
+    """
+    if not tag:
+        from girder.api.v1.context import Context
+        tag = FolderModel().findOne({
+            'name': 'JSON-LD',
+            'parentCollection': 'collection',
+            'parentId': CollectionModel().findOne({
+                'name': 'Context'
+            }).get('_id')
+        })
+        tag.get('meta', {}).get('@context', {}).get(
+            '@language'
+        ) if tag else None
+    if isinstance(tag, str):
+        genLanTag = (tag.split("-") if "-" in tag else [""])[0]
+        if isinstance(object, dict):
+            genLanKeys = [
+                k for k in object.keys() if (
+                    '-' in k and k.split('-')[0] in [
+                        tag,
+                        genLanTag
+                    ]
+                ) or k in [tag, genLanTag]
+            ]
+            genLanKey = genLanKeys[0] if len(genLanKeys) else ""
+            return(
+                object.get(
+                    "@{}".format(tag),
+                    object.get(
+                        "@{}".format(
+                            genLanTag
+                        ),
+                        object.get(
+                            genLanKey
+                        )
+                    )
+                )
+            )
+        if isinstance(object, list):
+            val = [
+                o for o in object if o.get('@language')==tag
+            ]
+            if not len(val):
+                val = [
+                    o for o in object if o.get('@language')==(
+                        tag.split("-") if "-" in tag else [""]
+                    )[0]
+                ]
+            if not len(val):
+                val = [
+                    o for o in object if (
+                        '-' in o.get('@language') and o.get('@language').split('-')[0] in [
+                            tag,
+                            genLanTag
+                        ]
+                    )
+                ]
+            if not len(val):
+                val = [{}]
+            return(val[0].get('@value', {"@id": val[0].get('@id')}))
+    if isinstance(object, str):
+        return(object)
