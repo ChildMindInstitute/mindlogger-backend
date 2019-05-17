@@ -158,7 +158,7 @@ def getByLanguage(object, tag=None):
                 'name': 'Context'
             }).get('_id')
         })
-        tag.get('meta', {}).get('@context', {}).get(
+        tag = tag.get('meta', {}).get('@context', {}).get(
             '@language'
         ) if tag else None
     if isinstance(tag, str):
@@ -207,6 +207,6 @@ def getByLanguage(object, tag=None):
                 ]
             if not len(val):
                 val = [{}]
-            return(val[0].get('@value', {"@id": val[0].get('@id')}))
+            return(val[0].get('@value', val[0]))
     if isinstance(object, str):
         return(object)
