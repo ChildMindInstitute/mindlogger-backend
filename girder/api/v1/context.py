@@ -94,7 +94,7 @@ class Context(Resource):
         Description('Get the application skinning information for this server.')
         .param(
             'lang',
-            'Language of skin to get. must follow https://tools.ietf.org/html/bcp47',
+            'Language of skin to get. Must follow <a href="https://tools.ietf.org/html/bcp47">BCP 47</a>.',
             default='@context.@langage',
             required=False
         )
