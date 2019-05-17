@@ -9,7 +9,7 @@ Version 0.2
 
 Changes
 -------
-
+* Allow unkdefined keys in JSON-LD Expansion | 20195-05-13
 * Rebase from Girder 2.5 to Girder 3.0 (Unreleased) | 2019-05-08
 
 Below is the changelog of the upstream Girder project's `|masterbranch| <https://github.com/girder/girder/tree/master>`_

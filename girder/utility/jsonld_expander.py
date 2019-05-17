@@ -16,6 +16,25 @@ def check_for_unexpanded_value_constraints(item_exp):
     return(False)
 
 
+def expand(obj, keepUndefined=False):
+    newObj = jsonld.expand(obj)
+    newObj = newObj[0] if (
+        isinstance(newObj, list) and len(newObj)==1
+    ) else newObj
+    if isinstance(
+        newObj,
+        dict
+    ):
+        newObj.update({
+            k: obj[k] for k in obj.keys() if k not in keyExpansion(
+                list(newObj.keys())
+            )
+        })
+        return(newObj)
+    else:
+        return([expand(n, keepUndefined) for n in newObj])
+
+
 def expand_value_constraints(original_items_expanded):
     items_expanded = deepcopy(original_items_expanded)
     for item, item_exp in original_items_expanded.items():
@@ -23,7 +42,7 @@ def expand_value_constraints(original_items_expanded):
         vc = item_exp[0]
         if 'https://schema.repronim.org/valueconstraints' in vc.keys():
             if check_for_unexpanded_value_constraints(item_exp):
-                vc = jsonld.expand(
+                vc = expand(
                     item_exp[0][
                         'https://schema.repronim.org/valueconstraints'
                     ][0]['@id']
@@ -37,7 +56,7 @@ def expand_value_constraints(original_items_expanded):
     return(items_expanded)
 
 
-def formatLdObject(obj, mesoPrefix='folder', user=None):
+def formatLdObject(obj, mesoPrefix='folder', user=None, keepUndefined=False):
     """
     Function to take a compacted JSON-LD Object within a Girder for Mindlogger
     database and return an exapanded JSON-LD Object including an _id.
@@ -59,7 +78,7 @@ def formatLdObject(obj, mesoPrefix='folder', user=None):
         raise TypeError("JSON-LD must be an Object or Array.")
     newObj = obj.get('meta', obj)
     newObj = newObj.get(mesoPrefix, newObj)
-    newObj = jsonld.expand(newObj)
+    newObj = expand(newObj, keepUndefined=keepUndefined)
     if type(newObj)==list and len(newObj)==1:
         newObj = newObj[0]
     if type(newObj)==dict:
@@ -131,7 +150,19 @@ def formatLdObject(obj, mesoPrefix='folder', user=None):
                 []
             ) for screen in order.get("@list", order.get("@set", []))
         }
+        print(applet['items'])
         return(applet)
     if mesoPrefix=='activity':
         activity = newObj
     return(newObj)
+
+
+def keyExpansion(keys):
+    return(list(set([
+        k.split(delimiter)[-1] for k in keys for delimiter in [
+            ':',
+            '/'
+        ] if delimiter in k
+    ] + [
+        k for k in keys if (':' not in k and '/' not in k)
+    ])))

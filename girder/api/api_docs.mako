@@ -6,7 +6,7 @@
     <link rel="stylesheet" href="${staticPublicPath}/built/swagger/css/reset.css">
     <link rel="stylesheet" href="${staticPublicPath}/built/swagger/css/screen.css">
     <link rel="stylesheet" href="${staticPublicPath}/built/swagger/docs.css">
-    <link rel="icon" type="image/png" href="${staticPublicPath}/built/Girder_Favicon.png">
+    <link rel="icon" type="image/png" href="${staticPublicPath}/built/ML_Favicon.png">
     <style type="text/css">
       .response_throbber {
         content: url("${staticPublicPath}/built/swagger/images/throbber.gif");

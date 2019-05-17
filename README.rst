@@ -122,6 +122,11 @@ We'd love for you to `contribute to Girder <CONTRIBUTING.rst>`_.
     :width: 25px
     :alt: Girder for MindLogger
 
+.. |kitware-logo| image:: https://www.kitware.com/img/small_logo_over.png
+    :target: https://kitware.com
+    :alt: Kitware Logo
+
+
 .. |build-status| image:: https://circleci.com/gh/ChildMindInstitute/mindlogger-app-backend.svg?style=svg
     :target: https://circleci.com/gh/ChildMindInstitute/mindlogger-app-backend
     :alt: Build Status
