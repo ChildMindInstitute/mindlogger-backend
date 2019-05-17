@@ -141,7 +141,8 @@ def formatLdObject(obj, mesoPrefix='folder', user=None):
 
 def getByLanguage(object, tag=None):
     """
-    Function to get a value or IRI by a language tag following https://tools.ietf.org/html/bcp47.
+    Function to get a value or IRI by a language tag following
+    https://tools.ietf.org/html/bcp47.
 
     :param object: The JSON-LD Object to language-parse
     :type object: dict or list
@@ -161,6 +162,7 @@ def getByLanguage(object, tag=None):
         tag = tag.get('meta', {}).get('@context', {}).get(
             '@language'
         ) if tag else None
+    return(tag)
     if isinstance(tag, str):
         genLanTag = (tag.split("-") if "-" in tag else [""])[0]
         tags = [tag.lower(), genLanTag.lower()]
