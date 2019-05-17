@@ -163,28 +163,12 @@ def getByLanguage(object, tag=None):
             '@language'
         ) if tag else None
     if isinstance(tag, str):
-        genLanTag = (tag.split("-") if "-" in tag else [""])[0]
-        tags = [tag.lower(), genLanTag.lower()]
+        tags = getMoreGeneric(tag)
+        tags = tags + ["@{}".format(t) for t in tags]
+        tags.sort(key=len, reverse=True)
         if isinstance(object, dict):
-            genLanKeys = [
-                k for k in object.keys() if (
-                    '-' in k.lstrip('@') and k.lstrip('@').lower(
-                    ).split('-')[0] in tags
-                ) or k.lstrip('@').lower() in tags
-            ]
-            genLanKey = genLanKeys[0] if len(genLanKeys) else ""
             return(
-                object.get(
-                    "@{}".format(tag),
-                    object.get(
-                        "@{}".format(
-                            genLanTag
-                        ),
-                        object.get(
-                            genLanKey
-                        )
-                    )
-                )
+                getFromLongestMatchingKey(object, tags, caseInsensitive=True)
             )
         if isinstance(object, list):
             val = [
@@ -208,3 +192,49 @@ def getByLanguage(object, tag=None):
             return(val[0].get('@value', val[0]))
     if isinstance(object, str):
         return(object)
+
+
+def getFromLongestMatchingKey(object, listOfKeys, caseInsensitive=True):
+    """
+    Function to take an object and a list of keys and return the value of the
+    longest matching key or None if no key matches.
+
+    :param object: The object with the keys.
+    :type object: dict
+    :param listOfKeys: A list of keys to try to match
+    :type listOfKeys: list of string keys
+    :param caseInsensitive: Case insensitive key matching?
+    :type caseInsensitive: boolean
+    :returns: value of longest matching key in object
+    """
+    listOfKeys = listOfKeys.copy()
+    if caseInsensitive:
+        object = {k.lower():v for k,v in object.items()}
+        listOfKeys = [k.lower() for k in listOfKeys]
+    key = max(
+        [str(k) for k in listOfKeys],
+        key=len
+    ) if len(listOfKeys) else None
+    if key and key in listOfKeys:
+        listOfKeys.remove(key)
+    return(
+        object.get(
+            key,
+            getFromLongestMatchingKey(object, listOfKeys)
+        ) if key else None
+    )
+
+def getMoreGeneric(langTag):
+    """
+    Function to return a list of decreasingly specific language tags, given a
+    language tag.
+
+    :param langTag: a language tag following https://tools.ietf.org/html/bcp47
+    :type langTag: str
+    :returns: list
+    """
+    langTags = [langTag]
+    while '-' in langTag:
+        langTag = langTag[::-1].split('-', 1)[1][::-1]
+        langTags.append(langTag)
+    return(langTags)
