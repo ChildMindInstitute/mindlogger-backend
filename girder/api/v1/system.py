@@ -191,8 +191,12 @@ class System(Resource):
             'about': ''
         }
         skin = skinFolder.get('meta', blankSkin)
+        ab = getByLanguage(skin.get('about'))
         dSkin = {
-            "about": getByLanguage(skin.get('about')),
+            "about": ab if isinstance(ab, str) else ab.get(
+                '@value',
+                ab.get('@id', '')
+            ) if isinstance(ab, dict) else '',
             "colors": skin.get('colors', blankSkin.get('colors')),
             "name": getByLanguage(skin.get('name'))
         }

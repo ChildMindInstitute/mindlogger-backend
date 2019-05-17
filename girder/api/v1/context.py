@@ -25,7 +25,7 @@ from girder.constants import TokenScope
 from girder.exceptions import ValidationException
 from girder.models.collection import Collection as CollectionModel
 from girder.models.folder import Folder as FolderModel
-from girder.utility import server
+from girder.utility import jsonld_expander, server
 import itertools
 
 
@@ -94,12 +94,12 @@ class Context(Resource):
         Description('Get the application skinning information for this server.')
         .param(
             'lang',
-            'Language of skin to get. Must follow <a href="https://tools.ietf.org/html/bcp47">BCP 47</a>.',
+            'Language of skin to get. Must follow <a href="https://tools.ietf.org/html/bcp47">BCP 47</a>',
             default='@context.@langage',
             required=False
         )
     )
-    def getSkin(self):
+    def getSkin(self, lang):
         skinFolder = FolderModel().findOne({
             'name': 'Skin',
             'parentCollection': 'collection',
@@ -107,12 +107,17 @@ class Context(Resource):
                 'name': 'Context'
             }).get('_id')
         })
-        blankSkin = {
+        skin = skinFolder.get('meta', {
             'name': '',
             'colors': {
                 'primary': '#000000',
                 'secondary': '#FFFFFF'
             },
             'about': ''
-        }
-        return (skinFolder.get('meta', blankSkin))
+        })
+        for s in ['name', 'about']:
+            skin[s] = jsonld_expander.getByLanguage(
+                skin[s],
+                lang if lang not in ["@context.@language", ""] else None
+            )
+        return (skin)
