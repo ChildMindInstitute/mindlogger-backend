@@ -118,6 +118,9 @@ class Context(Resource):
         for s in ['name', 'about']:
             skin[s] = jsonld_expander.getByLanguage(
                 skin[s],
-                lang if lang not in ["@context.@language", ""] else None
+                lang if lang and lang not in [
+                    "@context.@language",
+                    ""
+                ] else None
             )
         return (skin)
