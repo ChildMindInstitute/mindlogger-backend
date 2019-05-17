@@ -20,12 +20,12 @@
 from ..describe import Description, autoDescribeRoute
 from ..rest import Resource
 from ast import literal_eval
-from girder.api import access
+from girder.api import access, rest
 from girder.constants import TokenScope
 from girder.exceptions import ValidationException
 from girder.models.collection import Collection as CollectionModel
 from girder.models.folder import Folder as FolderModel
-from girder.utility import jsonld_expander, server
+from girder.utility import jsonld_expander
 import itertools
 
 
@@ -83,7 +83,7 @@ class Context(Resource):
             metadata={
                 "@context": {
                     "@language": "en-US",
-                    "@base": server.getApiRoot()
+                    "@base": rest.getApiUrl()
                 }
             }
         )
@@ -95,7 +95,7 @@ class Context(Resource):
         .param(
             'lang',
             'Language of skin to get. Must follow <a href="https://tools.ietf.org/html/bcp47">BCP 47</a>',
-            default='@context.@langage',
+            default='@context.@language',
             required=False
         )
     )
