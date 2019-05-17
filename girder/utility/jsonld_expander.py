@@ -162,7 +162,6 @@ def getByLanguage(object, tag=None):
         tag = tag.get('meta', {}).get('@context', {}).get(
             '@language'
         ) if tag else None
-    return(tag)
     if isinstance(tag, str):
         genLanTag = (tag.split("-") if "-" in tag else [""])[0]
         tags = [tag.lower(), genLanTag.lower()]
