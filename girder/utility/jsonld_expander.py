@@ -172,7 +172,11 @@ def getByLanguage(object, tag=None):
             )
         if isinstance(object, list):
             val = [
-                o for o in object for oKey in getMoreGeneric(
+                o for o in sorted(
+                    object,
+                    key=lambda i: len(i.get("@language", "")),
+                    reverse=True
+                ) for oKey in getMoreGeneric(
                     o.get('@language')
                 ) if oKey in [
                     t.lower() for t in tags
