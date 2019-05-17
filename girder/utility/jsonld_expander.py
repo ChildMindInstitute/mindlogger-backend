@@ -219,6 +219,55 @@ def getFromLongestMatchingKey(object, listOfKeys, caseInsensitive=True):
         ) if key else None
     )
 
+def getFromLongestMatchingValue(
+    objectList,
+    listOfValues,
+    keyToMatch,
+    caseInsensitive=True
+):
+    """
+    Function to take a list of objects, a list of values and a key to match and
+    return the object with the longest matching value for that key or None if
+    no value matches for that that key.
+
+    :param objectList: The list of objects.
+    :type objectList: list of dicts
+    :param listOfValues: A list of values to try to match
+    :type listOfValues: list of string values
+    :param keyToMatch: key in which to match the value
+    :type keyToMatch: str
+    :param caseInsensitive: Case insensitive value matching?
+    :type caseInsensitive: boolean
+    :returns: dict with longest matching value for specified key in object
+    """
+    objectList = objectList.copy()
+    if caseInsensitive:
+        listOfValues = [k.lower() for k in listOfValues]
+    value = max(
+        [str(k) for k in listOfValues],
+        key=len
+    ) if len(listOfValues) else None
+    if value and value in listOfValues:
+        listOfValues.remove(value)
+    for object in sorted(
+        objectList,
+        key=lambda i: len(i.get(keyToMatch, "")),
+        reverse=True
+    ):
+        if (
+            object.get(keyToMatch, '').lower(
+            ) if caseInsensitive else object.get(keyToMatch, '')
+        )==value:
+            return(object)
+    return(
+        getFromLongestMatchingValue(
+            objectList,
+            listOfValues,
+            keyToMatch,
+            caseInsensitive
+        )
+    )
+
 def getMoreGeneric(langTag):
     """
     Function to return a list of decreasingly specific language tags, given a
