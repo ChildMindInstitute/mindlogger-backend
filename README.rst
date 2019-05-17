@@ -164,7 +164,7 @@ For questions, comments, or to get in touch with the maintainers, head to our `D
 
 We'd love for you to `contribute to Girder <CONTRIBUTING.rst>`_.
 
-.. |logo| image:: girder/web_client/static/img/Girder_Favicon.png
+.. |logo| image:: girder/web_client/static/img/ML_Favicon.png
 
 .. |kitware-logo| image:: https://www.kitware.com/img/small_logo_over.png
     :target: https://kitware.com
