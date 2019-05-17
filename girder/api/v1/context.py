@@ -116,11 +116,18 @@ class Context(Resource):
             'about': ''
         })
         for s in ['name', 'about']:
-            skin[s] = jsonld_expander.getByLanguage(
+            lookup = jsonld_expander.getByLanguage(
                 skin[s],
                 lang if lang and lang not in [
                     "@context.@language",
                     ""
                 ] else None
+            )
+            skin[s] = lookup if lookup and lookup not in [
+                None,
+                [{}],
+            ] else jsonld_expander.getByLanguage(
+                skin[s],
+                None
             )
         return (skin)
