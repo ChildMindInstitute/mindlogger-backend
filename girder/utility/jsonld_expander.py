@@ -171,20 +171,12 @@ def getByLanguage(object, tag=None):
                 getFromLongestMatchingKey(object, tags, caseInsensitive=True)
             )
         if isinstance(object, list):
-            val = [
-                o for o in sorted(
-                    object,
-                    key=lambda i: len(i.get("@language", "")),
-                    reverse=True
-                ) for oKey in getMoreGeneric(
-                    o.get('@language')
-                ) if oKey in [
-                    t.lower() for t in tags
-                ]
-            ]
-            if not len(val):
-                val = [{}]
-            return(val[0].get('@value', val[0]))
+            return([getFromLongestMatchingValue(
+                objectList=object,
+                listOfValues=tags,
+                keyToMatch='@language',
+                caseInsensitive=True
+            )])
     if isinstance(object, str):
         return(object)
 
@@ -259,14 +251,25 @@ def getFromLongestMatchingValue(
             ) if caseInsensitive else object.get(keyToMatch, '')
         )==value:
             return(object)
-    return(
-        getFromLongestMatchingValue(
+    if len(listOfValues)>=1:
+        return(getFromLongestMatchingValue(
             objectList,
             listOfValues,
             keyToMatch,
             caseInsensitive
-        )
-    )
+        ))
+    for object in sorted(
+        objectList,
+        key=lambda i: len(i.get(keyToMatch, "")),
+        reverse=False
+    ):
+        generic = object.get(keyToMatch, '').lower(
+        ) if caseInsensitive else object.get(keyToMatch, '')
+        generic = generic.split('-')[0] if '-' in generic else generic
+        if generic==value:
+            return(object)
+    return({})
+
 
 def getMoreGeneric(langTag):
     """
