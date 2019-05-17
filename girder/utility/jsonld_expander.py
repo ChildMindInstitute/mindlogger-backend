@@ -163,14 +163,12 @@ def getByLanguage(object, tag=None):
         ) if tag else None
     if isinstance(tag, str):
         genLanTag = (tag.split("-") if "-" in tag else [""])[0]
+        tags = [tag.lower(), genLanTag.lower()]
         if isinstance(object, dict):
             genLanKeys = [
                 k for k in object.keys() if (
-                    '-' in k and k.split('-')[0] in [
-                        tag,
-                        genLanTag
-                    ]
-                ) or k in [tag, genLanTag]
+                    '-' in k and k.lower().split('-')[0] in tags
+                ) or k.lower() in tags
             ]
             genLanKey = genLanKeys[0] if len(genLanKeys) else ""
             return(
@@ -192,14 +190,15 @@ def getByLanguage(object, tag=None):
             ]
             if not len(val):
                 val = [
-                    o for o in object if o.get('@language')==(
-                        tag.split("-") if "-" in tag else [""]
+                    o for o in object if o.get('@language').lower()==(
+                        tag.lower().split("-") if "-" in tag else [""]
                     )[0]
                 ]
             if not len(val):
                 val = [
                     o for o in object if (
-                        '-' in o.get('@language') and o.get('@language').split('-')[0] in [
+                        '-' in o.get('@language') and o.get('@language').lower(
+                        ).split('-')[0] in [
                             tag,
                             genLanTag
                         ]
