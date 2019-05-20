@@ -22,10 +22,10 @@ from girder.models.upload import Upload
 from girder.models.user import User
 from girder.settings import SettingKey
 from girder.utility import config, system
+from girder.utility.jsonld_expander import getByLanguage
 from girder.utility.progress import ProgressContext
 from ..describe import Description, autoDescribeRoute
 from ..rest import Resource
-import skin
 
 ModuleStartTime = datetime.datetime.utcnow()
 LOG_BUF_SIZE = 65536
@@ -168,14 +168,39 @@ class System(Resource):
 
     @access.public
     @autoDescribeRoute(
-        Description('Get the application skinning information for this server.')
+        Description(
+            'Get the application skinning information for this server.'
+        )
+        .deprecated()
+        .notes('Use `GET /context/skin`.')
     )
     def getSkin(self):
-        skinDict = {}
-        skinDict['name'] = skin.NAME
-        skinDict['about'] = skin.ABOUT
-        skinDict['colors'] = {'primary': skin.PRIMARY_COLOR, 'secondary': skin.SECONDARY_COLOR}
-        return skinDict
+        skinFolder = Folder().findOne({
+            'name': 'Skin',
+            'parentCollection': 'collection',
+            'parentId': Collection().findOne({
+                'name': 'Context'
+            }).get('_id')
+        })
+        blankSkin = {
+            'name': '',
+            'colors': {
+                'primary': '#000000',
+                'secondary': '#FFFFFF'
+            },
+            'about': ''
+        }
+        skin = skinFolder.get('meta', blankSkin)
+        ab = getByLanguage(skin.get('about'))
+        dSkin = {
+            "about": ab if isinstance(ab, str) else ab.get(
+                '@value',
+                ab.get('@id', '')
+            ) if isinstance(ab, dict) else '',
+            "colors": skin.get('colors', blankSkin.get('colors')),
+            "name": getByLanguage(skin.get('name'))
+        }
+        return(dSkin)
 
     @access.admin
     @autoDescribeRoute(

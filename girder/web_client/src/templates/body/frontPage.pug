@@ -63,13 +63,13 @@
 
         ul
           li
-            | To learn more about Girder, including how you can host your own
+            | To learn more about Girder for MindLogger, including how you can host your own
             | instance either locally or in the cloud, see the
             a(target="_blank", href="http://girder.readthedocs.io/en/latest/user-guide.html")  User Guide
             | , the
             a(target="_blank", href="http://girder.readthedocs.io/en/latest")  full documentation
             | , or visit the
-            a(target="_blank", href="https://github.com/girder/girder")  GitHub repository
+            a(target="_blank", href="https://github.com/ChildMindInstitute/mindlogger-app-backend")  GitHub repository
             | .
 
       li
@@ -80,7 +80,7 @@
       li This instance of #{brandName} was built
         if versionInfo.gitSha
           |  from Git version&nbsp;
-          a.g-git-sha(target="_blank", href=`https://github.com/girder/girder/tree/${versionInfo.gitSha}`) #{versionInfo.gitSha.slice(0, 8)}
+          a.g-git-sha(target="_blank", href=`https://github.com/ChildMindInstitute/mindlogger-app-backend/tree/${versionInfo.gitSha}`) #{versionInfo.gitSha.slice(0, 8)}
         if versionInfo.buildDate
           |  at #{versionInfo.buildDate.toLocaleDateString()}
         if versionInfo.release
