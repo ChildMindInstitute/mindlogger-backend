@@ -94,16 +94,13 @@ class Screen(Resource):
         )
         .responseClass('Item')
         .param('url', 'URL of Screen.', required=True)
-        .param('activity', 'ID of parent Activity.', required=True)
-        .errorResponse('ID was invalid.')
-        .errorResponse('Read access was denied for the activity.', 403)
     )
-    def getScreenByURL(self, url, activity):
+    def getScreenByURL(self, url):
         thisUser = self.getCurrentUser()
-        return(ScreenModel().importUrl(url=url, user=thisUser))
-        screen = ScreenModel().importScreen(
-            url,
-            activity=activity,
-            user=thisUser
+        return(
+            jsonld_expander.formatLdObject(
+                ScreenModel().importUrl(url=url, user=thisUser),
+                'screen',
+                thisUser
+            )
         )
-        return(jsonld_expander.formatLdObject(screen, 'screen', thisUser))

@@ -137,22 +137,10 @@ def formatLdObject(obj, mesoPrefix='folder', user=None, keepUndefined=False):
                     level=AccessType.READ,
                     user=user,
                     force=True
-                ) if '_id' in screen else ScreenModel().importScreen(
+                ) if '_id' in screen else ScreenModel().importUrl(
                     url=screen.get(
                         'url',
                         screen.get('@id')
-                    ),
-                    activity=activity.get('_id').split(
-                        '/'
-                    )[1] if activity.get('_id').startswith(
-                        'activity'
-                    ) else ActivityModel().importActivity(
-                        activity.get(
-                            'url',
-                            activity.get('@id')
-                        ),
-                        applet=applet.get('_id'),
-                        user=user
                     ),
                     user=user
                 ),
