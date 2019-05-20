@@ -98,7 +98,7 @@ def formatLdObject(obj, mesoPrefix='folder', user=None, keepUndefined=False):
     if type(newObj)==list and len(newObj)==1:
         newObj = newObj[0]
     if type(newObj)==dict:
-        newObj['_id'] = "/".join([mesoPrefix, str(obj.get('_id', 'undefined'))])
+        newObj['_id'] = "/".join([mesoPrefix, str(obj.get('_id', 'undefined'))]) # :construction: TO DO: Raise exception if undefined
     if mesoPrefix=='applet':
         applet = {'applet': newObj}
         applet['activities'] = {

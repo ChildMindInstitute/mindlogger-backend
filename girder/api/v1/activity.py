@@ -69,8 +69,4 @@ class Activity(Resource):
     )
     def getActivityByURL(self, url):
         thisUser = self.getCurrentUser()
-        activity = ActivityModel().importUrl(
-            url,
-            user=thisUser
-        )
-        return(activity)
+        return(ActivityModel().importUrl(url, thisUser))

@@ -40,6 +40,12 @@ class Applet(Folder):
     Applets are access-controlled Folders, each of which contains Activities
     which are also specialized Folders.
     """
+    def importUrl(self, url, user=None):
+        """
+        Gets an applet from a given URL, checks against the database, stores
+        and returns that applet.
+        """
+        return(self.getFromUrl(url, 'applet', user))
 
     def load(self, id, level=AccessType.ADMIN, user=None, objectId=True,
              force=False, fields=None, exc=False):

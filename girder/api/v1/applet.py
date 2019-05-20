@@ -76,7 +76,11 @@ class Applet(Resource):
     )
     def getAppletFromURL(self, url):
         thisUser=self.getCurrentUser()
-        return(jsonld_expander.updateFromURL(url, 'applet', thisUser))
+        return(jsonld_expander.formatLdObject(
+            AppletModel().importUrl(url, thisUser),
+            'applet',
+            thisUser
+        ))
 
 
     @access.user(scope=TokenScope.DATA_WRITE)
