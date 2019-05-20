@@ -26,7 +26,7 @@ from ..rest import Resource
 from girder.constants import AccessType, SortDir, TokenScope, SPECIAL_SUBJECTS,\
     USER_ROLES
 from girder.api import access
-from girder.utility.resource import loadJSON
+from girder.utility import loadJSON
 from girder.exceptions import AccessException, ValidationException
 from girder.models.applet import Applet as AppletModel, getCanonicalUser, getUserCipher
 from girder.models.collection import Collection as CollectionModel

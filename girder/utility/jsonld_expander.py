@@ -1,22 +1,23 @@
 import json
 from copy import deepcopy
-from dictdiffer import diff
-from girder.api.rest import getApiUrl
 from girder.constants import AccessType
 from girder.exceptions import AccessException
 from girder.models.activity import Activity as ActivityModel
+from girder.models.applet import Applet as AppletModel
 from girder.models.collection import Collection as CollectionModel
 from girder.models.folder import Folder as FolderModel
 from girder.models.item import Item as ItemModel
 from girder.models.screen import Screen as ScreenModel
 from girder.models.user import User as UserModel
-from .resource import loadJSON
 from pyld import jsonld
 
 MODELS = {
+    'activity': ActivityModel(),
+    'applet': AppletModel(),
     'collection': CollectionModel(),
     'folder': FolderModel(),
     'item': ItemModel(),
+    'screen': ScreenModel(),
     'user': UserModel()
 }
 
@@ -171,7 +172,6 @@ def formatLdObject(obj, mesoPrefix='folder', user=None, keepUndefined=False):
     return(newObj)
 
 
-
 def getByLanguage(object, tag=None):
     """
     Function to get a value or IRI by a language tag following
@@ -243,6 +243,7 @@ def getFromLongestMatchingKey(object, listOfKeys, caseInsensitive=True):
             getFromLongestMatchingKey(object, listOfKeys)
         ) if key else None
     )
+
 
 def getFromLongestMatchingValue(
     objectList,
@@ -319,7 +320,7 @@ def getMoreGeneric(langTag):
         langTags.append(langTag)
     return(langTags)
 
-  
+
 def keyExpansion(keys):
     return(list(set([
         k.split(delimiter)[-1] for k in keys for delimiter in [

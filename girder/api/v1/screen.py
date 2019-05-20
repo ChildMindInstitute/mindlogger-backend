@@ -100,6 +100,7 @@ class Screen(Resource):
     )
     def getScreenByURL(self, url, activity):
         thisUser = self.getCurrentUser()
+        return(ScreenModel().importUrl(url=url, user=thisUser))
         screen = ScreenModel().importScreen(
             url,
             activity=activity,

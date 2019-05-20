@@ -9,12 +9,14 @@ import six
 from bson.objectid import ObjectId
 from bson.errors import InvalidId
 from pymongo.errors import WriteError
+from dictdiffer import diff
 from girder import events, logprint, logger, auditLogger
-from girder.constants import AccessType, CoreEventHandler, ACCESS_FLAGS, \
-    PREFERRED_NAMES, TEXT_SCORE_SORT_MAX
+from girder.constants import AccessType, CoreEventHandler, SortDir, \
+    ACCESS_FLAGS, PREFERRED_NAMES, TEXT_SCORE_SORT_MAX
 from girder.external.mongodb_proxy import MongoProxy
 from girder.models import getDbConnection
 from girder.exceptions import AccessException, ValidationException
+from girder.utility import loadJSON
 
 # pymongo3 complains about extra kwargs to find(), so we must filter them.
 _allowedFindArgs = ('cursor_type', 'allow_partial_results', 'oplog_replay',
@@ -193,6 +195,150 @@ class Model(object):
             keys.update(additionalKeys)
 
         return self.filterDocument(doc, allow=keys)
+
+    def getCached(self, url, modelType):
+        """
+        Returns the latest cached version of model `modelType` with URL `url`,
+        if any.
+
+        :param url: URL
+        :type url: str
+        :param modelType: 'activity', 'screen', etc.
+        :type modelType: str
+        :returns: dict or None
+        """
+        from girder.utility.jsonld_expander import MODELS
+        cached = list(MODELS[modelType].find(
+            query={'meta.{}.url'.format(modelType): url},
+            sort=[('created', SortDir.DESCENDING)]
+        ))
+        return(
+            cached[0] if len(cached) else None
+        )
+
+    def getFromUrl(self, url, modelType, user=None):
+        """
+        Loads from a URL and saves to the DB, returning the loaded model.
+
+        :param url: URL
+        :type url: str
+        :param modelType: 'activity', 'screen', etc.
+        :type modelType: str
+        :returns: dict or None
+        """
+        if user==None:
+            raise AccessException(
+                "You must be logged in to load a{} by url".format(
+                    "n {}".format(
+                        modelType
+                    ) if modelType[0] in [
+                        'a', 'e', 'h', 'i', 'o'
+                    ] else " {}".format(modelType)
+                )
+            )
+        model = loadJSON(url, modelType)
+        prefName = self.preferredName(model)
+        cachedDoc = self.getCached(url, modelType)
+        if cachedDoc:
+            cachedId = str(cachedDoc.get('_id'))
+            cachedDocObj = cachedDoc.get('meta', {}).get(modelType, {})
+            cachedDocObj.pop('url', None)
+            cachedDocObj.pop('schema:isBasedOn', None)
+        else:
+            cachedId = None
+            cachedDocObj = {}
+
+        if not cachedDocObj or len(list(diff(cachedDocObj, model))):
+            if cachedId:
+                model['schema:isBasedOn'] = {
+                    '@id': '/'.join([
+                        modelType,
+                        cachedId
+                    ])
+                }
+            docCollection=self.getModelCollection(modelType)
+            if self.name in ['folder', 'item']:
+                if self.name=='item':
+                    from girder.models.folder import Folder as FolderModel
+                docFolder = (
+                    FolderModel() if self.name=='item' else self
+                ).createFolder(
+                    name=prefName,
+                    parent=docCollection,
+                    parentType='collection',
+                    public=True,
+                    creator=user,
+                    allowRename=True,
+                    reuseExisting=False
+                )
+                if self.name=='folder':
+                    return(
+                        self.setMetadata(
+                            docFolder,
+                            {
+                                modelType: {
+                                    **model,
+                                    'url': url
+                                }
+                            }
+                        )
+                    )
+                elif self.name=='item':
+                    return(
+                        self.setMetadata(
+                            self.createItem(
+                                name=prefName if prefName else str(len(list(
+                                    FolderModel().childItems(
+                                        FolderModel().load(
+                                            docFolder,
+                                            level=AccessType.NONE,
+                                            user=user,
+                                            force=True
+                                        )
+                                    )
+                                )) + 1),
+                                creator=user,
+                                folder=docFolder,
+                                reuseExisting=False
+                            ),
+                            {
+                                modelType: {
+                                    **model,
+                                    'url': url
+                                }
+                            }
+                        )
+                    )
+        return(cachedDoc)
+
+
+    def getModelCollection(self, modelType):
+        """
+        Returns the Collection named for the given modelType, creating if not
+        already extant.
+
+        :param modelType: 'activity', 'screen', etc.
+        :type modelType: str
+        :returns: dict
+        """
+        from girder.models.collection import Collection
+        name = '{}s'.format(
+            modelType[:-1] if modelType.endswith(
+                's'
+            ) else "{}ie".format(modelType[:-1]) if modelType.endswith(
+                'y'
+            ) else modelType
+        ).title()
+        collection = Collection().findOne(
+            {'name': name}
+        )
+        if not collection:
+            collection = Collection().createCollection(
+                name=name,
+                public=True,
+                reuseExisting=True
+            )
+        return(collection)
 
     def _createIndex(self, index):
         if isinstance(index, (list, tuple)):

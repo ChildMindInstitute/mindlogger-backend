@@ -36,7 +36,7 @@ from girder.constants import AccessType
 from girder.exceptions import ValidationException, GirderException
 from girder.models.applet import getUserCipher
 from girder.utility.progress import noProgress, setResponseTimeLimit
-from girder.utility.resource import loadJSON
+from girder.utility import loadJSON
 
 class Screen(Item):
     def initialize(self):
@@ -110,6 +110,14 @@ class Screen(Item):
         })
 
 
+    def importUrl(self, url, user=None):
+        """
+        Gets a screen from a given URL, checks against the database, stores and
+        returns that screen.
+        """
+        return(self.getFromUrl(url, 'screen', user))
+        return(None)
+
     def importScreen(self, url, activity=None, user=None, dynamic=False):
         """
         Looks for a given Screen in Girder for MindLogger. If none is found,
@@ -127,9 +135,7 @@ class Screen(Item):
         :param dynamic: false
         :returns: Screen, loaded into Girder for MindLogger
         """
-        screen = self.findOne({
-            'meta.screen.url': url
-        })
+
         if not screen:
             try:
                 screen = loadJSON(url, 'screen')

@@ -7,6 +7,7 @@ import json
 import os
 import pytz
 import re
+import requests
 import string
 import six
 
@@ -60,6 +61,19 @@ def camelcase(value):
     """
     return ''.join(x.capitalize() if x else '_' for x in
                    re.split("[._]+", value))
+
+
+def loadJSON(url, urlType='applet'):
+    from girder.exceptions import ValidationException
+    try:
+        r = requests.get(url)
+        data = r.json()
+    except:
+        raise ValidationException(
+            'Invalid ' + urlType + ' URL: ' + url,
+            'url'
+        )
+    return(data)
 
 
 def mkdir(path, mode=0o777, recurse=True, existOk=True):
