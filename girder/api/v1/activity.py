@@ -66,15 +66,11 @@ class Activity(Resource):
         )
         .responseClass('Folder')
         .param('url', 'URL of Activity.', required=True)
-        .param('applet', 'ID of parent Applet.', required=False)
-        .errorResponse('ID was invalid.')
-        .errorResponse('Read access was denied for the activity.', 403)
     )
-    def getActivityByURL(self, url, applet=None):
+    def getActivityByURL(self, url):
         thisUser = self.getCurrentUser()
-        activity = ActivityModel().importActivity(
+        activity = ActivityModel().importUrl(
             url,
-            applet=applet,
             user=thisUser
         )
         return(activity)

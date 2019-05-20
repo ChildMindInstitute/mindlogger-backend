@@ -116,4 +116,3 @@ class Screen(Item):
         returns that screen.
         """
         return(self.getFromUrl(url, 'screen', user))
-        return(None)

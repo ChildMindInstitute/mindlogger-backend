@@ -108,17 +108,11 @@ def formatLdObject(obj, mesoPrefix='folder', user=None, keepUndefined=False):
             ): formatLdObject(
                 ActivityModel().load(
                     activity.get('_id')
-                ) if '_id' in activity else ActivityModel().importActivity(
+                ) if '_id' in activity else ActivityModel().importUrl(
                         url=activity.get(
                             'url',
                             activity.get('@id')
                         ),
-                        applet=newObj.get(
-                            '_id'
-                        ).split('/')[1] if newObj.get(
-                            '_id',
-                            ''
-                        ).startswith('applet') else None,
                         user=user
                 ),
                 'activity',
