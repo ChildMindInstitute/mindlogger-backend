@@ -1,5 +1,7 @@
 from copy import deepcopy
 from girder.models.activity import Activity as ActivityModel
+from girder.models.collection import Collection as CollectionModel
+from girder.models.folder import Folder as FolderModel
 from girder.models.screen import Screen as ScreenModel
 from pyld import jsonld
 import json
@@ -157,6 +159,155 @@ def formatLdObject(obj, mesoPrefix='folder', user=None, keepUndefined=False):
     return(newObj)
 
 
+
+def getByLanguage(object, tag=None):
+    """
+    Function to get a value or IRI by a language tag following
+    https://tools.ietf.org/html/bcp47.
+
+    :param object: The JSON-LD Object to language-parse
+    :type object: dict or list
+    :param tag: The language tag to use.
+    :type tag: str
+    :returns: str, either a literal or an IRI.
+    """
+    if not tag:
+        from girder.api.v1.context import Context
+        tag = FolderModel().findOne({
+            'name': 'JSON-LD',
+            'parentCollection': 'collection',
+            'parentId': CollectionModel().findOne({
+                'name': 'Context'
+            }).get('_id')
+        })
+        tag = tag.get('meta', {}).get('@context', {}).get(
+            '@language'
+        ) if tag else None
+    if isinstance(tag, str):
+        tags = getMoreGeneric(tag)
+        tags = tags + ["@{}".format(t) for t in tags]
+        tags.sort(key=len, reverse=True)
+        if isinstance(object, dict):
+            return(
+                getFromLongestMatchingKey(object, tags, caseInsensitive=True)
+            )
+        if isinstance(object, list):
+            return([getFromLongestMatchingValue(
+                objectList=object,
+                listOfValues=tags,
+                keyToMatch='@language',
+                caseInsensitive=True
+            )])
+    if isinstance(object, str):
+        return(object)
+
+
+def getFromLongestMatchingKey(object, listOfKeys, caseInsensitive=True):
+    """
+    Function to take an object and a list of keys and return the value of the
+    longest matching key or None if no key matches.
+
+    :param object: The object with the keys.
+    :type object: dict
+    :param listOfKeys: A list of keys to try to match
+    :type listOfKeys: list of string keys
+    :param caseInsensitive: Case insensitive key matching?
+    :type caseInsensitive: boolean
+    :returns: value of longest matching key in object
+    """
+    listOfKeys = listOfKeys.copy()
+    if caseInsensitive:
+        object = {k.lower():v for k,v in object.items()}
+        listOfKeys = [k.lower() for k in listOfKeys]
+    key = max(
+        [str(k) for k in listOfKeys],
+        key=len
+    ) if len(listOfKeys) else None
+    if key and key in listOfKeys:
+        listOfKeys.remove(key)
+    return(
+        object.get(
+            key,
+            getFromLongestMatchingKey(object, listOfKeys)
+        ) if key else None
+    )
+
+def getFromLongestMatchingValue(
+    objectList,
+    listOfValues,
+    keyToMatch,
+    caseInsensitive=True
+):
+    """
+    Function to take a list of objects, a list of values and a key to match and
+    return the object with the longest matching value for that key or None if
+    no value matches for that that key.
+
+    :param objectList: The list of objects.
+    :type objectList: list of dicts
+    :param listOfValues: A list of values to try to match
+    :type listOfValues: list of string values
+    :param keyToMatch: key in which to match the value
+    :type keyToMatch: str
+    :param caseInsensitive: Case insensitive value matching?
+    :type caseInsensitive: boolean
+    :returns: dict with longest matching value for specified key in object
+    """
+    objectList = objectList.copy()
+    if caseInsensitive:
+        listOfValues = [k.lower() for k in listOfValues]
+    value = max(
+        [str(k) for k in listOfValues],
+        key=len
+    ) if len(listOfValues) else None
+    if value and value in listOfValues:
+        listOfValues.remove(value)
+    for object in sorted(
+        objectList,
+        key=lambda i: len(i.get(keyToMatch, "")),
+        reverse=True
+    ):
+        if (
+            object.get(keyToMatch, '').lower(
+            ) if caseInsensitive else object.get(keyToMatch, '')
+        )==value:
+            return(object)
+    if len(listOfValues)>=1:
+        return(getFromLongestMatchingValue(
+            objectList,
+            listOfValues,
+            keyToMatch,
+            caseInsensitive
+        ))
+    for object in sorted(
+        objectList,
+        key=lambda i: len(i.get(keyToMatch, "")),
+        reverse=False
+    ):
+        generic = object.get(keyToMatch, '').lower(
+        ) if caseInsensitive else object.get(keyToMatch, '')
+        generic = generic.split('-')[0] if '-' in generic else generic
+        if generic==value:
+            return(object)
+    return({})
+
+
+def getMoreGeneric(langTag):
+    """
+    Function to return a list of decreasingly specific language tags, given a
+    language tag.
+
+    :param langTag: a language tag following https://tools.ietf.org/html/bcp47
+    :type langTag: str
+    :returns: list
+    """
+    langTags = [langTag]
+    while '-' in langTag:
+        langTag = langTag[::-1].split('-', 1)[1][::-1]
+        langTags.append(langTag)
+    return(langTags)
+
+  
 def keyExpansion(keys):
     return(list(set([
         k.split(delimiter)[-1] for k in keys for delimiter in [

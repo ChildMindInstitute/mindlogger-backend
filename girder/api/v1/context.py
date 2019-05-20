@@ -20,11 +20,12 @@
 from ..describe import Description, autoDescribeRoute
 from ..rest import Resource
 from ast import literal_eval
-from girder.api import access
+from girder.api import access, rest
 from girder.constants import TokenScope
 from girder.exceptions import ValidationException
 from girder.models.collection import Collection as CollectionModel
 from girder.models.folder import Folder as FolderModel
+from girder.utility import jsonld_expander
 import itertools
 
 
@@ -36,6 +37,7 @@ class Context(Resource):
         self.resourceName = 'context'
         self._model = FolderModel()
         self.route('GET', (), self.getContext)
+        self.route('GET', ('skin',), self.getSkin)
 
     @access.public(scope=TokenScope.DATA_READ)
     @autoDescribeRoute(
@@ -54,24 +56,78 @@ class Context(Resource):
         2. Searching with full text search across all folders in the system.
            Simply pass a "text" parameter for this mode.
         """
+        context = FolderModel().findOne({
+            'name': 'JSON-LD',
+            'parentCollection': 'collection',
+            'parentId': CollectionModel().findOne({
+                'name': 'Context'
+            }).get('_id')
+        })
+        if context:
+            return (context.get('meta', {}))
         user = self.getCurrentUser()
-        collections = CollectionModel().find()
-        contextFolder = list(itertools.chain.from_iterable([
-            [
-                folder for folder in FolderModel().childFolders(
-                    parentType='collection',
-                    parent=collection,
-                    user=user,
-                    name="JSON-LD"
-                )
-            ] for collection in [
-                collection for collection in collections if collection[
-                    'name'
-                ] == "Context"
-            ]
-        ]))
-        return (
-            contextFolder[0]['meta'] if (
-                len(contextFolder) and 'meta' in contextFolder[0]
-            ) else contextFolder
+        context = FolderModel().setMetadata(
+            folder=FolderModel().createFolder(
+                parent=CollectionModel().createCollection(
+                    name="Context",
+                    creator=user,
+                    public=True,
+                    reuseExisting=True
+                ),
+                name="JSON-LD",
+                parentType='collection',
+                public=True,
+                creator=user,
+                reuseExisting=True
+            ),
+            metadata={
+                "@context": {
+                    "@language": "en-US",
+                    "@base": rest.getApiUrl()
+                }
+            }
         )
+        return (context.get('meta', {}))
+
+    @access.public
+    @autoDescribeRoute(
+        Description('Get the application skinning information for this server.')
+        .param(
+            'lang',
+            'Language of skin to get. Must follow <a href="https://tools.ietf.org/html/bcp47">BCP 47</a>',
+            default='@context.@language',
+            required=False
+        )
+    )
+    def getSkin(self, lang):
+        skinFolder = FolderModel().findOne({
+            'name': 'Skin',
+            'parentCollection': 'collection',
+            'parentId': CollectionModel().findOne({
+                'name': 'Context'
+            }).get('_id')
+        })
+        skin = skinFolder.get('meta', {
+            'name': '',
+            'colors': {
+                'primary': '#000000',
+                'secondary': '#FFFFFF'
+            },
+            'about': ''
+        })
+        for s in ['name', 'about']:
+            lookup = jsonld_expander.getByLanguage(
+                skin[s],
+                lang if lang and lang not in [
+                    "@context.@language",
+                    ""
+                ] else None
+            )
+            skin[s] = lookup if lookup and lookup not in [
+                None,
+                [{}],
+            ] else jsonld_expander.getByLanguage(
+                skin[s],
+                None
+            )
+        return (skin)
