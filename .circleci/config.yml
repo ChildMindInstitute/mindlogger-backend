@@ -621,9 +621,5 @@ workflows:
             tags:
               only: /^v[0-9]+.*/
             branches:
-              ignore:
-                - stopgap
-                - originalMaster
-                - 2018-september
-                - scores
-                - S3
+              only:
+                - 💚
