@@ -31,7 +31,7 @@ from girder.exceptions import ValidationException, GirderException
 from girder.models.applet import Applet as AppletModel
 from girder.models.collection import Collection as CollectionModel
 from girder.utility.progress import noProgress, setResponseTimeLimit
-from girder.utility.resource import loadJSON
+from girder.utility import loadJSON
 from pyld import jsonld
 
 
@@ -40,80 +40,12 @@ class Activity(Folder):
     Activities are access-controlled Folders stored in Applets, each of which
     contains versions which are also Folders.
     """
-    def importActivity(self, url, applet=None, user=None, dynamic=False):
+    def importUrl(self, url, user=None):
         """
-        Looks for a given activity in Girder for MindLogger. If none is found,
-        adds that activity.
-
-        :param url: The URL of an accessible Activity in [ReproNim/schema-standardization](https://github.com/ReproNim/schema-standardization)
-                    format.
-        :type url: str
-        :param applet: The ID of the Activity's parent Applet, if any.
-        :type applet: str or None
-        :param user: The user importing the activity
-        :type user: dict
-        :param dynamic: Does the URL point to a version that might change, ie,
-                        `latest`?
-        :param dynamic: false
-        :returns: Activity, loaded into Girder for MindLogger
+        Gets an activity from a given URL, checks against the database, stores
+        and returns that activity.
         """
-        activity = self.findOne({
-            'meta.activity.url': url
-        })
-        if not activity:
-            activity = loadJSON(url, 'activity')
-            prefName=self.preferredName(activity)
-            try:
-                applet = AppletModel().load(
-                    id=applet,
-                    level=AccessType.WRITE,
-                    user=user
-                )
-            except:
-                applet=None
-            try:
-                parent = self.createFolder(
-                    parent=applet,
-                    name=prefName,
-                    parentType='folder',
-                    public=True,
-                    creator=user,
-                    reuseExisting=True
-                )
-            except:
-                parent = self.createFolder(
-                    parent=CollectionModel().createCollection(
-                        name="Activities",
-                        public=True,
-                        reuseExisting=True
-                    ),
-                    name=prefName,
-                    parentType='collection',
-                    public=True,
-                    creator=user,
-                    reuseExisting=True
-                )
-            activity = self.setMetadata(
-                self.createFolder(
-                    parent=parent,
-                    name=prefName,
-                    parentType='folder',
-                    public=True,
-                    creator=user,
-                    allowRename=True,
-                    reuseExisting=False
-                ),
-                {
-                    'activity': {
-                        **activity,
-                        'url': url
-                    }
-                }
-            )
-        _id = activity.get('_id')
-        activity = activity.get('meta', {}).get('activity')
-        activity['_id'] = _id
-        return(activity)
+        return(self.getFromUrl(url, 'activity', user))
 
 
     def listVersionId(self, id, level=AccessType.ADMIN, user=None,

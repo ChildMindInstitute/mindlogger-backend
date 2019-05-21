@@ -18,6 +18,7 @@ from girder.models.token import Token
 from girder.models.user import User as UserModel
 from girder.settings import SettingKey
 from girder.utility import jsonld_expander, mail_utils
+from sys import exc_info
 
 
 class User(Resource):
@@ -150,7 +151,9 @@ class User(Resource):
                 [
                     folder for folder in FolderModel().find(
                         {
-                            'parentId': reviewer['_id'],
+                            'parentId': (
+                                reviewer if reviewer else {}
+                            ).get('_id'),
                             'baseParentType': 'user',
                             'name': 'Assignments'
                         }
@@ -159,53 +162,56 @@ class User(Resource):
             ]))
         ]
         for assignment in assignments:
-            if 'meta' in assignment and 'members' in assignment[
-                'meta'
-            ] and assignment['meta']['members'] is not None:
-                for assignedUser in assignment['meta']['members']:
-                    if 'roles' in assignedUser and bool(len(list(set(
-                        assignedUser['roles']
-                    ).intersection(
-                        list(assignedUser['roles'])
-                    )))) and '@id' in assignedUser:
-                        if ('_id' in user) and str(user['_id']) in [
-                            userId['meta']['user'][
-                                '@id'
-                            ] for userId in FolderModel().childFolders(
-                                parentType='folder',
-                                parent=FolderModel().load(
-                                    assignedUser['@id'],
-                                    level=AccessType.NONE,
+            try:
+                if 'meta' in assignment and 'members' in assignment[
+                    'meta'
+                ] and assignment['meta']['members'] is not None:
+                    for assignedUser in assignment['meta']['members']:
+                        if 'roles' in assignedUser and bool(len(list(set(
+                            assignedUser['roles']
+                        ).intersection(
+                            list(assignedUser['roles'])
+                        )))) and '@id' in assignedUser:
+                            if ('_id' in user) and str(user['_id']) in [
+                                userId['meta']['user'][
+                                    '@id'
+                                ] for userId in FolderModel().childFolders(
+                                    parentType='folder',
+                                    parent=FolderModel().load(
+                                        assignedUser['@id'],
+                                        level=AccessType.NONE,
+                                        user=reviewer,
+                                        force=True
+                                    ),
                                     user=reviewer,
                                     force=True
-                                ),
-                                user=reviewer,
-                                force=True
-                            ) if (
-                                'lowerName' in userId
-                            ) and (
-                                userId['lowerName']=='userid'
-                            ) and (
-                                'meta' in userId
-                            ) and (
-                                'user' in userId['meta']
-                            ) and (
-                                '@id' in userId['meta']['user']
-                            )
-                        ]:
-                            if 'applet' in assignment[
-                                'meta'
-                            ] and '@id' in assignment['meta']['applet']:
-                                try:
-                                    applets.append(
-                                        AppletModel().load(
-                                            assignment['meta']['applet']['@id'],
-                                            AccessType.READ,
-                                            reviewer
+                                ) if (
+                                    'lowerName' in userId
+                                ) and (
+                                    userId['lowerName']=='userid'
+                                ) and (
+                                    'meta' in userId
+                                ) and (
+                                    'user' in userId['meta']
+                                ) and (
+                                    '@id' in userId['meta']['user']
+                                )
+                            ]:
+                                if 'applet' in assignment[
+                                    'meta'
+                                ] and '@id' in assignment['meta']['applet']:
+                                    try:
+                                        applets.append(
+                                            AppletModel().load(
+                                                assignment['meta']['applet']['@id'],
+                                                AccessType.READ,
+                                                reviewer
+                                            )
                                         )
-                                    )
-                                except:
-                                    pass
+                                    except:
+                                        pass
+            except:
+                print(exc_info()[0])
         return(
             [
                 jsonld_expander.formatLdObject(

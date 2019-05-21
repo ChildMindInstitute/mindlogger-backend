@@ -1,11 +1,25 @@
+import json
 from copy import deepcopy
+from girder.constants import AccessType
+from girder.exceptions import AccessException
 from girder.models.activity import Activity as ActivityModel
+from girder.models.applet import Applet as AppletModel
 from girder.models.collection import Collection as CollectionModel
 from girder.models.folder import Folder as FolderModel
+from girder.models.item import Item as ItemModel
 from girder.models.screen import Screen as ScreenModel
+from girder.models.user import User as UserModel
 from pyld import jsonld
-import json
 
+MODELS = {
+    'activity': ActivityModel(),
+    'applet': AppletModel(),
+    'collection': CollectionModel(),
+    'folder': FolderModel(),
+    'item': ItemModel(),
+    'screen': ScreenModel(),
+    'user': UserModel()
+}
 
 def check_for_unexpanded_value_constraints(item_exp):
     vc = item_exp[0]
@@ -84,7 +98,7 @@ def formatLdObject(obj, mesoPrefix='folder', user=None, keepUndefined=False):
     if type(newObj)==list and len(newObj)==1:
         newObj = newObj[0]
     if type(newObj)==dict:
-        newObj['_id'] = "/".join([mesoPrefix, str(obj.get('_id', 'undefined'))])
+        newObj['_id'] = "/".join([mesoPrefix, str(obj.get('_id', 'undefined'))]) # :construction: TO DO: Raise exception if undefined
     if mesoPrefix=='applet':
         applet = {'applet': newObj}
         applet['activities'] = {
@@ -94,17 +108,11 @@ def formatLdObject(obj, mesoPrefix='folder', user=None, keepUndefined=False):
             ): formatLdObject(
                 ActivityModel().load(
                     activity.get('_id')
-                ) if '_id' in activity else ActivityModel().importActivity(
+                ) if '_id' in activity else ActivityModel().importUrl(
                         url=activity.get(
                             'url',
                             activity.get('@id')
                         ),
-                        applet=newObj.get(
-                            '_id'
-                        ).split('/')[1] if newObj.get(
-                            '_id',
-                            ''
-                        ).startswith('applet') else None,
                         user=user
                 ),
                 'activity',
@@ -123,22 +131,10 @@ def formatLdObject(obj, mesoPrefix='folder', user=None, keepUndefined=False):
                     level=AccessType.READ,
                     user=user,
                     force=True
-                ) if '_id' in screen else ScreenModel().importScreen(
+                ) if '_id' in screen else ScreenModel().importUrl(
                     url=screen.get(
                         'url',
                         screen.get('@id')
-                    ),
-                    activity=activity.get('_id').split(
-                        '/'
-                    )[1] if activity.get('_id').startswith(
-                        'activity'
-                    ) else ActivityModel().importActivity(
-                        activity.get(
-                            'url',
-                            activity.get('@id')
-                        ),
-                        applet=applet.get('_id'),
-                        user=user
                     ),
                     user=user
                 ),
@@ -152,12 +148,10 @@ def formatLdObject(obj, mesoPrefix='folder', user=None, keepUndefined=False):
                 []
             ) for screen in order.get("@list", order.get("@set", []))
         }
-        print(applet['items'])
         return(applet)
     if mesoPrefix=='activity':
         activity = newObj
     return(newObj)
-
 
 
 def getByLanguage(object, tag=None):
@@ -231,6 +225,7 @@ def getFromLongestMatchingKey(object, listOfKeys, caseInsensitive=True):
             getFromLongestMatchingKey(object, listOfKeys)
         ) if key else None
     )
+
 
 def getFromLongestMatchingValue(
     objectList,
@@ -307,7 +302,7 @@ def getMoreGeneric(langTag):
         langTags.append(langTag)
     return(langTags)
 
-  
+
 def keyExpansion(keys):
     return(list(set([
         k.split(delimiter)[-1] for k in keys for delimiter in [
