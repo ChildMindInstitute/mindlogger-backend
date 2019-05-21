@@ -40,6 +40,12 @@ class Applet(Folder):
     Applets are access-controlled Folders, each of which contains Activities
     which are also specialized Folders.
     """
+    def importUrl(self, url, user=None):
+        """
+        Gets an applet from a given URL, checks against the database, stores
+        and returns that applet.
+        """
+        return(self.getFromUrl(url, 'applet', user))
 
     def load(self, id, level=AccessType.ADMIN, user=None, objectId=True,
              force=False, fields=None, exc=False):
@@ -278,7 +284,7 @@ def getUserCipher(appletAssignment, user):
     appletAssignment: Mongo Folder cursor
         Applet folder in Assignments collection
 
-    user: string
+    user: string or list
         applet-specific ID, canonical ID or email address
 
     Returns
@@ -286,6 +292,8 @@ def getUserCipher(appletAssignment, user):
     user: string
         applet-specific ID
     """
+    if not isinstance(user, str):
+        return([getUserCipher(appletAssignment, u) for u in list(user)])
     thisUser = getCurrentUser()
     appletAssignments = list(FolderModel().childFolders(
         parent=appletAssignment,

@@ -24,18 +24,6 @@ def listFromString(string):
         return([string])
 
 
-def loadJSON(url, urlType='applet'):
-    try:
-        r = requests.get(url)
-        data = r.json()
-    except:
-        raise ValidationException(
-            'Invalid ' + urlType + ' URL: ' + url,
-            'url'
-        )
-    return(data)
-
-
 def _walkTree(node, path=()):
     routeMap = {}
     for k, v in six.iteritems(vars(node)):

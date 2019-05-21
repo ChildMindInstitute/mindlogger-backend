@@ -26,7 +26,7 @@ from ..rest import Resource
 from girder.constants import AccessType, SortDir, TokenScope, SPECIAL_SUBJECTS,\
     USER_ROLES
 from girder.api import access
-from girder.utility.resource import loadJSON
+from girder.utility import loadJSON
 from girder.exceptions import AccessException, ValidationException
 from girder.models.applet import Applet as AppletModel, getCanonicalUser, getUserCipher
 from girder.models.collection import Collection as CollectionModel
@@ -75,17 +75,12 @@ class Applet(Resource):
         .errorResponse('Read access was denied for this applet.', 403)
     )
     def getAppletFromURL(self, url):
-        applet = AppletModel().findOne({
-            'meta.applet.url': url
-        })
         thisUser=self.getCurrentUser()
-        if applet:
-            _id = applet.get('_id')
-            applet = applet.get('meta', {}).get('applet')
-            applet['_id'] = _id
-        else:
-            applet = loadJSON(url, 'applet')
-        return(jsonld_expander.formatLdObject(applet, 'applet', thisUser))
+        return(jsonld_expander.formatLdObject(
+            AppletModel().importUrl(url, thisUser),
+            'applet',
+            thisUser
+        ))
 
 
     @access.user(scope=TokenScope.DATA_WRITE)
@@ -190,41 +185,15 @@ class Applet(Resource):
                 'Invalid role.',
                 'role'
             )
-        applet = loadJSON(url, 'applet')
-        applets = CollectionModel().createCollection(
-            name="Applets",
-            public=True,
-            reuseExisting=True
-        )
         thisUser = self.getCurrentUser()
-        thisApplet = list(FolderModel().childFolders(
-            parent=applets,
-            parentType='collection',
-            user=thisUser,
-            filters={
-                'meta.applet.url': url
-            }
-        ))
-        thisApplet = thisApplet[0] if len(
-            thisApplet
-        ) else FolderModel().setMetadata(
-            FolderModel().createFolder(
-                parent=applets,
-                name=FolderModel().preferredName(applet),
-                parentType='collection',
-                public=True,
-                creator=thisUser,
-                allowRename=True,
-                reuseExisting=False
-            ),
-            {
-                'applet': {
-                    **applet,
-                    'url': url
-                }
-            }
+        thisApplet = AppletModel().load(
+            jsonld_expander.updateFromURL(url, 'applet', thisUser).get(
+                'applet',
+                {}
+            ).get('_id', '').split('applet/')[-1],
+            level=AccessType.READ,
+            user=thisUser
         )
-        jsonld_expander.formatLdObject(thisApplet, 'applet', thisUser)
         return(
             _invite(
                 applet=thisApplet,
@@ -335,6 +304,22 @@ def authorizeReviewers(assignment):
 
 
 def _invite(applet, user, role, rsvp, subject):
+    """
+
+    :param applet: Applet to invite user to
+    :type applet: AppletModel
+    :param user: ID (canonical or applet-specific) or email address of user to
+                 invite
+    :type user: string
+    :param role: Role to invite user to
+    :type role: string
+    :param rsvp: Require user acceptance?
+    :type rsvp: boolean
+    :param subject: Subject about 'user' role can inform or about which
+                    'reviewer' role can review
+    :type subject: string or literal
+    :returns: New assignment (dictionary)
+    """
     thisUser = Applet().getCurrentUser()
     user = user if user else str(thisUser['_id'])
     try:

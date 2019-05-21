@@ -36,7 +36,7 @@ from girder.constants import AccessType
 from girder.exceptions import ValidationException, GirderException
 from girder.models.applet import getUserCipher
 from girder.utility.progress import noProgress, setResponseTimeLimit
-from girder.utility.resource import loadJSON
+from girder.utility import loadJSON
 
 class Screen(Item):
     def initialize(self):
@@ -110,68 +110,9 @@ class Screen(Item):
         })
 
 
-    def importScreen(self, url, activity=None, user=None, dynamic=False):
+    def importUrl(self, url, user=None):
         """
-        Looks for a given Screen in Girder for MindLogger. If none is found,
-        adds that Screen.
-
-        :param url: The URL of an accessible Screen in [ReproNim/schema-standardization](https://github.com/ReproNim/schema-standardization)
-                    format.
-        :type url: str
-        :param activity: The ID of the Screen's parent Activity, if any.
-        :type applet: str or None
-        :param user: The user importing the Screen
-        :type user: dict
-        :param dynamic: Does the URL point to a version that might change, ie,
-                        `latest`?
-        :param dynamic: false
-        :returns: Screen, loaded into Girder for MindLogger
+        Gets a screen from a given URL, checks against the database, stores and
+        returns that screen.
         """
-        screen = self.findOne({
-            'meta.screen.url': url
-        })
-        if not screen:
-            try:
-                screen = loadJSON(url, 'screen')
-                prefName=self.preferredName(screen)
-                try:
-                    activity = ActivityModel().load(
-                        id=activity,
-                        level=AccessType.WRITE,
-                        user=user
-                    )
-                except:
-                    activity = FolderModel().createFolder(
-                        parent=FolderModel().createFolder(
-                            name="Activities",
-                            public=False,
-                            reuseExisting=True,
-                            parentType='user',
-                            parent=user
-                        ),
-                        name=prefName,
-                        parentType='folder',
-                        public=True,
-                        creator=user,
-                        reuseExisting=True
-                    )
-                screen = self.setMetadata(
-                    self.createScreen(
-                        name=prefName,
-                        activity=activity,
-                        creator=user,
-                        readOnly=not dynamic
-                    ),
-                    {
-                        'screen': {
-                            **screen,
-                            'url': url
-                        }
-                    }
-                )
-            except:
-                return({})
-        _id = screen.get('_id')
-        screen = screen.get('meta', {}).get('screen')
-        screen['_id'] = _id
-        return(screen)
+        return(self.getFromUrl(url, 'screen', user))
