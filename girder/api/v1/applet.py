@@ -186,14 +186,7 @@ class Applet(Resource):
                 'role'
             )
         thisUser = self.getCurrentUser()
-        thisApplet = AppletModel().load(
-            jsonld_expander.updateFromURL(url, 'applet', thisUser).get(
-                'applet',
-                {}
-            ).get('_id', '').split('applet/')[-1],
-            level=AccessType.READ,
-            user=thisUser
-        )
+        thisApplet = AppletModel().getFromUrl(url, 'applet', user=thisUser)
         return(
             _invite(
                 applet=thisApplet,
