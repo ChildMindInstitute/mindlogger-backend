@@ -12,6 +12,7 @@ from girder.models.user import User as UserModel
 from pyld import jsonld
 
 KEYS_TO_EXPAND = [
+    "responseOptions",
     "https://schema.repronim.org/valueconstraints"
 ]
 
@@ -36,7 +37,13 @@ def expand(obj, keepUndefined=False):
     :param keepUndefined: bool
     :returns: list, expanded JSON-LD Array or Object
     """
-    newObj = jsonld.expand(obj)
+    if obj==None:
+        return(obj)
+    try:
+        newObj = jsonld.expand(obj)
+    except jsonld.JsonLdError: # 👮 Catch illegal JSON-LD
+        print(obj)
+        return(None)
     newObj = newObj[0] if (
         isinstance(newObj, list) and len(newObj)==1
     ) else newObj
@@ -44,21 +51,33 @@ def expand(obj, keepUndefined=False):
         newObj,
         dict
     ):
+        if not isinstance(obj, dict):
+            obj={}
+        for k, v in newObj.copy().items():
+            if not bool(v):
+                newObj.pop(k)
         newObj.update({
-            k: obj.get(k) for k in obj.keys() if k not in keyExpansion(
-                list(newObj.keys())
+            k: obj.get(k) for k in obj.keys() if (
+                bool(obj.get(k)) and k not in keyExpansion(
+                    list(newObj.keys())
+                )
             )
         })
         for k in KEYS_TO_EXPAND:
             if k in newObj.keys():
-                newObj[k] = (
-                    expand(newObj.get(k))
-                ) if isinstance(k, dict) else [
-                    expand(c) for c in newObj.get(k, {})
-                ]
-        return(newObj)
+                if isinstance(newObj.get(k), list):
+                    v = [
+                        expand(lv.get('@id')) for lv in newObj.get(k)
+                    ]
+                    v = v if v!=[None] else None
+                else:
+                    v = expand(newObj[k])
+                if bool(v):
+                    newObj[k] = v
+        return(newObj if bool(newObj) else None)
     else:
-        return([expand(n, keepUndefined) for n in newObj])
+        expanded = [expand(n, keepUndefined) for n in newObj]
+        return(expanded if bool(expanded) else None)
 
 
 def formatLdObject(obj, mesoPrefix='folder', user=None, keepUndefined=False):
