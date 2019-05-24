@@ -28,6 +28,7 @@ from girder.constants import AccessType, SortDir, TokenScope, SPECIAL_SUBJECTS,\
 from girder.api import access
 from girder.utility import loadJSON
 from girder.exceptions import AccessException, ValidationException
+from girder.models.activitySet import ActivitySet as ActivitySetModel
 from girder.models.applet import Applet as AppletModel, getCanonicalUser, getUserCipher
 from girder.models.collection import Collection as CollectionModel
 from girder.models.folder import Folder as FolderModel
@@ -36,43 +37,47 @@ from girder.models.user import User as UserModel
 from girder.utility import config, jsonld_expander
 
 
-class Applet(Resource):
+class ActivitySet(Resource):
 
     def __init__(self):
-        super(Applet, self).__init__()
-        self.resourceName = 'applet'
-        self._model = AppletModel()
-        self.route('GET', (), self.getAppletFromURL)
-        self.route('GET', (':id',), self.getApplet)
-        self.route('POST', (':id', 'invite'), self.invite)
-        self.route('POST', ('invite',), self.inviteFromURL)
+        super(ActivitySet, self).__init__()
+        self.resourceName = 'activity_set'
+        self._model = ActivitySetModel()
+        self.route('GET', (), self.getActivitySetFromURL)
+        self.route('GET', (':id',), self.getActivitySet)
 
 
     @access.user(scope=TokenScope.DATA_READ)
     @autoDescribeRoute(
-        Description('Get an applet by ID.')
-        .modelParam('id', model=AppletModel, level=AccessType.READ)
-        .errorResponse('Invalid applet ID.')
-        .errorResponse('Read access was denied for this applet.', 403)
+        Description('Get an activity set by ID.')
+        .modelParam('id', model=ActivitySetModel, level=AccessType.READ)
+        .errorResponse('Invalid activity set ID.')
+        .errorResponse('Read access was denied for this activity set.', 403)
     )
-    def getApplet(self, folder):
-        applet = folder
-        user = Applet().getCurrentUser()
-        return(jsonld_expander.formatLdObject(applet, 'applet', user))
+    def getActivitySet(self, folder):
+        activitySet = folder
+        user = ActivitySet().getCurrentUser()
+        return(
+            jsonld_expander.formatLdObject(
+                activitySet,
+                'activity set',
+                user
+            )
+        )
 
 
     @access.user(scope=TokenScope.DATA_READ)
     @autoDescribeRoute(
-        Description('Get an applet by URL.')
-        .param('url', 'URL of Applet.', required=True)
-        .errorResponse('Invalid applet URL.')
-        .errorResponse('Read access was denied for this applet.', 403)
+        Description('Get an activitty set by URL.')
+        .param('url', 'URL of activity set.', required=True)
+        .errorResponse('Invalid activity set URL.')
+        .errorResponse('Read access was denied for this activity set.', 403)
     )
-    def getAppletFromURL(self, url):
+    def getActivitySetFromURL(self, url):
         thisUser=self.getCurrentUser()
         return(jsonld_expander.formatLdObject(
-            AppletModel().importUrl(url, thisUser),
-            'applet',
+            ActivitySetModel().importUrl(url, thisUser),
+            'activity set',
             thisUser
         ))
 
