@@ -1,140 +1,191 @@
-Girder for MindLogger |build-status| |license-badge| |codecov-badge|
-===========================================================================
+Girder for Mindlogger
+====================
 
-**Data Management Platform**
+Reqirements
+-----------
 
-|logo|
+- MongoDB >= 3.6
+- Python >= 3.5
+  - CherryPy <=11.0.0
+- Node >= 8.0
 
-Contents
---------
-1. `Data Structure <#data-structure>`_
-    1. `Diagram <#diagram>`_
-    2. `Glossary <#glossary>`_
-2. `Links <#links>`_
-3. `Girder Source <#girder-source>`_
+Installation
+------------
+
+1. Create and activate a virtual environment (replace ``~/girder_env`` if you want your virtual environment somewhere else). On launches after the first, only the line beginning with ``source`` is necessary.
+
+   .. code-block:: shell
+
+      python3 -m venv ~/girder_env
+      source ~/girder_env/bin/activate
+      pip install -U pip setuptools
+
+2. Start MongoDB.
+
+   .. code-block:: shell
+
+      mongod &
+
+3. From the root of this repository, install and build Girder for Mindlogger.
+
+   .. code-block:: shell
+
+      pip install -e .
+      girder build
+
+4. Start Girder for Mindlogger.
+
+   .. code-block:: shell
+
+      girder serve
+
+5. When you're finished
+
+   1. kill Girder for Mindlogger,
+
+      ``<Ctrl>`` + ``c``
+
+   2. kill MongoDB, and
+
+      .. code-block:: shell
+
+         fg
+
+      ``<Ctrl>`` + ``c``
+
+   3. deactivate your virtual environment.
+
+   .. code-block:: shell
+
+      deactivate
+
+Deployment
+----------
+
+Elastic Beanstalk
+#################
+
+If you're updating an existing Girder 2.x instance of Elastic Beanstalk, be sure to change your static files path from ``clients/web/static`` to ``girder/web_client/static/``. 
+
 
 Data Structure
 --------------
-Girder for MindLogger has the following underlying data structure:
 
-Diagram
-#######
+Mindlogger is moving towards the following data structure:
+
 .. figure:: ./docs/images/Mindlogger-DB-ER.png
     :align: center
-    :alt: MindLogger database entity-relationship diagram
+    :alt: Mindlogger database entity-relationship diagram
     :figclass: align-center
     :target: ./docs/images/Mindlogger-DB-ER.dia
+
     The above `entity-relationship diagram <https://cacoo.com/blog/er-diagrams-vs-eer-diagrams-whats-the-difference/>`_ was created with `dia 0.97+git <https://live.gnome.org/Dia>`_.
 
-Glossary
+Entities
 ########
 
+Each entity is separately access controlled.
+
 Activity
-^^^^^^^^
-An "individual assessment", as defined in `ReproNim schema <https://github.com/ReproNim/schema-standardization/tree/0fb4abd67d209e76325e6f42d428d7c275252ec6#20-need-for-standardizing-assessments>`_: `Activity <https://raw.githubusercontent.com/ReproNim/schema-standardization/master/schemas/Activity.jsonld>`_.
+********
+
+Activity Version
+****************
 
 Applet
-^^^^^^
-A "collection[…] of `activities <#activity>`_ performed by a `participant <#user>`_" as defined in `ReproNim schema <https://github.com/ReproNim/schema-standardization/tree/0fb4abd67d209e76325e6f42d428d7c275252ec6#20-need-for-standardizing-assessments>`_: `ActivitySet <https://raw.githubusercontent.com/ReproNim/schema-standardization/master/schemas/ActivitySet.jsonld>`_.
+******
 
-Assignment
-^^^^^^^^^^
-A document assigning one or more `applets <#applet>`_ to one or more `users <#user>`_ with or without scheduling and other constraints.
+strong entity
+^^^^^^^^^^^^^
 
-Assignment-specific User ID
-^^^^^^^^^^^^^^^^^^^^^^^^^^^
-An identifier for a given `user <#user>`_ for an `assignment <#assignment>`_ that does not expose that user's other data to anyone authorized to view information related to that assignment.
+weak entity (under Assignments)
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Context
-^^^^^^^
-    A set of rules for interpreting a JSON-LD document [from this database] as specified in The Context of the JSON-LD Syntax specification."
+weak entity (under Users)
+^^^^^^^^^^^^^^^^^^^^^^^^^
 
-This definition comes from `JSON-LD 1.1 <https://json-ld.org/spec/latest/json-ld/>`_ `context <https://json-ld.org/spec/latest/json-ld/#dfn-contexts>`_.
+Applets
+*******
 
-Icon
-^^^^
+A Girder Collection
 
-Illustration
-^^^^^^^^^^^^
+Custom User Settings
+********************
 
-Protected health information
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-    Any information about health status, provision of health care, or payment for health care that […] can be linked to a specific `individual <#user>`_.
-
-This definition comes from the Wikipedia article `Protected health information <https://en.wikipedia.org/wiki/Protected_health_information>`_.
+PHI
+***
 
 Response
-^^^^^^^^
-Data collected when a `user <#user>`_ responds to an `activity <#activity>`_.
+********
+
+Responses
+*********
 
 Screen
-^^^^^^
-One or more "elements of individual assessments" displayed in a single screen or page view, as defined in `ReproNim schema <https://github.com/ReproNim/schema-standardization/tree/0fb4abd67d209e76325e6f42d428d7c275252ec6#20-need-for-standardizing-assessments>`_: `Item <https://raw.githubusercontent.com/ReproNim/schema-standardization/master/schemas/Field.jsonld>`_ and `Issue #85 <https://github.com/ReproNim/schema-standardization/issues/85>`_.
-
-Skin
-^^^^
-Color scheme and other branding and appearance-related metadata.
-
-Subject
-^^^^^^^
-The person being informed about by the `user <#user>`_ `responding <#response>`_ to an `activity <#activity>`_. For self-report, the same user as the informant.
-
-Text
-^^^^
-Copy included in the mobile and web app, including "About MindLogger" and helper text.
+******
 
 User
-^^^^
-An individual using a MindLogger mobile application or MindLogger web application to `respond <#response>`_ to `activities <#activity>`_.
+****
 
-Manager-Defined User Settings
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-Settings for an `assignment <#assignment>`_ that are altered from the default for a given `user <#user>`_ by another user.
+strong entity
+^^^^^^^^^^^^^
 
-User-Defined User Settings
-^^^^^^^^^^^^^^^^^^^^^^^^^^
-Settings for an `assignment <#assignment>`_ that are altered from the default for a given `user <#user>`_ by themself.
+weak entity
+^^^^^^^^^^^
+
+Users
+*****
 
 Links
 -----
-- `ReproNim Schema specification <https://github.com/ReproNim/schema-standardization>`_
-- `Development instance <https://mindlogger-dev.vasegurt.com>`_
-- `Production instance <https://api.mindlogger.info>`_
-- `Run a local instance <#requirements>`_
 
-Girder Source
--------------
+- Development instance: https://mindlogger-dev.vasegurt.com
+- Production instance: https://api.mindlogger.info
+- Run a local instance: If one clones our `girder <https://github.com/ChildMindInstitute/mindlogger-app-backend/tree/girder>`_ or `girder-dev <https://github.com/ChildMindInstitute/mindlogger-app-backend/tree/girder-dev>`_ branch of this repository, following `the official Girder documentation <https://girder.readthedocs.io/en/stable/admin-docs.html>`_ should get a local instance running.
 
-This source code is a customization of `:octocat: girder/girder@5ed7bdd <https://github.com/girder/girder/tree/5ed7bdd850e9dc8657cf25984627628374811048>`_
+|logo| Girder |build-status| |docs-status| |license-badge| |gitter-badge| |codecov-badge|
+-----------------------------------------------------------------------------------------
+
+**Data Management Platform**
+
+This source code is a customization of `:octocat: girder/girder <https://github.com/girder/girder/tree/292690e7e4c269ed3b34757ba86ddfa2713f9f16>`_
 
 Girder is a free and open source web-based data management platform developed by
-`Kitware <https://kitware.com>`_ as part of the `Resonant <https://resonant.kitware.com>`_ data and analytics ecosystem.
+`Kitware <https://kitware.com>`_ as part of the `Resonant <http://resonant.kitware.com>`_
+data and analytics ecosystem.
+
+|kitware-logo|
 
 Documentation of the Girder platform can be found at
-`:closed_book: Read the Docs <https://girder.readthedocs.io/en/latest>`_.
+https://girder.readthedocs.io.
 
-For questions, comments, or to get in touch with the maintainers, head to their `Discourse forum <https://discourse.girder.org>`_, or use their `Gitter Chatroom
+For questions, comments, or to get in touch with the maintainers, head to our `Discourse forum <https://discourse.girder.org>`_, or use our `Gitter Chatroom
 <https://gitter.im/girder/girder>`_.
 
 We'd love for you to `contribute to Girder <CONTRIBUTING.rst>`_.
 
-.. |logo| image:: ./girder/web_client/src/assets/ML-logo.png
-    :width: 25px
-    :alt: Girder for MindLogger
+.. |logo| image:: girder/web_client/static/img/Girder_Favicon.png
 
 .. |kitware-logo| image:: https://www.kitware.com/img/small_logo_over.png
     :target: https://kitware.com
     :alt: Kitware Logo
 
-
-.. |build-status| image:: https://circleci.com/gh/ChildMindInstitute/mindlogger-app-backend.svg?style=svg
-    :target: https://circleci.com/gh/ChildMindInstitute/mindlogger-app-backend
+.. |build-status| image:: https://circleci.com/gh/girder/girder.png?style=shield
+    :target: https://circleci.com/gh/girder/girder
     :alt: Build Status
 
+.. |docs-status| image:: https://readthedocs.org/projects/girder/badge?version=latest
+    :target: https://girder.readthedocs.org
+    :alt: Documentation Status
+
 .. |license-badge| image:: docs/license.png
-    :target: LICENSE
+    :target: https://pypi.python.org/pypi/girder
     :alt: License
 
-.. |codecov-badge| image:: https://img.shields.io/codecov/c/github/ChildMindInstitute/mindlogger-app-backend.svg
-    :target: https://codecov.io/gh/ChildMindInstitute/mindlogger-app-backend
+.. |gitter-badge| image:: https://badges.gitter.im/Join Chat.svg
+    :target: https://gitter.im/girder/girder?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge&utm_content=badge
+    :alt: Gitter Chat
+
+.. |codecov-badge| image:: https://img.shields.io/codecov/c/github/girder/girder.svg
+    :target: https://codecov.io/gh/girder/girder
     :alt: Coverage Status
