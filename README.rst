@@ -1,4 +1,4 @@
-Girder for Mindlogger
+Girder for MindLogger
 ====================
 
 Reqirements
@@ -26,14 +26,14 @@ Installation
 
       mongod &
 
-3. From the root of this repository, install and build Girder for Mindlogger.
+3. From the root of this repository, install and build Girder for MindLogger.
 
    .. code-block:: shell
 
       pip install -e .
       girder build
 
-4. Start Girder for Mindlogger.
+4. Start Girder for MindLogger.
 
    .. code-block:: shell
 
@@ -41,7 +41,7 @@ Installation
 
 5. When you're finished
 
-   1. kill Girder for Mindlogger,
+   1. kill Girder for MindLogger,
 
       ``<Ctrl>`` + ``c``
 
@@ -65,18 +65,16 @@ Deployment
 Elastic Beanstalk
 #################
 
-If you're updating an existing Girder 2.x instance of Elastic Beanstalk, be sure to change your static files path from ``clients/web/static`` to ``girder/web_client/static/``. 
+If you're updating an existing Girder 2.x instance of Elastic Beanstalk, be sure to change your static files path from ``clients/web/static`` to ``girder/web_client/static/``.
 
 
 Data Structure
 --------------
 
-Mindlogger is moving towards the following data structure:
+MindLogger is moving towards the following data structure:
 
-.. figure:: ./docs/images/Mindlogger-DB-ER.png
-    :align: center
+.. image:: ./docs/images/Mindlogger-DB-ER.png
     :alt: Mindlogger database entity-relationship diagram
-    :figclass: align-center
     :target: ./docs/images/Mindlogger-DB-ER.dia
 
     The above `entity-relationship diagram <https://cacoo.com/blog/er-diagrams-vs-eer-diagrams-whats-the-difference/>`_ was created with `dia 0.97+git <https://live.gnome.org/Dia>`_.
