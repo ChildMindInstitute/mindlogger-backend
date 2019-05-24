@@ -33,17 +33,17 @@ Activity
 ^^^^^^^^
 An "individual assessment", as defined in `ReproNim schema <https://github.com/ReproNim/schema-standardization/tree/0fb4abd67d209e76325e6f42d428d7c275252ec6#20-need-for-standardizing-assessments>`_: `Activity <https://raw.githubusercontent.com/ReproNim/schema-standardization/master/schemas/Activity.jsonld>`_.
 
+Activity Set
+^^^^^^^^^^^^
+A "collection[…] of `activities <#activity>`_ as defined in `ReproNim schema <https://github.com/ReproNim/schema-standardization/tree/0fb4abd67d209e76325e6f42d428d7c275252ec6#20-need-for-standardizing-assessments>`_: `ActivitySet <https://raw.githubusercontent.com/ReproNim/schema-standardization/master/schemas/ActivitySet.jsonld>`_.
+
 Applet
 ^^^^^^
-A "collection[…] of `activities <#activity>`_ performed by a `participant <#user>`_" as defined in `ReproNim schema <https://github.com/ReproNim/schema-standardization/tree/0fb4abd67d209e76325e6f42d428d7c275252ec6#20-need-for-standardizing-assessments>`_: `ActivitySet <https://raw.githubusercontent.com/ReproNim/schema-standardization/master/schemas/ActivitySet.jsonld>`_.
+A document assigning one or more `activity sets <#activity-set>`_ to one or more `users <#user>`_ with or without scheduling and other constraints.
 
-Assignment
-^^^^^^^^^^
-A document assigning one or more `applets <#applet>`_ to one or more `users <#user>`_ with or without scheduling and other constraints.
-
-Assignment-specific User ID
-^^^^^^^^^^^^^^^^^^^^^^^^^^^
-An identifier for a given `user <#user>`_ for an `assignment <#assignment>`_ that does not expose that user's other data to anyone authorized to view information related to that assignment.
+Applet-specific User ID
+^^^^^^^^^^^^^^^^^^^^^^^
+An identifier for a given `user <#user>`_ (or `reviewer <#reviewer>`_ or `subject <#subject>`_) for an `applet <#applet>`_ that does not expose that user's other data to anyone authorized to view information related to that applet.
 
 Context
 ^^^^^^^
@@ -57,6 +57,10 @@ Icon
 Illustration
 ^^^^^^^^^^^^
 
+Manager
+^^^^^^^
+An individual responsible for setting schedules, `subjects <#subject>`_ and other constraints as well as inviting other managers, `users <#user>`_ and `reviewers <#reviewer>`_ to an `applet <#applet>`_.
+
 Protected health information
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
     Any information about health status, provision of health care, or payment for health care that […] can be linked to a specific `individual <#user>`_.
@@ -66,6 +70,10 @@ This definition comes from the Wikipedia article `Protected health information <
 Response
 ^^^^^^^^
 Data collected when a `user <#user>`_ responds to an `activity <#activity>`_.
+
+Reviewer
+^^^^^^^^
+An individual authorized to review `user <#user>`_ `responses <#response>`_ to `activitis <#activity>`_ in an `applet <#applet>`_.
 
 Screen
 ^^^^^^
@@ -86,14 +94,6 @@ Copy included in the mobile and web app, including "About MindLogger" and helper
 User
 ^^^^
 An individual using a MindLogger mobile application or MindLogger web application to `respond <#response>`_ to `activities <#activity>`_.
-
-Manager-Defined User Settings
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-Settings for an `assignment <#assignment>`_ that are altered from the default for a given `user <#user>`_ by another user.
-
-User-Defined User Settings
-^^^^^^^^^^^^^^^^^^^^^^^^^^
-Settings for an `assignment <#assignment>`_ that are altered from the default for a given `user <#user>`_ by themself.
 
 Links
 -----
