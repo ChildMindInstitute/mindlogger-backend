@@ -115,9 +115,7 @@ For questions, comments, or to get in touch with the maintainers, head to their 
 We'd love for you to `contribute to Girder <CONTRIBUTING.rst>`_.
 
 .. |ERD| image:: ./docs/images/Mindlogger-DB-ER.png
-    :align: center
     :alt: MindLogger database entity-relationship diagram
-    :figclass: align-center
     :target: ./docs/images/Mindlogger-DB-ER.dia
 
 .. |logo| image:: ./girder/web_client/src/assets/ML-logo.png
