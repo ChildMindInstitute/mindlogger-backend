@@ -19,11 +19,7 @@ Girder for MindLogger has the following underlying data structure:
 
 Diagram
 #######
-.. figure:: ./docs/images/Mindlogger-DB-ER.png
-    :align: center
-    :alt: MindLogger database entity-relationship diagram
-    :figclass: align-center
-    :target: ./docs/images/Mindlogger-DB-ER.dia
+|ERD|
     The above `entity-relationship diagram <https://cacoo.com/blog/er-diagrams-vs-eer-diagrams-whats-the-difference/>`_ was created with `dia 0.97+git <https://live.gnome.org/Dia>`_.
 
 Glossary
@@ -117,6 +113,12 @@ For questions, comments, or to get in touch with the maintainers, head to their 
 <https://gitter.im/girder/girder>`_.
 
 We'd love for you to `contribute to Girder <CONTRIBUTING.rst>`_.
+
+.. |ERD| image:: ./docs/images/Mindlogger-DB-ER.png
+    :align: center
+    :alt: MindLogger database entity-relationship diagram
+    :figclass: align-center
+    :target: ./docs/images/Mindlogger-DB-ER.dia
 
 .. |logo| image:: ./girder/web_client/src/assets/ML-logo.png
     :width: 25px
