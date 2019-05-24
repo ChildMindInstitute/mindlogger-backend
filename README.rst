@@ -7,11 +7,80 @@ Girder for MindLogger |build-status| |license-badge| |codecov-badge|
 
 Contents
 --------
-1. `Data Structure <#data-structure>`_
+1. `Requirements <#requirements>`_
+2. `Installation <#installation>`_
+3. `Deployment <#deployment>`_
+4. `Data Structure <#data-structure>`_
     1. `Diagram <#diagram>`_
     2. `Glossary <#glossary>`_
-2. `Links <#links>`_
-3. `Girder Source <#girder-source>`_
+5. `Links <#links>`_
+6. `Girder Source <#girder-source>`_
+
+Reqirements
+-----------
+
+- MongoDB >= 3.6
+- Python >= 3.5
+  - CherryPy <=11.0.0
+- Node >= 8.0
+
+Installation
+------------
+
+1. Create and activate a virtual environment (replace ``~/girder_env`` if you want your virtual environment somewhere else). On launches after the first, only the line beginning with ``source`` is necessary.
+
+   .. code-block:: shell
+
+      python3 -m venv ~/girder_env
+      source ~/girder_env/bin/activate
+      pip install -U pip setuptools
+
+2. Start MongoDB.
+
+   .. code-block:: shell
+
+      mongod &
+
+3. From the root of this repository, install and build Girder for MindLogger.
+
+   .. code-block:: shell
+
+      pip install -e .
+      girder build
+
+4. Start Girder for MindLogger.
+
+   .. code-block:: shell
+
+      girder serve
+
+5. When you're finished
+
+   1. kill Girder for MindLogger,
+
+      ``<Ctrl>`` + ``c``
+
+   2. kill MongoDB, and
+
+      .. code-block:: shell
+
+         fg
+
+      ``<Ctrl>`` + ``c``
+
+   3. deactivate your virtual environment.
+
+   .. code-block:: shell
+
+      deactivate
+
+Deployment
+----------
+
+Elastic Beanstalk
+#################
+
+If you're updating an existing Girder 2.x instance of Elastic Beanstalk, be sure to change your static files path from ``clients/web/static`` to ``girder/web_client/static/``.
 
 Data Structure
 --------------
@@ -19,11 +88,7 @@ Girder for MindLogger has the following underlying data structure:
 
 Diagram
 #######
-.. figure:: ./docs/images/Mindlogger-DB-ER.png
-    :align: center
-    :alt: MindLogger database entity-relationship diagram
-    :figclass: align-center
-    :target: ./docs/images/Mindlogger-DB-ER.dia
+|ERD|
     The above `entity-relationship diagram <https://cacoo.com/blog/er-diagrams-vs-eer-diagrams-whats-the-difference/>`_ was created with `dia 0.97+git <https://live.gnome.org/Dia>`_.
 
 Glossary
@@ -33,17 +98,17 @@ Activity
 ^^^^^^^^
 An "individual assessment", as defined in `ReproNim schema <https://github.com/ReproNim/schema-standardization/tree/0fb4abd67d209e76325e6f42d428d7c275252ec6#20-need-for-standardizing-assessments>`_: `Activity <https://raw.githubusercontent.com/ReproNim/schema-standardization/master/schemas/Activity.jsonld>`_.
 
+Activity Set
+^^^^^^^^^^^^
+A "collection[…] of `activities <#activity>`_ as defined in `ReproNim schema <https://github.com/ReproNim/schema-standardization/tree/0fb4abd67d209e76325e6f42d428d7c275252ec6#20-need-for-standardizing-assessments>`_: `ActivitySet <https://raw.githubusercontent.com/ReproNim/schema-standardization/master/schemas/ActivitySet.jsonld>`_.
+
 Applet
 ^^^^^^
-A "collection[…] of `activities <#activity>`_ performed by a `participant <#user>`_" as defined in `ReproNim schema <https://github.com/ReproNim/schema-standardization/tree/0fb4abd67d209e76325e6f42d428d7c275252ec6#20-need-for-standardizing-assessments>`_: `ActivitySet <https://raw.githubusercontent.com/ReproNim/schema-standardization/master/schemas/ActivitySet.jsonld>`_.
+A document assigning one or more `activity sets <#activity-set>`_ to one or more `users <#user>`_ with or without scheduling and other constraints.
 
-Assignment
-^^^^^^^^^^
-A document assigning one or more `applets <#applet>`_ to one or more `users <#user>`_ with or without scheduling and other constraints.
-
-Assignment-specific User ID
-^^^^^^^^^^^^^^^^^^^^^^^^^^^
-An identifier for a given `user <#user>`_ for an `assignment <#assignment>`_ that does not expose that user's other data to anyone authorized to view information related to that assignment.
+Applet-specific User ID
+^^^^^^^^^^^^^^^^^^^^^^^
+An identifier for a given `user <#user>`_ (or `reviewer <#reviewer>`_ or `subject <#subject>`_) for an `applet <#applet>`_ that does not expose that user's other data to anyone authorized to view information related to that applet.
 
 Context
 ^^^^^^^
@@ -57,6 +122,10 @@ Icon
 Illustration
 ^^^^^^^^^^^^
 
+Manager
+^^^^^^^
+An individual responsible for setting schedules, `subjects <#subject>`_ and other constraints as well as inviting other managers, `users <#user>`_ and `reviewers <#reviewer>`_ to an `applet <#applet>`_.
+
 Protected health information
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
     Any information about health status, provision of health care, or payment for health care that […] can be linked to a specific `individual <#user>`_.
@@ -66,6 +135,10 @@ This definition comes from the Wikipedia article `Protected health information <
 Response
 ^^^^^^^^
 Data collected when a `user <#user>`_ responds to an `activity <#activity>`_.
+
+Reviewer
+^^^^^^^^
+An individual authorized to review `user <#user>`_ `responses <#response>`_ to `activitis <#activity>`_ in an `applet <#applet>`_.
 
 Screen
 ^^^^^^
@@ -86,14 +159,6 @@ Copy included in the mobile and web app, including "About MindLogger" and helper
 User
 ^^^^
 An individual using a MindLogger mobile application or MindLogger web application to `respond <#response>`_ to `activities <#activity>`_.
-
-Manager-Defined User Settings
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-Settings for an `assignment <#assignment>`_ that are altered from the default for a given `user <#user>`_ by another user.
-
-User-Defined User Settings
-^^^^^^^^^^^^^^^^^^^^^^^^^^
-Settings for an `assignment <#assignment>`_ that are altered from the default for a given `user <#user>`_ by themself.
 
 Links
 -----
@@ -117,6 +182,10 @@ For questions, comments, or to get in touch with the maintainers, head to their 
 <https://gitter.im/girder/girder>`_.
 
 We'd love for you to `contribute to Girder <CONTRIBUTING.rst>`_.
+
+.. |ERD| image:: ./docs/images/Mindlogger-DB-ER.png
+    :alt: MindLogger database entity-relationship diagram
+    :target: ./docs/images/Mindlogger-DB-ER.dia
 
 .. |logo| image:: ./girder/web_client/src/assets/ML-logo.png
     :width: 25px
