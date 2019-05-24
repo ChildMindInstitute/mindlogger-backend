@@ -1,7 +1,7 @@
 import json
 from copy import deepcopy
 from girder.constants import AccessType
-from girder.exceptions import AccessException
+from girder.exceptions import AccessException, ResourcePathNotFound
 from girder.models.activity import Activity as ActivityModel
 from girder.models.applet import Applet as AppletModel
 from girder.models.collection import Collection as CollectionModel
@@ -10,6 +10,11 @@ from girder.models.item import Item as ItemModel
 from girder.models.screen import Screen as ScreenModel
 from girder.models.user import User as UserModel
 from pyld import jsonld
+
+KEYS_TO_EXPAND = [
+    "responseOptions",
+    "https://schema.repronim.org/valueconstraints"
+]
 
 MODELS = {
     'activity': ActivityModel(),
@@ -21,19 +26,24 @@ MODELS = {
     'user': UserModel()
 }
 
-def check_for_unexpanded_value_constraints(item_exp):
-    vc = item_exp[0]
-    if 'https://schema.repronim.org/valueconstraints' in vc.keys():
-        vc = vc['https://schema.repronim.org/valueconstraints'][0]
-        if isinstance(vc, dict):
-            if "@id" in vc.keys():
-                return(True)
-
-    return(False)
-
 
 def expand(obj, keepUndefined=False):
-    newObj = jsonld.expand(obj)
+    """
+    Function to take an unexpanded JSON-LD Object and return it expandedself.
+
+    :param obj: unexpanded JSON-LD Object
+    :type obj: dict
+    :param keepUndefined: keep undefined-in-context terms?
+    :param keepUndefined: bool
+    :returns: list, expanded JSON-LD Array or Object
+    """
+    if obj==None:
+        return(obj)
+    try:
+        newObj = jsonld.expand(obj)
+    except jsonld.JsonLdError: # 👮 Catch illegal JSON-LD
+        print(obj)
+        return(None)
     newObj = newObj[0] if (
         isinstance(newObj, list) and len(newObj)==1
     ) else newObj
@@ -41,35 +51,33 @@ def expand(obj, keepUndefined=False):
         newObj,
         dict
     ):
+        if not isinstance(obj, dict):
+            obj={}
+        for k, v in newObj.copy().items():
+            if not bool(v):
+                newObj.pop(k)
         newObj.update({
-            k: obj[k] for k in obj.keys() if k not in keyExpansion(
-                list(newObj.keys())
+            k: obj.get(k) for k in obj.keys() if (
+                bool(obj.get(k)) and k not in keyExpansion(
+                    list(newObj.keys())
+                )
             )
         })
-        return(newObj)
+        for k in KEYS_TO_EXPAND:
+            if k in newObj.keys():
+                if isinstance(newObj.get(k), list):
+                    v = [
+                        expand(lv.get('@id')) for lv in newObj.get(k)
+                    ]
+                    v = v if v!=[None] else None
+                else:
+                    v = expand(newObj[k])
+                if bool(v):
+                    newObj[k] = v
+        return(newObj if bool(newObj) else None)
     else:
-        return([expand(n, keepUndefined) for n in newObj])
-
-
-def expand_value_constraints(original_items_expanded):
-    items_expanded = deepcopy(original_items_expanded)
-    for item, item_exp in original_items_expanded.items():
-        # check if we need to expand valueConstraints
-        vc = item_exp[0]
-        if 'https://schema.repronim.org/valueconstraints' in vc.keys():
-            if check_for_unexpanded_value_constraints(item_exp):
-                vc = expand(
-                    item_exp[0][
-                        'https://schema.repronim.org/valueconstraints'
-                    ][0]['@id']
-                )
-                items_expanded[item][0][
-                    'https://schema.repronim.org/valueconstraints'
-                ][0] = vc
-        else:
-            multipart_activities = get_activities(item_exp)
-            items_expanded.update(multipart_activities)
-    return(items_expanded)
+        expanded = [expand(n, keepUndefined) for n in newObj]
+        return(expanded if bool(expanded) else None)
 
 
 def formatLdObject(obj, mesoPrefix='folder', user=None, keepUndefined=False):
@@ -98,7 +106,10 @@ def formatLdObject(obj, mesoPrefix='folder', user=None, keepUndefined=False):
     if type(newObj)==list and len(newObj)==1:
         newObj = newObj[0]
     if type(newObj)==dict:
-        newObj['_id'] = "/".join([mesoPrefix, str(obj.get('_id', 'undefined'))]) # :construction: TO DO: Raise exception if undefined
+        objID = str(obj.get('_id', 'undefined'))
+        if objID=='undefined':
+            raise ResourcePathNotFound()
+        newObj['_id'] = "/".join([mesoPrefix, objID])
     if mesoPrefix=='applet':
         applet = {'applet': newObj}
         applet['activities'] = {

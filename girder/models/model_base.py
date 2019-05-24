@@ -240,22 +240,27 @@ class Model(object):
         prefName = self.preferredName(model)
         cachedDoc = self.getCached(url, modelType)
         if cachedDoc:
+            provenenceProps = [
+                'schema:isBasedOn',
+                'prov:wasRevisionOf'
+            ]
             cachedId = str(cachedDoc.get('_id'))
             cachedDocObj = cachedDoc.get('meta', {}).get(modelType, {})
-            cachedDocObj.pop('url', None)
-            cachedDocObj.pop('schema:isBasedOn', None)
+            for prop in ['url', *provenenceProps]:
+                cachedDocObj.pop(prop, None)
         else:
             cachedId = None
             cachedDocObj = {}
 
         if not cachedDocObj or len(list(diff(cachedDocObj, model))):
             if cachedId:
-                model['schema:isBasedOn'] = {
-                    '@id': '/'.join([
-                        modelType,
-                        cachedId
-                    ])
-                }
+                for prop in provenenceProps:
+                    model[prop] = {
+                        '@id': '/'.join([
+                            modelType,
+                            cachedId
+                        ])
+                    }
             docCollection=self.getModelCollection(modelType)
             if self.name in ['folder', 'item']:
                 if self.name=='item':
