@@ -3,6 +3,7 @@ from copy import deepcopy
 from girder.constants import AccessType
 from girder.exceptions import AccessException, ResourcePathNotFound
 from girder.models.activity import Activity as ActivityModel
+from girder.models.activitySet import ActivitySet as ActivitySetModel
 from girder.models.applet import Applet as AppletModel
 from girder.models.collection import Collection as CollectionModel
 from girder.models.folder import Folder as FolderModel
@@ -18,6 +19,7 @@ KEYS_TO_EXPAND = [
 
 MODELS = {
     'activity': ActivityModel(),
+    'activitySet': ActivitySetModel(),
     'applet': AppletModel(),
     'collection': CollectionModel(),
     'folder': FolderModel(),

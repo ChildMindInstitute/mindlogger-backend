@@ -77,7 +77,7 @@ class ActivitySet(Resource):
         thisUser=self.getCurrentUser()
         return(jsonld_expander.formatLdObject(
             ActivitySetModel().importUrl(url, thisUser),
-            'activity set',
+            'activitySet',
             thisUser
         ))
 
