@@ -236,7 +236,10 @@ class Model(object):
                     ] else " {}".format(modelType)
                 )
             )
-        model = loadJSON(url, modelType)
+        try:
+            model = loadJSON(url, modelType)
+        except ValidationException as ve:
+            model = {modelType: {url: ve.message}}
         prefName = self.preferredName(model)
         cachedDoc = self.getCached(url, modelType)
         if cachedDoc:

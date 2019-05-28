@@ -8,7 +8,8 @@ from ..describe import Description, autoDescribeRoute
 from girder.api import access
 from girder.api.rest import Resource, filtermodel, setCurrentUser
 from girder.constants import AccessType, TokenScope, USER_ROLES
-from girder.exceptions import RestException, AccessException
+from girder.exceptions import AccessException, RestException, \
+    ValidationException
 from girder.models.applet import Applet as AppletModel
 from girder.models.collection import Collection as CollectionModel
 from girder.models.folder import Folder as FolderModel
@@ -212,15 +213,26 @@ class User(Resource):
                                         pass
             except:
                 print(exc_info()[0])
-        return(
-            [
-                jsonld_expander.formatLdObject(
-                    applet,
-                    'applet',
-                    reviewer
-                ) for applet in applets if applet is not None
-            ]
-        )
+        user_applets = []
+        for applet in applets:
+            if applet is not None:
+                try:
+                    user_applets.append(jsonld_expander.formatLdObject(
+                        applet,
+                        'applet',
+                        reviewer
+                    ))
+                except ValidationException as ve:
+                    user_applets.append(
+                        {
+                            'exception': {
+                                'applet/{}'.format(
+                                    applet
+                                ): ve.message
+                            }
+                        }
+                    )
+        return(user_applets if bool(user_applets) else None)
 
     @access.public(scope=TokenScope.USER_INFO_READ)
     @filtermodel(model=UserModel)
