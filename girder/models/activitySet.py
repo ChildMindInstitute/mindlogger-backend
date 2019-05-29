@@ -93,11 +93,11 @@ class ActivitySet(Folder):
             try:
                 parent = pathFromRoot[-1]['object']
                 if (
-                    parent['name']=="Activity Sets" and
+                    parent['name']=="Activitysets" and
                     doc['baseParentType'] in {'collection', 'user'}
                 ):
                     """
-                    Check if parent is "Activity Sets" collection or user
+                    Check if parent is "Activitysets" collection or user
                     folder, ie, if this is an Activity Set. If so, return
                     Activity Set.
                     """

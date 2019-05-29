@@ -41,7 +41,7 @@ class ActivitySet(Resource):
 
     def __init__(self):
         super(ActivitySet, self).__init__()
-        self.resourceName = 'activity_set'
+        self.resourceName = 'activitySet'
         self._model = ActivitySetModel()
         self.route('GET', (), self.getActivitySetFromURL)
         self.route('GET', (':id',), self.getActivitySet)
@@ -60,7 +60,7 @@ class ActivitySet(Resource):
         return(
             jsonld_expander.formatLdObject(
                 activitySet,
-                'activity set',
+                'activitySet',
                 user
             )
         )

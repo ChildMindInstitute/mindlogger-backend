@@ -116,3 +116,15 @@ class Screen(Item):
         returns that screen.
         """
         return(self.getFromUrl(url, 'screen', user))
+
+
+    def load(self, id, level=AccessType.ADMIN, user=None):
+        doc = super(Item, self).load(id=id, level=level, user=user)
+        try:
+            url = doc.get('meta', {}).get('url')
+        except AttributeError:
+            url = None
+        if url:
+            return(self.getFromUrl(url, 'screen', user))
+        else:
+            return(doc)

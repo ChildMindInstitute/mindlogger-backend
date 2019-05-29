@@ -524,7 +524,8 @@ class Folder(AccessControlledModel):
         }
 
         if parentType in ('folder', 'collection') and (parent['name'] not in [
-            "Volumes", "Activity Sets", "Applets", "Assignments", "Screens"
+            "Activities", "Volumes", "Activitysets", "Applets", "Assignments",
+            "Screens"
         ]):
             self.copyAccessPolicies(src=parent, dest=folder, save=False)
 

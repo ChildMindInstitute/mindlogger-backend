@@ -111,9 +111,18 @@ def formatLdObject(obj, mesoPrefix='folder', user=None, keepUndefined=False):
         objID = str(obj.get('_id', 'undefined'))
         if objID=='undefined':
             raise ResourcePathNotFound()
-        newObj['_id'] = "/".join([mesoPrefix, objID])
-    if mesoPrefix=='applet':
-        applet = {'applet': newObj}
+        newObj['_id'] = "/".join([
+            "activity_set" if mesoPrefix=='activitySet' else mesoPrefix,
+            objID
+        ])
+    if mesoPrefix in ['activitySet', 'applet']:
+        applet = {
+            'applet': newObj,
+            'activitySet': newObj if mesoPrefix=='activitySet' else newObj.get(
+                'activitySet',
+                newObj
+            )
+        }
         applet['activities'] = {
             activity.get(
                 'url',

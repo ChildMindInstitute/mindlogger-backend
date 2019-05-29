@@ -158,6 +158,9 @@ class Activity(Folder):
             id=id, level=level, user=user, objectId=objectId, force=force,
             fields=loadFields, exc=exc)
         if doc is not None:
+            url = doc.get('meta', {}).get('url')
+            if url:
+                return(ActivityModel.getFromUrl(url, 'activity', user))
             pathFromRoot = Folder().parentsToRoot(doc, user=user, force=True)
             baseParent = pathFromRoot[0]
             if 'baseParentType' not in doc:

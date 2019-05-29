@@ -82,7 +82,8 @@ class Screen(Resource):
         .errorResponse('ID was invalid.')
         .errorResponse('Read access was denied for the screen.', 403)
     )
-    def getScreen(self, screen):
+    def getScreen(self, item):
+        screen = item
         user = self.getCurrentUser()
         return (jsonld_expander.formatLdObject(screen, 'screen', user))
 
