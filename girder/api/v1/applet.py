@@ -28,12 +28,14 @@ from girder.constants import AccessType, SortDir, TokenScope, SPECIAL_SUBJECTS,\
 from girder.api import access
 from girder.utility import loadJSON
 from girder.exceptions import AccessException, ValidationException
+from girder.models.activity import Activity as ActivityModel
 from girder.models.applet import Applet as AppletModel, getCanonicalUser, getUserCipher
 from girder.models.collection import Collection as CollectionModel
 from girder.models.folder import Folder as FolderModel
 from girder.models.item import Item as ItemModel
 from girder.models.user import User as UserModel
 from girder.utility import config, jsonld_expander
+from pyld import jsonld
 
 
 class Applet(Resource):
@@ -46,6 +48,7 @@ class Applet(Resource):
         self.route('GET', (':id',), self.getApplet)
         self.route('POST', (':id', 'invite'), self.invite)
         self.route('POST', ('invite',), self.inviteFromURL)
+        self.route('PUT', (':id', 'constraints'), self.setConstraints)
 
 
     @access.user(scope=TokenScope.DATA_READ)
@@ -190,6 +193,87 @@ class Applet(Resource):
                 subject=subject
             )
         )
+
+
+    @access.user(scope=TokenScope.DATA_WRITE)
+    @autoDescribeRoute(
+        Description('Set or update schedule information for an activity.')
+        .modelParam('id', model=AppletModel, level=AccessType.READ)
+        .param(
+            'activity',
+            'URL or Girder for MindLogger ID of the activity to schedule.'
+        )
+        .jsonParam(
+            'schedule',
+            'A JSON object containing schedule information for an activity',
+            paramType='form',
+            required=False
+        )
+        .errorResponse('Invalid applet ID.')
+        .errorResponse('Read access was denied for this applet.', 403)
+    )
+    def setConstraints(self, folder, activity, schedule):
+        """
+        """
+        applet = folder
+        thisUser = Applet().getCurrentUser()
+        try:
+            activityLoaded = ActivityModel().getFromUrl(
+                activity,
+                'activity',
+                thisUser
+            )
+        except:
+            activityLoaded = ActivityModel().load(
+                activity,
+                AccessType.WRITE,
+                thisUser
+            )
+        try:
+            activityMeta = activityLoaded['meta'].get('activity')
+        except AttributeError:
+            raise ValidationException(
+                'Invalid activity.',
+                'activity'
+            )
+        activityKey = activityMeta.get(
+            'url',
+            activityMeta.get(
+                '@id',
+                activityLoaded.get(
+                    '_id'
+                )
+            )
+        )
+        if activityKey is None:
+            raise ValidationException(
+                'Invalid activity.',
+                'activity'
+            )
+        activitySetExpanded = jsonld_expander.formatLdObject(
+            applet,
+            'applet',
+            thisUser
+        ).get('activitySet')
+        activitySetOrder = activitySetExpanded.get('ui').get('order')
+        framedActivityKeys = [
+            activitySetOrder[i] for i, v in enumerate(
+                activitySetExpanded.get(
+                    "https://schema.repronim.org/order"
+                )[0].get(
+                    "@list"
+                )
+            ) if v.get("@id")==activityKey
+        ]
+        if schedule is not None:
+            appletMeta = applet.get('meta', {})
+            scheduleInApplet = appletMeta.get('schedule', {})
+            for k in framedActivityKeys:
+                scheduleInApplet[k] = schedule
+            appletMeta['applet']['schedule'] = scheduleInApplet
+            applet = AppletModel().setMetadata(applet, appletMeta)
+        return(applet)
+
 
 def authorizeReviewer(applet, reviewer, user):
     thisUser = Applet().getCurrentUser()

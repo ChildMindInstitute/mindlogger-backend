@@ -136,9 +136,10 @@ def formatLdObject(obj, mesoPrefix='folder', user=None, keepUndefined=False):
                 ),
                 'activity',
                 user
-            ) for order in newObj[
-                "https://schema.repronim.org/order"
-            ] for activity in order.get("@list", [])
+            ) for order in newObj.get(
+                "https://schema.repronim.org/order",
+                {}
+            ) for activity in order.get("@list", [])
         }
         applet['items'] = {
             screen.get(
@@ -167,6 +168,7 @@ def formatLdObject(obj, mesoPrefix='folder', user=None, keepUndefined=False):
                 []
             ) for screen in order.get("@list", order.get("@set", []))
         }
+        schedules = applet
         return(applet)
     if mesoPrefix=='activity':
         activity = newObj
