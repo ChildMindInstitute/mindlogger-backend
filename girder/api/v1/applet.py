@@ -201,7 +201,9 @@ class Applet(Resource):
         .modelParam('id', model=AppletModel, level=AccessType.READ)
         .param(
             'activity',
-            'URL or Girder for MindLogger ID of the activity to schedule.'
+            'Girder ID (or Array thereof) of the activity/activities to '
+            'schedule.',
+            required=False
         )
         .jsonParam(
             'schedule',
@@ -212,67 +214,10 @@ class Applet(Resource):
         .errorResponse('Invalid applet ID.')
         .errorResponse('Read access was denied for this applet.', 403)
     )
-    def setConstraints(self, folder, activity, schedule):
-        """
-        """
-        applet = folder
+    def setConstraints(self, folder, activity, schedule, **kwargs):
         thisUser = Applet().getCurrentUser()
-        try:
-            activityLoaded = ActivityModel().getFromUrl(
-                activity,
-                'activity',
-                thisUser
-            )
-        except:
-            activityLoaded = ActivityModel().load(
-                activity,
-                AccessType.WRITE,
-                thisUser
-            )
-        try:
-            activityMeta = activityLoaded['meta'].get('activity')
-        except AttributeError:
-            raise ValidationException(
-                'Invalid activity.',
-                'activity'
-            )
-        activityKey = activityMeta.get(
-            'url',
-            activityMeta.get(
-                '@id',
-                activityLoaded.get(
-                    '_id'
-                )
-            )
-        )
-        if activityKey is None:
-            raise ValidationException(
-                'Invalid activity.',
-                'activity'
-            )
-        activitySetExpanded = jsonld_expander.formatLdObject(
-            applet,
-            'applet',
-            thisUser
-        ).get('activitySet')
-        activitySetOrder = activitySetExpanded.get('ui').get('order')
-        framedActivityKeys = [
-            activitySetOrder[i] for i, v in enumerate(
-                activitySetExpanded.get(
-                    "https://schema.repronim.org/order"
-                )[0].get(
-                    "@list"
-                )
-            ) if v.get("@id")==activityKey
-        ]
-        if schedule is not None:
-            appletMeta = applet.get('meta', {})
-            scheduleInApplet = appletMeta.get('schedule', {})
-            for k in framedActivityKeys:
-                scheduleInApplet[k] = schedule
-            appletMeta['applet']['schedule'] = scheduleInApplet
-            applet = AppletModel().setMetadata(applet, appletMeta)
-        return(applet)
+        return(_setConstraints(folder, activity, schedule, thisUser))
+
 
 
 def authorizeReviewer(applet, reviewer, user):
@@ -495,3 +440,92 @@ def selfAssignment():
         assignmentsFolder,
         'folder'
     ))
+
+
+def _setConstraints(applet, activity, schedule, user):
+    """
+    """
+    if activity is None:
+        if schedule is not None:
+            appletMeta = applet.get('meta', {})
+            appletMeta['applet']['schedule'] = schedule
+            applet = AppletModel().setMetadata(applet, appletMeta)
+        return(applet)
+    if isinstance(activity, str) and activity.startswith('['):
+        try:
+            activity = [
+                activity_.replace(
+                    "'",
+                    ""
+                ).replace(
+                    '"',
+                    ''
+                ).strip() for activity_ in activity[1:-1].split(',')
+            ]
+        except (TypeError, AttributeError) as e:
+            print(e)
+    if isinstance(activity, list):
+        for activity_ in activity:
+            applet = _setConstraints(
+                applet,
+                activity_,
+                schedule,
+                user
+            )
+        return(applet)
+    try:
+        activityLoaded = ActivityModel().getFromUrl(
+            activity,
+            'activity',
+            thisUser
+        )
+    except:
+        activityLoaded = ActivityModel().load(
+            activity,
+            AccessType.WRITE,
+            user
+        )
+    try:
+        activityMeta = activityLoaded['meta'].get('activity')
+    except AttributeError:
+        raise ValidationException(
+            'Invalid activity.',
+            'activity'
+        )
+    activityKey = activityMeta.get(
+        'url',
+        activityMeta.get(
+            '@id',
+            activityLoaded.get(
+                '_id'
+            )
+        )
+    )
+    if activityKey is None:
+        raise ValidationException(
+            'Invalid activity.',
+            'activity'
+        )
+    activitySetExpanded = jsonld_expander.formatLdObject(
+        applet,
+        'applet',
+        user
+    ).get('activitySet')
+    activitySetOrder = activitySetExpanded.get('ui').get('order')
+    framedActivityKeys = [
+        activitySetOrder[i] for i, v in enumerate(
+            activitySetExpanded.get(
+                "https://schema.repronim.org/order"
+            )[0].get(
+                "@list"
+            )
+        ) if v.get("@id")==activityKey
+    ]
+    if schedule is not None:
+        appletMeta = applet.get('meta', {})
+        scheduleInApplet = appletMeta.get('applet', {}).get('schedule', {})
+        for k in framedActivityKeys:
+            scheduleInApplet[k] = schedule
+        appletMeta['applet']['schedule'] = scheduleInApplet
+        applet = AppletModel().setMetadata(applet, appletMeta)
+    return(applet)
