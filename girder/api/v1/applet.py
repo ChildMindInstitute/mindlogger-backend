@@ -444,6 +444,17 @@ def selfAssignment():
 
 def _setConstraints(applet, activity, schedule, user):
     """
+    Helper function for method recursion.
+
+    :param applet: applet Object
+    :type applet: dict
+    :param activity: Activity ID
+    :type activity: str, list, or None
+    :param schedule: schedule data
+    :type schedule: dict, list, or None
+    :param user: user making the call
+    :type user: dict
+    :returns: updated applet Object
     """
     if activity is None:
         if schedule is not None:
