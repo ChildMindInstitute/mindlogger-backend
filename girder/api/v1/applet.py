@@ -29,14 +29,17 @@ from girder.api import access
 from girder.utility import loadJSON
 from girder.exceptions import AccessException, ValidationException
 from girder.models.activity import Activity as ActivityModel
-from girder.models.applet import Applet as AppletModel, getCanonicalUser, getUserCipher
+from girder.models.applet import Applet as AppletModel, getCanonicalUser,      \
+    getUserCipher
 from girder.models.collection import Collection as CollectionModel
 from girder.models.folder import Folder as FolderModel
+from girder.models.group import Group as GroupModel
 from girder.models.item import Item as ItemModel
 from girder.models.user import User as UserModel
 from girder.utility import config, jsonld_expander
 from pyld import jsonld
 
+USER_ROLE_KEYS = USER_ROLES.keys()
 
 class Applet(Resource):
 
@@ -46,10 +49,10 @@ class Applet(Resource):
         self._model = AppletModel()
         self.route('GET', (), self.getAppletFromURL)
         self.route('GET', (':id',), self.getApplet)
+        self.route('PUT', (':id', 'constraints'), self.setConstraints)
         self.route('POST', (':id', 'invite'), self.invite)
         self.route('POST', ('invite',), self.inviteFromURL)
-        self.route('PUT', (':id', 'constraints'), self.setConstraints)
-
+        self.route('GET', (':id', 'roles'), self.getAppletRoles)
 
     @access.user(scope=TokenScope.DATA_READ)
     @autoDescribeRoute(
@@ -63,11 +66,24 @@ class Applet(Resource):
         user = Applet().getCurrentUser()
         return(jsonld_expander.formatLdObject(applet, 'applet', user))
 
+    @access.user(scope=TokenScope.DATA_READ)
+    @autoDescribeRoute(
+        Description('Get an applet by ID.')
+        .modelParam('id', model=AppletModel, level=AccessType.READ)
+        .errorResponse('Invalid applet ID.')
+        .errorResponse('Read access was denied for this applet.', 403)
+    )
+    def getAppletRoles(self, folder):
+        applet = folder
+        user = Applet().getCurrentUser()
+        return(AppletModel().getFullRolesList(applet))
 
     @access.user(scope=TokenScope.DATA_READ)
     @autoDescribeRoute(
         Description('Get an applet by URL.')
         .param('url', 'URL of Applet.', required=True)
+        .deprecated()
+        .notes('Use `GET /activity_set` or `GET /applet/{id}`.')
         .errorResponse('Invalid applet URL.')
         .errorResponse('Read access was denied for this applet.', 403)
     )
@@ -94,7 +110,7 @@ class Applet(Resource):
         )
         .param(
             'role',
-            'Role to invite this user to. One of ' + str(USER_ROLES),
+            'Role to invite this user to. One of ' + str(USER_ROLE_KEYS),
             default='user',
             required=False,
             strip=True
@@ -117,7 +133,7 @@ class Applet(Resource):
         .errorResponse('Write access was denied for the folder or its new parent object.', 403)
     )
     def invite(self, folder, user, role, rsvp, subject):
-        if role not in USER_ROLES:
+        if role not in USER_ROLE_KEYS:
             raise ValidationException(
                 'Invalid role.',
                 'role'
@@ -154,7 +170,7 @@ class Applet(Resource):
         )
         .param(
             'role',
-            'Role to invite this user to. One of ' + str(USER_ROLES),
+            'Role to invite this user to. One of ' + str(USER_ROLE_KEYS),
             default='user',
             required=False,
             strip=True
@@ -177,7 +193,7 @@ class Applet(Resource):
         .errorResponse('Write access was denied for the folder or its new parent object.', 403)
     )
     def inviteFromURL(self, url, user, role, rsvp, subject):
-        if role not in USER_ROLES:
+        if role not in USER_ROLE_KEYS:
             raise ValidationException(
                 'Invalid role.',
                 'role'
@@ -321,6 +337,7 @@ def authorizeReviewers(assignment):
 
 def _invite(applet, user, role, rsvp, subject):
     """
+    Helper function to invite a user to an applet.
 
     :param applet: Applet to invite user to
     :type applet: AppletModel
@@ -336,8 +353,28 @@ def _invite(applet, user, role, rsvp, subject):
     :type subject: string or literal
     :returns: New assignment (dictionary)
     """
+    if role not in USER_ROLE_KEYS:
+        raise ValidationException(
+            'Invalid role.',
+            'role'
+        )
     thisUser = Applet().getCurrentUser()
     user = user if user else str(thisUser['_id'])
+    if bool(rsvp):
+        groupName = {
+            'title': '{} {}s'.format(
+                str(applet.get('_id')),
+                role
+            )
+        }
+        groupName['lower'] = groupName.get('title', '').lower()
+        group = GroupModel().findOne(query={'lowerName': groupName['lower']})
+        if not group or group is None:
+            group = GroupModel().createGroup(
+                name=groupName['title'],
+                creator=thisUser,
+                public=bool(role in ['manager', 'reviewer'])
+            )
     try:
         assignments = CollectionModel().createCollection(
             name="Assignments",

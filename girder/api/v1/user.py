@@ -115,7 +115,7 @@ class User(Resource):
         .modelParam('id', model=UserModel, level=AccessType.READ)
         .param(
             'role',
-            'One of ' + str(USER_ROLES),
+            'One of ' + str(USER_ROLES.keys()),
             required=False,
             default='user'
         )
@@ -127,7 +127,7 @@ class User(Resource):
     )
     def getUserApplets(self, user, role):
         role = role.lower()
-        if role not in USER_ROLES:
+        if role not in USER_ROLES.keys():
             raise RestException(
                 'Invalid user role.',
                 'role'

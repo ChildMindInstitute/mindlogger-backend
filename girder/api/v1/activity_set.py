@@ -23,8 +23,7 @@ import uuid
 import requests
 from ..describe import Description, autoDescribeRoute
 from ..rest import Resource
-from girder.constants import AccessType, SortDir, TokenScope, SPECIAL_SUBJECTS,\
-    USER_ROLES
+from girder.constants import AccessType, SortDir, TokenScope, SPECIAL_SUBJECTS
 from girder.api import access
 from girder.utility import loadJSON
 from girder.exceptions import AccessException, ValidationException
