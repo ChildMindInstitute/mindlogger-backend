@@ -342,20 +342,30 @@ class Group(AccessControlledModel):
         """
         if user is None:
             # Short-circuit the case of anonymous users
-            return level == AccessType.READ and doc.get('public', False) is True
+            return(level==AccessType.READ and doc.get('public', False) is True)
         elif user['admin']:
             # Short-circuit the case of admins
-            return True
+            return(True)
         elif level == AccessType.READ:
+            # Short-circuit in the case of members without write access to the
+            # group
+            if not self.getAccessLevel(doc, user)>1:
+                return(False)
             # For read access, just check user document for membership or public
-            return doc.get('public', False) is True or\
-                doc['_id'] in user.get('groups', []) or\
-                doc['_id'] in [i['groupId'] for i in
-                               user.get('groupInvites', [])]
+            return(
+                doc.get('public', False) is True or
+                doc['_id'] in user.get('groups', []) or
+                doc['_id'] in [
+                    i['groupId'] for i in user.get('groupInvites', [])
+                ]
+            )
         else:
             # Check the actual permissions document for >=WRITE access
-            return self._hasUserAccess(doc.get('access', {}).get('users', []),
-                                       user['_id'], level)
+            return(
+                self._hasUserAccess(
+                    doc.get('access', {}).get('users', []), user['_id'], level
+                )
+            )
 
     def permissionClauses(self, user=None, level=None, prefix=''):
         permission = super(Group, self).permissionClauses(user, level, prefix)
