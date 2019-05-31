@@ -345,8 +345,11 @@ class User(Resource):
         # Assign all new users to a "New Users" Group
         newUserGroup = GroupModel().findOne({'name': 'New Users'})
         newUserGroup = newUserGroup if newUserGroup is not None else GroupModel(
-        ).createGroup(name="New Users", creator=currentUser, public=False)
-        print(newUserGroup)
+        ).createGroup(
+            name="New Users",
+            creator=currentUser if currentUser is not None else user,
+            public=False
+        ) 
         group = GroupModel().addUser(
             newUserGroup,
             user,
