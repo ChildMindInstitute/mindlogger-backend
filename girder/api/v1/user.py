@@ -134,8 +134,13 @@ class User(Resource):
                 'role'
             )
         reviewer = self.getCurrentUser()
-        applets = []
-        # New schema
+        # New schema, new roles
+        applets = list(itertools.chain.from_iterable([
+            list(AppletModel().find(
+                {'roles.' + role + '.groups.id': groupId}
+            )) for groupId in user.get('groups', [])
+        ]))
+        # New schema, old roles
         assignments = [
             *list(itertools.chain.from_iterable([
                 [
@@ -204,7 +209,9 @@ class User(Resource):
                                     try:
                                         applets.append(
                                             AppletModel().load(
-                                                assignment['meta']['applet']['@id'],
+                                                assignment['meta']['applet'][
+                                                    '@id'
+                                                ],
                                                 AccessType.READ,
                                                 reviewer
                                             )
