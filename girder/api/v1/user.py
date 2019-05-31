@@ -12,6 +12,7 @@ from girder.exceptions import RestException, AccessException
 from girder.models.applet import Applet as AppletModel
 from girder.models.collection import Collection as CollectionModel
 from girder.models.folder import Folder as FolderModel
+from girder.models.group import Group as GroupModel
 from girder.models.password import Password
 from girder.models.setting import Setting
 from girder.models.token import Token
@@ -322,7 +323,8 @@ class User(Resource):
                     'administrator to create an account for you.')
 
         user = self._model.createUser(
-            login=login, password=password, email=email, firstName=firstName,
+            login=login, password=password, email=email,
+            firstName=firstName if firstName is not None else "",
             lastName=lastName, admin=admin, currentUser=currentUser)
 
         if not currentUser and self._model.canLogin(user):
@@ -332,7 +334,21 @@ class User(Resource):
                 'token': token['_id'],
                 'expires': token['expires']
             }
-        return user
+
+        # Assign all new users to a "New Users" Group
+        newUserGroup = GroupModel().findOne({'name': 'New Users'})
+        newUserGroup = newUserGroup if newUserGroup is not None else GroupModel(
+        ).createGroup(name="New Users", creator=currentUser, public=False)
+        print(newUserGroup)
+        group = GroupModel().addUser(
+            newUserGroup,
+            user,
+            level=AccessType.READ
+        )
+        group['access'] = GroupModel().getFullAccessList(group)
+        group['requests'] = list(GroupModel().getFullRequestList(group))
+
+        return(user)
 
     @access.user
     @autoDescribeRoute(

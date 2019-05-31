@@ -1131,7 +1131,6 @@ class AccessControlledModel(Model):
         from .applet import createCipher
         if not isinstance(id, ObjectId):
             id = ObjectId(id)
-
         if 'roles' not in doc:
             doc['roles'] = {}
         if role not in doc['roles']:
@@ -1146,17 +1145,17 @@ class AccessControlledModel(Model):
             entry = {
                 'id': id,
                 'subject': {
-                    k: [
-                        createCipher(s) for s in subject[k]
-                    ] for k in subject.keys()
-                } if subject is not None else {
                     entity: {
                         'owl:sameAs': [id]
                     }
-                }
-            } if USER_ROLES[role]==dict else {
-                'id'
-            }
+                } if (
+                    (subject is None) and (entity=='users')
+                ) else {
+                    k: [
+                        createCipher(s) for s in subject[k]
+                    ] for k in subject.keys()
+                } if subject is not None else None
+            } if USER_ROLES[role]==dict else {'id': id}
             # because we're iterating this operation is not necessarily atomic
             for index, perm in enumerate(doc['roles'][role][entity]):
                 if perm['id'] == id:
@@ -1173,9 +1172,10 @@ class AccessControlledModel(Model):
             for perm in doc['roles'][role][entity]:
                 if perm['id'] == id:
                     doc['roles'][role][entity].remove(perm)
+        print(update)
         self._saveRole(doc, update)
 
-        return doc
+        return(self.getFullRolesList(doc))
 
     def _saveAcl(self, doc, update):
         if '_id' not in doc:
@@ -1212,9 +1212,7 @@ class AccessControlledModel(Model):
         else:
             update['$set'] = {k: v for k, v in six.viewitems(doc)
                               if k != 'roles'}
-
         print(update)
-
         event = events.trigger('model.%s.save' % self.name, doc)
         if not event.defaultPrevented:
             doc = self.collection.find_one_and_update(
@@ -1570,7 +1568,6 @@ class AccessControlledModel(Model):
         from .applet import decipherUser
         from .user import User
         from .group import Group
-
         acList = {
             role: {
                 'users': doc.get('roles', {}).get(role, {}).get(
@@ -1617,17 +1614,17 @@ class AccessControlledModel(Model):
 
         if dirty:
             # If we removed invalid entries from the ACL, persist the changes.
-            self.set(doc, acList, save=True)
+            self.setRolesList(doc, acList, save=True)
 
         roleList = {
             k: {
                 e: [
-                    v.get('id') for v in acList[k][e]
+                    v.get('id') for v in acList[k][e] for v in acList[k][e]
                 ] if USER_ROLES[k]==list else {
-                    str(v.get('id')): v.get('subject')
+                    str(v.get('id')): v.get('subject') for v in acList[k][e]
                 }
-                for e in acList[k].keys() for v in acList[k][e]
-            } if USER_ROLES[k]==dict else USER_ROLES[k]() for k in acList.keys()
+                for e in acList[k].keys()
+            } for k in acList.keys()
         }
         return(roleList)
 
