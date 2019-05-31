@@ -49,10 +49,72 @@ class Applet(Resource):
         self._model = AppletModel()
         self.route('GET', (), self.getAppletFromURL)
         self.route('GET', (':id',), self.getApplet)
+        self.route('PUT', (':id', 'assign'), self.assignGroup)
         self.route('PUT', (':id', 'constraints'), self.setConstraints)
         self.route('POST', (':id', 'invite'), self.invite)
         self.route('POST', ('invite',), self.inviteFromURL)
         self.route('GET', (':id', 'roles'), self.getAppletRoles)
+
+    @access.user(scope=TokenScope.DATA_WRITE)
+    @autoDescribeRoute(
+        Description('Assign a group to a role in an applet.')
+        .responseClass('Folder')
+        .modelParam('id', model=FolderModel, level=AccessType.READ)
+        .param(
+            'group',
+            'ID of the group to assign.',
+            required=True,
+            strip=True
+        )
+        .param(
+            'role',
+            'Role to invite this user to. One of ' + str(USER_ROLE_KEYS),
+            default='user',
+            required=False,
+            strip=True
+        )
+        .jsonParam(
+            'subject',
+            'Requires a JSON Object in the form \n```'
+            '{'
+            '  "groups": {'
+            '    "«relationship»": []'
+            '  },'
+            '  "users": {'
+            '    "«relationship»": []'
+            '  }'
+            '}'
+            '``` \n For \'user\' or \'reviewer\' assignments, specify '
+            'group-level relationships, filling in \'«relationship»\' with a '
+            'JSON-ld key semantically defined in in your context, and IDs in '
+            'the value Arrays (either applet-specific or canonical IDs in the '
+            'case of users; applet-specific IDs will be stored either way).',
+            paramType='form',
+            required=False,
+            requireObject=True
+        )
+        .errorResponse('ID was invalid.')
+        .errorResponse('Write access was denied for the folder or its new parent object.', 403)
+    )
+    def assignGroup(self, folder, group, role, subject):
+        applet = folder
+        if role not in USER_ROLE_KEYS:
+            raise ValidationException(
+                'Invalid role.',
+                'role'
+            )
+        thisUser=self.getCurrentUser()
+        group=GroupModel().load(group, level=AccessType.WRITE, user=thisUser)
+        return(
+            AppletModel().setGroupRole(
+                applet,
+                group,
+                role,
+                currentUser=None,
+                force=False,
+                subject=subject
+            )
+        )
 
     @access.user(scope=TokenScope.DATA_READ)
     @autoDescribeRoute(
@@ -94,7 +156,6 @@ class Applet(Resource):
             'applet',
             thisUser
         ))
-
 
     @access.user(scope=TokenScope.DATA_WRITE)
     @autoDescribeRoute(

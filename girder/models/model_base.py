@@ -1115,57 +1115,67 @@ class AccessControlledModel(Model):
 
         return doc
 
-        def _setRole(
-            self,
-            doc,
-            id,
-            entity,
-            role,
-            save,
-            user=None,
-            force=False
-        ):
-            """
-            Private helper for setting user roles on a resource.
-            """
-            if not isinstance(id, ObjectId):
-                id = ObjectId(id)
+    def _setRole(
+        self,
+        doc,
+        id,
+        entity,
+        role,
+        user=None,
+        force=False,
+        subject=None
+    ):
+        """
+        Private helper for setting user roles on a resource.
+        """
+        from .applet import createCipher
+        if not isinstance(id, ObjectId):
+            id = ObjectId(id)
 
-            if 'roles' not in doc:
-                doc['roles'] = {}
-            if role not in doc['roles']:
-                doc['roles'][role] = {'groups': [], 'users': []}
-            if entity not in doc['roles'][role]:
-                doc['roles'][role][entity] = []
+        if 'roles' not in doc:
+            doc['roles'] = {}
+        if role not in doc['roles']:
+            doc['roles'][role] = {'groups': [], 'users': []}
+        if entity not in doc['roles'][role]:
+            doc['roles'][role][entity] = []
 
-            key = 'roles.' + role + '.' + entity
-            update = {}
-            # Add in the new level for this entity unless we are removing access.
-            if role is not None:
-                entry = {
-                    'id': id
+        key = 'roles.' + role + '.' + entity
+        update = {}
+        # Add in the new level for this entity unless we are removing access.
+        if role is not None:
+            entry = {
+                'id': id,
+                'subject': {
+                    k: [
+                        createCipher(s) for s in subject[k]
+                    ] for k in subject.keys()
+                } if subject is not None else {
+                    entity: {
+                        'owl:sameAs': [id]
+                    }
                 }
-                # because we're iterating this operation is not necessarily atomic
-                for index, perm in enumerate(doc['roles'][role][entity]):
-                    if perm['id'] == id:
-                        # if the id already exists we want to update with a $set
-                        doc['roles'][role][entity][index] = entry
-                        update['$set'] = {'%s.%s' % (key, index): entry}
-                        break
-                else:
-                    doc['roles'][role][entity].append(entry)
-                    update['$push'] = {key: entry}
-            # set remove query
+            } if USER_ROLES[role]==dict else {
+                'id'
+            }
+            # because we're iterating this operation is not necessarily atomic
+            for index, perm in enumerate(doc['roles'][role][entity]):
+                if perm['id'] == id:
+                    # if the id already exists we want to update with a $set
+                    doc['roles'][role][entity][index] = entry
+                    update['$set'] = {'%s.%s' % (key, index): entry}
+                    break
             else:
-                update['$pull'] = {key: {'id': id}}
-                for perm in doc['roles'][role][entity]:
-                    if perm['id'] == id:
-                        doc['roles'][role][entity].remove(perm)
+                doc['roles'][role][entity].append(entry)
+                update['$push'] = {key: entry}
+        # set remove query
+        else:
+            update['$pull'] = {key: {'id': id}}
+            for perm in doc['roles'][role][entity]:
+                if perm['id'] == id:
+                    doc['roles'][role][entity].remove(perm)
+        self._saveRole(doc, update)
 
-            if save:
-                doc = self._saveAcl(doc, update)
-
-            return doc
+        return doc
 
     def _saveAcl(self, doc, update):
         if '_id' not in doc:
@@ -1188,6 +1198,30 @@ class AccessControlledModel(Model):
                 return_document=pymongo.ReturnDocument.AFTER)
             events.trigger('model.%s.save.after' % self.name, doc)
         return doc
+
+    def _saveRole(self, doc, update):
+        if '_id' not in doc:
+            return(self.save(doc))
+
+        # copy all other (potentially updated) fields to the update list,
+        # and trigger normal save events
+        if '$set' in update:
+            for propKey in doc:
+                if propKey != 'roles':
+                    update['$set'][propKey] = doc[propKey]
+        else:
+            update['$set'] = {k: v for k, v in six.viewitems(doc)
+                              if k != 'roles'}
+
+        print(update)
+
+        event = events.trigger('model.%s.save' % self.name, doc)
+        if not event.defaultPrevented:
+            doc = self.collection.find_one_and_update(
+                {'_id': ObjectId(doc['_id'])}, update,
+                return_document=pymongo.ReturnDocument.AFTER)
+            events.trigger('model.%s.save.after' % self.name, doc)
+        return(doc)
 
     def setPublic(self, doc, public, save=False):
         """
@@ -1395,10 +1429,9 @@ class AccessControlledModel(Model):
         doc,
         group,
         role,
-        save=False,
-        flags=None,
         currentUser=None,
-        force=False
+        force=False,
+        subject=None
     ):
         """
         Set group-level roles on the resource.
@@ -1431,9 +1464,9 @@ class AccessControlledModel(Model):
                 group['_id'],
                 'groups',
                 role,
-                save,
                 currentUser,
-                force
+                force,
+                subject
             )
         )
 
@@ -1575,20 +1608,28 @@ class AccessControlledModel(Model):
                 grpDoc = Group().load(
                     grp['id'],
                     force=True,
-                    fields=['name', 'description']
+                    fields=['subject']
                 )
                 if not grpDoc:
                     dirty = True
                     acList[role]['groups'].remove(grp)
                     continue
-                grp['name'] = grpDoc['name']
-                grp['description'] = grpDoc['description']
 
         if dirty:
             # If we removed invalid entries from the ACL, persist the changes.
             self.set(doc, acList, save=True)
 
-        return acList
+        roleList = {
+            k: {
+                e: [
+                    v.get('id') for v in acList[k][e]
+                ] if USER_ROLES[k]==list else {
+                    str(v.get('id')): v.get('subject')
+                }
+                for e in acList[k].keys() for v in acList[k][e]
+            } if USER_ROLES[k]==dict else USER_ROLES[k]() for k in acList.keys()
+        }
+        return(roleList)
 
     def setUserAccess(self, doc, user, level, save=False, flags=None, currentUser=None,
                       force=False):
@@ -1635,10 +1676,9 @@ class AccessControlledModel(Model):
         doc,
         user,
         role,
-        save=False,
-        flags=None,
         currentUser=None,
-        force=False
+        force=False,
+        subject=None
     ):
         """
         Set group-level roles on the resource.
@@ -1676,9 +1716,9 @@ class AccessControlledModel(Model):
                 ),
                 'users',
                 role,
-                save,
                 currentUser,
-                force
+                force,
+                subject
             )
         )
 
