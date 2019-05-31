@@ -272,7 +272,7 @@ class Group(AccessControlledModel):
         group = {
             'name': name,
             'description': description,
-            'creatorId': creator.get('_id'),
+            'creatorId': creator['_id'],
             'created': now,
             'updated': now,
             'requests': []
