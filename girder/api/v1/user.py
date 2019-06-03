@@ -7,7 +7,7 @@ import itertools
 from ..describe import Description, autoDescribeRoute
 from girder.api import access
 from girder.api.rest import Resource, filtermodel, setCurrentUser
-from girder.constants import AccessType, TokenScope, USER_ROLES
+from girder.constants import AccessType, SortDir, TokenScope, USER_ROLES
 from girder.exceptions import RestException, AccessException
 from girder.models.applet import Applet as AppletModel
 from girder.models.collection import Collection as CollectionModel
@@ -363,9 +363,17 @@ class User(Resource):
 
         # Assign all new users to a "New Users" Group
         newUserGroup = GroupModel().findOne({'name': 'New Users'})
-        newUserGroup = newUserGroup if newUserGroup is not None else GroupModel(
-        ).createGroup(name="New Users", creator=currentUser, public=False)
-        print(newUserGroup)
+        newUserGroup = newUserGroup if (
+            newUserGroup is not None and bool(newUserGroup)
+        ) else GroupModel(
+        ).createGroup(
+            name="New Users",
+            creator=UserModel().findOne(
+                query={'admin': True},
+                sort=[('created', SortDir.ASCENDING)]
+            ),
+            public=False
+        )
         group = GroupModel().addUser(
             newUserGroup,
             user,
