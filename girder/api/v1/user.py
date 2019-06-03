@@ -137,7 +137,10 @@ class User(Resource):
         # New schema, new roles
         applets = list(itertools.chain.from_iterable([
             list(AppletModel().find(
-                {'roles.' + role + '.groups.id': groupId}
+                {
+                    'roles.' + role + '.groups.id': groupId,
+                    'meta.applet.deleted': {'$ne': True}
+                }
             )) for groupId in user.get('groups', [])
         ]))
         # New schema, old roles
@@ -169,9 +172,10 @@ class User(Resource):
         ]
         for assignment in assignments:
             try:
-                if 'meta' in assignment and 'members' in assignment[
-                    'meta'
-                ] and assignment['meta']['members'] is not None:
+                if 'meta' in assignment and 'members' in assignment.get(
+                    'meta',
+                    {}
+                ) is not None:
                     for assignedUser in assignment['meta']['members']:
                         if 'roles' in assignedUser and bool(len(list(set(
                             assignedUser['roles']
@@ -207,17 +211,23 @@ class User(Resource):
                                     'meta'
                                 ] and '@id' in assignment['meta']['applet']:
                                     try:
-                                        applets.append(
-                                            AppletModel().load(
-                                                assignment['meta']['applet'][
-                                                    '@id'
-                                                ],
-                                                AccessType.READ,
-                                                reviewer
-                                            )
+                                        appletToAppend = AppletModel().load(
+                                            assignment['meta']['applet'][
+                                                '@id'
+                                            ],
+                                            AccessType.READ,
+                                            reviewer
                                         )
-                                    except:
-                                        pass
+                                        if not appletToAppend.get(
+                                            'meta',
+                                            {}
+                                        ).get(
+                                            'applet',
+                                            {}
+                                        ).get('deleted', False):
+                                            applets.append(appletToAppend)
+                                    except AccessException as e:
+                                        print(e)
             except:
                 print(exc_info()[0])
         return(
@@ -225,8 +235,17 @@ class User(Resource):
                 jsonld_expander.formatLdObject(
                     applet,
                     'applet',
-                    reviewer
-                ) for applet in applets if applet is not None
+                    reviewer,
+                    dropErrors=True
+                ) for applet in applets if (
+                    applet is not None and not applet.get(
+                        'meta',
+                        {}
+                    ).get(
+                        'applet',
+                        {}
+                    ).get('deleted')
+                )
             ]
         )
 
