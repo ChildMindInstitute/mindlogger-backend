@@ -100,7 +100,7 @@ def fileObjectToStr(obj):
         r = obj.get("@id") if isinstance(obj, dict) else ""
         print("Warning: Could not load {}".format(r))
     return(r.text)
-    
+
 
 def formatLdObject(
     obj,
@@ -128,7 +128,7 @@ def formatLdObject(
     if obj is None:
         return(None)
     if type(obj)==list:
-        return([formatLdObject(obj, mesoPrefix) for o in obj])
+        return([formatLdObject(o, mesoPrefix) for o in obj if o is not None])
     if not type(obj)==dict and not dropErrors:
         raise TypeError("JSON-LD must be an Object or Array.")
     newObj = obj.get('meta', obj)
@@ -211,7 +211,8 @@ def formatLdObject(
                         )] = formatLdObject(
                             ActivityModel().load(
                                 activity.get('_id')
-                            ) if '_id' in activity else ActivityModel().importUrl(
+                            ) if '_id' in activity else ActivityModel(
+                            ).importUrl(
                                     url=activity.get(
                                         'url',
                                         activity.get('@id')
@@ -243,7 +244,8 @@ def formatLdObject(
                                     level=AccessType.READ,
                                     user=user,
                                     force=True
-                                ) if '_id' in screen else ScreenModel().importUrl(
+                                ) if '_id' in screen else ScreenModel(
+                                ).importUrl(
                                     url=screen.get(
                                         'url',
                                         screen.get('@id')
