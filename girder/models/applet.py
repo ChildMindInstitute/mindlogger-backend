@@ -97,7 +97,7 @@ class Applet(Folder):
             try:
                 parent = pathFromRoot[-1]['object']
                 if (
-                    parent['name']=="Applets" and
+                    parent['name'] == "Applets" and
                     doc['baseParentType'] in {'collection', 'user'}
                 ):
                     """
@@ -247,7 +247,7 @@ def decipherUser(appletSpecificId):
             userId[0]['meta']['user']['@id']
         ) if len(userId) and type(
             userId[0]
-        )==dict and userId[0].get('meta').get('user').get('@id') else None
+        ) == dict and userId[0].get('meta').get('user').get('@id') else None
         FolderModel().setUserAccess(
             doc=ciphered,
             user=UserModel().load(id=cUser, user=cUser),
@@ -312,7 +312,7 @@ def getUserCipher(appletAssignment, user):
     cUser = getCanonicalUser(user)
     aUser = [
         cipher['parentId'] for cipher in allCiphers if (
-            cipher['meta']['user']['@id']==cUser
+            cipher['meta']['user']['@id'] == cUser
         ) if cipher.get('meta') and cipher['meta'].get('user') and cipher[
             'meta'
         ]['user'].get('@id') and cipher.get('parentId')
