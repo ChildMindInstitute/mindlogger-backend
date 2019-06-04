@@ -66,7 +66,7 @@ pyparsing==2.3.1
 python-dateutil==2.6.1
 python-ldap==3.1.0
 pytz==2018.5
-PyYAML==3.12
+pyyaml>=4.2b1
 rdflib==4.2.2
 rdflib-jsonld==0.4.0
 requests==2.20.1
@@ -82,7 +82,7 @@ tempora==1.12
 termcolor==1.1.0
 texttable==0.9.1
 tzlocal==1.5.1
-urllib3==1.24.1
+urllib3>=1.24.2
 vine==1.1.4
 wcwidth==0.1.7
 websocket-client==0.48.0
