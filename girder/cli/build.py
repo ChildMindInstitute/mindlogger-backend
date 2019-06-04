@@ -9,6 +9,7 @@ import sys
 import click
 import six
 
+import girder
 from girder.constants import STATIC_ROOT_DIR
 from girder.plugin import allPlugins, getPlugin
 from girder.utility import server
@@ -17,7 +18,7 @@ from girder.utility import server
 if not six.PY3:
     import shutilwhich  # noqa
 
-_GIRDER_BUILD_ASSETS_PATH = os.path.join(resource_filename('girder', 'web_client'))
+_GIRDER_BUILD_ASSETS_PATH = os.path.realpath(resource_filename('girder', 'web_client'))
 
 
 @click.command(name='build', help='Build web client static assets.')
@@ -62,12 +63,8 @@ def main(dev, watch, watch_plugin, npm, reinstall):
     quiet = '--no-progress=false' if sys.stdout.isatty() else '--no-progress=true'
     buildCommand = [
         npm, 'run', 'build', '--',
-        '--static-path=%s' % os.path.join(
-            os.getcwd(),
-            'girder',
-            'web_client',
-            'static'
-        ),
+        '--girder-version=%s' % girder.__version__,
+        '--static-path=%s' % STATIC_ROOT_DIR,
         '--static-public-path=%s' % server.getStaticPublicPath(),
         quiet
     ]
@@ -97,7 +94,7 @@ def _generatePackageJSON(staging, source):
     with open(source, 'r') as f:
         sourceJSON = json.load(f)
     deps = sourceJSON['dependencies']
-    deps['@girder/core'] = 'file:./src' # 'file:%s' % os.path.join(os.path.dirname(source), 'src')
+    deps['@girder/core'] = 'file:%s' % os.path.join(os.path.dirname(source), 'src')
     plugins = _collectPluginDependencies()
     deps.update(plugins)
     sourceJSON['girder'] = {
