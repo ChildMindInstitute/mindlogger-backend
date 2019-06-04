@@ -7,7 +7,7 @@ import itertools
 from ..describe import Description, autoDescribeRoute
 from girder.api import access
 from girder.api.rest import Resource, filtermodel, setCurrentUser
-from girder.constants import AccessType, TokenScope, USER_ROLES
+from girder.constants import AccessType, SortDir, TokenScope, USER_ROLES
 from girder.exceptions import RestException, AccessException
 from girder.models.applet import Applet as AppletModel
 from girder.models.collection import Collection as CollectionModel
@@ -137,7 +137,10 @@ class User(Resource):
         # New schema, new roles
         applets = list(itertools.chain.from_iterable([
             list(AppletModel().find(
-                {'roles.' + role + '.groups.id': groupId}
+                {
+                    'roles.' + role + '.groups.id': groupId,
+                    'meta.applet.deleted': {'$ne': True}
+                }
             )) for groupId in user.get('groups', [])
         ]))
         # New schema, old roles
@@ -169,9 +172,10 @@ class User(Resource):
         ]
         for assignment in assignments:
             try:
-                if 'meta' in assignment and 'members' in assignment[
-                    'meta'
-                ] and assignment['meta']['members'] is not None:
+                if 'meta' in assignment and 'members' in assignment.get(
+                    'meta',
+                    {}
+                ) is not None:
                     for assignedUser in assignment['meta']['members']:
                         if 'roles' in assignedUser and bool(len(list(set(
                             assignedUser['roles']
@@ -207,17 +211,23 @@ class User(Resource):
                                     'meta'
                                 ] and '@id' in assignment['meta']['applet']:
                                     try:
-                                        applets.append(
-                                            AppletModel().load(
-                                                assignment['meta']['applet'][
-                                                    '@id'
-                                                ],
-                                                AccessType.READ,
-                                                reviewer
-                                            )
+                                        appletToAppend = AppletModel().load(
+                                            assignment['meta']['applet'][
+                                                '@id'
+                                            ],
+                                            AccessType.READ,
+                                            reviewer
                                         )
-                                    except:
-                                        pass
+                                        if not appletToAppend.get(
+                                            'meta',
+                                            {}
+                                        ).get(
+                                            'applet',
+                                            {}
+                                        ).get('deleted', False):
+                                            applets.append(appletToAppend)
+                                    except AccessException as e:
+                                        print(e)
             except:
                 print(exc_info()[0])
         applets = [
@@ -233,8 +243,17 @@ class User(Resource):
                 jsonld_expander.formatLdObject(
                     applet,
                     'applet',
-                    reviewer
-                ) for applet in applets if applet is not None
+                    reviewer,
+                    dropErrors=True
+                ) for applet in applets if (
+                    applet is not None and not applet.get(
+                        'meta',
+                        {}
+                    ).get(
+                        'applet',
+                        {}
+                    ).get('deleted')
+                )
             ]
         )
 
@@ -352,10 +371,15 @@ class User(Resource):
 
         # Assign all new users to a "New Users" Group
         newUserGroup = GroupModel().findOne({'name': 'New Users'})
-        newUserGroup = newUserGroup if newUserGroup is not None else GroupModel(
+        newUserGroup = newUserGroup if (
+            newUserGroup is not None and bool(newUserGroup)
+        ) else GroupModel(
         ).createGroup(
             name="New Users",
-            creator=currentUser if currentUser is not None else user,
+            creator=UserModel().findOne(
+                query={'admin': True},
+                sort=[('created', SortDir.ASCENDING)]
+            ),
             public=False
         )
         group = GroupModel().addUser(

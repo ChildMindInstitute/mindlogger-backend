@@ -54,6 +54,7 @@ class Applet(Resource):
         self.route('POST', (':id', 'invite'), self.invite)
         self.route('POST', ('invite',), self.inviteFromURL)
         self.route('GET', (':id', 'roles'), self.getAppletRoles)
+        self.route('DELETE', (':id',), self.deactivateApplet)
 
     @access.user(scope=TokenScope.DATA_WRITE)
     @autoDescribeRoute(
@@ -115,6 +116,31 @@ class Applet(Resource):
                 subject=subject
             )
         )
+
+    @access.user(scope=TokenScope.DATA_WRITE)
+    @autoDescribeRoute(
+        Description('Deactivate an applet by ID.')
+        .modelParam('id', model=AppletModel, level=AccessType.WRITE)
+        .errorResponse('Invalid applet ID.')
+        .errorResponse('Read access was denied for this applet.', 403)
+    )
+    def deactivateApplet(self, folder):
+        applet = folder
+        user = Applet().getCurrentUser()
+        applet['meta']['applet']['deleted'] = True
+        applet = AppletModel().setMetadata(applet, applet.get('meta'), user)
+        if applet.get('meta', {}).get('applet', {}).get('deleted')==True:
+            message = 'Successfully deactivated applet {} ({}).'.format(
+                AppletModel().preferredName(applet),
+                applet.get('_id')
+            )
+        else:
+            message = 'Could not deactivate applet {} ({}).'.format(
+                AppletModel().preferredName(applet),
+                applet.get('_id')
+            )
+            Description().errorResponse(message, 403)
+        return(message)
 
     @access.user(scope=TokenScope.DATA_READ)
     @autoDescribeRoute(

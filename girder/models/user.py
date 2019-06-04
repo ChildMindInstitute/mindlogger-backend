@@ -126,7 +126,11 @@ class User(AccessControlledModel):
 
         level = self.getAccessLevel(doc, user)
         if level >= AccessType.ADMIN:
-            filteredDoc['otp'] = doc.get('otp', {}).get('enabled', False)
+            filteredDoc['otp'] = doc.get('otp', {})
+            filteredDoc['otp'] = filteredDoc['otp'].get(
+                'enabled',
+                False
+            ) if isinstance(filteredDoc['otp'], dict) else False
 
         return filteredDoc
 

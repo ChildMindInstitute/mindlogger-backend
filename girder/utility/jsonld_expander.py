@@ -1,7 +1,8 @@
 import json
 from copy import deepcopy
 from girder.constants import AccessType
-from girder.exceptions import AccessException, ResourcePathNotFound
+from girder.exceptions import AccessException, ResourcePathNotFound, \
+    ValidationException
 from girder.models.activity import Activity as ActivityModel
 from girder.models.activitySet import ActivitySet as ActivitySetModel
 from girder.models.applet import Applet as AppletModel
@@ -43,7 +44,8 @@ def expand(obj, keepUndefined=False):
         return(obj)
     try:
         newObj = jsonld.expand(obj)
-    except jsonld.JsonLdError: # 👮 Catch illegal JSON-LD
+    except jsonld.JsonLdError as e: # 👮 Catch illegal JSON-LD
+        print(e)
         print(obj)
         return(None)
     newObj = newObj[0] if (
@@ -82,25 +84,12 @@ def expand(obj, keepUndefined=False):
         return(expanded if bool(expanded) else None)
 
 
-def fileObjectToStr(obj):
-    """
-    Function to load a linked file in a JSON-LD object and return a string.
-
-    :param obj: Object
-    :type obj: dict
-    :returns: String from loaded file
-    """
-    import requests
-    from requests.exceptions import ConnectionError, MissingSchema
-    try:
-        r = requests.get(obj.get('@id'))
-    except (AttributeError, ConnectionError, MissingSchema):
-        r = obj.get("@id") if isinstance(obj, dict) else ""
-        print("Warning: Could not load {}".format(r))
-    return(r.text)
-
-
-def formatLdObject(obj, mesoPrefix='folder', user=None, keepUndefined=False):
+def formatLdObject(
+    obj,
+    mesoPrefix='folder',
+    user=None,
+    keepUndefined=False,
+    dropErrors=False):
     """
     Function to take a compacted JSON-LD Object within a Girder for Mindlogger
     database and return an exapanded JSON-LD Object including an _id.
@@ -112,17 +101,23 @@ def formatLdObject(obj, mesoPrefix='folder', user=None, keepUndefined=False):
     :type mesoPrefix: str
     :param user: User making the call
     :type user: User
+    :param keepUndefined: Keep undefined properties
+    :type keepUndefined: bool
+    :param dropErrors: Return `None` instead of raising an error for illegal
+        JSON-LD definitions.
     :returns: Expanded JSON-LD Object (dict or list)
     """
     if obj is None:
         return(None)
     if type(obj)==list:
         return([formatLdObject(obj, mesoPrefix) for o in obj])
-    if not type(obj)==dict:
+    if not type(obj)==dict and not dropErrors:
         raise TypeError("JSON-LD must be an Object or Array.")
     newObj = obj.get('meta', obj)
     newObj = newObj.get(mesoPrefix, newObj)
     newObj = expand(newObj, keepUndefined=keepUndefined)
+    if newObj is None:
+        return(None)
     if type(newObj)==list and len(newObj)==1:
         newObj = newObj[0]
     if type(newObj)==dict:
@@ -138,58 +133,111 @@ def formatLdObject(obj, mesoPrefix='folder', user=None, keepUndefined=False):
                 newObj
             )
         }
-        applet['activities'] = {
-            activity.get(
-                'url',
-                activity.get('@id')
-            ): formatLdObject(
-                ActivityModel().load(
-                    activity.get('_id')
-                ) if '_id' in activity else ActivityModel().importUrl(
-                        url=activity.get(
+        if not dropErrors:
+            applet['activities'] = {
+                activity.get(
+                    'url',
+                    activity.get('@id')
+                ): formatLdObject(
+                    ActivityModel().load(
+                        activity.get('_id')
+                    ) if '_id' in activity else ActivityModel().importUrl(
+                            url=activity.get(
+                                'url',
+                                activity.get('@id')
+                            ),
+                            user=user
+                    ),
+                    'activity',
+                    user
+                ) for order in newObj[
+                    "https://schema.repronim.org/order"
+                ] for activity in order.get("@list", [])
+            }
+            applet['items'] = {
+                screen.get(
+                    'url',
+                    screen.get('@id')
+                ): formatLdObject(
+                    ScreenModel().load(
+                        screen.get('_id'),
+                        level=AccessType.READ,
+                        user=user,
+                        force=True
+                    ) if '_id' in screen else ScreenModel().importUrl(
+                        url=screen.get(
                             'url',
-                            activity.get('@id')
+                            screen.get('@id')
                         ),
                         user=user
-                ),
-                'activity',
-                user
-            ) for order in newObj.get(
-                "https://schema.repronim.org/order",
-                {}
-            ) for activity in order.get("@list", [])
-        }
-        applet['items'] = {
-            screen.get(
-                'url',
-                screen.get('@id')
-            ): formatLdObject(
-                ScreenModel().load(
-                    screen.get('_id'),
-                    level=AccessType.READ,
-                    user=user,
-                    force=True
-                ) if '_id' in screen else ScreenModel().importUrl(
-                    url=screen.get(
-                        'url',
-                        screen.get('@id')
                     ),
-                    user=user
-                ),
-                'screen',
-                user
-            ) for activityURL, activity in applet.get(
+                    'screen',
+                    user
+                ) for activityURL, activity in applet.get(
+                    'activities',
+                    {}
+                ).items() for order in activity.get(
+                    "https://schema.repronim.org/order",
+                    []
+                ) for screen in order.get("@list", order.get("@set", []))
+            }
+            return(applet)
+        else:
+            applet['activities'] = {}
+            for order in newObj["https://schema.repronim.org/order"]:
+                for activity in order.get("@list", []):
+                    try:
+                        applet['activities'][activity.get(
+                            'url',
+                            activity.get('@id')
+                        )] = formatLdObject(
+                            ActivityModel().load(
+                                activity.get('_id')
+                            ) if '_id' in activity else ActivityModel().importUrl(
+                                    url=activity.get(
+                                        'url',
+                                        activity.get('@id')
+                                    ),
+                                    user=user
+                            ),
+                            'activity',
+                            user
+                        )
+                    except ValidationException as e:
+                        print(e)
+            applet['items'] = {}
+            for activityURL, activity in applet.get(
                 'activities',
                 {}
-            ).items() for order in activity.get(
-                "https://schema.repronim.org/order",
-                []
-            ) for screen in order.get("@list", order.get("@set", []))
-        }
-        schedules = applet
-        return(applet)
-    if mesoPrefix=='activity':
-        activity = newObj
+            ).items():
+                for order in activity.get(
+                    "https://schema.repronim.org/order",
+                    []
+                ):
+                    for screen in order.get("@list", order.get("@set", [])):
+                        try:
+                            applet['items'][screen.get(
+                                'url',
+                                screen.get('@id')
+                            )] = formatLdObject(
+                                ScreenModel().load(
+                                    screen.get('_id'),
+                                    level=AccessType.READ,
+                                    user=user,
+                                    force=True
+                                ) if '_id' in screen else ScreenModel().importUrl(
+                                    url=screen.get(
+                                        'url',
+                                        screen.get('@id')
+                                    ),
+                                    user=user
+                                ),
+                                'screen',
+                                user
+                            )
+                        except ValidationException as e:
+                            print(e)
+            return(applet)
     return(newObj)
 
 
