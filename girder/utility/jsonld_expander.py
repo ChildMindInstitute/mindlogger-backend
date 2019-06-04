@@ -84,6 +84,24 @@ def expand(obj, keepUndefined=False):
         return(expanded if bool(expanded) else None)
 
 
+def fileObjectToStr(obj):
+    """
+    Function to load a linked file in a JSON-LD object and return a string.
+
+    :param obj: Object
+    :type obj: dict
+    :returns: String from loaded file
+    """
+    import requests
+    from requests.exceptions import ConnectionError, MissingSchema
+    try:
+        r = requests.get(obj.get('@id'))
+    except (AttributeError, ConnectionError, MissingSchema):
+        r = obj.get("@id") if isinstance(obj, dict) else ""
+        print("Warning: Could not load {}".format(r))
+    return(r.text)
+    
+
 def formatLdObject(
     obj,
     mesoPrefix='folder',
