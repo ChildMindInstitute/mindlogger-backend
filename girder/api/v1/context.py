@@ -130,4 +130,8 @@ class Context(Resource):
                 skin[s],
                 None
             )
+            skin[s] = jsonld_expander.fileObjectToStr(skin[s][0]) if isinstance(
+                skin[s],
+                list
+            ) and len(skin[s]) else skin[s]
         return (skin)

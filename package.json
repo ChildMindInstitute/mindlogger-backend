@@ -1,8 +1,8 @@
 {
-    "name": "@girder",
-    "version": "0.2.1",
-    "description": "Backend administration console for customizing and storing data from the Mindlogger data collection platform",
-    "homepage": "https://mindlogger.info",
+    "name": "@girder/lint",
+    "version": "3.0.0-rc1",
+    "description": "Extensible data management platform",
+    "homepage": "https://girder.readthedocs.org",
     "bugs": {
         "url": "https://github.com/ChildMindInstitute/mindlogger-app-backend/issues"
     },

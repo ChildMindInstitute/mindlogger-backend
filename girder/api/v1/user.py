@@ -12,7 +12,6 @@ from girder.exceptions import RestException, AccessException
 from girder.models.applet import Applet as AppletModel
 from girder.models.collection import Collection as CollectionModel
 from girder.models.folder import Folder as FolderModel
-from girder.models.password import Password
 from girder.models.setting import Setting
 from girder.models.token import Token
 from girder.models.user import User as UserModel
@@ -249,10 +248,10 @@ class User(Resource):
 
         # Only create and send new cookie if user isn't already sending a valid one.
         if not user:
-            authHeader = cherrypy.request.headers.get('Girder-Authorization')
+            authHeader = cherrypy.request.headers.get('Authorization')
 
             if not authHeader:
-                authHeader = cherrypy.request.headers.get('Authorization')
+                authHeader = cherrypy.request.headers.get('Girder-Authorization')
 
             if not authHeader or not authHeader[0:6] == 'Basic ':
                 raise RestException('Use HTTP Basic Authentication', 401)
@@ -421,7 +420,8 @@ class User(Resource):
         if not old:
             raise RestException('Old password must not be empty.')
 
-        if not Password().hasPassword(user) or not Password().authenticate(user, old):
+        if not self._model.hasPassword(user) or \
+                not self._model._cryptContext.verify(old, user['salt']):
             # If not the user's actual password, check for temp access token
             token = Token().load(old, force=True, objectId=False, exc=False)
             if (not token or not token.get('userId') or

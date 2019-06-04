@@ -198,12 +198,14 @@ girder
                 Collection
                     createCollection
                     deleteCollection
+                    deleteMetadata
                     downloadCollection
                     find
                     getCollection
                     getCollectionAccess
                     getCollectionDetails
                     getCollectionsDetails
+                    setMetadata
                     updateCollection
                     updateCollectionAccess
             file
@@ -493,11 +495,15 @@ girder
             Collection
                 countFolders
                 createCollection
+                deleteMetadata
                 fileList
+                filter
                 hasCreatePrivilege
                 initialize
+                load
                 remove
                 setAccessList
+                setMetadata
                 subtreeCount
                 updateCollection
                 updateSize
@@ -531,6 +537,7 @@ girder
                 createFolder
                 deleteMetadata
                 fileList
+                filter
                 getSizeRecursive
                 initialize
                 isOrphan
@@ -573,6 +580,7 @@ girder
                 createItem
                 deleteMetadata
                 fileList
+                filter
                 initialize
                 isOrphan
                 load
@@ -644,13 +652,6 @@ girder
                 QUEUED
                 SUCCESS
                 isComplete
-        password
-            Password
-                authenticate
-                encryptAndStore
-                hasPassword
-                initialize
-                validate
         setting
             Setting
                 get
@@ -697,6 +698,7 @@ girder
                 filter
                 getAdmins
                 hasOtpEnabled
+                hasPassword
                 initialize
                 initializeOtp
                 remove
@@ -980,8 +982,10 @@ plugins
                 CLIENT_SOURCE_PATH
                 DISPLAY_NAME
                 load
+            settings
+                PluginSettings
+                    AUTOJOIN
             userCreated
-            validateSettings
     dicom_viewer
         girder_dicom_viewer
             DicomItem
@@ -1003,23 +1007,23 @@ plugins
                 CLIENT_SOURCE_PATH
                 DISPLAY_NAME
                 load
-            constants
-                PluginSettings
-                    GOOGLE_ANALYTICS_TRACKING_ID
             rest
                 GoogleAnalytics
                     getId
-            validateTrackingId
+            settings
+                PluginSettings
+                    TRACKING_ID
     gravatar
         girder_gravatar
             GravatarPlugin
                 CLIENT_SOURCE_PATH
                 DISPLAY_NAME
                 load
-            PluginSettings
-                DEFAULT_IMAGE
             computeBaseUrl
             getGravatar
+            settings
+                PluginSettings
+                    DEFAULT_IMAGE
     hashsum_download
         girder_hashsum_download
             HashedFile
@@ -1032,9 +1036,10 @@ plugins
                 CLIENT_SOURCE_PATH
                 DISPLAY_NAME
                 load
-            PluginSettings
-                AUTO_COMPUTE
             SUPPORTED_ALGORITHMS
+            settings
+                PluginSettings
+                    AUTO_COMPUTE
     homepage
         girder_homepage
             HomepagePlugin
@@ -1043,35 +1048,33 @@ plugins
                 load
             constants
                 COLLECTION_NAME
+            rest
+                Homepage
+                    getAssets
+                    getSettings
+            settings
                 PluginSettings
                     HEADER
                     LOGO
                     MARKDOWN
                     SUBHEADER
                     WELCOME_TEXT
-            rest
-                Homepage
-                    getAssets
-                    getSettings
     item_licenses
         girder_item_licenses
             ItemLicensesPlugin
                 CLIENT_SOURCE_PATH
                 DISPLAY_NAME
                 load
-            constants
-                PluginSettings
-                    LICENSES
-                PluginSettingsDefaults
-                    defaults
             postItemAfter
             postItemCopyAfter
             putItemAfter
             rest
                 getLicenses
+            settings
+                PluginSettings
+                    LICENSES
             updateItemLicense
             validateItem
-            validateLicenses
             validateString
     jobs
         girder_jobs
@@ -1131,9 +1134,9 @@ plugins
                 CLIENT_SOURCE_PATH
                 DISPLAY_NAME
                 load
-            constants
+            settings
                 PluginSettings
-                    LDAP_SERVERS
+                    SERVERS
     oauth
         girder_oauth
             OAuthPlugin
@@ -1141,22 +1144,6 @@ plugins
                 DISPLAY_NAME
                 load
             checkOauthUser
-            constants
-                PluginSettings
-                    BITBUCKET_CLIENT_ID
-                    BITBUCKET_CLIENT_SECRET
-                    BOX_CLIENT_ID
-                    BOX_CLIENT_SECRET
-                    GITHUB_CLIENT_ID
-                    GITHUB_CLIENT_SECRET
-                    GLOBUS_CLIENT_ID
-                    GLOBUS_CLIENT_SECRET
-                    GOOGLE_CLIENT_ID
-                    GOOGLE_CLIENT_SECRET
-                    IGNORE_REGISTRATION_POLICY
-                    LINKEDIN_CLIENT_ID
-                    LINKEDIN_CLIENT_SECRET
-                    PROVIDERS_ENABLED
             providers
                 addProvider
                 base
@@ -1215,9 +1202,22 @@ plugins
                 OAuth
                     callback
                     listProviders
-            validateIgnoreRegistrationPolicy
-            validateOtherSettings
-            validateProvidersEnabled
+            settings
+                PluginSettings
+                    BITBUCKET_CLIENT_ID
+                    BITBUCKET_CLIENT_SECRET
+                    BOX_CLIENT_ID
+                    BOX_CLIENT_SECRET
+                    GITHUB_CLIENT_ID
+                    GITHUB_CLIENT_SECRET
+                    GLOBUS_CLIENT_ID
+                    GLOBUS_CLIENT_SECRET
+                    GOOGLE_CLIENT_ID
+                    GOOGLE_CLIENT_SECRET
+                    IGNORE_REGISTRATION_POLICY
+                    LINKEDIN_CLIENT_ID
+                    LINKEDIN_CLIENT_SECRET
+                    PROVIDERS_ENABLED
     terms
         girder_terms
             TermsPlugin
@@ -1250,10 +1250,6 @@ plugins
                 CLIENT_SOURCE_PATH
                 DISPLAY_NAME
                 load
-            constants
-                PluginSettings
-                    QUOTA_DEFAULT_COLLECTION_QUOTA
-                    QUOTA_DEFAULT_USER_QUOTA
             quota
                 QUOTA_FIELD
                 QuotaPolicy
@@ -1265,7 +1261,10 @@ plugins
                     setCollectionQuota
                     setUserQuota
                 ValidateSizeQuota
-            validateSettings
+            settings
+                PluginSettings
+                    DEFAULT_COLLECTION_QUOTA
+                    DEFAULT_USER_QUOTA
     virtual_folders
         girder_virtual_folders
             VirtualFoldersPlugin
@@ -1278,9 +1277,9 @@ pytest_girder
             assertStatusOk
         fixtures
             admin
-            bcrypt
             boundServer
             db
+            fastCrypt
             fsAssetstore
             server
             smtp
