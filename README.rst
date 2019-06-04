@@ -7,11 +7,80 @@ Girder for MindLogger |build-status| |license-badge| |codecov-badge|
 
 Contents
 --------
-1. `Data Structure <#data-structure>`_
+1. `Requirements <#requirements>`_
+2. `Installation <#installation>`_
+3. `Deployment <#deployment>`_
+4. `Data Structure <#data-structure>`_
     1. `Diagram <#diagram>`_
     2. `Glossary <#glossary>`_
-2. `Links <#links>`_
-3. `Girder Source <#girder-source>`_
+5. `Links <#links>`_
+6. `Girder Source <#girder-source>`_
+
+Reqirements
+-----------
+
+- MongoDB >= 3.6
+- Python >= 3.5
+  - CherryPy <=11.0.0
+- Node >= 8.0
+
+Installation
+------------
+
+1. Create and activate a virtual environment (replace ``~/girder_env`` if you want your virtual environment somewhere else). On launches after the first, only the line beginning with ``source`` is necessary.
+
+   .. code-block:: shell
+
+      python3 -m venv ~/girder_env
+      source ~/girder_env/bin/activate
+      pip install -U pip setuptools
+
+2. Start MongoDB.
+
+   .. code-block:: shell
+
+      mongod &
+
+3. From the root of this repository, install and build Girder for MindLogger.
+
+   .. code-block:: shell
+
+      pip install -e .
+      girder build
+
+4. Start Girder for MindLogger.
+
+   .. code-block:: shell
+
+      girder serve
+
+5. When you're finished
+
+   1. kill Girder for MindLogger,
+
+      ``<Ctrl>`` + ``c``
+
+   2. kill MongoDB, and
+
+      .. code-block:: shell
+
+         fg
+
+      ``<Ctrl>`` + ``c``
+
+   3. deactivate your virtual environment.
+
+   .. code-block:: shell
+
+      deactivate
+
+Deployment
+----------
+
+Elastic Beanstalk
+#################
+
+If you're updating an existing Girder 2.x instance of Elastic Beanstalk, be sure to change your static files path from ``clients/web/static`` to ``girder/web_client/static/``.
 
 Data Structure
 --------------
