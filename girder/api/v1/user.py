@@ -220,6 +220,14 @@ class User(Resource):
                                         pass
             except:
                 print(exc_info()[0])
+        applets = [
+            v for k, v in {
+                applet.get('_id'): applet for applet in applets if isinstance(
+                    applet,
+                    dict
+                )
+            }.items()
+        ]
         return(
             [
                 jsonld_expander.formatLdObject(
@@ -349,7 +357,7 @@ class User(Resource):
             name="New Users",
             creator=currentUser if currentUser is not None else user,
             public=False
-        ) 
+        )
         group = GroupModel().addUser(
             newUserGroup,
             user,
