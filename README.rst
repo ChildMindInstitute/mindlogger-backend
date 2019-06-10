@@ -48,6 +48,8 @@ Installation
       pip install -e .
       girder build
 
+   Note: if ``pip install -e .`` fails with ``assert tag is not None, 'cant parse version %s' % tag`` from `setuptools_scm <https://github.com/pypa/setuptools_scm/>`_, check for git tags with ``-``s and delete those tags or replace them with ``+``s.
+
 4. Start Girder for MindLogger.
 
    .. code-block:: shell
