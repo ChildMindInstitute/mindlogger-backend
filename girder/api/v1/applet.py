@@ -29,6 +29,7 @@ from girder.api import access
 from girder.utility import loadJSON
 from girder.exceptions import AccessException, ValidationException
 from girder.models.activity import Activity as ActivityModel
+from girder.models.activitySet import ActivitySet as ActivitySetModel
 from girder.models.applet import Applet as AppletModel, getCanonicalUser,      \
     getUserCipher
 from girder.models.collection import Collection as CollectionModel
@@ -49,6 +50,7 @@ class Applet(Resource):
         self._model = AppletModel()
         self.route('GET', (), self.getAppletFromURL)
         self.route('GET', (':id',), self.getApplet)
+        self.route('POST', (), self.createApplet)
         self.route('PUT', (':id', 'assign'), self.assignGroup)
         self.route('PUT', (':id', 'constraints'), self.setConstraints)
         self.route('POST', (':id', 'invite'), self.invite)
@@ -119,10 +121,60 @@ class Applet(Resource):
 
     @access.user(scope=TokenScope.DATA_WRITE)
     @autoDescribeRoute(
+        Description('Create an applet.')
+        .param('activitySetUrl', 'URL of Activity Set from which to create applet', required=False)
+        .param('activitySetId', 'ID of Activity Set from which to create applet', required=False)
+        .errorResponse('Write access was denied for this applet.', 403)
+    )
+    def createApplet(self, activitySetUrl=None, activitySetId=None):
+        activitySet = {}
+        thisUser = self.getCurrentUser()
+        if activitySetId:
+            activitySet = ActivitySetModel().load(
+                id=activitySetId,
+                level=AccessType.READ,
+                user=thisUser
+            )
+        if activitySetUrl:
+            if activitySet.get(
+                'meta',
+                {}
+            ).get(
+                'activitySet',
+                {}
+            ).get(
+                'url'
+            ) and activitySet['meta']['activitySet']['url']!=activitySetUrl:
+                raise ValidationException(
+                    'If passing both `activitySetId` and `activitySetUrl`, the '
+                    'url stored in the activity set with ID `activitySetId` '
+                    'must match `activitySetUrl`.'
+                )
+            activitySet.update(ActivitySetModel().getFromUrl(
+                activitySetUrl,
+                'activitySet',
+                thisUser
+            ))
+        applet = {
+            'activitySet': {
+                '_id': 'activitySet/{}'.format(activitySet.get('_id')),
+                'url': activitySet.get(
+                    'meta',
+                    {}
+                ).get(
+                    'activitySet',
+                    {}
+                ).get('url', activitySetUrl)
+            }
+        }
+        return(applet) # TODO: update formatLdObject to reflect new structure
+
+    @access.user(scope=TokenScope.DATA_WRITE)
+    @autoDescribeRoute(
         Description('Deactivate an applet by ID.')
         .modelParam('id', model=AppletModel, level=AccessType.WRITE)
         .errorResponse('Invalid applet ID.')
-        .errorResponse('Read access was denied for this applet.', 403)
+        .errorResponse('Write access was denied for this applet.', 403)
     )
     def deactivateApplet(self, folder):
         applet = folder

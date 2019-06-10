@@ -39,6 +39,8 @@ class Applet(Folder):
     """
     Applets are access-controlled Folders, each of which contains Activities
     which are also specialized Folders.
+
+    Deprecated.
     """
     def importUrl(self, url, user=None):
         """
