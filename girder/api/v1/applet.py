@@ -226,9 +226,15 @@ class Applet(Resource):
     @access.user(scope=TokenScope.DATA_WRITE)
     @autoDescribeRoute(
         Description('Get an applet by ID.')
-        .modelParam('id', model=AppletModel, level=AccessType.READ)
+        .modelParam(
+            'id',
+            model=AppletModel,
+            level=AccessType.WRITE,
+            description='ID of the Applet.'
+        )
         .errorResponse('Invalid applet ID.')
         .errorResponse('Write access was denied for this applet.', 403)
+        .notes('Only users with write access can see roles.')
     )
     def getAppletRoles(self, folder):
         applet = folder
