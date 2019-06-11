@@ -1619,10 +1619,25 @@ class AccessControlledModel(Model):
         roleList = {
             k: {
                 e: [
-                    v.get('id') for v in acList[k][e] for v in acList[k][e]
-                ] if USER_ROLES[k]==list else {
-                    str(v.get('id')): v.get('subject') for v in acList[k][e]
-                }
+                    {
+                        '_id': str(v.get('id')),
+                        "name": Group().load(
+                            v.get('id'),
+                            force=True,
+                            fields=['name']
+                        ).get('name')
+                    } for v in acList[k][e] for v in acList[k][e]
+                ] if USER_ROLES[k]==list else [
+                    {
+                        "_id": str(v.get('id')),
+                        'name': Group().load(
+                            v.get('id'),
+                            force=True,
+                            fields=['name']
+                        ).get('name'),
+                        'subject': v.get('subject')
+                    } for v in acList[k][e]
+                ]
                 for e in acList[k].keys()
             } for k in acList.keys()
         }

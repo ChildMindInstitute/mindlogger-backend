@@ -223,12 +223,12 @@ class Applet(Resource):
         user = Applet().getCurrentUser()
         return(jsonld_expander.formatLdObject(applet, 'applet', user))
 
-    @access.user(scope=TokenScope.DATA_READ)
+    @access.user(scope=TokenScope.DATA_WRITE)
     @autoDescribeRoute(
         Description('Get an applet by ID.')
         .modelParam('id', model=AppletModel, level=AccessType.READ)
         .errorResponse('Invalid applet ID.')
-        .errorResponse('Read access was denied for this applet.', 403)
+        .errorResponse('Write access was denied for this applet.', 403)
     )
     def getAppletRoles(self, folder):
         applet = folder
