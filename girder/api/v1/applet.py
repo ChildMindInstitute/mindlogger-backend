@@ -113,20 +113,33 @@ class Applet(Resource):
                 applet,
                 group,
                 role,
-                currentUser=None,
+                currentUser=thisUser,
                 force=False,
                 subject=subject
             )
         )
 
-    @access.user(scope=TokenScope.DATA_WRITE)
     @autoDescribeRoute(
         Description('Create an applet.')
-        .param('activitySetUrl', 'URL of Activity Set from which to create applet', required=False)
-        .param('activitySetId', 'ID of Activity Set from which to create applet', required=False)
+        .param(
+            'activitySetUrl',
+            'URL of Activity Set from which to create applet',
+            required=False
+        )
+        .param(
+            'activitySetId',
+            'ID of Activity Set from which to create applet',
+            required=False
+        )
+        .param(
+            'name',
+            'Name to give the applet. The Activity Set\'s name will be used if '
+            'this parameter is not provided.',
+            required=False
+        )
         .errorResponse('Write access was denied for this applet.', 403)
     )
-    def createApplet(self, activitySetUrl=None, activitySetId=None):
+    def createApplet(self, activitySetUrl=None, activitySetId=None, name=None):
         activitySet = {}
         thisUser = self.getCurrentUser()
         if activitySetId:
@@ -155,8 +168,11 @@ class Applet(Resource):
                 'activitySet',
                 thisUser
             ))
-        applet = {
-            'activitySet': {
+        applet=AppletModel().createApplet(
+            name=name if name is not None else ActivitySetModel().preferredName(
+                activitySet
+            ),
+            activitySet={
                 '_id': 'activitySet/{}'.format(activitySet.get('_id')),
                 'url': activitySet.get(
                     'meta',
@@ -165,8 +181,9 @@ class Applet(Resource):
                     'activitySet',
                     {}
                 ).get('url', activitySetUrl)
-            }
-        }
+            },
+            user=thisUser
+        )
         return(applet) # TODO: update formatLdObject to reflect new structure
 
     @access.user(scope=TokenScope.DATA_WRITE)

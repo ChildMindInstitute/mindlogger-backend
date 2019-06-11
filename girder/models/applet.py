@@ -28,24 +28,102 @@ from bson.objectid import ObjectId
 from .folder import Folder
 from girder import events
 from girder.api.rest import getCurrentUser
-from girder.constants import AccessType, SortDir
-from girder.exceptions import ValidationException, GirderException
+from girder.constants import AccessType, SortDir, USER_ROLES
+from girder.exceptions import AccessException, GirderException, \
+    ValidationException
+from girder.models.collection import Collection as CollectionModel
 from girder.models.folder import Folder as FolderModel
+from girder.models.group import Group as GroupModel
 from girder.models.user import User as UserModel
 from girder.utility.progress import noProgress, setResponseTimeLimit
 
 
 class Applet(Folder):
     """
-    Applets are access-controlled Folders, each of which contains Activities
-    which are also specialized Folders.
-
-    Deprecated.
+    Applets are access-controlled Folders, each of which links to an
+    ActivitySet and contains any relevant constraints.
     """
+    def createApplet(
+        self,
+        name,
+        activitySet={},
+        user=None,
+        roles=None,
+        constraints=None
+    ):
+        """
+        Function to create an Applet.
+
+        :param name: Name for the Applet
+        :type name: str
+        :param activitySet: ActivitySet to link to this Applet, with one or both
+            keys: {`_id`, `url`}
+        :type activitySet: dict
+        :param user: User creating Applet
+        :type user: dict
+        :param roles: Roles to set to this Applet
+        :type roles: dict or None
+        :param constraints: Constraints to set to this Applet
+        :type constraints: dict or None
+        """
+        if user==None:
+            raise AccessException("You must be logged in to create an applet.")
+        if constraints is not None and isinstance(constraints, dict):
+            activitySet.update(constraints)
+
+        applet = FolderModel().setMetadata(
+            folder=FolderModel().createFolder(
+                parent=CollectionModel().findOne({"name": "Applets"}),
+                name=name,
+                parentType='collection',
+                public=True,
+                creator=user,
+                allowRename=True
+            ),
+            metadata={'activitySet': activitySet}
+        )
+        appletGroupName = "Default {} ({})".format(
+            name,
+            str(applet.get('_id', ''))
+        )
+        for role in USER_ROLES.keys():
+            try:
+                group = GroupModel().createGroup(
+                    name="{} {}s".format(appletGroupName, role.title()),
+                    creator=user,
+                    public=False if role=='user' else True
+                )
+            except ValidationException:
+                numero = 0
+                numberedName = appletGroupName
+                while GroupModel().findOne(query={'name': numberedName}):
+                    numero += 1
+                    numberedName = "{} {} {}s".format(
+                        appletGroupName,
+                        str(numero),
+                        role.title()
+                    )
+                group = GroupModel().createGroup(
+                    name=numberedName,
+                    creator=user,
+                    public=False if role=='user' else True
+                )
+            self.setGroupRole(
+                doc=applet,
+                group=group,
+                role=role,
+                currentUser=user,
+                force=False
+            )
+        return(applet)
+
+
     def importUrl(self, url, user=None):
         """
         Gets an applet from a given URL, checks against the database, stores
         and returns that applet.
+
+        Deprecated.
         """
         return(self.getFromUrl(url, 'applet', user))
 
