@@ -16,7 +16,6 @@ from girder.constants import AccessType, CoreEventHandler, SortDir, \
 from girder.external.mongodb_proxy import MongoProxy
 from girder.models import getDbConnection
 from girder.exceptions import AccessException, ValidationException
-from girder.utility.jsonld_expander import camelCase, snake_case
 
 USER_ROLE_KEYS = USER_ROLES.keys()
 
@@ -228,6 +227,7 @@ class Model(object):
         :type modelType: str
         :returns: dict or None
         """
+        from girder.utility.jsonld_expander import camelCase, snake_case
         if user==None:
             raise AccessException(
                 "You must be logged in to load a{} by url".format(
@@ -1487,13 +1487,15 @@ class AccessControlledModel(Model):
         :param user: The user to get the access level for.
         :returns: The max AccessType available for the user on the object.
         """
+        from girder.models.roles import checkRole
+
         if user is None:
             if doc.get('public', False):
-                return AccessType.READ
+                return(AccessType.READ)
             else:
-                return AccessType.NONE
+                return(AccessType.NONE)
         elif user['admin']:
-            return AccessType.ADMIN
+            return(AccessType.ADMIN)
         else:
             access = doc.get('access', {})
             level = AccessType.NONE
@@ -1502,15 +1504,22 @@ class AccessControlledModel(Model):
                 if group['id'] in user.get('groups', []):
                     level = max(level, group['level'])
                     if level == AccessType.ADMIN:
-                        return level
+                        return(level)
 
             for userAccess in access.get('users', []):
                 if userAccess['id'] == user['_id']:
                     level = max(level, userAccess['level'])
                     if level == AccessType.ADMIN:
-                        return level
+                        return(level)
 
-            return level
+            if checkRole(doc, 'manager', user):
+                return(AccessType.ADMIN)
+
+            for role in ['editor', 'reviewer', 'user']:
+                if checkRole(doc, role, user):
+                    level = max(level, AccessType.READ)
+
+            return(level)
 
     def getFullAccessList(self, doc):
         """
