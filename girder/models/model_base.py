@@ -16,7 +16,7 @@ from girder.constants import AccessType, CoreEventHandler, SortDir, \
 from girder.external.mongodb_proxy import MongoProxy
 from girder.models import getDbConnection
 from girder.exceptions import AccessException, ValidationException
-from girder.utility import loadJSON
+from girder.utility.jsonld_expander import camelCase, snake_case
 
 USER_ROLE_KEYS = USER_ROLES.keys()
 
@@ -247,7 +247,16 @@ class Model(object):
                 'prov:wasRevisionOf'
             ]
             cachedId = str(cachedDoc.get('_id'))
-            cachedDocObj = cachedDoc.get('meta', {}).get(modelType, {})
+            cachedDocObj = cachedDoc.get('meta', {}).get(
+                snake_case(modelType),
+                cachedDoc.get('meta', {}).get(
+                    camelCase(modelType),
+                    cachedDoc.get('meta', {}).get(
+                        modelType,
+                        {}
+                    )
+                )
+            )
             for prop in ['url', *provenenceProps]:
                 cachedDocObj.pop(prop, None)
         else:
@@ -259,7 +268,7 @@ class Model(object):
                 for prop in provenenceProps:
                     model[prop] = {
                         '@id': '/'.join([
-                            modelType,
+                            snake_case(modelType),
                             cachedId
                         ])
                     }
