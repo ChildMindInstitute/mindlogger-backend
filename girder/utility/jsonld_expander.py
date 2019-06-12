@@ -180,7 +180,13 @@ def formatLdObject(
                     '@type',
                     'http://schema.org/url'
                 ]
-            },
+            } if 'activitySet' in activitySet else formatLdObject(
+                obj,
+                'activitySet',
+                user,
+                keepUndefined,
+                dropErrors
+            ),
             'applet': {
                 **activitySet.pop('activitySet', {}),
                 **newObj

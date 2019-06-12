@@ -34,7 +34,6 @@ from .model_base import AccessControlledModel
 from girder import events
 from girder.constants import AccessType
 from girder.exceptions import ValidationException, GirderException
-from girder.models.applet import getUserCipher
 from girder.utility.progress import noProgress, setResponseTimeLimit
 from girder.utility import loadJSON
 
