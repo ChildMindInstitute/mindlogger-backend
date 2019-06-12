@@ -68,8 +68,6 @@ class Applet(Folder):
         """
         if user==None:
             raise AccessException("You must be logged in to create an applet.")
-        if constraints is not None and isinstance(constraints, dict):
-            activitySet.update(constraints)
 
         applet = FolderModel().setMetadata(
             folder=FolderModel().createFolder(
@@ -80,7 +78,13 @@ class Applet(Folder):
                 creator=user,
                 allowRename=True
             ),
-            metadata={'activitySet': activitySet}
+            metadata={
+                'activitySet': activitySet,
+                'applet': constraints if constraints is not None and isinstance(
+                    constraints,
+                    dict
+                ) else {}
+            }
         )
         appletGroupName = "Default {} ({})".format(
             name,

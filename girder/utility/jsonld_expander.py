@@ -125,6 +125,7 @@ def formatLdObject(
         JSON-LD definitions.
     :returns: Expanded JSON-LD Object (dict or list)
     """
+    mesoPrefix = camelCase(mesoPrefix)
     if obj is None:
         return(None)
     if type(obj)==list:
@@ -134,25 +135,64 @@ def formatLdObject(
     newObj = obj.get('meta', obj)
     newObj = newObj.get(mesoPrefix, newObj)
     newObj = expand(newObj, keepUndefined=keepUndefined)
-    if newObj is None:
-        return(None)
     if type(newObj)==list and len(newObj)==1:
         newObj = newObj[0]
-    if type(newObj)==dict:
-        objID = str(obj.get('_id', 'undefined'))
-        if objID=='undefined':
-            raise ResourcePathNotFound()
-        newObj['_id'] = "/".join([snake_case(mesoPrefix), objID])
-    if mesoPrefix in ['activitySet', 'applet']:
+    if type(newObj)!=dict:
+        newObj = {}
+    objID = str(obj.get('_id', 'undefined'))
+    if objID=='undefined':
+        raise ResourcePathNotFound()
+    newObj['_id'] = "/".join([snake_case(mesoPrefix), objID])
+    if mesoPrefix=='applet':
+        activitySet = formatLdObject(
+            ActivitySetModel().load(
+                obj['meta']['activitySet'].get(
+                    '_id',
+                    ''
+                ).split('activity_set/')[1],
+                level=AccessType.READ,
+                user=user
+            ) if '_id' in obj['meta']['activitySet'] else ActivitySetModel(
+            ).importUrl(
+                obj['meta']['activitySet'].get(
+                    'url',
+                    ''
+                ),
+                user
+            ) if 'url' in obj['meta']['activitySet'] else {},
+            'activitySet',
+            user,
+            keepUndefined,
+            dropErrors
+        ) if 'activitySet' in obj.get('meta', {}) and isinstance(
+            obj['meta']['activitySet'],
+            dict
+        ) else {}
         applet = {
-            'applet': newObj,
-            'activitySet': newObj if mesoPrefix=='activitySet' else newObj.get(
-                'activitySet',
-                newObj
-            )
+            'activities': activitySet.pop('activities', {}),
+            'items': activitySet.pop('items', {}),
+            'activitySet': {
+                key: activitySet.get('activitySet', {}).pop(
+                    key,
+                    None
+                ) for key in [
+                    '_id',
+                    '@type',
+                    'http://schema.org/url'
+                ]
+            },
+            'applet': {
+                **activitySet.pop('activitySet', {}),
+                **newObj
+            }
+        }
+        return(applet)
+    if mesoPrefix=='activitySet':
+        activitySet = {
+            'activitySet': newObj
         }
         if not dropErrors:
-            applet['activities'] = {
+            activitySet['activities'] = {
                 activity.get(
                     'url',
                     activity.get('@id')
@@ -172,7 +212,7 @@ def formatLdObject(
                     "https://schema.repronim.org/order"
                 ] for activity in order.get("@list", [])
             }
-            applet['items'] = {
+            activitySet['items'] = {
                 screen.get(
                     'url',
                     screen.get('@id')
@@ -191,7 +231,7 @@ def formatLdObject(
                     ),
                     'screen',
                     user
-                ) for activityURL, activity in applet.get(
+                ) for activityURL, activity in activitySet.get(
                     'activities',
                     {}
                 ).items() for order in activity.get(
@@ -199,13 +239,13 @@ def formatLdObject(
                     []
                 ) for screen in order.get("@list", order.get("@set", []))
             }
-            return(applet)
+            return(activitySet)
         else:
-            applet['activities'] = {}
+            activitySet['activities'] = {}
             for order in newObj["https://schema.repronim.org/order"]:
                 for activity in order.get("@list", []):
                     try:
-                        applet['activities'][activity.get(
+                        activitySet['activities'][activity.get(
                             'url',
                             activity.get('@id')
                         )] = formatLdObject(
@@ -224,8 +264,8 @@ def formatLdObject(
                         )
                     except ValidationException as e:
                         print(e)
-            applet['items'] = {}
-            for activityURL, activity in applet.get(
+            activitySet['items'] = {}
+            for activityURL, activity in activitySet.get(
                 'activities',
                 {}
             ).items():
@@ -235,7 +275,7 @@ def formatLdObject(
                 ):
                     for screen in order.get("@list", order.get("@set", [])):
                         try:
-                            applet['items'][screen.get(
+                            activitySet['items'][screen.get(
                                 'url',
                                 screen.get('@id')
                             )] = formatLdObject(
@@ -257,7 +297,7 @@ def formatLdObject(
                             )
                         except ValidationException as e:
                             print(e)
-            return(applet)
+            return(activitySet)
     return(newObj)
 
 
@@ -420,6 +460,22 @@ def keyExpansion(keys):
         k for k in keys if (':' not in k and '/' not in k)
     ])))
 
+
+def camelCase(snake_case):
+    """
+    Function to convert a snake_case_string to a camelCaseString
+
+    :param snake_case: snake_case_string
+    :type snake_case: str
+    :returns: camelCaseString
+    """
+    words = snake_case.split('_')
+    return('{}{}'.format(
+        words[0],
+        ''.join([
+            word.title() for word in words[1:]
+        ])
+    ))
 
 def snake_case(camelCase):
     """
