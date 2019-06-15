@@ -26,7 +26,6 @@ from ..rest import Resource
 from girder.constants import AccessType, SortDir, TokenScope, SPECIAL_SUBJECTS,\
     USER_ROLES
 from girder.api import access
-from girder.utility import loadJSON
 from girder.exceptions import AccessException, ValidationException
 from girder.models.activity import Activity as ActivityModel
 from girder.models.activitySet import ActivitySet as ActivitySetModel

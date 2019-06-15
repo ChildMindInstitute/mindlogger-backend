@@ -25,7 +25,6 @@ from ..describe import Description, autoDescribeRoute
 from ..rest import Resource
 from girder.constants import AccessType, SortDir, TokenScope, SPECIAL_SUBJECTS
 from girder.api import access
-from girder.utility import loadJSON
 from girder.exceptions import AccessException, ValidationException
 from girder.models.activitySet import ActivitySet as ActivitySetModel
 from girder.models.applet import Applet as AppletModel

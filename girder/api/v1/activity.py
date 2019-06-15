@@ -21,7 +21,6 @@ from ..describe import Description, autoDescribeRoute
 from ..rest import Resource
 from girder.constants import AccessType, SortDir, TokenScope
 from girder.api import access
-from girder.utility import loadJSON
 from girder.models.activity import Activity as ActivityModel
 from girder.models.applet import Applet as AppletModel
 from girder.models.collection import Collection as CollectionModel

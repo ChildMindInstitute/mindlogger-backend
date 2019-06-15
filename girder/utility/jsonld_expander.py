@@ -30,6 +30,50 @@ MODELS = {
 }
 
 
+def _createContextForStr(s):
+    sp = s.split('/')
+    k = '_'.join(
+        sp[:-1] if '.' not in sp[-1] else sp
+    ).replace('.','').replace(':','')
+    return(
+        (
+            {k: '{}/'.format('/'.join(sp[:-1]))},
+            "{}:{}".format(k, sp[-1])
+        ) if '.' not in sp[-1] else (
+            {k: s},
+            k
+        )
+    )
+
+
+def contextualize(ldObj):
+    newObj = {}
+    context = ldObj.get('@context', [])
+    for k in ldObj.keys():
+        if isinstance(ldObj[k], dict):
+            context, newObj[k] = _deeperContextualize(
+                ldObj[k],
+                context
+            )
+        else:
+            newObj[k] = ldObj[k]
+    newObj['@context'] = context
+    return(newObj)
+
+
+def _deeperContextualize(ldObj, context):
+    newObj = {}
+    for k in ldObj.keys():
+        if isinstance(ldObj[k], dict) and '.' in k:
+                (c, o) = _createContextForStr(k)
+                newObj[o] = ldObj[k]
+                if c not in context:
+                    context.append(c)
+        else:
+            newObj[k] = ldObj[k]
+    return(context, newObj)
+
+
 def expand(obj, keepUndefined=False):
     """
     Function to take an unexpanded JSON-LD Object and return it expandedself.

@@ -227,7 +227,9 @@ class Model(object):
         :type modelType: str
         :returns: dict or None
         """
-        from girder.utility.jsonld_expander import camelCase, snake_case
+        from girder.utility import loadJSON
+        from girder.utility.jsonld_expander import camelCase, contextualize, \
+            snake_case
         if user==None:
             raise AccessException(
                 "You must be logged in to load a{} by url".format(
@@ -238,7 +240,7 @@ class Model(object):
                     ] else " {}".format(modelType)
                 )
             )
-        model = loadJSON(url, modelType)
+        model = contextualize(loadJSON(url, modelType))
         prefName = self.preferredName(model)
         cachedDoc = self.getCached(url, modelType)
         if cachedDoc:
@@ -1583,7 +1585,7 @@ class AccessControlledModel(Model):
         :returns: A dict containing role-keyed dicts with `users` and `groups`
             keys.
         """
-        from .applet import decipherUser
+        from .roles import decipherUser
         from .user import User
         from .group import Group
         acList = {
@@ -1733,7 +1735,7 @@ class AccessControlledModel(Model):
             currentUser's permissions (only matters if flags are passed).
         :type force: bool
         """
-        from .applet import createCipher
+        from .roles import createCipher
         if role not in USER_ROLE_KEYS:
             raise ValidationException('Invalid role: {}.'.format(role), 'role')
         return(

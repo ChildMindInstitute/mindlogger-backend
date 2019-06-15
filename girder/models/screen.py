@@ -35,7 +35,6 @@ from girder import events
 from girder.constants import AccessType
 from girder.exceptions import ValidationException, GirderException
 from girder.utility.progress import noProgress, setResponseTimeLimit
-from girder.utility import loadJSON
 
 class Screen(Item):
     def initialize(self):

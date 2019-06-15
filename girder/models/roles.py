@@ -38,7 +38,7 @@ def checkRole(doc, role, user):
     ):
         return(True)
     for group in user.get('groups', []):
-        if group in doc['roles'][role]['groups']:
+        if group in doc.get('roles', {}).get(role, {}).get('groups', []):
             return(True)
     return(False)
 
