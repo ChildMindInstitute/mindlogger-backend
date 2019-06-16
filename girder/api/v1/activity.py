@@ -68,4 +68,8 @@ class Activity(Resource):
     )
     def getActivityByURL(self, url):
         thisUser = self.getCurrentUser()
-        return(ActivityModel().importUrl(url, thisUser))
+        return(jsonld_expander.formatLdObject(
+            ActivityModel().importUrl(url, thisUser),
+            'activity',
+            thisUser
+        ))

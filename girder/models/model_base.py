@@ -1489,7 +1489,7 @@ class AccessControlledModel(Model):
         :param user: The user to get the access level for.
         :returns: The max AccessType available for the user on the object.
         """
-        # from girder.models.roles import checkRole
+        from girder.models.roles import checkRole
 
         if user is None:
             if doc.get('public', False):
@@ -1514,12 +1514,12 @@ class AccessControlledModel(Model):
                     if level == AccessType.ADMIN:
                         return(level)
 
-            # if checkRole(doc, 'manager', user):
-            #     return(AccessType.ADMIN)
-            #
-            # for role in ['editor', 'reviewer', 'user']:
-            #     if checkRole(doc, role, user):
-            #         level = max(level, AccessType.READ)
+            if checkRole(doc, 'manager', user):
+                return(AccessType.ADMIN)
+
+            for role in ['editor', 'reviewer', 'user']:
+                if checkRole(doc, role, user):
+                    level = max(level, AccessType.READ)
 
             return(level)
 
