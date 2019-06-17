@@ -119,6 +119,13 @@ def createCipher(applet, appletAssignments, user):
             }
         }
     )
+    FolderModel().setAccessList(
+        doc=newSecretCipher,
+        access={'users': [], 'groups': []},
+        save=True,
+        user=thisUser,
+        force=True
+    }
     for u in [thisUser, cUser]:
         FolderModel().setUserAccess(
             doc=newSecretCipher,
