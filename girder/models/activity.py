@@ -31,7 +31,6 @@ from girder.exceptions import ValidationException, GirderException
 from girder.models.applet import Applet as AppletModel
 from girder.models.collection import Collection as CollectionModel
 from girder.utility.progress import noProgress, setResponseTimeLimit
-from girder.utility import loadJSON
 from pyld import jsonld
 
 

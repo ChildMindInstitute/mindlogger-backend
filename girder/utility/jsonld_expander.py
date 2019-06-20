@@ -30,6 +30,50 @@ MODELS = {
 }
 
 
+def _createContextForStr(s):
+    sp = s.split('/')
+    k = '_'.join(
+        sp[:-1] if '.' not in sp[-1] else sp
+    ).replace('.','').replace(':','')
+    return(
+        (
+            {k: '{}/'.format('/'.join(sp[:-1]))},
+            "{}:{}".format(k, sp[-1])
+        ) if '.' not in sp[-1] else (
+            {k: s},
+            k
+        )
+    )
+
+
+def contextualize(ldObj):
+    newObj = {}
+    context = ldObj.get('@context', [])
+    for k in ldObj.keys():
+        if isinstance(ldObj[k], dict):
+            context, newObj[k] = _deeperContextualize(
+                ldObj[k],
+                context
+            )
+        else:
+            newObj[k] = ldObj[k]
+    newObj['@context'] = context
+    return(newObj)
+
+
+def _deeperContextualize(ldObj, context):
+    newObj = {}
+    for k in ldObj.keys():
+        if isinstance(ldObj[k], dict) and '.' in k:
+                (c, o) = _createContextForStr(k)
+                newObj[o] = ldObj[k]
+                if c not in context:
+                    context.append(c)
+        else:
+            newObj[k] = ldObj[k]
+    return(context, newObj)
+
+
 def expand(obj, keepUndefined=False):
     """
     Function to take an unexpanded JSON-LD Object and return it expandedself.
@@ -126,7 +170,9 @@ def formatLdObject(
     :returns: Expanded JSON-LD Object (dict or list)
     """
     mesoPrefix = camelCase(mesoPrefix)
-    if obj is None:
+    if obj is None or (
+        isinstance(obj, dict) and 'meta' not in obj.keys()
+    ):
         return(None)
     if type(obj)==list:
         return([formatLdObject(o, mesoPrefix) for o in obj if o is not None])
@@ -134,6 +180,8 @@ def formatLdObject(
         raise TypeError("JSON-LD must be an Object or Array.")
     newObj = obj.get('meta', obj)
     newObj = newObj.get(mesoPrefix, newObj)
+    if mesoPrefix=='applet' and 'activitySet' not in obj.get('meta', {}).keys():
+        obj['meta']['activitySet'] = obj.get('meta', {}).get('applet')
     newObj = expand(newObj, keepUndefined=keepUndefined)
     if type(newObj)==list and len(newObj)==1:
         newObj = newObj[0]
@@ -152,14 +200,16 @@ def formatLdObject(
                 ).split('activity_set/')[1],
                 level=AccessType.READ,
                 user=user
-            ) if '_id' in obj['meta']['activitySet'] else ActivitySetModel(
-            ).importUrl(
+            ) if '_id' in obj.get('meta', {}).get(
+                'activitySet',
+                {}
+            ) else ActivitySetModel().importUrl(
                 obj['meta']['activitySet'].get(
                     'url',
                     ''
                 ),
                 user
-            ) if 'url' in obj['meta']['activitySet'] else {},
+            ) if 'url' in obj.get('meta', {}).get('activitySet', {}) else {},
             'activitySet',
             user,
             keepUndefined,
@@ -180,7 +230,13 @@ def formatLdObject(
                     '@type',
                     'http://schema.org/url'
                 ]
-            },
+            } if 'activitySet' in activitySet else formatLdObject(
+                obj,
+                'activitySet',
+                user,
+                keepUndefined,
+                dropErrors
+            ),
             'applet': {
                 **activitySet.pop('activitySet', {}),
                 **newObj
@@ -208,9 +264,10 @@ def formatLdObject(
                     ),
                     'activity',
                     user
-                ) for order in newObj[
-                    "https://schema.repronim.org/order"
-                ] for activity in order.get("@list", [])
+                ) for order in newObj.get(
+                    "https://schema.repronim.org/order",
+                    {}
+                ) for activity in order.get("@list", [])
             }
             activitySet['items'] = {
                 screen.get(
@@ -236,13 +293,13 @@ def formatLdObject(
                     {}
                 ).items() for order in activity.get(
                     "https://schema.repronim.org/order",
-                    []
+                    {}
                 ) for screen in order.get("@list", order.get("@set", []))
             }
             return(activitySet)
         else:
             activitySet['activities'] = {}
-            for order in newObj["https://schema.repronim.org/order"]:
+            for order in newObj.get("https://schema.repronim.org/order", {}):
                 for activity in order.get("@list", []):
                     try:
                         activitySet['activities'][activity.get(
@@ -271,7 +328,7 @@ def formatLdObject(
             ).items():
                 for order in activity.get(
                     "https://schema.repronim.org/order",
-                    []
+                    {}
                 ):
                     for screen in order.get("@list", order.get("@set", [])):
                         try:

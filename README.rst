@@ -165,8 +165,8 @@ An individual using a MindLogger mobile application or MindLogger web applicatio
 Links
 -----
 - `ReproNim Schema specification <https://github.com/ReproNim/schema-standardization>`_
-- `Development instance <https://mindlogger-dev.vasegurt.com>`_
-- `Production instance <https://api.mindlogger.info>`_
+- `Development instance <https://dev.mindlogger.org>`_
+- `Production instance <https://api.mindlogger.org>`_
 - `Run a local instance <#requirements>`_
 
 Girder Source

@@ -25,13 +25,13 @@ from ..describe import Description, autoDescribeRoute
 from ..rest import Resource
 from girder.constants import AccessType, SortDir, TokenScope, SPECIAL_SUBJECTS
 from girder.api import access
-from girder.utility import loadJSON
 from girder.exceptions import AccessException, ValidationException
 from girder.models.activitySet import ActivitySet as ActivitySetModel
-from girder.models.applet import Applet as AppletModel, getCanonicalUser, getUserCipher
+from girder.models.applet import Applet as AppletModel
 from girder.models.collection import Collection as CollectionModel
 from girder.models.folder import Folder as FolderModel
 from girder.models.item import Item as ItemModel
+from girder.models.roles import getCanonicalUser, getUserCipher
 from girder.models.user import User as UserModel
 from girder.utility import config, jsonld_expander
 

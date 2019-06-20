@@ -119,13 +119,24 @@ class User(Resource):
             required=False,
             default='user'
         )
+        .param(
+            'ids_only',
+            'If true, only returns an Array of the IDs of assigned applets. '
+            'Otherwise, returns an Array of Objects keyed with "applet" '
+            '"activitySet", "activities" and "items" with expanded JSON-LD as '
+            'values.',
+            required=False,
+            default=False,
+            dataType='boolean'
+        )
         .errorResponse('ID was invalid.')
         .errorResponse(
             'You do not have permission to see any of this user\'s applets.',
             403
         )
     )
-    def getUserApplets(self, user, role):
+    def getUserApplets(self, user, role, ids_only):
+        user = user if not user else self.getCurrentUser()
         role = role.lower()
         if role not in USER_ROLES.keys():
             raise RestException(
@@ -237,24 +248,29 @@ class User(Resource):
                 )
             }.items()
         ]
-        return(
-            [
-                jsonld_expander.formatLdObject(
-                    applet,
-                    'applet',
-                    reviewer,
-                    dropErrors=True
-                ) for applet in applets if (
-                    applet is not None and not applet.get(
-                        'meta',
-                        {}
-                    ).get(
+        if ids_only==True:
+            return([applet.get('_id') for applet in applets])
+        try:
+            return(
+                [
+                    jsonld_expander.formatLdObject(
+                        applet,
                         'applet',
-                        {}
-                    ).get('deleted')
-                )
-            ]
-        )
+                        reviewer,
+                        dropErrors=True
+                    ) for applet in applets if (
+                        applet is not None and not applet.get(
+                            'meta',
+                            {}
+                        ).get(
+                            'applet',
+                            {}
+                        ).get('deleted')
+                    )
+                ]
+            )
+        except Exception as e:
+            return(e)
 
     @access.public(scope=TokenScope.USER_INFO_READ)
     @filtermodel(model=UserModel)
