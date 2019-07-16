@@ -204,7 +204,7 @@ class Applet(Resource):
 
     @access.user(scope=TokenScope.DATA_WRITE)
     @autoDescribeRoute(
-        Description('Get an applet by ID.')
+        Description('Get roles for an applet by ID.')
         .modelParam(
             'id',
             model=AppletModel,

@@ -395,11 +395,11 @@ class User(AccessControlledModel):
         :type public: bool
         :returns: The user document that was created.
         """
+        from .group import Group
         from .setting import Setting
         requireApproval = Setting().get(SettingKey.REGISTRATION_POLICY) == 'approve'
         if admin:
             requireApproval = False
-
         user = {
             'login': login,
             'email': email,
@@ -411,7 +411,12 @@ class User(AccessControlledModel):
             'admin': admin,
             'size': 0,
             'groups': [],
-            'groupInvites': []
+            'groupInvites': [
+                {
+                    "groupId": gi.get('_id'),
+                    "level": 0
+                } for gi in list(Group().find(query={"queue": email}))
+            ]
         }
 
         self.setPassword(user, password, save=False)
@@ -439,8 +444,12 @@ class User(AccessControlledModel):
 
         if requireApproval:
             self._sendApprovalEmail(user)
-
-        return user
+        Group().update(
+            query={"queue": email},
+            update={"$pull": {"queue": email}},
+            multi=True
+        )
+        return(user)
 
     def canLogin(self, user):
         """
