@@ -61,7 +61,13 @@ class User(Resource):
         Description('Get all pending invites for the logged-in user.')
     )
     def getGroupInvites(self):
-        return(self.getCurrentUser().get("groupInvites"))
+        pending = self.getCurrentUser().get("groupInvites")
+        output = []
+        for p in pending:
+            output.append(
+                GroupModel().load(id=p.get('groupId'), force=True, fields=['name', '_id'])
+            )
+        return(output)
 
     @access.user
     @filtermodel(model=UserModel)
