@@ -126,11 +126,6 @@ class Applet(Resource):
             required=False
         )
         .param(
-            'activitySetId',
-            'ID of Activity Set from which to create applet',
-            required=False
-        )
-        .param(
             'name',
             'Name to give the applet. The Activity Set\'s name will be used if '
             'this parameter is not provided.',
@@ -138,39 +133,23 @@ class Applet(Resource):
         )
         .errorResponse('Write access was denied for this applet.', 403)
     )
-    def createApplet(self, activitySetUrl=None, activitySetId=None, name=None):
+    def createApplet(self, activitySetUrl=None, name=None):
         activitySet = {}
         thisUser = self.getCurrentUser()
-        if activitySetId:
-            activitySet = ActivitySetModel().load(
-                id=activitySetId,
-                level=AccessType.READ,
-                user=thisUser
-            )
+        # get an activity set from a URL
         if activitySetUrl:
-            if activitySet.get(
-                'meta',
-                {}
-            ).get(
-                'activitySet',
-                {}
-            ).get(
-                'url'
-            ) and activitySet['meta']['activitySet']['url']!=activitySetUrl:
-                raise ValidationException(
-                    'If passing both `activitySetId` and `activitySetUrl`, the '
-                    'url stored in the activity set with ID `activitySetId` '
-                    'must match `activitySetUrl`.'
-                )
             activitySet.update(ActivitySetModel().getFromUrl(
                 activitySetUrl,
                 'activitySet',
                 thisUser
             ))
+        # create an applet for it
         applet=AppletModel().createApplet(
             name=name if name is not None else ActivitySetModel().preferredName(
                 activitySet
             ),
+            # below is so it doesn't break on older applets that didn't have
+            # activity set URLs
             activitySet={
                 '_id': 'activitySet/{}'.format(activitySet.get('_id')),
                 'url': activitySet.get(
