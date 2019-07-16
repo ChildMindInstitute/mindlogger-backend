@@ -65,7 +65,11 @@ class User(Resource):
         output = []
         for p in pending:
             output.append(
-                GroupModel().load(id=p.get('groupId'), force=True, fields=['name', '_id'])
+                GroupModel().load(
+                    id=p.get('groupId'),
+                    force=True,
+                    fields=['name', '_id']
+                )
             )
         return(output)
 

@@ -167,7 +167,7 @@ class Group(Resource):
     @autoDescribeRoute(
         Description('Request to join a group, or accept an invitation to join.')
         .responseClass('Group')
-        .modelParam('id', model=GroupModel, level=AccessType.READ)
+        .modelParam('id', model=GroupModel, force=True)
         .errorResponse('ID was invalid.')
         .errorResponse('You were not invited to this group, or do not have '
                        'read access to it.', 403)
@@ -177,7 +177,7 @@ class Group(Resource):
         group = groupModel.joinGroup(group, self.getCurrentUser())
         group['access'] = groupModel.getFullAccessList(group)
         group['requests'] = list(groupModel.getFullRequestList(group))
-        return group
+        return({'_id': group['_id'], 'name': group['name']})
 
     @access.public
     @filtermodel(model=User)
