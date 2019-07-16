@@ -39,6 +39,7 @@ class User(Resource):
         self.route('PUT', (':id', 'access'), self.updateUserAccess)
         self.route('GET', (':id', 'applets'), self.getUserApplets)
         self.route('GET', (':id', 'details'), self.getUserDetails)
+        self.route('GET', ('invites',), self.getGroupInvites)
         self.route('GET', ('details',), self.getUsersDetails)
         self.route('POST', (), self.createUser)
         self.route('PUT', (':id',), self.updateUser)
@@ -53,6 +54,14 @@ class User(Resource):
         self.route('DELETE', (':id', 'otp'), self.removeOtp)
         self.route('PUT', (':id', 'verification'), self.verifyEmail)
         self.route('POST', ('verification',), self.sendVerificationEmail)
+
+
+    @access.user
+    @autoDescribeRoute(
+        Description('Get all pending invites for the logged-in user.')
+    )
+    def getGroupInvites(self):
+        return(self.getCurrentUser().get("groupInvites"))
 
     @access.user
     @filtermodel(model=UserModel)
