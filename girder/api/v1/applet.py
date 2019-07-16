@@ -55,7 +55,39 @@ class Applet(Resource):
         self.route('POST', (':id', 'invite'), self.invite)
         self.route('POST', ('invite',), self.inviteFromURL)
         self.route('GET', (':id', 'roles'), self.getAppletRoles)
+        self.route('GET', (':id', 'users'), self.getAppletUsers)
         self.route('DELETE', (':id',), self.deactivateApplet)
+
+    @access.user(scope=TokenScope.DATA_OWN)
+    @autoDescribeRoute(
+        Description('Get userlist, groups & statuses.')
+        .modelParam(
+            'id',
+            model=FolderModel,
+            level=AccessType.ADMIN,
+            destName='applet'
+        )
+    )
+    def getAppletUsers(self, applet):
+        user = Applet().getCurrentUser()
+        roleList = AppletModel().getFullRolesList(applet)
+        userList = {}
+        appletGroups = [
+            *list(itertools.chain.from_iterable([
+                roleList[role]['groups'] for role in roleList
+            ]))
+        ]
+        print(appletGroups)
+        for g in appletGroups:
+            print(g)
+            pending = list(UserModel().find(
+                {'groupInvites.groupId': g.get('_id')}
+            ))
+            active = list(UserModel().find({
+                'groups': g.get('_id')
+            }))
+            print(pending)
+        return(userList) # {user: {email, id, group: status}}
 
     @access.user(scope=TokenScope.DATA_WRITE)
     @autoDescribeRoute(
