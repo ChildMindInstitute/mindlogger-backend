@@ -125,7 +125,7 @@ def createCipher(applet, appletAssignments, user):
         save=True,
         user=thisUser,
         force=True
-    }
+    )
     for u in [thisUser, cUser]:
         FolderModel().setUserAccess(
             doc=newSecretCipher,
