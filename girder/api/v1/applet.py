@@ -118,6 +118,7 @@ class Applet(Resource):
             )
         )
 
+    @access.user(scope=TokenScope.DATA_WRITE)
     @autoDescribeRoute(
         Description('Create an applet.')
         .param(

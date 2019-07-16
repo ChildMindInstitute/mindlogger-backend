@@ -170,7 +170,7 @@ class Group(Resource):
         .modelParam('id', model=GroupModel, force=True)
         .errorResponse('ID was invalid.')
         .errorResponse('You were not invited to this group, or do not have '
-                       'read access to it.', 403)
+                       'read access to it.', 403) # TODO: Update permissions error handling 
     )
     def joinGroup(self, group):
         groupModel = self._model

@@ -184,7 +184,10 @@ def formatLdObject(
         obj['meta']['activitySet'] = obj.get('meta', {}).get('applet')
     newObj = expand(newObj, keepUndefined=keepUndefined)
     if type(newObj)==list and len(newObj)==1:
-        newObj = newObj[0]
+        try:
+            newObj = newObj[0]
+        except:
+            raise ValidationException(str(newObj))
     if type(newObj)!=dict:
         newObj = {}
     objID = str(obj.get('_id', 'undefined'))
@@ -197,7 +200,7 @@ def formatLdObject(
                 obj['meta']['activitySet'].get(
                     '_id',
                     ''
-                ).split('activity_set/')[1],
+                ).split('activity_set/')[-1].split('activitySet/')[-1],
                 level=AccessType.READ,
                 user=user
             ) if '_id' in obj.get('meta', {}).get(

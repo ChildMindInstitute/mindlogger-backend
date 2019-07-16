@@ -436,7 +436,9 @@ class Folder(AccessControlledModel):
 
         parentType = parentType.lower()
         if parentType not in ('folder', 'user', 'collection'):
-            raise ValidationException('The parentType must be folder, collection, or user.')
+            raise ValidationException(
+                'The parentType must be folder, collection, or user.'
+            )
 
         q = {
             'parentId': parent['_id'],

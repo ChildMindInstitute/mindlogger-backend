@@ -309,7 +309,7 @@ class Model(object):
                                     FolderModel().childItems(
                                         FolderModel().load(
                                             docFolder,
-                                            level=AccessType.NONE,
+                                            level=None,
                                             user=user,
                                             force=True
                                         )
