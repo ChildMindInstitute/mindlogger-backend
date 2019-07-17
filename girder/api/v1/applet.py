@@ -23,6 +23,7 @@ import uuid
 import requests
 from ..describe import Description, autoDescribeRoute
 from ..rest import Resource
+from bson.objectid import ObjectId
 from girder.constants import AccessType, SortDir, TokenScope, SPECIAL_SUBJECTS,\
     USER_ROLES
 from girder.api import access
@@ -72,21 +73,41 @@ class Applet(Resource):
         user = Applet().getCurrentUser()
         roleList = AppletModel().getFullRolesList(applet)
         userList = {}
-        appletGroups = [
-            *list(itertools.chain.from_iterable([
-                roleList[role]['groups'] for role in roleList
-            ]))
-        ]
-        print(appletGroups)
-        for g in appletGroups:
-            print(g)
-            pending = list(UserModel().find(
-                {'groupInvites.groupId': g.get('_id')}
-            ))
-            active = list(UserModel().find({
-                'groups': g.get('_id')
-            }))
-            print(pending)
+        appletGroups = {
+            role: [
+                g.get("_id") for g in roleList[role]['groups']
+            ] for role in roleList
+        }
+        for role in appletGroups:
+            userList[role] = {}
+            userList[role]["pending"] = list(
+                UserModel().find(
+                    query={
+                        "groupInvites.groupId": {
+                            "$in": [
+                                ObjectId(
+                                    groupId
+                                ) for groupId in appletGroups[role]
+                            ]
+                        }
+                    },
+                    fields=['_id', 'email']
+                )
+            )
+            userList[role]["active"] = list(
+                UserModel().find(
+                    query={
+                        "groups": {
+                            "$in": [
+                                ObjectId(
+                                    groupId
+                                ) for groupId in appletGroups[role]
+                            ]
+                        }
+                    },
+                    fields=['_id', 'email']
+                )
+            )
         return(userList) # {user: {email, id, group: status}}
 
     @access.user(scope=TokenScope.DATA_WRITE)
