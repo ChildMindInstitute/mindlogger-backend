@@ -459,13 +459,7 @@ class User(Resource):
                             dropErrors=True
                         ),
                         "users": AppletModel().getAppletUsers(applet),
-                        "groups": [{
-                            "id": list(
-                                AppletModel(
-                                ).getAppletGroups(applet)[role].keys()
-                            )[0],
-                            "name": role
-                        } for role in AppletModel().getAppletGroups(applet)] # TODO: clean up
+                        "groups": AppletModel().getAppletGroups(applet, True)
                     } if role=="manager" else jsonld_expander.formatLdObject(
                         applet,
                         'applet',
