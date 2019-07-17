@@ -134,7 +134,7 @@ class Applet(Folder):
             )
         return(applet)
 
-    def getAppletGroups(self, appletId, listOfObjects=False):
+    def getAppletGroups(self, appletId, arrayOfObjects=False):
         # get role list for applet
         roleList = self.getFullRolesList(appletId)
         # query groups from role list`& return
@@ -151,7 +151,7 @@ class Applet(Folder):
                 } for role in appletGroups for groupId in appletGroups[
                     role
                 ].keys()
-            ] if listOfObjects else appletGroups
+            ] if arrayOfObjects else appletGroups
         )
 
     def getAppletUsers(self, appletId):
