@@ -272,7 +272,22 @@ class User(Resource):
         try:
             return(
                 [
-                    jsonld_expander.formatLdObject(
+                    {
+                        **jsonld_expander.formatLdObject(
+                            applet,
+                            'applet',
+                            reviewer,
+                            dropErrors=True
+                        ),
+                        "users": AppletModel().getAppletUsers(applet),
+                        "groups": [{
+                            "id": list(
+                                AppletModel(
+                                ).getAppletGroups(applet)[role].keys()
+                            )[0],
+                            "name": role
+                        } for role in AppletModel().getAppletGroups(applet)] # TODO: clean up
+                    } if role=="manager" else jsonld_expander.formatLdObject(
                         applet,
                         'applet',
                         reviewer,
