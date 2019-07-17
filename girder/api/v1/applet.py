@@ -72,42 +72,43 @@ class Applet(Resource):
     def getAppletUsers(self, applet):
         user = Applet().getCurrentUser()
         roleList = AppletModel().getFullRolesList(applet)
-        userList = {}
         appletGroups = {
             role: [
                 g.get("_id") for g in roleList[role]['groups']
             ] for role in roleList
         }
-        for role in appletGroups:
-            userList[role] = {}
-            userList[role]["pending"] = list(
-                UserModel().find(
-                    query={
-                        "groupInvites.groupId": {
-                            "$in": [
-                                ObjectId(
-                                    groupId
-                                ) for groupId in appletGroups[role]
-                            ]
-                        }
-                    },
-                    fields=['_id', 'email']
+        userList = {
+            role: {
+                "pending": list(
+                    UserModel().find(
+                        query={
+                            "groupInvites.groupId": {
+                                "$in": [
+                                    ObjectId(
+                                        groupId
+                                    ) for groupId in appletGroups[role]
+                                ]
+                            }
+                        },
+                        fields=['_id', 'email']
+                    )
+                ),
+                "active": list(
+                    UserModel().find(
+                        query={
+                            "groups": {
+                                "$in": [
+                                    ObjectId(
+                                        groupId
+                                    ) for groupId in appletGroups[role]
+                                ]
+                            }
+                        },
+                        fields=['_id', 'email']
+                    )
                 )
-            )
-            userList[role]["active"] = list(
-                UserModel().find(
-                    query={
-                        "groups": {
-                            "$in": [
-                                ObjectId(
-                                    groupId
-                                ) for groupId in appletGroups[role]
-                            ]
-                        }
-                    },
-                    fields=['_id', 'email']
-                )
-            )
+            } for role in appletGroups
+        }
         return(userList) # {user: {email, id, group: status}}
 
     @access.user(scope=TokenScope.DATA_WRITE)
