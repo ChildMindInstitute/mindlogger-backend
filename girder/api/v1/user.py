@@ -38,6 +38,7 @@ class User(Resource):
         self.route('GET', (':id', 'access'), self.getUserAccess)
         self.route('PUT', (':id', 'access'), self.updateUserAccess)
         self.route('GET', (':id', 'applets'), self.getUserApplets)
+        self.route('GET', (':id', 'appletsOptimized'), self.getUserApplets2)
         self.route('GET', (':id', 'details'), self.getUserDetails)
         self.route('GET', ('invites',), self.getGroupInvites)
         self.route('GET', ('details',), self.getUsersDetails)
@@ -305,6 +306,185 @@ class User(Resource):
             )
         except Exception as e:
             return(e)
+
+    @access.public(scope=TokenScope.DATA_READ)
+    @autoDescribeRoute(
+        Description('Get all applets for a user by that user\'s ID and role.')
+        .modelParam('id', model=UserModel, level=AccessType.READ)
+        .param(
+            'role',
+            'One of ' + str(USER_ROLES.keys()),
+            required=False,
+            default='user'
+        )
+        .param(
+            'ids_only',
+            'If true, only returns an Array of the IDs of assigned applets. '
+            'Otherwise, returns an Array of Objects keyed with "applet" '
+            '"activitySet", "activities" and "items" with expanded JSON-LD as '
+            'values.',
+            required=False,
+            default=False,
+            dataType='boolean'
+        )
+        .errorResponse('ID was invalid.')
+        .errorResponse(
+            'You do not have permission to see any of this user\'s applets.',
+            403
+        )
+    )
+    def getUserApplets2(self, user, role, ids_only):
+        user = user if not user else self.getCurrentUser()
+        role = role.lower()
+        if role not in USER_ROLES.keys():
+            raise RestException(
+                'Invalid user role.',
+                'role'
+            )
+        reviewer = self.getCurrentUser()
+        # New schema, new roles
+        applets = list(itertools.chain.from_iterable([
+            list(AppletModel().find(
+                {
+                    'roles.' + role + '.groups.id': groupId,
+                    'meta.applet.deleted': {'$ne': True}
+                }
+            )) for groupId in user.get('groups', [])
+        ]))
+        # New schema, old roles
+        assignments = [
+            *list(itertools.chain.from_iterable([
+                [
+                    folder for folder in FolderModel().childFolders(
+                        parentType='collection',
+                        parent=collection,
+                        user=reviewer
+                    )
+                ] for collection in CollectionModel().find(
+                    {'name': 'Assignments'}
+                )
+            ])),
+            *list(itertools.chain.from_iterable([
+                [
+                    folder for folder in FolderModel().find(
+                        {
+                            'parentId': (
+                                reviewer if reviewer else {}
+                            ).get('_id'),
+                            'baseParentType': 'user',
+                            'name': 'Assignments'
+                        }
+                    )
+                ]
+            ]))
+        ]
+        for assignment in assignments:
+            try:
+                if 'meta' in assignment and 'members' in assignment.get(
+                    'meta',
+                    {}
+                ) is not None:
+                    for assignedUser in assignment['meta']['members']:
+                        if 'roles' in assignedUser and bool(len(list(set(
+                            assignedUser['roles']
+                        ).intersection(
+                            list(assignedUser['roles'])
+                        )))) and '@id' in assignedUser:
+                            if ('_id' in user) and str(user['_id']) in [
+                                userId['meta']['user'][
+                                    '@id'
+                                ] for userId in FolderModel().childFolders(
+                                    parentType='folder',
+                                    parent=FolderModel().load(
+                                        assignedUser['@id'],
+                                        level=AccessType.NONE,
+                                        user=reviewer,
+                                        force=True
+                                    ),
+                                    user=reviewer,
+                                    force=True
+                                ) if (
+                                    'lowerName' in userId
+                                ) and (
+                                    userId['lowerName']=='userid'
+                                ) and (
+                                    'meta' in userId
+                                ) and (
+                                    'user' in userId['meta']
+                                ) and (
+                                    '@id' in userId['meta']['user']
+                                )
+                            ]:
+                                if 'applet' in assignment[
+                                    'meta'
+                                ] and '@id' in assignment['meta']['applet']:
+                                    try:
+                                        appletToAppend = AppletModel().load(
+                                            assignment['meta']['applet'][
+                                                '@id'
+                                            ],
+                                            AccessType.READ,
+                                            reviewer
+                                        )
+                                        if not appletToAppend.get(
+                                            'meta',
+                                            {}
+                                        ).get(
+                                            'applet',
+                                            {}
+                                        ).get('deleted', False):
+                                            applets.append(appletToAppend)
+                                    except AccessException as e:
+                                        print(e)
+            except:
+                print(exc_info()[0])
+        applets = [
+            v for k, v in {
+                applet.get('_id'): applet for applet in applets if isinstance(
+                    applet,
+                    dict
+                )
+            }.items()
+        ]
+        if ids_only==True:
+            return([applet.get('_id') for applet in applets])
+        try:
+            return(
+                [
+                    {
+                        **jsonld_expander.formatLdObject(
+                            applet,
+                            'applet',
+                            reviewer,
+                            dropErrors=True
+                        ),
+                        "users": AppletModel().getAppletUsers(applet),
+                        "groups": [{
+                            "id": list(
+                                AppletModel(
+                                ).getAppletGroups(applet)[role].keys()
+                            )[0],
+                            "name": role
+                        } for role in AppletModel().getAppletGroups(applet)] # TODO: clean up
+                    } if role=="manager" else jsonld_expander.formatLdObject(
+                        applet,
+                        'applet',
+                        reviewer,
+                        dropErrors=True
+                    ) for applet in applets if (
+                        applet is not None and not applet.get(
+                            'meta',
+                            {}
+                        ).get(
+                            'applet',
+                            {}
+                        ).get('deleted')
+                    )
+                ]
+            )
+        except Exception as e:
+            return(e)
+
 
     @access.public(scope=TokenScope.USER_INFO_READ)
     @filtermodel(model=UserModel)
