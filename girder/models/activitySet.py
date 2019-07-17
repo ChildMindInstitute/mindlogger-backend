@@ -36,12 +36,12 @@ from girder.utility.progress import noProgress, setResponseTimeLimit
 
 
 class ActivitySet(Folder):
-    def importUrl(self, url, user=None):
+    def importUrl(self, url, user=None, refreshCache=False):
         """
         Gets an activity set from a given URL, checks against the database,
         stores and returns that activity set.
         """
-        return(self.getFromUrl(url, 'activitySet', user))
+        return(self.getFromUrl(url, 'activitySet', user, refreshCache))
 
     def load(self, id, level=AccessType.ADMIN, user=None, objectId=True,
              force=False, fields=None, exc=False):

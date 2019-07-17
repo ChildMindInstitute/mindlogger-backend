@@ -1,4 +1,5 @@
 import json
+import datetime
 from copy import deepcopy
 from girder.constants import AccessType
 from girder.exceptions import AccessException, ResourcePathNotFound, \
@@ -151,7 +152,8 @@ def formatLdObject(
     mesoPrefix='folder',
     user=None,
     keepUndefined=False,
-    dropErrors=False):
+    dropErrors=False,
+    refreshCache=False):
     """
     Function to take a compacted JSON-LD Object within a Girder for Mindlogger
     database and return an exapanded JSON-LD Object including an _id.
@@ -167,8 +169,12 @@ def formatLdObject(
     :type keepUndefined: bool
     :param dropErrors: Return `None` instead of raising an error for illegal
         JSON-LD definitions.
+    :type dropErrors: bool
+    :param refreshCache: Refresh from Dereferencing URLs?
+    :type refreshCache: bool
     :returns: Expanded JSON-LD Object (dict or list)
     """
+    print(datetime.datetime.now())
     mesoPrefix = camelCase(mesoPrefix)
     if obj is None or (
         isinstance(obj, dict) and 'meta' not in obj.keys()
@@ -248,10 +254,8 @@ def formatLdObject(
         return(applet)
     if mesoPrefix=='activitySet':
         activitySet = {
-            'activitySet': newObj
-        }
-        if not dropErrors:
-            activitySet['activities'] = {
+            'activitySet': newObj,
+            'activities': {
                 activity.get(
                     'url',
                     activity.get('@id')
@@ -272,90 +276,35 @@ def formatLdObject(
                     {}
                 ) for activity in order.get("@list", [])
             }
-            activitySet['items'] = {
-                screen.get(
-                    'url',
-                    screen.get('@id')
-                ): formatLdObject(
-                    ScreenModel().load(
-                        screen.get('_id'),
-                        level=AccessType.READ,
-                        user=user,
-                        force=True
-                    ) if '_id' in screen else ScreenModel().importUrl(
-                        url=screen.get(
-                            'url',
-                            screen.get('@id')
-                        ),
-                        user=user
+        }
+        activitySet['items'] = {
+            screen.get(
+                'url',
+                screen.get('@id')
+            ): formatLdObject(
+                ScreenModel().load(
+                    screen.get('_id'),
+                    level=AccessType.READ,
+                    user=user,
+                    force=True
+                ) if '_id' in screen else ScreenModel().importUrl(
+                    url=screen.get(
+                        'url',
+                        screen.get('@id')
                     ),
-                    'screen',
-                    user
-                ) for activityURL, activity in activitySet.get(
-                    'activities',
-                    {}
-                ).items() for order in activity.get(
-                    "https://schema.repronim.org/order",
-                    {}
-                ) for screen in order.get("@list", order.get("@set", []))
-            }
-            return(activitySet)
-        else:
-            activitySet['activities'] = {}
-            for order in newObj.get("https://schema.repronim.org/order", {}):
-                for activity in order.get("@list", []):
-                    try:
-                        activitySet['activities'][activity.get(
-                            'url',
-                            activity.get('@id')
-                        )] = formatLdObject(
-                            ActivityModel().load(
-                                activity.get('_id')
-                            ) if '_id' in activity else ActivityModel(
-                            ).importUrl(
-                                    url=activity.get(
-                                        'url',
-                                        activity.get('@id')
-                                    ),
-                                    user=user
-                            ),
-                            'activity',
-                            user
-                        )
-                    except ValidationException as e:
-                        print(e)
-            activitySet['items'] = {
-                screen.get(
-                    'url',
-                    screen.get('@id')
-                ): formatLdObject(
-                    ScreenModel().load(
-                        screen.get('_id'),
-                        level=AccessType.READ,
-                        user=user,
-                        force=True
-                    ) if '_id' in screen else ScreenModel(
-                    ).importUrl(
-                        url=screen.get(
-                            'url',
-                            screen.get('@id')
-                        ),
-                        user=user
-                    ),
-                    'screen',
-                    user
-                ) for screen in order.get(
-                    "@list",
-                    order.get("@set", [])
-                ) for activityURL, activity in activitySet.get(
-                    'activities',
-                    {}
-                ).items() for order in activity.get(
-                    "https://schema.repronim.org/order",
-                    {}
-                )
-            }
-            return(activitySet)
+                    user=user
+                ),
+                'screen',
+                user
+            ) for activityURL, activity in activitySet.get(
+                'activities',
+                {}
+            ).items() for order in activity.get(
+                "https://schema.repronim.org/order",
+                {}
+            ) for screen in order.get("@list", order.get("@set", []))
+        }
+        return(activitySet)
     return(newObj)
 
 

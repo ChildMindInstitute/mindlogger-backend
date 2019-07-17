@@ -108,21 +108,21 @@ class Screen(Item):
         })
 
 
-    def importUrl(self, url, user=None):
+    def importUrl(self, url, user=None, refreshCache=False):
         """
         Gets a screen from a given URL, checks against the database, stores and
         returns that screen.
         """
-        return(self.getFromUrl(url, 'screen', user))
+        return(self.getFromUrl(url, 'screen', user, refreshCache))
 
 
-    def load(self, id, level=AccessType.ADMIN, user=None):
+    def load(self, id, level=AccessType.ADMIN, user=None, refreshCache=False):
         doc = super(Item, self).load(id=id, level=level, user=user)
         try:
             url = doc.get('meta', {}).get('url')
         except AttributeError:
             url = None
         if url:
-            return(self.getFromUrl(url, 'screen', user))
+            return(self.getFromUrl(url, 'screen', user, refreshCache))
         else:
             return(doc)

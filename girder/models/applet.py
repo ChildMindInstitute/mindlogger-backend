@@ -193,14 +193,14 @@ class Applet(Folder):
         ])
 
 
-    def importUrl(self, url, user=None):
+    def importUrl(self, url, user=None, refreshCache=False):
         """
         Gets an applet from a given URL, checks against the database, stores
         and returns that applet.
 
         Deprecated.
         """
-        return(self.getFromUrl(url, 'applet', user))
+        return(self.getFromUrl(url, 'applet', user, refreshCache))
 
     def load(self, id, level=AccessType.ADMIN, user=None, objectId=True,
              force=False, fields=None, exc=False):

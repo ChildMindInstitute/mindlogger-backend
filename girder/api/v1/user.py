@@ -182,7 +182,8 @@ class User(Resource):
                             applet,
                             'applet',
                             reviewer,
-                            dropErrors=True
+                            dropErrors=True,
+                            refreshCache=False
                         ),
                         "users": AppletModel().getAppletUsers(applet),
                         "groups": AppletModel().getAppletGroups(applet, True)

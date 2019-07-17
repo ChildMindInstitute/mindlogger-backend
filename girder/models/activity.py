@@ -39,12 +39,12 @@ class Activity(Folder):
     Activities are access-controlled Folders stored in Applets, each of which
     contains versions which are also Folders.
     """
-    def importUrl(self, url, user=None):
+    def importUrl(self, url, user=None, refreshCache=False):
         """
         Gets an activity from a given URL, checks against the database, stores
         and returns that activity.
         """
-        return(self.getFromUrl(url, 'activity', user))
+        return(self.getFromUrl(url, 'activity', user, refreshCache))
 
 
     def listVersionId(self, id, level=AccessType.ADMIN, user=None,
@@ -131,7 +131,7 @@ class Activity(Folder):
 
 
     def load(self, id, level=AccessType.ADMIN, user=None, objectId=True,
-             force=False, fields=None, exc=False):
+             force=False, fields=None, exc=False, refreshCache=False):
         """
         We override load in order to ensure the folder has certain fields
         within it, and if not, we add them lazily at read time. Also, this
@@ -159,7 +159,14 @@ class Activity(Folder):
         if doc is not None:
             url = doc.get('meta', {}).get('url')
             if url:
-                return(ActivityModel.getFromUrl(url, 'activity', user))
+                return(
+                    ActivityModel.getFromUrl(
+                        url,
+                        'activity',
+                        user,
+                        refreshCache
+                    )
+                )
             pathFromRoot = Folder().parentsToRoot(doc, user=user, force=True)
             baseParent = pathFromRoot[0]
             if 'baseParentType' not in doc:

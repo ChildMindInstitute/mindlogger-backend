@@ -217,7 +217,7 @@ class Model(object):
             cached[0] if len(cached) else None
         )
 
-    def getFromUrl(self, url, modelType, user=None):
+    def getFromUrl(self, url, modelType, user=None, refreshCache=False):
         """
         Loads from a URL and saves to the DB, returning the loaded model.
 
@@ -225,6 +225,8 @@ class Model(object):
         :type url: str
         :param modelType: 'activity', 'screen', etc.
         :type modelType: str
+        :param refreshCache: Refresh from Dereferencing URLs?
+        :type refreshCache: bool
         :returns: dict or None
         """
         from girder.utility import loadJSON
@@ -244,6 +246,8 @@ class Model(object):
         prefName = self.preferredName(model)
         cachedDoc = self.getCached(url, modelType)
         if cachedDoc:
+            if not refreshCache:
+                return(cachedDoc)
             provenenceProps = [
                 'schema:isBasedOn',
                 'prov:wasRevisionOf'

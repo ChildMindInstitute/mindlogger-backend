@@ -149,7 +149,7 @@ class Applet(Resource):
         )
         .errorResponse('Write access was denied for this applet.', 403)
     )
-    def createApplet(self, activitySetUrl=None, name=None):
+    def createApplet(self, activitySetUrl=None, name=None, refreshCache=False):
         activitySet = {}
         thisUser = self.getCurrentUser()
         # get an activity set from a URL
@@ -157,7 +157,8 @@ class Applet(Resource):
             activitySet.update(ActivitySetModel().getFromUrl(
                 activitySetUrl,
                 'activitySet',
-                thisUser
+                thisUser,
+                refreshCache=refreshCache
             ))
         # create an applet for it
         applet=AppletModel().createApplet(
@@ -348,14 +349,19 @@ class Applet(Resource):
         .errorResponse('ID was invalid.')
         .errorResponse('Write access was denied for the folder or its new parent object.', 403)
     )
-    def inviteFromURL(self, url, user, role, rsvp, subject):
+    def inviteFromURL(self, url, user, role, rsvp, subject, refreshCache=False):
         if role not in USER_ROLE_KEYS:
             raise ValidationException(
                 'Invalid role.',
                 'role'
             )
         thisUser = self.getCurrentUser()
-        thisApplet = AppletModel().getFromUrl(url, 'applet', user=thisUser)
+        thisApplet = AppletModel().getFromUrl(
+            url,
+            'applet',
+            user=thisUser,
+            refreshCache=refreshCache
+        )
         return(
             _invite(
                 applet=thisApplet,
@@ -635,7 +641,7 @@ def selfAssignment():
     ))
 
 
-def _setConstraints(applet, activity, schedule, user):
+def _setConstraints(applet, activity, schedule, user, refreshCache=False):
     """
     Helper function for method recursion.
 
@@ -681,7 +687,8 @@ def _setConstraints(applet, activity, schedule, user):
         activityLoaded = ActivityModel().getFromUrl(
             activity,
             'activity',
-            thisUser
+            thisUser,
+            refreshCache
         )
     except:
         activityLoaded = ActivityModel().load(
