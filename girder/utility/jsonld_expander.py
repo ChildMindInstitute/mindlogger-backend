@@ -324,39 +324,37 @@ def formatLdObject(
                         )
                     except ValidationException as e:
                         print(e)
-            activitySet['items'] = {}
-            for activityURL, activity in activitySet.get(
-                'activities',
-                {}
-            ).items():
-                for order in activity.get(
+            activitySet['items'] = {
+                screen.get(
+                    'url',
+                    screen.get('@id')
+                ): formatLdObject(
+                    ScreenModel().load(
+                        screen.get('_id'),
+                        level=AccessType.READ,
+                        user=user,
+                        force=True
+                    ) if '_id' in screen else ScreenModel(
+                    ).importUrl(
+                        url=screen.get(
+                            'url',
+                            screen.get('@id')
+                        ),
+                        user=user
+                    ),
+                    'screen',
+                    user
+                ) for screen in order.get(
+                    "@list",
+                    order.get("@set", [])
+                ) for activityURL, activity in activitySet.get(
+                    'activities',
+                    {}
+                ).items() for order in activity.get(
                     "https://schema.repronim.org/order",
                     {}
-                ):
-                    for screen in order.get("@list", order.get("@set", [])):
-                        try:
-                            activitySet['items'][screen.get(
-                                'url',
-                                screen.get('@id')
-                            )] = formatLdObject(
-                                ScreenModel().load(
-                                    screen.get('_id'),
-                                    level=AccessType.READ,
-                                    user=user,
-                                    force=True
-                                ) if '_id' in screen else ScreenModel(
-                                ).importUrl(
-                                    url=screen.get(
-                                        'url',
-                                        screen.get('@id')
-                                    ),
-                                    user=user
-                                ),
-                                'screen',
-                                user
-                            )
-                        except ValidationException as e:
-                            print(e)
+                )
+            }
             return(activitySet)
     return(newObj)
 
