@@ -70,46 +70,48 @@ class Applet(Resource):
         )
     )
     def getAppletUsers(self, applet):
-        user = Applet().getCurrentUser()
+        # get role list for applet
         roleList = AppletModel().getFullRolesList(applet)
+        # query groups from role list`
         appletGroups = {
-            role: [
-                g.get("_id") for g in roleList[role]['groups']
-            ] for role in roleList
+            role: {
+                g.get("_id"): g.get("name") for g in roleList[role]['groups']
+            } for role in roleList
         }
+        # query users for groups by status
         userList = {
             role: {
-                "pending": list(
-                    UserModel().find(
+                groupId: {
+                    "pending": list(UserModel().find(
                         query={
-                            "groupInvites.groupId": {
-                                "$in": [
-                                    ObjectId(
-                                        groupId
-                                    ) for groupId in appletGroups[role]
-                                ]
-                            }
+                            "groupInvites.groupId": {"$in": [ObjectId(groupId)]}
                         },
                         fields=['_id', 'email']
-                    )
-                ),
-                "active": list(
-                    UserModel().find(
-                        query={
-                            "groups": {
-                                "$in": [
-                                    ObjectId(
-                                        groupId
-                                    ) for groupId in appletGroups[role]
-                                ]
-                            }
-                        },
+                    )),
+                    "active": list(UserModel().find(
+                        query={"groups": {"$in": [ObjectId(groupId)]}},
                         fields=['_id', 'email']
-                    )
-                )
+                    ))
+                } for groupId in appletGroups[role]
             } for role in appletGroups
         }
-        return(userList) # {user: {email, id, group: status}}
+        # restructure dictionary & return
+        return([
+            {
+                "_id": user.get("_id"),
+                "email": user.get("email"),
+                "groups": [{
+                        "_id": groupId,
+                        "name": appletGroups[role][groupId],
+                        "status": status,
+                        "role": role
+                }]
+            } for role in userList for groupId in userList[
+                role
+            ] for status in userList[role][groupId] for user in userList[
+                role
+            ][groupId][status]
+        ])
 
     @access.user(scope=TokenScope.DATA_WRITE)
     @autoDescribeRoute(
