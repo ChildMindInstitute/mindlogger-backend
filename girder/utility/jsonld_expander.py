@@ -186,15 +186,6 @@ def formatLdObject(
     if not type(obj)==dict and not dropErrors:
         raise TypeError("JSON-LD must be an Object or Array.")
     newObj = obj.get('meta', obj)
-    if (
-        (
-            "applet" in newObj and "activitySet" in newObj
-        ) and (
-            "url" in newObj["applet"] and "url" in newObj["activitySet"]
-        ) and newObj["applet"]["url"] == newObj["activitySet"]["url"]
-    ):
-        del obj["meta"]["applet"]["url"]
-        AppletModel().save(obj)
     newObj = newObj.get(mesoPrefix, newObj)
     if mesoPrefix=='applet' and 'activitySet' not in obj.get('meta', {}).keys():
         obj['meta']['activitySet'] = obj.get('meta', {}).get('applet')
@@ -241,7 +232,7 @@ def formatLdObject(
             'activities': activitySet.pop('activities', {}),
             'items': activitySet.pop('items', {}),
             'activitySet': {
-                key: activitySet.get('activitySet', {}).pop(
+                key: activitySet.get('activitySet', {}).get(
                     key,
                     None
                 ) for key in [
