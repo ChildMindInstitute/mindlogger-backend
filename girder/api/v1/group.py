@@ -390,7 +390,7 @@ class Group(Resource):
         .modelParam('id', model=GroupModel, level=AccessType.READ)
         .modelParam('userId', 'The ID of the user to remove. If not passed, will '
                     'remove yourself from the group.', required=False, model=User,
-                    level=AccessType.READ, destName='userToRemove', paramType='formData')
+                    force=True, destName='userToRemove', paramType='formData')
         .errorResponse()
         .errorResponse("You don't have permission to remove that user.", 403)
     )
@@ -402,14 +402,14 @@ class Group(Resource):
             # Assume user is removing themself from the group
             userToRemove = user
 
-        # If removing someone else, you must have at least as high an
-        # access level as they do, and you must have at least write access
-        # to remove any user other than yourself.
-        if user['_id'] != userToRemove['_id']:
-            if groupModel.hasAccess(group, userToRemove, AccessType.ADMIN):
-                groupModel.requireAccess(group, user, AccessType.ADMIN)
-            else:
-                groupModel.requireAccess(group, user, AccessType.WRITE)
+        # # If removing someone else, you must have at least as high an
+        # # access level as they do, and you must have at least write access
+        # # to remove any user other than yourself.
+        # if user['_id'] != userToRemove['_id']:
+        #     if groupModel.hasAccess(group, userToRemove, AccessType.ADMIN):
+        #         groupModel.requireAccess(group, user, AccessType.ADMIN)
+        #     else:
+        #         groupModel.requireAccess(group, user, AccessType.WRITE)
 
         group = groupModel.removeUser(group, userToRemove)
         group['access'] = groupModel.getFullAccessList(group)
