@@ -232,7 +232,7 @@ def formatLdObject(
             'activities': activitySet.pop('activities', {}),
             'items': activitySet.pop('items', {}),
             'activitySet': {
-                key: activitySet.get('activitySet', {}).get(
+                key: activitySet.get('activitySet', {}).pop(
                     key,
                     None
                 ) for key in [

@@ -78,7 +78,7 @@
         | .
 
       li This instance of #{brandName} was built
-        if versionInfo.gitSha
+        if versionInfo && versionInfo.gitSha
           |  from Git version&nbsp; a.g-git-sha(target="_blank", href=`https://github.com/ChildMindInstitute/mindlogger-app-backend/tree/${versionInfo.gitSha}`) #{versionInfo.gitSha.slice(0, 8)}
         else
           |  from

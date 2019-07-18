@@ -340,11 +340,49 @@ class Group(AccessControlledModel):
         :type level: AccessType
         :returns: Whether the access is granted.
         """
+        import itertools
+        from .applet import Applet
+        from .user import User
+        from girder.constants import USER_ROLES
+
         if user is None:
             # Short-circuit the case of anonymous users
             return(level==AccessType.READ and doc.get('public', False) is True)
-        elif user['admin']:
-            # Short-circuit the case of admins
+        elif user['admin'] or user.get('_id') in [
+            u.get('_id') for u in list(User().find(
+                {
+                    'groups': {
+                        '$in': list(set([
+                            g.get('id') for g in [*list(
+                                itertools.chain.from_iterable([
+                                    mgr.get(
+                                        'roles',
+                                        {}
+                                    ).get(
+                                        'manager',
+                                        {}
+                                    ).get(
+                                        'groups',
+                                        []
+                                    ) for mgr in [*list(
+                                        itertools.chain.from_iterable([
+                                            list(
+                                                Applet().find(
+                                                    {'roles.{}.groups.id'.format(
+                                                        role
+                                                    ): doc.get('_id')}
+                                                )
+                                            ) for role in list(USER_ROLES.keys())
+                                        ])
+                                    )]
+                                ])
+                            )]
+                        ]))
+                    }
+                }
+            ))
+        ]:
+            # Short-circuit the case of admins and managers
             return(True)
         elif level == AccessType.READ:
             # Short-circuit in the case of members without write access to the
