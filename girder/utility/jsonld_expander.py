@@ -1,6 +1,6 @@
 import json
-import datetime
 from copy import deepcopy
+from datetime import datetime
 from girder.constants import AccessType
 from girder.exceptions import AccessException, ResourcePathNotFound, \
     ValidationException
@@ -174,7 +174,9 @@ def formatLdObject(
     :type refreshCache: bool
     :returns: Expanded JSON-LD Object (dict or list)
     """
-    print(datetime.datetime.now())
+    print(obj.get('_id', obj))
+    if "cached" in obj and not refreshCache:
+        return(obj["cached"])
     mesoPrefix = camelCase(mesoPrefix)
     if obj is None or (
         isinstance(obj, dict) and 'meta' not in obj.keys()
@@ -251,6 +253,11 @@ def formatLdObject(
                 **newObj
             }
         }
+        obj["cached"] = {
+            **applet,
+            "prov:generatedAtTime": xsdNow()
+        }
+        AppletModel().save(obj)
         return(applet)
     if mesoPrefix=='activitySet':
         activitySet = {
@@ -504,3 +511,10 @@ def snake_case(camelCase):
             )
         ).lower()
     )
+
+def xsdNow():
+    """
+    Function to return an XSD formatted datetime string for the current
+    datetime.now()
+    """
+    return(datetime.now(datetime.utcnow().astimezone().tzinfo).isoformat())
