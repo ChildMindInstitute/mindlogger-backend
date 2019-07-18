@@ -174,19 +174,27 @@ def formatLdObject(
     :type refreshCache: bool
     :returns: Expanded JSON-LD Object (dict or list)
     """
-    print(obj.get('_id', obj))
-    if "cached" in obj and not refreshCache:
-        return(obj["cached"])
-    mesoPrefix = camelCase(mesoPrefix)
     if obj is None or (
         isinstance(obj, dict) and 'meta' not in obj.keys()
     ):
         return(None)
+    if "cached" in obj and not refreshCache:
+        return(obj["cached"])
+    mesoPrefix = camelCase(mesoPrefix)
     if type(obj)==list:
         return([formatLdObject(o, mesoPrefix) for o in obj if o is not None])
     if not type(obj)==dict and not dropErrors:
         raise TypeError("JSON-LD must be an Object or Array.")
     newObj = obj.get('meta', obj)
+    if (
+        (
+            "applet" in newObj and "activitySet" in newObj
+        ) and (
+            "url" in newObj["applet"] and "url" in newObj["activitySet"]
+        ) and newObj["applet"]["url"] == newObj["activitySet"]["url"]
+    ):
+        del obj["meta"]["applet"]["url"]
+        AppletModel().save(obj)
     newObj = newObj.get(mesoPrefix, newObj)
     if mesoPrefix=='applet' and 'activitySet' not in obj.get('meta', {}).keys():
         obj['meta']['activitySet'] = obj.get('meta', {}).get('applet')
