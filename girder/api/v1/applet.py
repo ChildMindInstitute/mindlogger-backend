@@ -75,6 +75,7 @@ class Applet(Resource):
     @access.user(scope=TokenScope.DATA_WRITE)
     @autoDescribeRoute(
         Description('Assign a group to a role in an applet.')
+        .deprecated()
         .responseClass('Folder')
         .modelParam('id', model=FolderModel, level=AccessType.READ)
         .param(
@@ -162,7 +163,8 @@ class Applet(Resource):
             ))
         # create an applet for it
         applet=AppletModel().createApplet(
-            name=name if name is not None else ActivitySetModel().preferredName(
+            name=name if name is not None and len(name) else ActivitySetModel(
+            ).preferredName(
                 activitySet
             ),
             # below is so it doesn't break on older applets that didn't have
@@ -210,13 +212,26 @@ class Applet(Resource):
     @autoDescribeRoute(
         Description('Get an applet by ID.')
         .modelParam('id', model=AppletModel, level=AccessType.READ)
+        .param(
+            'refreshCache',
+            'Reparse JSON-LD',
+            required=False,
+            dataType='boolean'
+        )
         .errorResponse('Invalid applet ID.')
         .errorResponse('Read access was denied for this applet.', 403)
     )
-    def getApplet(self, folder):
+    def getApplet(self, folder, refreshCache=False):
         applet = folder
         user = Applet().getCurrentUser()
-        return(jsonld_expander.formatLdObject(applet, 'applet', user))
+        return(
+            jsonld_expander.formatLdObject(
+                applet,
+                'applet',
+                user,
+                refreshCache=refreshCache
+            )
+        )
 
     @access.user(scope=TokenScope.DATA_WRITE)
     @autoDescribeRoute(
@@ -256,6 +271,7 @@ class Applet(Resource):
     @access.user(scope=TokenScope.DATA_WRITE)
     @autoDescribeRoute(
         Description('Invite a user to a role in an applet.')
+        .deprecated()
         .responseClass('Folder')
         .modelParam('id', model=FolderModel, level=AccessType.READ)
         .param(
@@ -312,6 +328,7 @@ class Applet(Resource):
     @autoDescribeRoute(
         Description('Invite a user to a role in an applet by applet URL.')
         #.responseClass('Folder')
+        .deprecated()
         .param(
             'url',
             'URL of applet, eg, '
@@ -394,7 +411,14 @@ class Applet(Resource):
     )
     def setConstraints(self, folder, activity, schedule, **kwargs):
         thisUser = Applet().getCurrentUser()
-        return(_setConstraints(folder, activity, schedule, thisUser))
+        return(
+            jsonld_expander.formatLdObject(
+                _setConstraints(folder, activity, schedule, thisUser),
+                'applet',
+                thisUser,
+                refreshCache=True
+            )
+        )
 
 
 

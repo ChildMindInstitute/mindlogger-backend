@@ -223,7 +223,8 @@ def formatLdObject(
             'activitySet',
             user,
             keepUndefined,
-            dropErrors
+            dropErrors,
+            refreshCache=refreshCache
         ) if 'activitySet' in obj.get('meta', {}) and isinstance(
             obj['meta']['activitySet'],
             dict
@@ -245,11 +246,16 @@ def formatLdObject(
                 'activitySet',
                 user,
                 keepUndefined,
-                dropErrors
+                dropErrors,
+                refreshCache=refreshCache
             ),
             'applet': {
                 **activitySet.pop('activitySet', {}),
-                **newObj
+                **obj.get('meta', {}).get(mesoPrefix, {}),
+                '_id': "/".join([snake_case(mesoPrefix), objID]),
+                'url': "#".join([
+                    obj.get('meta', {}).get('activitySet', {}).get("url", "")
+                ])
             }
         }
         obj["cached"] = {
@@ -276,7 +282,8 @@ def formatLdObject(
                             user=user
                     ),
                     'activity',
-                    user
+                    user,
+                    refreshCache=refreshCache
                 ) for order in newObj.get(
                     "https://schema.repronim.org/order",
                     {}
@@ -301,7 +308,8 @@ def formatLdObject(
                     user=user
                 ),
                 'screen',
-                user
+                user,
+                refreshCache=refreshCache
             ) for activityURL, activity in activitySet.get(
                 'activities',
                 {}

@@ -155,7 +155,7 @@ class User(Resource):
         )
     )
     def getUserApplets(self, user, role, ids_only):
-        user = user if not user else self.getCurrentUser()
+        user = user if user else self.getCurrentUser()
         role = role.lower()
         if role not in USER_ROLES.keys():
             raise RestException(
@@ -182,7 +182,6 @@ class User(Resource):
                             applet,
                             'applet',
                             reviewer,
-                            dropErrors=True,
                             refreshCache=False
                         ),
                         "users": AppletModel().getAppletUsers(applet),
