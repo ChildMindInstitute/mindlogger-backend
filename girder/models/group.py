@@ -292,7 +292,7 @@ class Group(AccessControlledModel):
         """
         from .user import User
         group = event.info
-        creator = User().load(group['creatorId'], force=True,  exc=True)
+        creator = User().load(group['creatorId'], force=True, exc=True)
 
         self.addUser(group, creator, level=AccessType.ADMIN)
 
@@ -340,22 +340,70 @@ class Group(AccessControlledModel):
         :type level: AccessType
         :returns: Whether the access is granted.
         """
+        import itertools
+        from .applet import Applet
+        from .user import User
+        from girder.constants import USER_ROLES
+
         if user is None:
             # Short-circuit the case of anonymous users
-            return level == AccessType.READ and doc.get('public', False) is True
-        elif user['admin']:
-            # Short-circuit the case of admins
-            return True
+            return(level==AccessType.READ and doc.get('public', False) is True)
+        elif user['admin'] or user.get('_id') in [
+            u.get('_id') for u in list(User().find(
+                {
+                    'groups': {
+                        '$in': list(set([
+                            g.get('id') for g in [*list(
+                                itertools.chain.from_iterable([
+                                    mgr.get(
+                                        'roles',
+                                        {}
+                                    ).get(
+                                        'manager',
+                                        {}
+                                    ).get(
+                                        'groups',
+                                        []
+                                    ) for mgr in [*list(
+                                        itertools.chain.from_iterable([
+                                            list(
+                                                Applet().find(
+                                                    {'roles.{}.groups.id'.format(
+                                                        role
+                                                    ): doc.get('_id')}
+                                                )
+                                            ) for role in list(USER_ROLES.keys())
+                                        ])
+                                    )]
+                                ])
+                            )]
+                        ]))
+                    }
+                }
+            ))
+        ]:
+            # Short-circuit the case of admins and managers
+            return(True)
         elif level == AccessType.READ:
+            # Short-circuit in the case of members without write access to the
+            # group
+            if not self.getAccessLevel(doc, user)>1:
+                return(False)
             # For read access, just check user document for membership or public
-            return doc.get('public', False) is True or\
-                doc['_id'] in user.get('groups', []) or\
-                doc['_id'] in [i['groupId'] for i in
-                               user.get('groupInvites', [])]
+            return(
+                doc.get('public', False) is True or
+                doc['_id'] in user.get('groups', []) or
+                doc['_id'] in [
+                    i['groupId'] for i in user.get('groupInvites', [])
+                ]
+            )
         else:
             # Check the actual permissions document for >=WRITE access
-            return self._hasUserAccess(doc.get('access', {}).get('users', []),
-                                       user['_id'], level)
+            return(
+                self._hasUserAccess(
+                    doc.get('access', {}).get('users', []), user['_id'], level
+                )
+            )
 
     def permissionClauses(self, user=None, level=None, prefix=''):
         permission = super(Group, self).permissionClauses(user, level, prefix)

@@ -24,6 +24,7 @@ ctk-cli==1.4
 decorator==4.3.0
 dictdiffer==0.8.0
 diskcache==3.0.6
+dnspython==1.16.0
 docker==3.7.0
 docker-compose==1.23.2
 docker-pycreds==0.4.0

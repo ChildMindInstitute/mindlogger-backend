@@ -12,11 +12,12 @@ from pymongo.errors import WriteError
 from dictdiffer import diff
 from girder import events, logprint, logger, auditLogger
 from girder.constants import AccessType, CoreEventHandler, SortDir, \
-    ACCESS_FLAGS, PREFERRED_NAMES, TEXT_SCORE_SORT_MAX
+    ACCESS_FLAGS, PREFERRED_NAMES, TEXT_SCORE_SORT_MAX, USER_ROLES
 from girder.external.mongodb_proxy import MongoProxy
 from girder.models import getDbConnection
 from girder.exceptions import AccessException, ValidationException
-from girder.utility import loadJSON
+
+USER_ROLE_KEYS = USER_ROLES.keys()
 
 # pymongo3 complains about extra kwargs to find(), so we must filter them.
 _allowedFindArgs = ('cursor_type', 'allow_partial_results', 'oplog_replay',
@@ -216,7 +217,7 @@ class Model(object):
             cached[0] if len(cached) else None
         )
 
-    def getFromUrl(self, url, modelType, user=None):
+    def getFromUrl(self, url, modelType, user=None, refreshCache=False):
         """
         Loads from a URL and saves to the DB, returning the loaded model.
 
@@ -224,8 +225,13 @@ class Model(object):
         :type url: str
         :param modelType: 'activity', 'screen', etc.
         :type modelType: str
+        :param refreshCache: Refresh from Dereferencing URLs?
+        :type refreshCache: bool
         :returns: dict or None
         """
+        from girder.utility import loadJSON
+        from girder.utility.jsonld_expander import camelCase, contextualize, \
+            snake_case
         if user==None:
             raise AccessException(
                 "You must be logged in to load a{} by url".format(
@@ -236,16 +242,27 @@ class Model(object):
                     ] else " {}".format(modelType)
                 )
             )
-        model = loadJSON(url, modelType)
+        model = contextualize(loadJSON(url, modelType))
         prefName = self.preferredName(model)
         cachedDoc = self.getCached(url, modelType)
         if cachedDoc:
+            if not refreshCache:
+                return(cachedDoc)
             provenenceProps = [
                 'schema:isBasedOn',
                 'prov:wasRevisionOf'
             ]
             cachedId = str(cachedDoc.get('_id'))
-            cachedDocObj = cachedDoc.get('meta', {}).get(modelType, {})
+            cachedDocObj = cachedDoc.get('meta', {}).get(
+                snake_case(modelType),
+                cachedDoc.get('meta', {}).get(
+                    camelCase(modelType),
+                    cachedDoc.get('meta', {}).get(
+                        modelType,
+                        {}
+                    )
+                )
+            )
             for prop in ['url', *provenenceProps]:
                 cachedDocObj.pop(prop, None)
         else:
@@ -257,7 +274,7 @@ class Model(object):
                 for prop in provenenceProps:
                     model[prop] = {
                         '@id': '/'.join([
-                            modelType,
+                            snake_case(modelType),
                             cachedId
                         ])
                     }
@@ -296,7 +313,7 @@ class Model(object):
                                     FolderModel().childItems(
                                         FolderModel().load(
                                             docFolder,
-                                            level=AccessType.NONE,
+                                            level=None,
                                             user=user,
                                             force=True
                                         )
@@ -1113,6 +1130,68 @@ class AccessControlledModel(Model):
 
         return doc
 
+    def _setRole(
+        self,
+        doc,
+        id,
+        entity,
+        role,
+        user=None,
+        force=False,
+        subject=None
+    ):
+        """
+        Private helper for setting user roles on a resource.
+        """
+        from .roles import createCipher
+        if not isinstance(id, ObjectId):
+            id = ObjectId(id)
+        if 'roles' not in doc:
+            doc['roles'] = {}
+        if role not in doc['roles']:
+            doc['roles'][role] = {'groups': [], 'users': []}
+        if entity not in doc['roles'][role]:
+            doc['roles'][role][entity] = []
+
+        key = 'roles.' + role + '.' + entity
+        update = {}
+        # Add in the new level for this entity unless we are removing access.
+        if role is not None:
+            entry = {
+                'id': id,
+                'subject': {
+                    entity: {
+                        'owl:sameAs': [id]
+                    }
+                } if (
+                    (subject is None) and (entity=='users')
+                ) else {
+                    k: [
+                        createCipher(s) for s in subject[k]
+                    ] for k in subject.keys()
+                } if subject is not None else None
+            } if USER_ROLES[role]==dict else {'id': id}
+            # because we're iterating this operation is not necessarily atomic
+            for index, perm in enumerate(doc['roles'][role][entity]):
+                if perm['id'] == id:
+                    # if the id already exists we want to update with a $set
+                    doc['roles'][role][entity][index] = entry
+                    update['$set'] = {'%s.%s' % (key, index): entry}
+                    break
+            else:
+                doc['roles'][role][entity].append(entry)
+                update['$push'] = {key: entry}
+        # set remove query
+        else:
+            update['$pull'] = {key: {'id': id}}
+            for perm in doc['roles'][role][entity]:
+                if perm['id'] == id:
+                    doc['roles'][role][entity].remove(perm)
+        print(update)
+        self._saveRole(doc, update)
+
+        return(self.getFullRolesList(doc))
+
     def _saveAcl(self, doc, update):
         if '_id' not in doc:
             return self.save(doc)
@@ -1134,6 +1213,28 @@ class AccessControlledModel(Model):
                 return_document=pymongo.ReturnDocument.AFTER)
             events.trigger('model.%s.save.after' % self.name, doc)
         return doc
+
+    def _saveRole(self, doc, update):
+        if '_id' not in doc:
+            return(self.save(doc))
+
+        # copy all other (potentially updated) fields to the update list,
+        # and trigger normal save events
+        if '$set' in update:
+            for propKey in doc:
+                if propKey != 'roles':
+                    update['$set'][propKey] = doc[propKey]
+        else:
+            update['$set'] = {k: v for k, v in six.viewitems(doc)
+                              if k != 'roles'}
+        print(update)
+        event = events.trigger('model.%s.save' % self.name, doc)
+        if not event.defaultPrevented:
+            doc = self.collection.find_one_and_update(
+                {'_id': ObjectId(doc['_id'])}, update,
+                return_document=pymongo.ReturnDocument.AFTER)
+            events.trigger('model.%s.save.after' % self.name, doc)
+        return(doc)
 
     def setPublic(self, doc, public, save=False):
         """
@@ -1336,6 +1437,52 @@ class AccessControlledModel(Model):
         """
         return self._setAccess(doc, group['_id'], 'groups', level, save, flags, currentUser, force)
 
+    def setGroupRole(
+        self,
+        doc,
+        group,
+        role,
+        currentUser=None,
+        force=False,
+        subject=None
+    ):
+        """
+        Set group-level roles on the resource.
+
+        :param doc: The resource document to set access on.
+        :type doc: dict
+        :param group: The group to grant or remove access to.
+        :type group: dict
+        :param role: What role the group should have.
+        :type role: str
+        :param save: Whether to save the object to the database afterward.
+                     Set this to False if you want to wait to save the
+                     document for performance reasons.
+        :type save: bool
+        :param flags: List of access flags to grant to the group.
+        :type flags: specific flag identifier, or a list/tuple/set of them
+        :param currentUser: The user performing this action. Only required if attempting
+            to set admin-only flags on the resource.
+        :type currentUser: dict or None
+        :returns: The updated resource document.
+        :param force: Set this to True to set the flags regardless of the passed in
+            currentUser's permissions (only matters if flags are passed).
+        :type force: bool
+        """
+        if role not in USER_ROLE_KEYS:
+            raise ValidationException('Invalid role: {}.'.format(role), 'role')
+        return(
+            self._setRole(
+                doc,
+                group['_id'],
+                'groups',
+                role,
+                currentUser,
+                force,
+                subject
+            )
+        )
+
     def getAccessLevel(self, doc, user):
         """
         Return the maximum access level for a given user on a given object.
@@ -1346,13 +1493,15 @@ class AccessControlledModel(Model):
         :param user: The user to get the access level for.
         :returns: The max AccessType available for the user on the object.
         """
+        from girder.models.roles import checkRole
+
         if user is None:
             if doc.get('public', False):
-                return AccessType.READ
+                return(AccessType.READ)
             else:
-                return AccessType.NONE
+                return(AccessType.NONE)
         elif user['admin']:
-            return AccessType.ADMIN
+            return(AccessType.ADMIN)
         else:
             access = doc.get('access', {})
             level = AccessType.NONE
@@ -1361,15 +1510,22 @@ class AccessControlledModel(Model):
                 if group['id'] in user.get('groups', []):
                     level = max(level, group['level'])
                     if level == AccessType.ADMIN:
-                        return level
+                        return(level)
 
             for userAccess in access.get('users', []):
                 if userAccess['id'] == user['_id']:
                     level = max(level, userAccess['level'])
                     if level == AccessType.ADMIN:
-                        return level
+                        return(level)
 
-            return level
+            if checkRole(doc, 'manager', user):
+                return(AccessType.ADMIN)
+
+            for role in ['editor', 'reviewer', 'user']:
+                if checkRole(doc, role, user):
+                    level = max(level, AccessType.READ)
+
+            return(level)
 
     def getFullAccessList(self, doc):
         """
@@ -1419,6 +1575,98 @@ class AccessControlledModel(Model):
 
         return acList
 
+    def getFullRolesList(self, doc):
+        """
+        Return an object representing the full user roles list on this document.
+        This simply includes the names of the users and groups with these roles.
+
+        If the document contains references to users or groups that no longer
+        exist, they are simply removed from the ACL, and the modified ACL is
+        persisted at the end of this method if any removals occurred.
+
+        :param doc: The document whose ACL to return.
+        :type doc: dict
+        :returns: A dict containing role-keyed dicts with `users` and `groups`
+            keys.
+        """
+        from .roles import decipherUser
+        from .user import User
+        from .group import Group
+        acList = {
+            role: {
+                'users': doc.get('roles', {}).get(role, {}).get(
+                    'users',
+                    USER_ROLES[role]()
+                ),
+                'groups': doc.get('roles', {}).get(role, {}).get(
+                    'groups',
+                    USER_ROLES[role]()
+                )
+            } for role in USER_ROLE_KEYS
+        }
+
+        dirty = False
+
+        for role in USER_ROLE_KEYS:
+
+            for user in acList[role]['users']:
+                userDoc = User().load(
+                    decipherUser(user['id']),
+                    force=True,
+                    fields=['firstName', 'lastName', 'login', 'email'])
+                if not userDoc:
+                    dirty = True
+                    acList[role]['users'].remove(user)
+                    continue
+                user['login'] = userDoc['login']
+                user['name'] = ' '.join([
+                    userDoc.get('firstName'),
+                    userDoc.get('lastName')
+                ]).strip()
+                user['email'] = userDoc['email']
+
+            for grp in acList[role]['groups']:
+                grpDoc = Group().load(
+                    grp['id'],
+                    force=True,
+                    fields=['subject']
+                )
+                if not grpDoc:
+                    dirty = True
+                    acList[role]['groups'].remove(grp)
+                    continue
+
+        if dirty:
+            # If we removed invalid entries from the ACL, persist the changes.
+            self.setRolesList(doc, acList, save=True)
+
+        roleList = {
+            k: {
+                e: [
+                    {
+                        '_id': str(v.get('id')),
+                        "name": Group().load(
+                            v.get('id'),
+                            force=True,
+                            fields=['name']
+                        ).get('name')
+                    } for v in acList[k][e] for v in acList[k][e]
+                ] if USER_ROLES[k]==list else [
+                    {
+                        "_id": str(v.get('id')),
+                        'name': Group().load(
+                            v.get('id'),
+                            force=True,
+                            fields=['name']
+                        ).get('name'),
+                        'subject': v.get('subject')
+                    } for v in acList[k][e]
+                ]
+                for e in acList[k].keys()
+            } for k in acList.keys()
+        }
+        return(roleList)
+
     def setUserAccess(self, doc, user, level, save=False, flags=None, currentUser=None,
                       force=False):
         """
@@ -1444,6 +1692,71 @@ class AccessControlledModel(Model):
         :returns: The modified resource document.
         """
         return self._setAccess(doc, user['_id'], 'users', level, save, flags, currentUser, force)
+
+    def _justGetAllTheCiphers(self, applet):
+        """
+        Helper function to just get all the existing ciphers.
+        """
+        roles = applet.get('roles', {})
+        users = [roles[role].get("users", []) for role in roles.keys()]
+        ciphers = []
+        for cipher in users:
+            if isinstance(cipher, list):
+                ciphers.extend(cipher)
+            if isinstance(cipher, dict):
+                ciphers.extend(cipher.keys())
+        return(list(set(ciphers)))
+
+    def setUserRole(
+        self,
+        doc,
+        user,
+        role,
+        currentUser=None,
+        force=False,
+        subject=None
+    ):
+        """
+        Set group-level roles on the resource.
+
+        :param doc: The resource document to set access on.
+        :type doc: dict
+        :param group: The group to grant or remove access to.
+        :type group: dict
+        :param role: What role the group should have.
+        :type role: str
+        :param save: Whether to save the object to the database afterward.
+                     Set this to False if you want to wait to save the
+                     document for performance reasons.
+        :type save: bool
+        :param flags: List of access flags to grant to the group.
+        :type flags: specific flag identifier, or a list/tuple/set of them
+        :param currentUser: The user performing this action. Only required if attempting
+            to set admin-only flags on the resource.
+        :type currentUser: dict or None
+        :returns: The updated resource document.
+        :param force: Set this to True to set the flags regardless of the passed in
+            currentUser's permissions (only matters if flags are passed).
+        :type force: bool
+        """
+        from .roles import createCipher
+        if role not in USER_ROLE_KEYS:
+            raise ValidationException('Invalid role: {}.'.format(role), 'role')
+        return(
+            self._setRole(
+                doc,
+                createCipher(
+                    doc,
+                    self._justGetAllTheCiphers(doc),
+                    user.get('_id', user)
+                ),
+                'users',
+                role,
+                currentUser,
+                force,
+                subject
+            )
+        )
 
     def hasAccessFlags(self, doc, user=None, flags=None):
         """
@@ -1481,10 +1794,8 @@ class AccessControlledModel(Model):
         # Check remaining required flags against user's permissions
         perms = doc.get('access', {})
         for flag in requiredFlags:
-            if (not self._hasGroupAccessFlag(
-                    perms.get('groups', ()), user.get('groups', ()), flag) and
-                    not self._hasUserAccessFlag(
-                        perms.get('users', ()), user['_id'], flag)):
+            if (not self._hasGroupAccessFlag(perms.get('groups', ()), user.get('groups', ()), flag)
+                    and not self._hasUserAccessFlag(perms.get('users', ()), user['_id'], flag)):
                 return False
 
         return True
@@ -1666,8 +1977,8 @@ class AccessControlledModel(Model):
         """
         if flags:
             def hasAccess(doc):
-                return (self.hasAccess(doc, user=user, level=level) and
-                        self.hasAccessFlags(doc, user=user, flags=flags))
+                return (self.hasAccess(doc, user=user, level=level)
+                        and self.hasAccessFlags(doc, user=user, flags=flags))
         else:
             hasAccess = functools.partial(self.hasAccess, user=user, level=level)
 

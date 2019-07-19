@@ -48,6 +48,8 @@ Installation
       pip install -e .
       girder build
 
+   Note: if ``pip install -e .`` fails with ``assert tag is not None, 'cant parse version %s' % tag`` from `setuptools_scm <https://github.com/pypa/setuptools_scm/>`_, check for git tags with ``-``s and delete those tags or replace them with ``+``s.
+
 4. Start Girder for MindLogger.
 
    .. code-block:: shell
@@ -163,8 +165,8 @@ An individual using a MindLogger mobile application or MindLogger web applicatio
 Links
 -----
 - `ReproNim Schema specification <https://github.com/ReproNim/schema-standardization>`_
-- `Development instance <https://mindlogger-dev.vasegurt.com>`_
-- `Production instance <https://api.mindlogger.info>`_
+- `Development instance <https://dev.mindlogger.org>`_
+- `Production instance <https://api.mindlogger.org>`_
 - `Run a local instance <#requirements>`_
 
 Girder Source

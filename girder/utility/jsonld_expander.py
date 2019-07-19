@@ -1,8 +1,11 @@
 import json
 from copy import deepcopy
+from datetime import datetime
 from girder.constants import AccessType
-from girder.exceptions import AccessException, ResourcePathNotFound
+from girder.exceptions import AccessException, ResourcePathNotFound, \
+    ValidationException
 from girder.models.activity import Activity as ActivityModel
+from girder.models.activitySet import ActivitySet as ActivitySetModel
 from girder.models.applet import Applet as AppletModel
 from girder.models.collection import Collection as CollectionModel
 from girder.models.folder import Folder as FolderModel
@@ -18,6 +21,7 @@ KEYS_TO_EXPAND = [
 
 MODELS = {
     'activity': ActivityModel(),
+    'activitySet': ActivitySetModel(),
     'applet': AppletModel(),
     'collection': CollectionModel(),
     'folder': FolderModel(),
@@ -25,6 +29,50 @@ MODELS = {
     'screen': ScreenModel(),
     'user': UserModel()
 }
+
+
+def _createContextForStr(s):
+    sp = s.split('/')
+    k = '_'.join(
+        sp[:-1] if '.' not in sp[-1] else sp
+    ).replace('.','').replace(':','')
+    return(
+        (
+            {k: '{}/'.format('/'.join(sp[:-1]))},
+            "{}:{}".format(k, sp[-1])
+        ) if '.' not in sp[-1] else (
+            {k: s},
+            k
+        )
+    )
+
+
+def contextualize(ldObj):
+    newObj = {}
+    context = ldObj.get('@context', [])
+    for k in ldObj.keys():
+        if isinstance(ldObj[k], dict):
+            context, newObj[k] = _deeperContextualize(
+                ldObj[k],
+                context
+            )
+        else:
+            newObj[k] = ldObj[k]
+    newObj['@context'] = context
+    return(newObj)
+
+
+def _deeperContextualize(ldObj, context):
+    newObj = {}
+    for k in ldObj.keys():
+        if isinstance(ldObj[k], dict) and '.' in k:
+                (c, o) = _createContextForStr(k)
+                newObj[o] = ldObj[k]
+                if c not in context:
+                    context.append(c)
+        else:
+            newObj[k] = ldObj[k]
+    return(context, newObj)
 
 
 def expand(obj, keepUndefined=False):
@@ -41,7 +89,8 @@ def expand(obj, keepUndefined=False):
         return(obj)
     try:
         newObj = jsonld.expand(obj)
-    except jsonld.JsonLdError: # 👮 Catch illegal JSON-LD
+    except jsonld.JsonLdError as e: # 👮 Catch illegal JSON-LD
+        print(e)
         print(obj)
         return(None)
     newObj = newObj[0] if (
@@ -98,7 +147,13 @@ def fileObjectToStr(obj):
     return(r.text)
 
 
-def formatLdObject(obj, mesoPrefix='folder', user=None, keepUndefined=False):
+def formatLdObject(
+    obj,
+    mesoPrefix='folder',
+    user=None,
+    keepUndefined=False,
+    dropErrors=False,
+    refreshCache=False):
     """
     Function to take a compacted JSON-LD Object within a Girder for Mindlogger
     database and return an exapanded JSON-LD Object including an _id.
@@ -110,47 +165,125 @@ def formatLdObject(obj, mesoPrefix='folder', user=None, keepUndefined=False):
     :type mesoPrefix: str
     :param user: User making the call
     :type user: User
+    :param keepUndefined: Keep undefined properties
+    :type keepUndefined: bool
+    :param dropErrors: Return `None` instead of raising an error for illegal
+        JSON-LD definitions.
+    :type dropErrors: bool
+    :param refreshCache: Refresh from Dereferencing URLs?
+    :type refreshCache: bool
     :returns: Expanded JSON-LD Object (dict or list)
     """
-    if obj is None:
+    if obj is None or (
+        isinstance(obj, dict) and 'meta' not in obj.keys()
+    ):
         return(None)
+    if "cached" in obj and not refreshCache:
+        return(obj["cached"])
+    mesoPrefix = camelCase(mesoPrefix)
     if type(obj)==list:
-        return([formatLdObject(obj, mesoPrefix) for o in obj])
-    if not type(obj)==dict:
+        return([formatLdObject(o, mesoPrefix) for o in obj if o is not None])
+    if not type(obj)==dict and not dropErrors:
         raise TypeError("JSON-LD must be an Object or Array.")
     newObj = obj.get('meta', obj)
     newObj = newObj.get(mesoPrefix, newObj)
+    if mesoPrefix=='applet' and 'activitySet' not in obj.get('meta', {}).keys():
+        obj['meta']['activitySet'] = obj.get('meta', {}).get('applet')
     newObj = expand(newObj, keepUndefined=keepUndefined)
     if type(newObj)==list and len(newObj)==1:
-        newObj = newObj[0]
-    if type(newObj)==dict:
-        objID = str(obj.get('_id', 'undefined'))
-        if objID=='undefined':
-            raise ResourcePathNotFound()
-        newObj['_id'] = "/".join([mesoPrefix, objID])
+        try:
+            newObj = newObj[0]
+        except:
+            raise ValidationException(str(newObj))
+    if type(newObj)!=dict:
+        newObj = {}
+    objID = str(obj.get('_id', 'undefined'))
+    if objID=='undefined':
+        raise ResourcePathNotFound()
+    newObj['_id'] = "/".join([snake_case(mesoPrefix), objID])
     if mesoPrefix=='applet':
-        applet = {'applet': newObj}
-        applet['activities'] = {
-            activity.get(
-                'url',
-                activity.get('@id')
-            ): formatLdObject(
-                ActivityModel().load(
-                    activity.get('_id')
-                ) if '_id' in activity else ActivityModel().importUrl(
-                        url=activity.get(
-                            'url',
-                            activity.get('@id')
-                        ),
-                        user=user
+        activitySet = formatLdObject(
+            ActivitySetModel().load(
+                obj['meta']['activitySet'].get(
+                    '_id',
+                    ''
+                ).split('activity_set/')[-1].split('activitySet/')[-1],
+                level=AccessType.READ,
+                user=user
+            ) if '_id' in obj.get('meta', {}).get(
+                'activitySet',
+                {}
+            ) else ActivitySetModel().importUrl(
+                obj['meta']['activitySet'].get(
+                    'url',
+                    ''
                 ),
-                'activity',
                 user
-            ) for order in newObj[
-                "https://schema.repronim.org/order"
-            ] for activity in order.get("@list", [])
+            ) if 'url' in obj.get('meta', {}).get('activitySet', {}) else {},
+            'activitySet',
+            user,
+            keepUndefined,
+            dropErrors
+        ) if 'activitySet' in obj.get('meta', {}) and isinstance(
+            obj['meta']['activitySet'],
+            dict
+        ) else {}
+        applet = {
+            'activities': activitySet.pop('activities', {}),
+            'items': activitySet.pop('items', {}),
+            'activitySet': {
+                key: activitySet.get('activitySet', {}).get(
+                    key,
+                    None
+                ) for key in [
+                    '_id',
+                    '@type',
+                    'http://schema.org/url'
+                ]
+            } if 'activitySet' in activitySet else formatLdObject(
+                obj,
+                'activitySet',
+                user,
+                keepUndefined,
+                dropErrors
+            ),
+            'applet': {
+                **activitySet.pop('activitySet', {}),
+                **newObj
+            }
         }
-        applet['items'] = {
+        obj["cached"] = {
+            **applet,
+            "prov:generatedAtTime": xsdNow()
+        }
+        AppletModel().save(obj)
+        return(applet)
+    if mesoPrefix=='activitySet':
+        activitySet = {
+            'activitySet': newObj,
+            'activities': {
+                activity.get(
+                    'url',
+                    activity.get('@id')
+                ): formatLdObject(
+                    ActivityModel().load(
+                        activity.get('_id')
+                    ) if '_id' in activity else ActivityModel().importUrl(
+                            url=activity.get(
+                                'url',
+                                activity.get('@id')
+                            ),
+                            user=user
+                    ),
+                    'activity',
+                    user
+                ) for order in newObj.get(
+                    "https://schema.repronim.org/order",
+                    {}
+                ) for activity in order.get("@list", [])
+            }
+        }
+        activitySet['items'] = {
             screen.get(
                 'url',
                 screen.get('@id')
@@ -169,17 +302,15 @@ def formatLdObject(obj, mesoPrefix='folder', user=None, keepUndefined=False):
                 ),
                 'screen',
                 user
-            ) for activityURL, activity in applet.get(
+            ) for activityURL, activity in activitySet.get(
                 'activities',
                 {}
             ).items() for order in activity.get(
                 "https://schema.repronim.org/order",
-                []
+                {}
             ) for screen in order.get("@list", order.get("@set", []))
         }
-        return(applet)
-    if mesoPrefix=='activity':
-        activity = newObj
+        return(activitySet)
     return(newObj)
 
 
@@ -341,3 +472,48 @@ def keyExpansion(keys):
     ] + [
         k for k in keys if (':' not in k and '/' not in k)
     ])))
+
+
+def camelCase(snake_case):
+    """
+    Function to convert a snake_case_string to a camelCaseString
+
+    :param snake_case: snake_case_string
+    :type snake_case: str
+    :returns: camelCaseString
+    """
+    words = snake_case.split('_')
+    return('{}{}'.format(
+        words[0],
+        ''.join([
+            word.title() for word in words[1:]
+        ])
+    ))
+
+def snake_case(camelCase):
+    """
+    Function to convert a camelCaseString to a snake_case_string
+
+    :param camelCase: camelCaseString
+    :type camelCase: str
+    :returns: snake_case_string
+    """
+    import re
+    first_cap_re = re.compile('(.)([A-Z][a-z]+)')
+    all_cap_re = re.compile('([a-z0-9])([A-Z])')
+    return(
+        all_cap_re.sub(
+            r'\1_\2',
+            first_cap_re.sub(
+                r'\1_\2',
+                camelCase
+            )
+        ).lower()
+    )
+
+def xsdNow():
+    """
+    Function to return an XSD formatted datetime string for the current
+    datetime.now()
+    """
+    return(datetime.now(datetime.utcnow().astimezone().tzinfo).isoformat())

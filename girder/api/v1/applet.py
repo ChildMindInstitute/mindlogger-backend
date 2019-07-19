@@ -23,18 +23,24 @@ import uuid
 import requests
 from ..describe import Description, autoDescribeRoute
 from ..rest import Resource
+from bson.objectid import ObjectId
 from girder.constants import AccessType, SortDir, TokenScope, SPECIAL_SUBJECTS,\
     USER_ROLES
 from girder.api import access
-from girder.utility import loadJSON
 from girder.exceptions import AccessException, ValidationException
-from girder.models.applet import Applet as AppletModel, getCanonicalUser, getUserCipher
+from girder.models.activity import Activity as ActivityModel
+from girder.models.activitySet import ActivitySet as ActivitySetModel
+from girder.models.applet import Applet as AppletModel
 from girder.models.collection import Collection as CollectionModel
 from girder.models.folder import Folder as FolderModel
+from girder.models.group import Group as GroupModel
 from girder.models.item import Item as ItemModel
+from girder.models.roles import getCanonicalUser, getUserCipher
 from girder.models.user import User as UserModel
 from girder.utility import config, jsonld_expander
+from pyld import jsonld
 
+USER_ROLE_KEYS = USER_ROLES.keys()
 
 class Applet(Resource):
 
@@ -42,17 +48,163 @@ class Applet(Resource):
         super(Applet, self).__init__()
         self.resourceName = 'applet'
         self._model = AppletModel()
-        # TODO: self.route('PUT', (':id'), self.deactivateActivity)
-        # TODO: self.route('PUT', ('version', ':id'), self.deactivateActivity)
         self.route('GET', (), self.getAppletFromURL)
         self.route('GET', (':id',), self.getApplet)
-        # TODO: self.route('POST', (), self.createActivity)
+        self.route('POST', (), self.createApplet)
+        self.route('PUT', (':id', 'assign'), self.assignGroup)
+        self.route('PUT', (':id', 'constraints'), self.setConstraints)
         self.route('POST', (':id', 'invite'), self.invite)
         self.route('POST', ('invite',), self.inviteFromURL)
-        # TODO: self.route('POST', (':id', 'version'), self.createActivityVersion)
-        # TODO: self.route('POST', (':id', 'copy'), self.copyActivity)
-        # TODO: self.route('POST', ('version', ':id', 'copy'), self.copyActivityVersion)
+        self.route('GET', (':id', 'roles'), self.getAppletRoles)
+        self.route('GET', (':id', 'users'), self.getAppletUsers)
+        self.route('DELETE', (':id',), self.deactivateApplet)
 
+    @access.user(scope=TokenScope.DATA_OWN)
+    @autoDescribeRoute(
+        Description('Get userlist, groups & statuses.')
+        .modelParam(
+            'id',
+            model=FolderModel,
+            level=AccessType.ADMIN,
+            destName='applet'
+        )
+    )
+    def getAppletUsers(self, applet):
+        return(AppletModel().getAppletUsers(applet))
+
+    @access.user(scope=TokenScope.DATA_WRITE)
+    @autoDescribeRoute(
+        Description('Assign a group to a role in an applet.')
+        .responseClass('Folder')
+        .modelParam('id', model=FolderModel, level=AccessType.READ)
+        .param(
+            'group',
+            'ID of the group to assign.',
+            required=True,
+            strip=True
+        )
+        .param(
+            'role',
+            'Role to invite this user to. One of ' + str(USER_ROLE_KEYS),
+            default='user',
+            required=False,
+            strip=True
+        )
+        .jsonParam(
+            'subject',
+            'Requires a JSON Object in the form \n```'
+            '{'
+            '  "groups": {'
+            '    "«relationship»": []'
+            '  },'
+            '  "users": {'
+            '    "«relationship»": []'
+            '  }'
+            '}'
+            '``` \n For \'user\' or \'reviewer\' assignments, specify '
+            'group-level relationships, filling in \'«relationship»\' with a '
+            'JSON-ld key semantically defined in in your context, and IDs in '
+            'the value Arrays (either applet-specific or canonical IDs in the '
+            'case of users; applet-specific IDs will be stored either way).',
+            paramType='form',
+            required=False,
+            requireObject=True
+        )
+        .errorResponse('ID was invalid.')
+        .errorResponse('Write access was denied for the folder or its new parent object.', 403)
+    )
+    def assignGroup(self, folder, group, role, subject):
+        applet = folder
+        if role not in USER_ROLE_KEYS:
+            raise ValidationException(
+                'Invalid role.',
+                'role'
+            )
+        thisUser=self.getCurrentUser()
+        group=GroupModel().load(group, level=AccessType.WRITE, user=thisUser)
+        return(
+            AppletModel().setGroupRole(
+                applet,
+                group,
+                role,
+                currentUser=thisUser,
+                force=False,
+                subject=subject
+            )
+        )
+
+    @access.user(scope=TokenScope.DATA_WRITE)
+    @autoDescribeRoute(
+        Description('Create an applet.')
+        .param(
+            'activitySetUrl',
+            'URL of Activity Set from which to create applet',
+            required=False
+        )
+        .param(
+            'name',
+            'Name to give the applet. The Activity Set\'s name will be used if '
+            'this parameter is not provided.',
+            required=False
+        )
+        .errorResponse('Write access was denied for this applet.', 403)
+    )
+    def createApplet(self, activitySetUrl=None, name=None, refreshCache=False):
+        activitySet = {}
+        thisUser = self.getCurrentUser()
+        # get an activity set from a URL
+        if activitySetUrl:
+            activitySet.update(ActivitySetModel().getFromUrl(
+                activitySetUrl,
+                'activitySet',
+                thisUser,
+                refreshCache=refreshCache
+            ))
+        # create an applet for it
+        applet=AppletModel().createApplet(
+            name=name if name is not None else ActivitySetModel().preferredName(
+                activitySet
+            ),
+            # below is so it doesn't break on older applets that didn't have
+            # activity set URLs
+            activitySet={
+                '_id': 'activitySet/{}'.format(activitySet.get('_id')),
+                'url': activitySet.get(
+                    'meta',
+                    {}
+                ).get(
+                    'activitySet',
+                    {}
+                ).get('url', activitySetUrl)
+            },
+            user=thisUser
+        )
+        return(applet) # TODO: update formatLdObject to reflect new structure
+
+    @access.user(scope=TokenScope.DATA_WRITE)
+    @autoDescribeRoute(
+        Description('Deactivate an applet by ID.')
+        .modelParam('id', model=AppletModel, level=AccessType.WRITE)
+        .errorResponse('Invalid applet ID.')
+        .errorResponse('Write access was denied for this applet.', 403)
+    )
+    def deactivateApplet(self, folder):
+        applet = folder
+        user = Applet().getCurrentUser()
+        applet['meta']['applet']['deleted'] = True
+        applet = AppletModel().setMetadata(applet, applet.get('meta'), user)
+        if applet.get('meta', {}).get('applet', {}).get('deleted')==True:
+            message = 'Successfully deactivated applet {} ({}).'.format(
+                AppletModel().preferredName(applet),
+                applet.get('_id')
+            )
+        else:
+            message = 'Could not deactivate applet {} ({}).'.format(
+                AppletModel().preferredName(applet),
+                applet.get('_id')
+            )
+            Description().errorResponse(message, 403)
+        return(message)
 
     @access.user(scope=TokenScope.DATA_READ)
     @autoDescribeRoute(
@@ -66,11 +218,30 @@ class Applet(Resource):
         user = Applet().getCurrentUser()
         return(jsonld_expander.formatLdObject(applet, 'applet', user))
 
+    @access.user(scope=TokenScope.DATA_WRITE)
+    @autoDescribeRoute(
+        Description('Get roles for an applet by ID.')
+        .modelParam(
+            'id',
+            model=AppletModel,
+            level=AccessType.WRITE,
+            description='ID of the Applet.'
+        )
+        .errorResponse('Invalid applet ID.')
+        .errorResponse('Write access was denied for this applet.', 403)
+        .notes('Only users with write access can see roles.')
+    )
+    def getAppletRoles(self, folder):
+        applet = folder
+        user = Applet().getCurrentUser()
+        return(AppletModel().getFullRolesList(applet))
 
     @access.user(scope=TokenScope.DATA_READ)
     @autoDescribeRoute(
         Description('Get an applet by URL.')
         .param('url', 'URL of Applet.', required=True)
+        .deprecated()
+        .notes('Use `GET /activity_set` or `GET /applet/{id}`.')
         .errorResponse('Invalid applet URL.')
         .errorResponse('Read access was denied for this applet.', 403)
     )
@@ -81,7 +252,6 @@ class Applet(Resource):
             'applet',
             thisUser
         ))
-
 
     @access.user(scope=TokenScope.DATA_WRITE)
     @autoDescribeRoute(
@@ -97,7 +267,7 @@ class Applet(Resource):
         )
         .param(
             'role',
-            'Role to invite this user to. One of ' + str(USER_ROLES),
+            'Role to invite this user to. One of ' + str(USER_ROLE_KEYS),
             default='user',
             required=False,
             strip=True
@@ -120,7 +290,7 @@ class Applet(Resource):
         .errorResponse('Write access was denied for the folder or its new parent object.', 403)
     )
     def invite(self, folder, user, role, rsvp, subject):
-        if role not in USER_ROLES:
+        if role not in USER_ROLE_KEYS:
             raise ValidationException(
                 'Invalid role.',
                 'role'
@@ -157,7 +327,7 @@ class Applet(Resource):
         )
         .param(
             'role',
-            'Role to invite this user to. One of ' + str(USER_ROLES),
+            'Role to invite this user to. One of ' + str(USER_ROLE_KEYS),
             default='user',
             required=False,
             strip=True
@@ -179,14 +349,19 @@ class Applet(Resource):
         .errorResponse('ID was invalid.')
         .errorResponse('Write access was denied for the folder or its new parent object.', 403)
     )
-    def inviteFromURL(self, url, user, role, rsvp, subject):
-        if role not in USER_ROLES:
+    def inviteFromURL(self, url, user, role, rsvp, subject, refreshCache=False):
+        if role not in USER_ROLE_KEYS:
             raise ValidationException(
                 'Invalid role.',
                 'role'
             )
         thisUser = self.getCurrentUser()
-        thisApplet = AppletModel().getFromUrl(url, 'applet', user=thisUser)
+        thisApplet = AppletModel().getFromUrl(
+            url,
+            'applet',
+            user=thisUser,
+            refreshCache=refreshCache
+        )
         return(
             _invite(
                 applet=thisApplet,
@@ -196,6 +371,32 @@ class Applet(Resource):
                 subject=subject
             )
         )
+
+
+    @access.user(scope=TokenScope.DATA_WRITE)
+    @autoDescribeRoute(
+        Description('Set or update schedule information for an activity.')
+        .modelParam('id', model=AppletModel, level=AccessType.READ)
+        .param(
+            'activity',
+            'Girder ID (or Array thereof) of the activity/activities to '
+            'schedule.',
+            required=False
+        )
+        .jsonParam(
+            'schedule',
+            'A JSON object containing schedule information for an activity',
+            paramType='form',
+            required=False
+        )
+        .errorResponse('Invalid applet ID.')
+        .errorResponse('Read access was denied for this applet.', 403)
+    )
+    def setConstraints(self, folder, activity, schedule, **kwargs):
+        thisUser = Applet().getCurrentUser()
+        return(_setConstraints(folder, activity, schedule, thisUser))
+
+
 
 def authorizeReviewer(applet, reviewer, user):
     thisUser = Applet().getCurrentUser()
@@ -298,6 +499,7 @@ def authorizeReviewers(assignment):
 
 def _invite(applet, user, role, rsvp, subject):
     """
+    Helper function to invite a user to an applet.
 
     :param applet: Applet to invite user to
     :type applet: AppletModel
@@ -313,8 +515,28 @@ def _invite(applet, user, role, rsvp, subject):
     :type subject: string or literal
     :returns: New assignment (dictionary)
     """
+    if role not in USER_ROLE_KEYS:
+        raise ValidationException(
+            'Invalid role.',
+            'role'
+        )
     thisUser = Applet().getCurrentUser()
     user = user if user else str(thisUser['_id'])
+    if bool(rsvp):
+        groupName = {
+            'title': '{} {}s'.format(
+                str(applet.get('_id')),
+                role
+            )
+        }
+        groupName['lower'] = groupName.get('title', '').lower()
+        group = GroupModel().findOne(query={'lowerName': groupName['lower']})
+        if not group or group is None:
+            group = GroupModel().createGroup(
+                name=groupName['title'],
+                creator=thisUser,
+                public=bool(role in ['manager', 'reviewer'])
+            )
     try:
         assignments = CollectionModel().createCollection(
             name="Assignments",
@@ -417,3 +639,104 @@ def selfAssignment():
         assignmentsFolder,
         'folder'
     ))
+
+
+def _setConstraints(applet, activity, schedule, user, refreshCache=False):
+    """
+    Helper function for method recursion.
+
+    :param applet: applet Object
+    :type applet: dict
+    :param activity: Activity ID
+    :type activity: str, list, or None
+    :param schedule: schedule data
+    :type schedule: dict, list, or None
+    :param user: user making the call
+    :type user: dict
+    :returns: updated applet Object
+    """
+    if activity is None:
+        if schedule is not None:
+            appletMeta = applet.get('meta', {})
+            appletMeta['applet']['schedule'] = schedule
+            applet = AppletModel().setMetadata(applet, appletMeta)
+        return(applet)
+    if isinstance(activity, str) and activity.startswith('['):
+        try:
+            activity = [
+                activity_.replace(
+                    "'",
+                    ""
+                ).replace(
+                    '"',
+                    ''
+                ).strip() for activity_ in activity[1:-1].split(',')
+            ]
+        except (TypeError, AttributeError) as e:
+            print(e)
+    if isinstance(activity, list):
+        for activity_ in activity:
+            applet = _setConstraints(
+                applet,
+                activity_,
+                schedule,
+                user
+            )
+        return(applet)
+    try:
+        activityLoaded = ActivityModel().getFromUrl(
+            activity,
+            'activity',
+            thisUser,
+            refreshCache
+        )
+    except:
+        activityLoaded = ActivityModel().load(
+            activity,
+            AccessType.WRITE,
+            user
+        )
+    try:
+        activityMeta = activityLoaded['meta'].get('activity')
+    except AttributeError:
+        raise ValidationException(
+            'Invalid activity.',
+            'activity'
+        )
+    activityKey = activityMeta.get(
+        'url',
+        activityMeta.get(
+            '@id',
+            activityLoaded.get(
+                '_id'
+            )
+        )
+    )
+    if activityKey is None:
+        raise ValidationException(
+            'Invalid activity.',
+            'activity'
+        )
+    activitySetExpanded = jsonld_expander.formatLdObject(
+        applet,
+        'applet',
+        user
+    ).get('activitySet')
+    activitySetOrder = activitySetExpanded.get('ui').get('order')
+    framedActivityKeys = [
+        activitySetOrder[i] for i, v in enumerate(
+            activitySetExpanded.get(
+                "https://schema.repronim.org/order"
+            )[0].get(
+                "@list"
+            )
+        ) if v.get("@id")==activityKey
+    ]
+    if schedule is not None:
+        appletMeta = applet.get('meta', {})
+        scheduleInApplet = appletMeta.get('applet', {}).get('schedule', {})
+        for k in framedActivityKeys:
+            scheduleInApplet[k] = schedule
+        appletMeta['applet']['schedule'] = scheduleInApplet
+        applet = AppletModel().setMetadata(applet, appletMeta)
+    return(applet)

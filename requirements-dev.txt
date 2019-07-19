@@ -16,6 +16,7 @@
 -e plugins/item_licenses
 -e plugins/ldap
 -e plugins/oauth
+-e plugins/sentry
 -e plugins/terms
 -e plugins/thumbnails
 -e plugins/user_quota
@@ -32,6 +33,7 @@ httmock
 mock
 mongomock
 moto[server]>=1.3.7
+pydocstyle<4
 pyld>=1.0.4
 pytest>=3.6
 pytest-cov<2.6

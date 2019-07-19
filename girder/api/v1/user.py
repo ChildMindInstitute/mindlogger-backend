@@ -7,11 +7,12 @@ import itertools
 from ..describe import Description, autoDescribeRoute
 from girder.api import access
 from girder.api.rest import Resource, filtermodel, setCurrentUser
-from girder.constants import AccessType, TokenScope, USER_ROLES
+from girder.constants import AccessType, SortDir, TokenScope, USER_ROLES
 from girder.exceptions import RestException, AccessException
 from girder.models.applet import Applet as AppletModel
 from girder.models.collection import Collection as CollectionModel
 from girder.models.folder import Folder as FolderModel
+from girder.models.group import Group as GroupModel
 from girder.models.setting import Setting
 from girder.models.token import Token
 from girder.models.user import User as UserModel
@@ -38,6 +39,7 @@ class User(Resource):
         self.route('PUT', (':id', 'access'), self.updateUserAccess)
         self.route('GET', (':id', 'applets'), self.getUserApplets)
         self.route('GET', (':id', 'details'), self.getUserDetails)
+        self.route('GET', ('invites',), self.getGroupInvites)
         self.route('GET', ('details',), self.getUsersDetails)
         self.route('POST', (), self.createUser)
         self.route('PUT', (':id',), self.updateUser)
@@ -53,12 +55,30 @@ class User(Resource):
         self.route('PUT', (':id', 'verification'), self.verifyEmail)
         self.route('POST', ('verification',), self.sendVerificationEmail)
 
+
+    @access.user
+    @autoDescribeRoute(
+        Description('Get all pending invites for the logged-in user.')
+    )
+    def getGroupInvites(self):
+        pending = self.getCurrentUser().get("groupInvites")
+        output = []
+        for p in pending:
+            output.append(
+                GroupModel().load(
+                    id=p.get('groupId'),
+                    force=True,
+                    fields=['name', '_id']
+                )
+            )
+        return(output)
+
     @access.user
     @filtermodel(model=UserModel)
     @autoDescribeRoute(
         Description('List or search for users.')
         .responseClass('User', array=True)
-        .param('text', "Pass this to perform a full text search for items.", required=False)
+        .param('text', 'Pass this to perform a full text search for items.', required=False)
         .pagingParams(defaultSort='lastName')
     )
     def find(self, text, limit, offset, sort):
@@ -114,9 +134,19 @@ class User(Resource):
         .modelParam('id', model=UserModel, level=AccessType.READ)
         .param(
             'role',
-            'One of ' + str(USER_ROLES),
+            'One of ' + str(USER_ROLES.keys()),
             required=False,
             default='user'
+        )
+        .param(
+            'ids_only',
+            'If true, only returns an Array of the IDs of assigned applets. '
+            'Otherwise, returns an Array of Objects keyed with "applet" '
+            '"activitySet", "activities" and "items" with expanded JSON-LD as '
+            'values.',
+            required=False,
+            default=False,
+            dataType='boolean'
         )
         .errorResponse('ID was invalid.')
         .errorResponse(
@@ -124,102 +154,58 @@ class User(Resource):
             403
         )
     )
-    def getUserApplets(self, user, role):
+    def getUserApplets(self, user, role, ids_only):
+        user = user if not user else self.getCurrentUser()
         role = role.lower()
-        if role not in USER_ROLES:
+        if role not in USER_ROLES.keys():
             raise RestException(
                 'Invalid user role.',
                 'role'
             )
         reviewer = self.getCurrentUser()
-        applets = []
-        # New schema
-        assignments = [
-            *list(itertools.chain.from_iterable([
+        # New schema, new roles
+        applets = list(itertools.chain.from_iterable([
+            list(AppletModel().find(
+                {
+                    'roles.' + role + '.groups.id': groupId,
+                    'meta.applet.deleted': {'$ne': True}
+                }
+            )) for groupId in user.get('groups', [])
+        ]))
+        if ids_only==True:
+            return([applet.get('_id') for applet in applets])
+        try:
+            return(
                 [
-                    folder for folder in FolderModel().childFolders(
-                        parentType='collection',
-                        parent=collection,
-                        user=reviewer
-                    )
-                ] for collection in CollectionModel().find(
-                    {'name': 'Assignments'}
-                )
-            ])),
-            *list(itertools.chain.from_iterable([
-                [
-                    folder for folder in FolderModel().find(
-                        {
-                            'parentId': (
-                                reviewer if reviewer else {}
-                            ).get('_id'),
-                            'baseParentType': 'user',
-                            'name': 'Assignments'
-                        }
+                    {
+                        **jsonld_expander.formatLdObject(
+                            applet,
+                            'applet',
+                            reviewer,
+                            dropErrors=True,
+                            refreshCache=False
+                        ),
+                        "users": AppletModel().getAppletUsers(applet),
+                        "groups": AppletModel().getAppletGroups(applet, True)
+                    } if role=="manager" else jsonld_expander.formatLdObject(
+                        applet,
+                        'applet',
+                        reviewer,
+                        dropErrors=True
+                    ) for applet in applets if (
+                        applet is not None and not applet.get(
+                            'meta',
+                            {}
+                        ).get(
+                            'applet',
+                            {}
+                        ).get('deleted')
                     )
                 ]
-            ]))
-        ]
-        for assignment in assignments:
-            try:
-                if 'meta' in assignment and 'members' in assignment[
-                    'meta'
-                ] and assignment['meta']['members'] is not None:
-                    for assignedUser in assignment['meta']['members']:
-                        if 'roles' in assignedUser and bool(len(list(set(
-                            assignedUser['roles']
-                        ).intersection(
-                            list(assignedUser['roles'])
-                        )))) and '@id' in assignedUser:
-                            if ('_id' in user) and str(user['_id']) in [
-                                userId['meta']['user'][
-                                    '@id'
-                                ] for userId in FolderModel().childFolders(
-                                    parentType='folder',
-                                    parent=FolderModel().load(
-                                        assignedUser['@id'],
-                                        level=AccessType.NONE,
-                                        user=reviewer,
-                                        force=True
-                                    ),
-                                    user=reviewer,
-                                    force=True
-                                ) if (
-                                    'lowerName' in userId
-                                ) and (
-                                    userId['lowerName']=='userid'
-                                ) and (
-                                    'meta' in userId
-                                ) and (
-                                    'user' in userId['meta']
-                                ) and (
-                                    '@id' in userId['meta']['user']
-                                )
-                            ]:
-                                if 'applet' in assignment[
-                                    'meta'
-                                ] and '@id' in assignment['meta']['applet']:
-                                    try:
-                                        applets.append(
-                                            AppletModel().load(
-                                                assignment['meta']['applet']['@id'],
-                                                AccessType.READ,
-                                                reviewer
-                                            )
-                                        )
-                                    except:
-                                        pass
-            except:
-                print(exc_info()[0])
-        return(
-            [
-                jsonld_expander.formatLdObject(
-                    applet,
-                    'applet',
-                    reviewer
-                ) for applet in applets if applet is not None
-            ]
-        )
+            )
+        except Exception as e:
+            return(e)
+
 
     @access.public(scope=TokenScope.USER_INFO_READ)
     @filtermodel(model=UserModel)
@@ -321,7 +307,8 @@ class User(Resource):
                     'administrator to create an account for you.')
 
         user = self._model.createUser(
-            login=login, password=password, email=email, firstName=firstName,
+            login=login, password=password, email=email,
+            firstName=firstName if firstName is not None else "",
             lastName=lastName, admin=admin, currentUser=currentUser)
 
         if not currentUser and self._model.canLogin(user):
@@ -331,7 +318,29 @@ class User(Resource):
                 'token': token['_id'],
                 'expires': token['expires']
             }
-        return user
+
+        # Assign all new users to a "New Users" Group
+        newUserGroup = GroupModel().findOne({'name': 'New Users'})
+        newUserGroup = newUserGroup if (
+            newUserGroup is not None and bool(newUserGroup)
+        ) else GroupModel(
+        ).createGroup(
+            name="New Users",
+            creator=UserModel().findOne(
+                query={'admin': True},
+                sort=[('created', SortDir.ASCENDING)]
+            ),
+            public=False
+        )
+        group = GroupModel().addUser(
+            newUserGroup,
+            user,
+            level=AccessType.READ
+        )
+        group['access'] = GroupModel().getFullAccessList(group)
+        group['requests'] = list(GroupModel().getFullRequestList(group))
+
+        return(user)
 
     @access.user
     @autoDescribeRoute(
@@ -393,10 +402,10 @@ class User(Resource):
 
     @access.admin
     @autoDescribeRoute(
-        Description('Change a user\'s password.')
+        Description("Change a user's password.")
         .notes('Only administrators may use this endpoint.')
         .modelParam('id', model=UserModel, level=AccessType.ADMIN)
-        .param('password', 'The user\'s new password.')
+        .param('password', "The user's new password.")
         .errorResponse('You are not an administrator.', 403)
         .errorResponse('The new password is invalid.')
     )
@@ -420,13 +429,13 @@ class User(Resource):
         if not old:
             raise RestException('Old password must not be empty.')
 
-        if not self._model.hasPassword(user) or \
-                not self._model._cryptContext.verify(old, user['salt']):
+        if (not self._model.hasPassword(user)
+                or not self._model._cryptContext.verify(old, user['salt'])):
             # If not the user's actual password, check for temp access token
             token = Token().load(old, force=True, objectId=False, exc=False)
-            if (not token or not token.get('userId') or
-                    token['userId'] != user['_id'] or
-                    not Token().hasScope(token, TokenScope.TEMPORARY_USER_AUTH)):
+            if (not token or not token.get('userId')
+                    or token['userId'] != user['_id']
+                    or not Token().hasScope(token, TokenScope.TEMPORARY_USER_AUTH)):
                 raise AccessException('Old password is incorrect.')
 
         self._model.setPassword(user, new)
@@ -439,7 +448,7 @@ class User(Resource):
 
     @access.public
     @autoDescribeRoute(
-        Description('Create a temporary access token for a user.  The user\'s '
+        Description("Create a temporary access token for a user.  The user's "
                     'password is not changed.')
         .param('email', 'Your email address.', strip=True)
         .errorResponse('That email does not exist in the system.')

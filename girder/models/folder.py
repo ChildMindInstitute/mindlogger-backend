@@ -291,8 +291,8 @@ class Folder(AccessControlledModel):
                            or folder).
         :type parentType: str
         """
-        if (parentType == 'folder' and (self._isAncestor(folder, parent) or
-                                        folder['_id'] == parent['_id'])):
+        if (parentType == 'folder' and (
+                self._isAncestor(folder, parent) or folder['_id'] == parent['_id'])):
             raise ValidationException(
                 'You may not move a folder underneath itself.')
 
@@ -436,7 +436,9 @@ class Folder(AccessControlledModel):
 
         parentType = parentType.lower()
         if parentType not in ('folder', 'user', 'collection'):
-            raise ValidationException('The parentType must be folder, collection, or user.')
+            raise ValidationException(
+                'The parentType must be folder, collection, or user.'
+            )
 
         q = {
             'parentId': parent['_id'],
@@ -530,7 +532,8 @@ class Folder(AccessControlledModel):
         }
 
         if parentType in ('folder', 'collection') and (parent['name'] not in [
-            "Volumes", "Activity Sets", "Applets", "Assignments", "Screens"
+            "Activities", "Volumes", "Activitysets", "Applets", "Assignments",
+            "Screens"
         ]):
             self.copyAccessPolicies(src=parent, dest=folder, save=False)
 

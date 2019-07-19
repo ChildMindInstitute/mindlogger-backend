@@ -34,9 +34,7 @@ from .model_base import AccessControlledModel
 from girder import events
 from girder.constants import AccessType
 from girder.exceptions import ValidationException, GirderException
-from girder.models.applet import getUserCipher
 from girder.utility.progress import noProgress, setResponseTimeLimit
-from girder.utility import loadJSON
 
 class Screen(Item):
     def initialize(self):
@@ -110,9 +108,21 @@ class Screen(Item):
         })
 
 
-    def importUrl(self, url, user=None):
+    def importUrl(self, url, user=None, refreshCache=False):
         """
         Gets a screen from a given URL, checks against the database, stores and
         returns that screen.
         """
-        return(self.getFromUrl(url, 'screen', user))
+        return(self.getFromUrl(url, 'screen', user, refreshCache))
+
+
+    def load(self, id, level=AccessType.ADMIN, user=None, refreshCache=False):
+        doc = super(Item, self).load(id=id, level=level, user=user)
+        try:
+            url = doc.get('meta', {}).get('url')
+        except AttributeError:
+            url = None
+        if url:
+            return(self.getFromUrl(url, 'screen', user, refreshCache))
+        else:
+            return(doc)

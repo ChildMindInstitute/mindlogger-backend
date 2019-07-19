@@ -36,7 +36,7 @@ var FrontPageView = View.extend({
         this.$el.html(FrontPageTemplate({
             apiRoot: getApiRoot(),
             currentUser: getCurrentUser(),
-            version,
+            versionInfo: version || "",
             brandName: this.brandName
         }));
 

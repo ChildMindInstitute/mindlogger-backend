@@ -3,7 +3,7 @@ from ..describe import Description, autoDescribeRoute
 from ..rest import Resource, filtermodel
 from girder.api import access
 from girder.constants import AccessType
-from girder.exceptions import AccessException
+from girder.exceptions import AccessException, ValidationException
 from girder.models.group import Group as GroupModel
 from girder.models.setting import Setting
 from girder.models.user import User
@@ -13,6 +13,7 @@ from girder.utility import mail_utils
 
 class Group(Resource):
     """API Endpoint for groups."""
+
     def __init__(self):
         super(Group, self).__init__()
         self.resourceName = 'group'
@@ -167,17 +168,17 @@ class Group(Resource):
     @autoDescribeRoute(
         Description('Request to join a group, or accept an invitation to join.')
         .responseClass('Group')
-        .modelParam('id', model=GroupModel, level=AccessType.READ)
+        .modelParam('id', model=GroupModel, force=True)
         .errorResponse('ID was invalid.')
         .errorResponse('You were not invited to this group, or do not have '
-                       'read access to it.', 403)
+                       'read access to it.', 403) # TODO: Update permissions error handling
     )
     def joinGroup(self, group):
         groupModel = self._model
         group = groupModel.joinGroup(group, self.getCurrentUser())
         group['access'] = groupModel.getFullAccessList(group)
         group['requests'] = list(groupModel.getFullRequestList(group))
-        return group
+        return({'_id': group['_id'], 'name': group['name']})
 
     @access.public
     @filtermodel(model=User)
@@ -194,28 +195,86 @@ class Group(Resource):
     @access.user
     @filtermodel(model=GroupModel, addFields={'access', 'requests'})
     @autoDescribeRoute(
-        Description("Invite a user to join a group, or accept a user's request to join.")
+        Description(
+            "Invite a user to join a group, or accept a user's request to join."
+        )
         .responseClass('Group')
         .notes('The "force" option to this endpoint is only available to '
                'administrators and can be used to bypass the invitation process'
                ' and instead add the user directly to the group.')
         .modelParam('id', model=GroupModel, level=AccessType.WRITE)
-        .modelParam('userId', 'The ID of the user to invite or accept.', model=User,
-                    destName='userToInvite', level=AccessType.READ, paramType='form')
-        .param('level', 'The access level the user will be given when they accept the invitation.',
-               required=False, dataType='integer', default=AccessType.READ)
-        .param('quiet', 'If you do not want this action to send an email to '
-               'the target user, set this to true.', dataType='boolean',
-               required=False, default=False)
-        .param('force', 'Add user directly rather than sending an invitation '
-               '(admin-only option).', dataType='boolean', required=False, default=False)
+        .modelParam(
+            'userId',
+            'The ID of the user to invite or accept. Alternatively, provide '
+            '`email`.',
+            model=User,
+            destName='userToInvite',
+            level=AccessType.READ,
+            paramType='form',
+            required=False
+        )
+        .param(
+            'email',
+            'Email address of user to invite. Alternatively, provide `userId`.',
+            required=False
+        )
+        .param(
+            'level',
+            'The access level the user will be given when they accept the '
+            'invitation.',
+            required=False,
+            dataType='integer',
+            default=AccessType.READ
+        )
+        .param(
+            'quiet',
+            'If you do not want this action to send an email to '
+            'the target user, set this to true.',
+            dataType='boolean',
+            required=False,
+            default=False
+        )
+        .param(
+            'force',
+            'Add user directly rather than sending an invitation '
+            '(admin-only option).',
+            dataType='boolean',
+            required=False,
+            default=False
+        )
         .errorResponse()
         .errorResponse('Write access was denied for the group.', 403)
     )
-    def inviteToGroup(self, group, userToInvite, level, quiet, force):
+    def inviteToGroup(
+        self,
+        group,
+        userToInvite=None,
+        email=None,
+        level=AccessType.READ,
+        quiet=False,
+        force=False
+    ):
+        if ((
+            userToInvite is None and email is None
+        ) or (
+            userToInvite is not None and email is not None
+        )):
+            raise ValidationException(
+                "`POST /group/{id}/invitation` requires exactly one of `userID`"
+                "and `email`."
+            )
         groupModel = self._model
         user = self.getCurrentUser()
-
+        if email is not None:
+            userToInvite = User().findOne(query={"email": email}, force=True)
+        if userToInvite is None:
+            try:
+                group["queue"] = [email, *group.get("queue", [])]
+            except:
+                group["queue"] = [email]
+            groupModel.updateGroup(group)
+            # TODO: send email to invite user
+            return(group)
         if force:
             if not user['admin']:
                 mustBeAdmin = True
@@ -224,14 +283,14 @@ class Group(Resource):
                 if addGroup not in ['no', 'yesadmin', 'yesmod']:
                     addGroup = addPolicy
                 if (groupModel.hasAccess(
-                        group, user, AccessType.ADMIN) and
-                        ('mod' in addPolicy or 'admin' in addPolicy) and
-                        addGroup.startswith('yes')):
+                        group, user, AccessType.ADMIN)
+                        and ('mod' in addPolicy or 'admin' in addPolicy)
+                        and addGroup.startswith('yes')):
                     mustBeAdmin = False
                 elif (groupModel.hasAccess(
-                        group, user, AccessType.WRITE) and
-                        'mod' in addPolicy and
-                        addGroup == 'yesmod'):
+                        group, user, AccessType.WRITE)
+                        and 'mod' in addPolicy
+                        and addGroup == 'yesmod'):
                     mustBeAdmin = False
                 if mustBeAdmin:
                     self.requireAdmin(user)
@@ -255,7 +314,7 @@ class Group(Resource):
 
         group['access'] = groupModel.getFullAccessList(group)
         group['requests'] = list(groupModel.getFullRequestList(group))
-        return group
+        return(group)
 
     @access.user
     @filtermodel(model=GroupModel, addFields={'access'})
@@ -332,7 +391,7 @@ class Group(Resource):
         .modelParam('id', model=GroupModel, level=AccessType.READ)
         .modelParam('userId', 'The ID of the user to remove. If not passed, will '
                     'remove yourself from the group.', required=False, model=User,
-                    level=AccessType.READ, destName='userToRemove', paramType='formData')
+                    force=True, destName='userToRemove', paramType='formData')
         .errorResponse()
         .errorResponse("You don't have permission to remove that user.", 403)
     )
@@ -344,14 +403,14 @@ class Group(Resource):
             # Assume user is removing themself from the group
             userToRemove = user
 
-        # If removing someone else, you must have at least as high an
-        # access level as they do, and you must have at least write access
-        # to remove any user other than yourself.
-        if user['_id'] != userToRemove['_id']:
-            if groupModel.hasAccess(group, userToRemove, AccessType.ADMIN):
-                groupModel.requireAccess(group, user, AccessType.ADMIN)
-            else:
-                groupModel.requireAccess(group, user, AccessType.WRITE)
+        # # If removing someone else, you must have at least as high an
+        # # access level as they do, and you must have at least write access
+        # # to remove any user other than yourself.
+        # if user['_id'] != userToRemove['_id']:
+        #     if groupModel.hasAccess(group, userToRemove, AccessType.ADMIN):
+        #         groupModel.requireAccess(group, user, AccessType.ADMIN)
+        #     else:
+        #         groupModel.requireAccess(group, user, AccessType.WRITE)
 
         group = groupModel.removeUser(group, userToRemove)
         group['access'] = groupModel.getFullAccessList(group)

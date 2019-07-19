@@ -100,24 +100,29 @@ class Context(Resource):
         )
     )
     def getSkin(self, lang):
+        contextCollection = CollectionModel().findOne({
+            'name': 'Context'
+        })
         skinFolder = FolderModel().findOne({
             'name': 'Skin',
             'parentCollection': 'collection',
-            'parentId': CollectionModel().findOne({
-                'name': 'Context'
-            }).get('_id')
-        })
-        skin = skinFolder.get('meta', {
+            'parentId': contextCollection.get('_id')
+        }) if contextCollection else None
+        defaultSkin = {
             'name': '',
             'colors': {
                 'primary': '#000000',
                 'secondary': '#FFFFFF'
             },
             'about': ''
-        })
+        }
+        skin = skinFolder.get(
+            'meta',
+            defaultSkin
+        ) if skinFolder is not None else defaultSkin
         for s in ['name', 'about']:
             lookup = jsonld_expander.getByLanguage(
-                skin[s],
+                skin.get(s, ""),
                 lang if lang and lang not in [
                     "@context.@language",
                     ""
