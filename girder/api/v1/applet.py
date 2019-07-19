@@ -210,13 +210,26 @@ class Applet(Resource):
     @autoDescribeRoute(
         Description('Get an applet by ID.')
         .modelParam('id', model=AppletModel, level=AccessType.READ)
+        .param(
+            'refreshCache',
+            'Reparse JSON-LD',
+            required=False,
+            dataType='boolean'
+        )
         .errorResponse('Invalid applet ID.')
         .errorResponse('Read access was denied for this applet.', 403)
     )
-    def getApplet(self, folder):
+    def getApplet(self, folder, refreshCache=False):
         applet = folder
         user = Applet().getCurrentUser()
-        return(jsonld_expander.formatLdObject(applet, 'applet', user))
+        return(
+            jsonld_expander.formatLdObject(
+                applet,
+                'applet',
+                user,
+                refreshCache=refreshCache
+            )
+        )
 
     @access.user(scope=TokenScope.DATA_WRITE)
     @autoDescribeRoute(
@@ -394,7 +407,14 @@ class Applet(Resource):
     )
     def setConstraints(self, folder, activity, schedule, **kwargs):
         thisUser = Applet().getCurrentUser()
-        return(_setConstraints(folder, activity, schedule, thisUser))
+        return(
+            jsonld_expander.formatLdObject(
+                _setConstraints(folder, activity, schedule, thisUser),
+                'applet',
+                thisUser,
+                refreshCache=True
+            )
+        )
 
 
 
