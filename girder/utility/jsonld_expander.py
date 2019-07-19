@@ -174,7 +174,6 @@ def formatLdObject(
     :type refreshCache: bool
     :returns: Expanded JSON-LD Object (dict or list)
     """
-    print(refreshCache)
     if obj is None or (
         isinstance(obj, dict) and 'meta' not in obj.keys()
     ):
@@ -253,7 +252,10 @@ def formatLdObject(
             'applet': {
                 **activitySet.pop('activitySet', {}),
                 **obj.get('meta', {}).get(mesoPrefix, {}),
-                '_id': "/".join([snake_case(mesoPrefix), objID])
+                '_id': "/".join([snake_case(mesoPrefix), objID]),
+                'url': "#".join([
+                    obj.get('meta', {}).get('activitySet', {}).get("url", "")
+                ])
             }
         }
         obj["cached"] = {

@@ -162,7 +162,8 @@ class Applet(Resource):
             ))
         # create an applet for it
         applet=AppletModel().createApplet(
-            name=name if name is not None else ActivitySetModel().preferredName(
+            name=name if name is not None and len(name) else ActivitySetModel(
+            ).preferredName(
                 activitySet
             ),
             # below is so it doesn't break on older applets that didn't have
