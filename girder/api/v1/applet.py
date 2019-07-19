@@ -75,6 +75,7 @@ class Applet(Resource):
     @access.user(scope=TokenScope.DATA_WRITE)
     @autoDescribeRoute(
         Description('Assign a group to a role in an applet.')
+        .deprecated()
         .responseClass('Folder')
         .modelParam('id', model=FolderModel, level=AccessType.READ)
         .param(
@@ -270,6 +271,7 @@ class Applet(Resource):
     @access.user(scope=TokenScope.DATA_WRITE)
     @autoDescribeRoute(
         Description('Invite a user to a role in an applet.')
+        .deprecated()
         .responseClass('Folder')
         .modelParam('id', model=FolderModel, level=AccessType.READ)
         .param(
@@ -326,6 +328,7 @@ class Applet(Resource):
     @autoDescribeRoute(
         Description('Invite a user to a role in an applet by applet URL.')
         #.responseClass('Folder')
+        .deprecated()
         .param(
             'url',
             'URL of applet, eg, '

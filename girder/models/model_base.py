@@ -210,7 +210,13 @@ class Model(object):
         """
         from girder.utility.jsonld_expander import MODELS
         cached = list(MODELS[modelType].find(
-            query={'meta.{}.url'.format(modelType): url},
+            query={
+                'meta.{}.url'.format(modelType): url,
+                'meta.activitySet.@type': 'https://www.repronim.org/'
+                    'schema-standardization/schemas/ActivitySet.jsonld',
+            } if modelType=="activitySet" else {
+                'meta.{}.url'.format(modelType): url
+            },
             sort=[('created', SortDir.DESCENDING)]
         ))
         return(
