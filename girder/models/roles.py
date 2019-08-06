@@ -1,8 +1,10 @@
+from girder.api.rest import getCurrentUser
 from girder.constants import AccessType
 from girder.exceptions import AccessException, ValidationException
 from girder.models.folder import Folder as FolderModel
 from girder.models.user import User as UserModel
 from girder.utility import config
+import itertools
 
 
 def canonicalUser(user):
@@ -217,8 +219,6 @@ def getUserCipher(appletAssignment, user):
     if not isinstance(user, str):
         return([getUserCipher(appletAssignment, u) for u in list(user)])
     thisUser = getCurrentUser()
-    if not appletAssignment.get('_modelType')=='folder':
-        return(None)
     appletAssignments = list(FolderModel().childFolders(
         parent=appletAssignment,
         parentType='folder',
@@ -227,7 +227,7 @@ def getUserCipher(appletAssignment, user):
     allCiphers = list(itertools.chain.from_iterable([
         list(FolderModel().find(
             query={
-                'parentId': assignment['_id'],
+                'parentId': assignment.get('_id'),
                 'parentCollection': 'folder',
                 'name': 'userID'
             }
