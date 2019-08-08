@@ -5,6 +5,7 @@ from girder.api import access
 from girder.constants import AccessType
 from girder.exceptions import AccessException, ValidationException
 from girder.models.group import Group as GroupModel
+from girder.models.protoUser import ProtoUser
 from girder.models.setting import Setting
 from girder.models.user import User
 from girder.settings import SettingKey
@@ -268,10 +269,11 @@ class Group(Resource):
         if email is not None:
             userToInvite = User().findOne(query={"email": email}, force=True)
         if userToInvite is None:
+            userToInvite = ProtoUser().createProtoUser(email=email)
             try:
-                group["queue"] = [email, *group.get("queue", [])]
+                group["queue"] = list(set([email, *group.get("queue", [])]))
             except:
-                group["queue"] = [email]
+                group["queue"] = list(set([email]))
             groupModel.updateGroup(group)
             # TODO: send email to invite user
             return(group)

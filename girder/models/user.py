@@ -449,6 +449,8 @@ class User(AccessControlledModel):
             update={"$pull": {"queue": email}},
             multi=True
         )
+        user = self._getGroupInvitesFromProtoUser(user)
+        self._deleteProtoUser(user)
         return(user)
 
     def canLogin(self, user):
@@ -664,3 +666,32 @@ class User(AccessControlledModel):
             self.update({'_id': doc['_id']}, update={'$set': {'size': size}})
             fixes += 1
         return size, fixes
+
+    def _getGroupInvitesFromProtoUser(self, doc):
+        """
+
+        """
+        from girder.models.protoUser import ProtoUser
+
+        # Ensure unique emails
+        q = {'email': doc['email']}
+        if '_id' in doc:
+            q['_id'] = {'$ne': doc['_id']}
+        existing = ProtoUser().findOne(q)
+        if existing is not None:
+            doc['groupInvites'] = existing['groupInvites']
+        return(doc)
+
+    def _deleteProtoUser(self, doc):
+        """
+
+        """
+        from girder.models.protoUser import ProtoUser
+
+        # Ensure unique emails
+        q = {'email': doc['email']}
+        if '_id' in doc:
+            q['_id'] = {'$ne': doc['_id']}
+        existing = ProtoUser().findOne(q)
+        if existing is not None:
+            ProtoUser().remove(existing)
