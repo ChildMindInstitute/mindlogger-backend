@@ -34,6 +34,7 @@ from girder.exceptions import AccessException, GirderException, \
 from girder.models.collection import Collection as CollectionModel
 from girder.models.folder import Folder as FolderModel
 from girder.models.group import Group as GroupModel
+from girder.models.protoUser import ProtoUser as ProtoUserModel
 from girder.models.user import User as UserModel
 from girder.utility.progress import noProgress, setResponseTimeLimit
 
@@ -173,12 +174,23 @@ class Applet(Folder):
         userList = {
             role: {
                 groupId: {
-                    "pending": list(UserModel().find(
-                        query={
-                            "groupInvites.groupId": {"$in": [ObjectId(groupId)]}
-                        },
-                        fields=['_id', 'email']
-                    )),
+                    "pending": [
+                        *list(UserModel().find(
+                            query={
+                                "groupInvites.groupId": {"$in": [
+                                    ObjectId(groupId)
+                                ]}
+                            },
+                            fields=['_id', 'email']
+                        )),
+                        *list(ProtoUserModel().find(
+                            query={
+                                "groupInvites.groupId": {"$in": [
+                                    ObjectId(groupId)
+                                ]}
+                            }
+                        ))
+                    ],
                     "active": list(UserModel().find(
                         query={"groups": {"$in": [ObjectId(groupId)]}},
                         fields=['_id', 'email']
