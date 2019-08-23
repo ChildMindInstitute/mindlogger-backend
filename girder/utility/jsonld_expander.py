@@ -187,8 +187,6 @@ def formatLdObject(
         raise TypeError("JSON-LD must be an Object or Array.")
     newObj = obj.get('meta', obj)
     newObj = newObj.get(mesoPrefix, newObj)
-    if mesoPrefix=='applet' and 'activitySet' not in obj.get('meta', {}).keys():
-        obj['meta']['activitySet'] = obj.get('meta', {}).get('applet')
     newObj = expand(newObj, keepUndefined=keepUndefined)
     if type(newObj)==list and len(newObj)==1:
         try:
@@ -203,7 +201,17 @@ def formatLdObject(
     newObj['_id'] = "/".join([snake_case(mesoPrefix), objID])
     if mesoPrefix=='applet':
         activitySet = formatLdObject(
-            ActivitySetModel().load(
+            ActivitySetModel().importUrl(
+                obj['meta']['activitySet'].get(
+                    'url',
+                    ''
+                ),
+                user,
+                refreshCache=refreshCache
+            ) if 'url' in obj.get('meta', {}).get(
+                'activitySet',
+                {}
+            ) else ActivitySetModel().load(
                 obj['meta']['activitySet'].get(
                     '_id',
                     ''
@@ -213,13 +221,7 @@ def formatLdObject(
             ) if '_id' in obj.get('meta', {}).get(
                 'activitySet',
                 {}
-            ) else ActivitySetModel().importUrl(
-                obj['meta']['activitySet'].get(
-                    'url',
-                    ''
-                ),
-                user
-            ) if 'url' in obj.get('meta', {}).get('activitySet', {}) else {},
+            ) else {},
             'activitySet',
             user,
             keepUndefined,
@@ -237,9 +239,9 @@ def formatLdObject(
                     key,
                     None
                 ) for key in [
+                    'http://schema.org/url',
                     '_id',
-                    '@type',
-                    'http://schema.org/url'
+                    '@type'
                 ]
             } if 'activitySet' in activitySet else formatLdObject(
                 obj,
@@ -272,15 +274,18 @@ def formatLdObject(
                     'url',
                     activity.get('@id')
                 ): formatLdObject(
-                    ActivityModel().load(
+                    ActivityModel().importUrl(
+                        url=activity.get(
+                            'url',
+                            activity.get('@id')
+                        ),
+                        user=user,
+                        refreshCache=refreshCache
+                    ) if (
+                        'url' in activity or '@id' in activity
+                    ) else ActivityModel().load(
                         activity.get('_id')
-                    ) if '_id' in activity else ActivityModel().importUrl(
-                            url=activity.get(
-                                'url',
-                                activity.get('@id')
-                            ),
-                            user=user
-                    ),
+                    ) if '_id' in activity else {},
                     'activity',
                     user,
                     refreshCache=refreshCache
@@ -295,18 +300,21 @@ def formatLdObject(
                 'url',
                 screen.get('@id')
             ): formatLdObject(
-                ScreenModel().load(
-                    screen.get('_id'),
-                    level=AccessType.READ,
-                    user=user,
-                    force=True
-                ) if '_id' in screen else ScreenModel().importUrl(
+                ScreenModel().importUrl(
                     url=screen.get(
                         'url',
                         screen.get('@id')
                     ),
-                    user=user
-                ),
+                    user=user,
+                    refreshCache=refreshCache
+                ) if (
+                    'url' in screen or '@id' in screen
+                ) else ScreenModel().load(
+                    screen.get('_id'),
+                    level=AccessType.READ,
+                    user=user,
+                    force=True
+                ) if '_id' in screen else {},
                 'screen',
                 user,
                 refreshCache=refreshCache
