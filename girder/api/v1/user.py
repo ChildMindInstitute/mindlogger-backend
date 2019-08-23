@@ -63,14 +63,69 @@ class User(Resource):
     def getGroupInvites(self):
         pending = self.getCurrentUser().get("groupInvites")
         output = []
+        userfields = [
+            'firstName',
+            'lastName',
+            '_id',
+            'email',
+            'gravatar_baseUrl',
+            'login'
+        ]
         for p in pending:
-            output.append(
-                GroupModel().load(
-                    id=p.get('groupId'),
-                    force=True,
-                    fields=['name', '_id']
-                )
-            )
+            groupId = p.get('groupId')
+            applets = list(AppletModel().find(
+                query={
+                    "roles.user.groups.id": groupId
+                },
+                fields=[
+                    'cached.applet.skos:prefLabel',
+                    'cached.applet.schema:description',
+                    'cached.applet.schema:image',
+                    'roles'
+                ]
+            ))
+            for applet in applets:
+                for role in ['manager', 'reviewer']:
+                    applet[''.join([role, 's'])] = [{
+                        (
+                            'image' if userKey=='gravatar_baseUrl' else userKey
+                        ): user.get(
+                            userKey
+                        ) for userKey in user.keys()
+                    } for user in list(UserModel().find(
+                            query={
+                                "groups": {
+                                    "$in": [
+                                        group.get('id') for group in applet.get(
+                                            'roles',
+                                            {}
+                                        ).get(role, {}).get('groups', [])
+                                    ]
+                                }
+                            },
+                            fields=userfields
+                        ))
+                    ]
+            output.append({
+                '_id': groupId,
+                'applets': [{
+                    'name': applet.get('cached', {}).get('applet', {}).get(
+                        'skos:prefLabel',
+                        ''
+                    ),
+                    'image': applet.get('cached', {}).get('applet', {}).get(
+                        'schema:image',
+                        ''
+                    ),
+                    'description': applet.get('cached', {}).get('applet', {
+                    }).get(
+                        'schema:description',
+                        ''
+                    ),
+                    'managers': applet.get('managers'),
+                    'reviewers': applet.get('reviewers')
+                } for applet in applets]
+            })
         return(output)
 
     @access.user

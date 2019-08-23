@@ -235,10 +235,22 @@ class Group(AccessControlledModel):
         from .user import User
         # Remove group membership for this user.
         if 'groups' in user and group['_id'] in user['groups']:
+            if 'formerGroups' in user and isinstance(
+                user['formerGroups'],
+                list
+            ):
+                user['formerGroups'].append(group['_id'])
+            else:
+                user['formerGroups'] = [group['_id']]
             user['groups'].remove(group['_id'])
 
         # Remove outstanding requests from this user
         self._deleteRequest(group, user)
+
+        # Save as declined invitation
+        user['declinedInvites'] = list(filter(
+            lambda inv: inv['groupId'] == group['_id'],
+            user.get('groupInvites', [])))
 
         # Remove any outstanding invitations for this group
         user['groupInvites'] = list(filter(
