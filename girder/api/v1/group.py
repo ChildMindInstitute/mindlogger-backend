@@ -402,6 +402,7 @@ class Group(Resource):
         if not (bool(
             group.get('_id') in [
                 *user.get('groups'),
+                *user.get('formerGroups'),
                 *[
                     g.get('groupId') for g  in [
                         *user.get('groupInvites', []),
