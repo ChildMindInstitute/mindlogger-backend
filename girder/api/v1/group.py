@@ -390,7 +390,7 @@ class Group(Resource):
                'will delete any outstanding invitation or membership request for '
                'the user. Passing no userId parameter will assume that the '
                'current user is removing themself.')
-        .modelParam('id', model=GroupModel, level=AccessType.READ)
+        .modelParam('id', model=GroupModel, force=True)
         .modelParam('userId', 'The ID of the user to remove. If not passed, will '
                     'remove yourself from the group.', required=False, model=User,
                     force=True, destName='userToRemove', paramType='formData')
@@ -399,25 +399,39 @@ class Group(Resource):
     )
     def removeFromGroup(self, group, userToRemove):
         user = self.getCurrentUser()
-        groupModel = self._model
+        if not (bool(
+            group.get('_id') in [
+                *user.get('groups', []),
+                *user.get('formerGroups', []),
+                *[
+                    g.get('groupId') for g  in [
+                        *user.get('groupInvites', []),
+                        *user.get('declinedInvites', [])
+                    ]
+                ]
+            ]
+        )):
+            raise AccessException(message="You haven't been invited to that group.")
+        else:
+            groupModel = self._model
 
-        if userToRemove is None:
-            # Assume user is removing themself from the group
-            userToRemove = user
+            if userToRemove is None:
+                # Assume user is removing themself from the group
+                userToRemove = user
 
-        # # If removing someone else, you must have at least as high an
-        # # access level as they do, and you must have at least write access
-        # # to remove any user other than yourself.
-        # if user['_id'] != userToRemove['_id']:
-        #     if groupModel.hasAccess(group, userToRemove, AccessType.ADMIN):
-        #         groupModel.requireAccess(group, user, AccessType.ADMIN)
-        #     else:
-        #         groupModel.requireAccess(group, user, AccessType.WRITE)
+            # # If removing someone else, you must have at least as high an
+            # # access level as they do, and you must have at least write access
+            # # to remove any user other than yourself.
+            # if user['_id'] != userToRemove['_id']:
+            #     if groupModel.hasAccess(group, userToRemove, AccessType.ADMIN):
+            #         groupModel.requireAccess(group, user, AccessType.ADMIN)
+            #     else:
+            #         groupModel.requireAccess(group, user, AccessType.WRITE)
 
-        group = groupModel.removeUser(group, userToRemove)
-        group['access'] = groupModel.getFullAccessList(group)
-        group['requests'] = list(groupModel.getFullRequestList(group))
-        return group
+            group = groupModel.removeUser(group, userToRemove)
+            group['access'] = groupModel.getFullAccessList(group)
+            group['requests'] = list(groupModel.getFullRequestList(group))
+            return(group)
 
     @access.user
     @autoDescribeRoute(
