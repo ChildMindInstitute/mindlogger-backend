@@ -37,8 +37,7 @@ class User(AccessControlledModel):
             '_id', 'login', 'public', 'firstName', 'lastName', 'admin', 'email',
             'created'))
         self.exposeFields(level=AccessType.ADMIN, fields=(
-            'size', 'groups', 'groupInvites', 'status',
-            'emailVerified', 'creatorId'))
+            'size', 'status', 'emailVerified', 'creatorId'))
 
         # To ensure compatibility with authenticator apps, other defaults shouldn't be changed
         self._TotpFactory = TOTP.using(
