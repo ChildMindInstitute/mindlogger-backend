@@ -401,8 +401,8 @@ class Group(Resource):
         user = self.getCurrentUser()
         if not (bool(
             group.get('_id') in [
-                *user.get('groups'),
-                *user.get('formerGroups'),
+                *user.get('groups', []),
+                *user.get('formerGroups', []),
                 *[
                     g.get('groupId') for g  in [
                         *user.get('groupInvites', []),
