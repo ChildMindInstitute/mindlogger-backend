@@ -404,7 +404,7 @@ class Group(Resource):
         .errorResponse()
         .errorResponse("You don't have permission to remove that user.", 403)
     )
-    def removeFromGroup(self, group, userToRemove):
+    def removeFromGroup(self, group, userToRemove, delete):
         user = self.getCurrentUser()
         if not (bool(
             group.get('_id') in [
@@ -433,7 +433,6 @@ class Group(Resource):
             #         groupModel.requireAccess(group, user, AccessType.ADMIN)
             #     else:
             #         groupModel.requireAccess(group, user, AccessType.WRITE)
-
             group = groupModel.removeUser(group, userToRemove, delete)
             group['access'] = groupModel.getFullAccessList(group)
             group['requests'] = list(groupModel.getFullRequestList(group))
