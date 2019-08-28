@@ -225,7 +225,7 @@ class Group(AccessControlledModel):
             {'groupInvites.groupId': group['_id']},
             limit=limit, offset=offset, sort=sort)
 
-    def removeUser(self, group, user):
+    def removeUser(self, group, user, delete=False):
         """
         Remove the user from the group. If the user is not in the group but
         has an outstanding invitation to the group, the invitation will be
@@ -234,7 +234,14 @@ class Group(AccessControlledModel):
         """
         from .user import User
         # Remove group membership for this user.
-        if 'groups' in user and group['_id'] in user['groups']:
+        if delete:
+            # Get applets for group
+            applets = AppletModel().getAppletsForGroup('user', group, False)
+            # Delete data for applets
+            for applet in applets:
+                print(applet)
+        elif 'groups' in user and group['_id'] in user['groups']:
+            # if not deleting, save as a former group
             if 'formerGroups' in user and isinstance(
                 user['formerGroups'],
                 list
