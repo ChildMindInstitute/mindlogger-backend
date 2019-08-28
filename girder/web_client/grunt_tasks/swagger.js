@@ -12,7 +12,7 @@ module.exports = function (grunt) {
             swagger: {
                 files: [{
                     expand: true,
-                    cwd: 'node_modules/swagger-ui/dist',
+                    cwd: path.resolve(webSrc, 'node_modules/swagger-ui/dist'),
                     src: ['lib/**', 'css/**', 'images/**', 'swagger-ui.min.js'],
                     dest: builtPath
                 }]

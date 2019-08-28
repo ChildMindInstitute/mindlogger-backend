@@ -25,8 +25,8 @@ VERSION = {
 }
 
 #: The local directory containing the static content.
-STATIC_PREFIX = os.path.join(sys.prefix, 'share', 'girder')
-STATIC_ROOT_DIR = os.path.join(STATIC_PREFIX, 'static')
+STATIC_PREFIX = os.path.join(os.path.dirname(PACKAGE_DIR), 'girder')
+STATIC_ROOT_DIR = os.path.join(STATIC_PREFIX, 'web_client', 'static')
 PREFERRED_NAMES = ["skos:prefLabel", "skos:altLabel", "name", "@id", "url"]
 SPECIAL_SUBJECTS = {"ALL", "NONE"}
 USER_ROLES = {'user': dict, 'editor': list, 'manager': list, 'reviewer': dict}
