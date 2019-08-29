@@ -5,7 +5,7 @@ jobs:
   py3_serverInstall:
     docker:
       # This image uses the newest version of many dependencies
-      - image: girderformindlogger/girder_test:latest-py3
+      - image: girder/girder_test:latest-py3
 
     working_directory: /home/circleci/project  # as $CIRCLE_WORKING_DIRECTORY
 
@@ -46,7 +46,7 @@ jobs:
 
   py3_serverTest:
     docker:
-      - image: girderformindlogger/girder_test:latest-py3
+      - image: girder/girder_test:latest-py3
       # Use the latest MongoDB
       - image: circleci/mongo:3.6-ram
         command: ["mongod", "--storageEngine", "ephemeralForTest", "--dbpath", "/dev/shm/mongo"]
@@ -83,7 +83,7 @@ jobs:
 
   py3_webBuild_webTest:
     docker:
-      - image: girderformindlogger/girder_test:latest-py3
+      - image: girder/girder_test:latest-py3
       - image: circleci/mongo:3.6-ram
         command: ["mongod", "--storageEngine", "ephemeralForTest", "--dbpath", "/dev/shm/mongo"]
 
@@ -245,7 +245,7 @@ jobs:
 
   py3_coverage:
     docker:
-      - image: girderformindlogger/girder_test:latest-py3
+      - image: girder/girder_test:latest-py3
       - image: circleci/mongo:3.6-ram
         command: ["mongod", "--storageEngine", "ephemeralForTest", "--dbpath", "/dev/shm/mongo"]
     working_directory: /home/circleci/project  # as $CIRCLE_WORKING_DIRECTORY
@@ -283,7 +283,7 @@ jobs:
 
   public_symbols:
     docker:
-      - image: girderformindlogger/girder_test:latest-py3
+      - image: girder/girder_test:latest-py3
     working_directory: /home/circleci/project  # as $CIRCLE_WORKING_DIRECTORY
     steps:
       - checkout:
@@ -295,7 +295,7 @@ jobs:
 
   ansible:
     docker:
-      - image: girderformindlogger/girder_test:latest-py3
+      - image: girder/girder_test:latest-py3
     working_directory: /home/circleci/project  # as $CIRCLE_WORKING_DIRECTORY
     steps:
       - checkout:
@@ -309,7 +309,7 @@ jobs:
 
   release:
     docker:
-      - image: girderformindlogger/girder_test:latest-py3
+      - image: girder/girder_test:latest-py3
     working_directory: /home/circleci/project
     steps:
       - checkout:
@@ -321,7 +321,7 @@ jobs:
 
   deploy:
     docker:
-      - image: girderformindlogger/girder_test:latest-py3
+      - image: girder/girder_test:latest-py3
     working_directory: /home/circleci/project  # as $CIRCLE_WORKING_DIRECTORY
     steps:
       # This step depends on both "py2_coverage" and "py3_coverage", as it should only run when

@@ -199,7 +199,7 @@ to ``pod.yaml``:
                         mountPath: /data/db
                   -
                     name: application
-                    image: girderformindlogger/girderformindlogger
+                    image: girder/girderformindlogger
                     ports:
                       -
                         name: app
