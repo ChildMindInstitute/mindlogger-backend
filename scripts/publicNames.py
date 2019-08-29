@@ -38,11 +38,11 @@ def addFileSymbols(filePath, symbolTree):
         '--languages=python',
         '--python-kinds=%s' % ''.join([
             # Skip imported symbols
-            '-i',
+            '-i'#,
             # Skip "as"-renamed imported modules
-            '-I'
+            #'-I'
             # Skip unknown symbols (which are typically "as"-renamed imported symbols)
-            '-x',
+            #'-x',
 
         ]),
         filePath
