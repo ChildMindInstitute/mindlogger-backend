@@ -63,7 +63,7 @@ package we are going to create.
       packages=find_packages(exclude=['plugin_tests']),
       zip_safe=False,
       setup_requires=['setuptools-git'],
-      install_requires=['girderformindlogger>=3', 'girder-jobs'],
+      install_requires=['girderformindlogger>=0.3', 'girder-jobs'],
       entry_points={
           'girderformindlogger.plugin': [ 'cats = girder_cats:CatsPlugin' ]
       }
@@ -97,7 +97,7 @@ in this example are specific to a Girder plugin.  These are as follows:
     its non-python data files) as a python "egg".  Girder plugins including web
     extensions **do not** support this feature.
 
-``install_requires=['girderformindlogger>=3', 'girder_jobs']``
+``install_requires=['girderformindlogger>=0.3', 'girder_jobs']``
     This tells the installer that Girder of at least version 3 is required for this package
     to function.  When installing with ``pip``, Girder will be automatically installed
     from pypi if it is not already installed.  Any additional dependencies (including

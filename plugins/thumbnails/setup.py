@@ -43,7 +43,7 @@ setup(
     packages=find_packages(exclude=['plugin_tests']),
     zip_safe=False,
     install_requires=[
-        'girderformindlogger>=3',
+        'girderformindlogger>=0.3',
         'girder-jobs>=3',
         'Pillow',
         'pydicom>=1.0.2',

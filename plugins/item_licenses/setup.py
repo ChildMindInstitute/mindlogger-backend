@@ -42,7 +42,7 @@ setup(
     include_package_data=True,
     packages=find_packages(exclude=['plugin_tests']),
     zip_safe=False,
-    install_requires=['girderformindlogger>=3'],
+    install_requires=['girderformindlogger>=0.3'],
     entry_points={
         'girderformindlogger.plugin': [
             'item_licenses = girder_item_licenses:ItemLicensesPlugin'

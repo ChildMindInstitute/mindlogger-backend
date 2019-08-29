@@ -42,7 +42,7 @@ setup(
     include_package_data=True,
     packages=find_packages(exclude=['plugin_tests']),
     zip_safe=False,
-    install_requires=['girderformindlogger>=3', 'pyldap'],
+    install_requires=['girderformindlogger>=0.3', 'pyldap'],
     entry_points={
         'girderformindlogger.plugin': [
             'ldap= girder_ldap:LDAPPlugin'

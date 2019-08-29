@@ -40,7 +40,7 @@ setup(
     ],
     packages=find_packages(),
     zip_safe=False,
-    install_requires=['girderformindlogger>=3'],
+    install_requires=['girderformindlogger>=0.3'],
     entry_points={
         'girderformindlogger.plugin': [
             'audit_logs = girder_audit_logs:AuditLogsPlugin'

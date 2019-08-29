@@ -43,7 +43,7 @@ setup(
     include_package_data=True,
     packages=find_packages(exclude=['plugin_tests']),
     zip_safe=False,
-    install_requires=['girderformindlogger>=3'],
+    install_requires=['girderformindlogger>=0.3'],
     entry_points={
         'girderformindlogger.plugin': [
             'google_analytics = girder_google_analytics:GoogleAnalyticsPlugin'
