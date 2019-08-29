@@ -47,7 +47,7 @@ class Group(AccessControlledModel):
 
         self.exposeFields(level=AccessType.READ, fields=(
             '_id', 'name', 'public', 'description', 'created', 'updated',
-            'addAllowed', '_addToGroupPolicy'))
+            'addAllowed', 'openRegistration', '_addToGroupPolicy'))
 
         events.bind('model.group.save.created',
                     CoreEventHandler.GROUP_CREATOR_ACCESS,
@@ -155,24 +155,30 @@ class Group(AccessControlledModel):
         invitation request that moderators and admins may grant or deny later.
         """
         from .user import User
+
         if 'groupInvites' not in user:
             user['groupInvites'] = []
 
-        for invite in user['groupInvites']:
-            if invite['groupId'] == group['_id']:
-                self.addUser(group, user, level=invite['level'])
-                user['groupInvites'].remove(invite)
-                User().save(user, validate=False)
-                break
+        if group.get('openRegistration', False):
+            self.addUser(group, user, level=AccessType.READ)
+            User().save(user, validate=False)
+
         else:
-            if 'requests' not in group:
-                group['requests'] = []
+            for invite in user['groupInvites']:
+                if invite['groupId'] == group['_id']:
+                    self.addUser(group, user, level=invite['level'])
+                    user['groupInvites'].remove(invite)
+                    User().save(user, validate=False)
+                    break
+            else:
+                if 'requests' not in group:
+                    group['requests'] = []
 
-            if not user['_id'] in group['requests']:
-                group['requests'].append(user['_id'])
-                group = self.save(group, validate=False)
+                if not user['_id'] in group['requests']:
+                    group['requests'].append(user['_id'])
+                    group = self.save(group, validate=False)
 
-        return group
+        return(group)
 
     def inviteUser(self, group, user, level=AccessType.READ):
         """
@@ -305,7 +311,14 @@ class Group(AccessControlledModel):
 
         return(group)
 
-    def createGroup(self, name, creator, description='', public=True):
+    def createGroup(
+        self,
+        name,
+        creator,
+        description='',
+        public=True,
+        openRegistration=False
+    ):
         """
         Create a new group. The creator will be given admin access to it.
 
@@ -317,9 +330,12 @@ class Group(AccessControlledModel):
         :type public: bool
         :param creator: User document representing the creator of the group.
         :type creator: dict
+        :param openRegistration: Whether users can join without being invited.
+        :type openRegistration: bool
         :returns: The group document that was created.
         """
         assert isinstance(public, bool)
+        assert isinstance(openRegistration, bool)
 
         now = datetime.datetime.utcnow()
 
@@ -329,12 +345,13 @@ class Group(AccessControlledModel):
             'creatorId': creator['_id'],
             'created': now,
             'updated': now,
+            'openRegistration': openRegistration,
             'requests': []
         }
 
         self.setPublic(group, public, save=False)
 
-        return self.save(group)
+        return(self.save(group))
 
     def _grantCreatorAccess(self, event):
         """
