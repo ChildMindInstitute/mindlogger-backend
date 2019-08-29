@@ -394,10 +394,17 @@ class Group(Resource):
         .modelParam('userId', 'The ID of the user to remove. If not passed, will '
                     'remove yourself from the group.', required=False, model=User,
                     force=True, destName='userToRemove', paramType='formData')
+        .param(
+            'delete',
+            'Delete existing user data associated with this group membership?',
+            dataType='boolean',
+            required=False,
+            default=False
+        )
         .errorResponse()
         .errorResponse("You don't have permission to remove that user.", 403)
     )
-    def removeFromGroup(self, group, userToRemove):
+    def removeFromGroup(self, group, userToRemove, delete):
         user = self.getCurrentUser()
         if not (bool(
             group.get('_id') in [
@@ -414,7 +421,6 @@ class Group(Resource):
             raise AccessException(message="You haven't been invited to that group.")
         else:
             groupModel = self._model
-
             if userToRemove is None:
                 # Assume user is removing themself from the group
                 userToRemove = user
@@ -427,8 +433,7 @@ class Group(Resource):
             #         groupModel.requireAccess(group, user, AccessType.ADMIN)
             #     else:
             #         groupModel.requireAccess(group, user, AccessType.WRITE)
-
-            group = groupModel.removeUser(group, userToRemove)
+            group = groupModel.removeUser(group, userToRemove, delete)
             group['access'] = groupModel.getFullAccessList(group)
             group['requests'] = list(groupModel.getFullRequestList(group))
             return(group)

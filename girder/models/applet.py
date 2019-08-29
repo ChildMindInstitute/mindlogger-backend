@@ -53,7 +53,7 @@ class Applet(Folder):
         constraints=None
     ):
         """
-        Function to create an Applet.
+        Method to create an Applet.
 
         :param name: Name for the Applet
         :type name: str
@@ -147,9 +147,9 @@ class Applet(Folder):
             )
         return(applet)
 
-    def getAppletGroups(self, appletId, arrayOfObjects=False):
+    def getAppletGroups(self, applet, arrayOfObjects=False):
         # get role list for applet
-        roleList = self.getFullRolesList(appletId)
+        roleList = self.getFullRolesList(applet)
         # query groups from role list`& return
         appletGroups = {
             role: {
@@ -166,6 +166,46 @@ class Applet(Folder):
                 ].keys()
             ] if arrayOfObjects else appletGroups
         )
+
+    def getAppletsForGroup(self, role, groupId, active=True):
+        """
+        Method get Applets for a Group.
+
+        :param role: Role to find
+        :type name: str
+        :param groupId: _id of group
+        :type activitySet: str
+        :param active: Only return active Applets?
+        :type active: bool
+        :returns: list of dicts
+        """
+        applets = list(self.find(
+            {
+                'roles.' + role + '.groups.id': groupId,
+                'meta.applet.deleted': {'$ne': active}
+            }
+        ))
+        return(applets if isinstance(applets, list) else [applets])
+
+    def getAppletsForUser(self, role, user, active=True):
+        """
+        Method get Applets for a User.
+
+        :param role: Role to find
+        :type name: str
+        :param user: User to find
+        :type user: dict
+        :param active: Only return active Applets?
+        :type active: bool
+        :returns: list of dicts
+        """
+        return(list(itertools.chain.from_iterable([
+            self.getAppletsForGroup(
+                role,
+                groupId,
+                active
+            ) for groupId in user.get('groups', [])
+        ])))
 
     def getAppletUsers(self, appletId):
         # get groups for applet

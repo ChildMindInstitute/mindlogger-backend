@@ -50,6 +50,7 @@ class Applet(Resource):
         self._model = AppletModel()
         self.route('GET', (), self.getAppletFromURL)
         self.route('GET', (':id',), self.getApplet)
+        self.route('GET', (':id', 'groups'), self.getAppletGroups)
         self.route('POST', (), self.createApplet)
         self.route('PUT', (':id', 'assign'), self.assignGroup)
         self.route('PUT', (':id', 'constraints'), self.setConstraints)
@@ -231,6 +232,38 @@ class Applet(Resource):
                 user,
                 refreshCache=refreshCache
             )
+        )
+
+    @access.user(scope=TokenScope.DATA_READ)
+    @autoDescribeRoute(
+        Description('Get associated groups for a given role and applet ID.')
+        .modelParam('id', 'ID of the Applet.', model=AppletModel, level=AccessType.READ)
+        .param(
+            'role',
+            'One of ' + str(set(USER_ROLE_KEYS)),
+            default='user',
+            required=False,
+            strip=True
+        )
+        .errorResponse('Invalid applet ID.')
+        .errorResponse('Read access was denied for this applet.', 403)
+    )
+    def getAppletGroups(self, folder, role):
+        applet = folder
+        user = self.getCurrentUser()
+        groups = [
+            group for group in AppletModel(
+            ).getAppletGroups(applet).get(role) if ObjectId(group) in [
+                *user.get('groups'),
+                *user.get('formerGroups'),
+                *[invite['groupId'] for invite in [
+                    *user.get('groupInvites'),
+                    *user.get('declinedInvites')
+                ]]
+            ]
+        ]
+        return(
+            groups
         )
 
     @access.user(scope=TokenScope.DATA_WRITE)

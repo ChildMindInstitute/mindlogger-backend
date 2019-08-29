@@ -225,23 +225,65 @@ class Group(AccessControlledModel):
             {'groupInvites.groupId': group['_id']},
             limit=limit, offset=offset, sort=sort)
 
-    def removeUser(self, group, user):
+    def removeUser(self, group, user, delete=False):
         """
         Remove the user from the group. If the user is not in the group but
         has an outstanding invitation to the group, the invitation will be
         revoked. If the user has requested an invitation, calling this will
         deny that request, thereby deleting it.
         """
+        from .applet import Applet
+        from .folder import Folder
+        from .item import Item
         from .user import User
         # Remove group membership for this user.
+        if delete:
+            # Get applets for group and delete data for applets
+            [
+                Folder().remove(
+                    Folder().load(
+                        rf,
+                        force=True
+                    ),
+                    progress=None # TODO: enable progress response
+                ) for rf in list(set(
+                    responseFolder['parentId'] for responseFolder in [
+                        Folder().load(
+                            folder,
+                            fields=['_id', 'parentId', 'baseParentId'],
+                            force=True
+                        ) for folder in list(set(
+                            item.get('folderId') for item in list(Item().find(
+                                query={
+                                    'meta.applet.@id': {
+                                        '$in': [
+                                            applet['_id'] for applet in Applet(
+                                            ).getAppletsForGroup(
+                                                'user',
+                                                group.get('_id', group),
+                                                False
+                                            )
+                                        ]
+                                    },
+                                    'baseParentType': 'user',
+                                    'baseParentId': user['_id']
+                                },
+                                fields=['folderId']
+                            ))
+                        ))
+                    ] if responseFolder['baseParentId']==user['_id']
+                ))
+            ]
         if 'groups' in user and group['_id'] in user['groups']:
-            if 'formerGroups' in user and isinstance(
-                user['formerGroups'],
-                list
-            ):
-                user['formerGroups'].append(group['_id'])
-            else:
-                user['formerGroups'] = [group['_id']]
+            if not delete:
+                # if not deleting, save as a former group
+                if 'formerGroups' in user and isinstance(
+                    user['formerGroups'],
+                    list
+                ):
+                    user['formerGroups'].append(group['_id'])
+                else:
+                    user['formerGroups'] = [group['_id']]
             user['groups'].remove(group['_id'])
 
         # Remove outstanding requests from this user
@@ -261,7 +303,7 @@ class Group(AccessControlledModel):
         # Remove all group access for this user on this group.
         self.setUserAccess(group, user, level=None, save=True)
 
-        return group
+        return(group)
 
     def createGroup(self, name, creator, description='', public=True):
         """

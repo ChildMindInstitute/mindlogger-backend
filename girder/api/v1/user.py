@@ -219,14 +219,7 @@ class User(Resource):
             )
         reviewer = self.getCurrentUser()
         # New schema, new roles
-        applets = list(itertools.chain.from_iterable([
-            list(AppletModel().find(
-                {
-                    'roles.' + role + '.groups.id': groupId,
-                    'meta.applet.deleted': {'$ne': True}
-                }
-            )) for groupId in user.get('groups', [])
-        ]))
+        applets = AppletModel().getAppletsForUser(role, user, active=True)
         if ids_only==True:
             return([applet.get('_id') for applet in applets])
         try:
