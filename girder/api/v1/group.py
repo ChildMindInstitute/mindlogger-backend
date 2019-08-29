@@ -65,7 +65,7 @@ class Group(Resource):
     @access.public
     @filtermodel(model=GroupModel)
     @autoDescribeRoute(
-        Description('List all open groups.')
+        Description('List all groups with open registration.')
         .pagingParams(defaultSort='name')
         .errorResponse()
     )
