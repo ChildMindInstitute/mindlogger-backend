@@ -1,11 +1,11 @@
 # -*- coding: utf-8 -*-
-from girder.api import access
-from girder.api.describe import Description, autoDescribeRoute
-from girder.api.rest import filtermodel, Resource
-from girder.constants import AccessType
-from girder.exceptions import RestException
-from girder.models.file import File
-from girder.utility.model_importer import ModelImporter
+from girderformindlogger.api import access
+from girderformindlogger.api.describe import Description, autoDescribeRoute
+from girderformindlogger.api.rest import filtermodel, Resource
+from girderformindlogger.constants import AccessType
+from girderformindlogger.exceptions import RestException
+from girderformindlogger.models.file import File
+from girderformindlogger.utility.model_importer import ModelImporter
 from girder_jobs.models.job import Job
 from . import utils
 

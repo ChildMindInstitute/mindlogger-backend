@@ -3,10 +3,10 @@ import datetime
 import logging
 import six
 from six.moves import urllib
-from girder import auditLogger
-from girder.models.model_base import Model
-from girder.api.rest import getCurrentUser
-from girder.plugin import GirderPlugin
+from girderformindlogger import auditLogger
+from girderformindlogger.models.model_base import Model
+from girderformindlogger.api.rest import getCurrentUser
+from girderformindlogger.plugin import GirderPlugin
 
 
 class Record(Model):

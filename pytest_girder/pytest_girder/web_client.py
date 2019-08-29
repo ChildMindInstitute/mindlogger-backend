@@ -6,15 +6,15 @@ import time
 
 
 def _webClientResource():
-    from girder.api import access
-    from girder.api.describe import describeRoute, Description
-    from girder.api.rest import Resource
-    from girder.constants import ROOT_DIR, registerAccessFlag
-    from girder.exceptions import RestException
-    from girder.models.folder import Folder
-    from girder.models.upload import Upload
-    from girder.plugin import getPlugin
-    from girder.utility.progress import ProgressContext
+    from girderformindlogger.api import access
+    from girderformindlogger.api.describe import describeRoute, Description
+    from girderformindlogger.api.rest import Resource
+    from girderformindlogger.constants import ROOT_DIR, registerAccessFlag
+    from girderformindlogger.exceptions import RestException
+    from girderformindlogger.models.folder import Folder
+    from girderformindlogger.models.upload import Upload
+    from girderformindlogger.plugin import getPlugin
+    from girderformindlogger.utility.progress import ProgressContext
 
     class _WebClientTestEndpoints(Resource):
         def __init__(self):
@@ -119,13 +119,13 @@ def runWebClientTest(boundServer, spec, jasmineTimeout=None):
     :param jasmineTimeout: override for jasmine timeout in ms.  This defaults to
         5000ms.
     """
-    from girder.constants import ROOT_DIR
+    from girderformindlogger.constants import ROOT_DIR
 
     boundServer.root.api.v1.webclienttest = _webClientResource()
 
     cmd = (
         'npx', 'phantomjs',
-        os.path.join(ROOT_DIR, 'girder', 'web_client', 'test', 'specRunner.js'),
+        os.path.join(ROOT_DIR, 'girderformindlogger', 'web_client', 'test', 'specRunner.js'),
         'http://localhost:%s/static/built/testEnv.html' % boundServer.boundPort,
         spec,
         str(jasmineTimeout or ''),

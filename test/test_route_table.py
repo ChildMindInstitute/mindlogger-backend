@@ -3,11 +3,11 @@ import pytest
 from pytest_girder.assertions import assertStatusOk
 from pytest_girder.utils import getResponseBody
 
-from girder.constants import GIRDER_ROUTE_ID
-from girder.exceptions import ValidationException
-from girder.models.setting import Setting
-from girder.plugin import GirderPlugin, registerPluginWebroot
-from girder.settings import SettingKey
+from girderformindlogger.constants import GIRDER_ROUTE_ID
+from girderformindlogger.exceptions import ValidationException
+from girderformindlogger.models.setting import Setting
+from girderformindlogger.plugin import GirderPlugin, registerPluginWebroot
+from girderformindlogger.settings import SettingKey
 
 
 class SomeWebroot(object):
@@ -66,7 +66,7 @@ def testRouteTableBehavior(server, admin):
     assertStatusOk(resp)
     assert 'some webroot' in getResponseBody(resp)
 
-    # girder should be at /
+    # girderformindlogger should be at /
     resp = server.request('/', prefix='', isJson=False)
     assertStatusOk(resp)
     assert 'g-global-info-apiroot' in getResponseBody(resp)

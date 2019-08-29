@@ -3,13 +3,13 @@ import time
 
 from .. import base
 
-from girder.exceptions import ValidationException
-from girder.models.notification import ProgressState
-from girder.models.setting import Setting
-from girder.models.token import Token
-from girder.models.user import User
-from girder.settings import SettingKey
-from girder.utility.progress import ProgressContext
+from girderformindlogger.exceptions import ValidationException
+from girderformindlogger.models.notification import ProgressState
+from girderformindlogger.models.setting import Setting
+from girderformindlogger.models.token import Token
+from girderformindlogger.models.user import User
+from girderformindlogger.settings import SettingKey
+from girderformindlogger.utility.progress import ProgressContext
 
 
 def setUpModule():

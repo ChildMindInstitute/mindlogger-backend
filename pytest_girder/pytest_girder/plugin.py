@@ -33,7 +33,7 @@ def pytest_configure(config):
 
 
 def pytest_addoption(parser):
-    group = parser.getgroup('girder')
+    group = parser.getgroup('girderformindlogger')
     group.addoption('--mock-db', action='store_true', default=False,
                     help='Whether or not to mock the database using mongomock.')
     group.addoption('--mongo-uri', action='store', default='mongodb://localhost:27017',

@@ -6,13 +6,13 @@ from pytest_girder.assertions import assertStatus, assertStatusOk
 from pytest_girder.utils import getResponseBody
 from six.moves.urllib.parse import urlparse
 
-from girder.api import access
-from girder.api.describe import Description, describeRoute
-from girder.api.rest import boundHandler, rawResponse, Resource, setResponseHeader
-from girder.api.v1.collection import Collection
-from girder.constants import TokenScope
-from girder.utility.server import staticFile
-from girder.plugin import GirderPlugin
+from girderformindlogger.api import access
+from girderformindlogger.api.describe import Description, describeRoute
+from girderformindlogger.api.rest import boundHandler, rawResponse, Resource, setResponseHeader
+from girderformindlogger.api.v1.collection import Collection
+from girderformindlogger.constants import TokenScope
+from girderformindlogger.utility.server import staticFile
+from girderformindlogger.plugin import GirderPlugin
 
 
 @access.user(scope=TokenScope.ANONYMOUS_SESSION)
@@ -92,10 +92,10 @@ class Other(Resource):
 
 class CustomRoot(GirderPlugin):
     def load(self, info):
-        info['serverRoot'], info['serverRoot'].girder = (
+        info['serverRoot'], info['serverRoot'].girderformindlogger = (
             CustomAppRoot(), info['serverRoot'])
-        info['serverRoot'].api = info['serverRoot'].girder.api
-        del info['serverRoot'].girder.api
+        info['serverRoot'].api = info['serverRoot'].girderformindlogger.api
+        del info['serverRoot'].girderformindlogger.api
 
         info['apiRoot'].collection.route('GET', ('unbound', 'default', 'noargs'),
                                          unboundHandlerDefaultNoArgs)
@@ -112,7 +112,7 @@ class CustomRoot(GirderPlugin):
 @pytest.mark.plugin('test_plugin', CustomRoot)
 @pytest.mark.parametrize('route,text', [
     ('/', 'hello world from test_plugin'),
-    ('/girder', 'g-global-info-apiroot'),
+    ('/girderformindlogger', 'g-global-info-apiroot'),
     ('/api/v1', 'Girder REST API Documentation'),
     ('/static_route', 'Hello world!')
 ])
@@ -124,13 +124,13 @@ def testPluginRoutesForHumans(server, route, text):
 
 def testServerInfoInErrorPage(server):
     # For security, we want to ensure cherrypy does not appear in server info
-    resp = server.request('/girder/api/v1', prefix='', isJson=False)
+    resp = server.request('/girderformindlogger/api/v1', prefix='', isJson=False)
     assertStatus(resp, 404)
     body = getResponseBody(resp).lower()
     server = resp.headers['Server'].lower()
     assert 'cherrypy' not in body + server
-    assert 'girder' in body
-    assert 'girder' in server
+    assert 'girderformindlogger' in body
+    assert 'girderformindlogger' in server
 
 
 def testApiRedirect(server):

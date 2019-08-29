@@ -1,6 +1,6 @@
-from girder.models.file import File
-from girder.models.folder import Folder
-from girder.models.upload import Upload
+from girderformindlogger.models.file import File
+from girderformindlogger.models.folder import Folder
+from girderformindlogger.models.upload import Upload
 from six import BytesIO
 
 

@@ -1,11 +1,11 @@
 # -*- coding: utf-8 -*-
-from girder import events
-from girder.models.notification import ProgressState
+from girderformindlogger import events
+from girderformindlogger.models.notification import ProgressState
 
 JOB_HANDLER_LOCAL = 'jobs._local'
 
 
-# Scope used allow RESTful creation of girder job models
+# Scope used allow RESTful creation of girderformindlogger job models
 REST_CREATE_JOB_TOKEN_SCOPE = 'jobs.rest.create_job'
 
 

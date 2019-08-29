@@ -5,9 +5,9 @@ import six
 import sys
 import tempfile
 
-import girder
-from girder import logger, logprint, logStdoutStderr
-from girder.utility import config
+import girderformindlogger
+from girderformindlogger import logger, logprint, logStdoutStderr
+from girderformindlogger.utility import config
 
 INFO_MSG = 'Log info message'
 ERROR_MSG = 'Log error message'
@@ -44,7 +44,7 @@ def configureLogging(logConfig=None, oneFile=False):
         os.unlink(cfg['logging']['error_log_file'])
     cfg['logging'].update(logConfig or {})
 
-    girder._attachFileLogHandlers()
+    girderformindlogger._attachFileLogHandlers()
 
     return cfg['logging']
 

@@ -1,9 +1,9 @@
 import pytest
 import random
 
-from girder.constants import TokenScope
-from girder.exceptions import AccessException
-from girder.models.token import genToken, Token
+from girderformindlogger.constants import TokenScope
+from girderformindlogger.exceptions import AccessException
+from girderformindlogger.models.token import genToken, Token
 from pytest_girder.assertions import assertStatus, assertStatusOk
 
 

@@ -4,7 +4,7 @@
   vars:
     girder_module_virtualenv: "{{ ansible_user_dir }}/.virtualenvs/girder_module"
   pre_tasks:
-    - name: Install girder client
+    - name: Install girderformindlogger client
       pip:
         name: girder-client
         extra_args: "--pre"

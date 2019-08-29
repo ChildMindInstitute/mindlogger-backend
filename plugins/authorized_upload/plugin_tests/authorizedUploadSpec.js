@@ -72,7 +72,7 @@ describe('Perform authorized upload', function () {
 
         runs(function () {
             girderTest._prepareTestUpload();
-            girderTest.sendFile('girder/web_client/test/testFile.txt');
+            girderTest.sendFile('girderformindlogger/web_client/test/testFile.txt');
             $('#g-files').parent().addClass('hide');
             $('.g-start-upload').click();
         });

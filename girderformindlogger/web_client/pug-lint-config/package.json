@@ -1,0 +1,21 @@
+{
+  "name": "@girder/pug-lint-config",
+  "version": "0.0.0",
+  "description": "Pug-lint configuration for girderformindlogger.",
+  "license": "Apache-2.0",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/girderformindlogger/girderformindlogger.git"
+  },
+  "bugs": {
+    "url": "https://github.com/girderformindlogger/girderformindlogger/issues"
+  },
+  "peerDependencies": {
+    "pug-lint": "^2.6"
+  },
+  "keywords": [
+    "puglint",
+    "puglintconfig",
+    "girderformindlogger"
+  ]
+}

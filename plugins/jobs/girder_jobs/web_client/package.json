@@ -2,14 +2,14 @@
     "name": "@girder/jobs",
     "version": "0.0.0",
     "description": "A general purpose plugin for managing offline jobs.",
-    "homepage": "http://girder.readthedocs.io/en/latest/plugins.html#jobs",
+    "homepage": "http://girderformindlogger.readthedocs.io/en/latest/plugins.html#jobs",
     "bugs": {
-        "url": "https://github.com/girder/girder/issues"
+        "url": "https://github.com/girderformindlogger/girderformindlogger/issues"
     },
     "license": "Apache-2.0",
     "repository": {
         "type": "git",
-        "url": "https://github.com/girder/girder.git"
+        "url": "https://github.com/girderformindlogger/girderformindlogger.git"
     },
     "peerDependencies": {
         "@girder/core": "*"

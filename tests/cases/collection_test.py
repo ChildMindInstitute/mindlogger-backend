@@ -3,13 +3,13 @@ import json
 
 from .. import base
 from bson.objectid import ObjectId
-from girder.constants import AccessType
-from girder.models.collection import Collection
-from girder.models.folder import Folder
-from girder.models.group import Group
-from girder.models.setting import Setting
-from girder.models.user import User
-from girder.settings import SettingKey
+from girderformindlogger.constants import AccessType
+from girderformindlogger.models.collection import Collection
+from girderformindlogger.models.folder import Folder
+from girderformindlogger.models.group import Group
+from girderformindlogger.models.setting import Setting
+from girderformindlogger.models.user import User
+from girderformindlogger.settings import SettingKey
 
 
 def setUpModule():

@@ -4,10 +4,10 @@ import re
 import requests
 import six
 
-from girder.exceptions import RestException, ValidationException
-from girder.models.setting import Setting
-from girder.models.user import User
-from girder.settings import SettingKey
+from girderformindlogger.exceptions import RestException, ValidationException
+from girderformindlogger.models.setting import Setting
+from girderformindlogger.models.user import User
+from girderformindlogger.settings import SettingKey
 
 from ..settings import PluginSettings
 

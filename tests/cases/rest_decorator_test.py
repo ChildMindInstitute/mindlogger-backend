@@ -5,9 +5,9 @@ import requests
 import unittest
 
 from .. import base
-from girder import config
-from girder.api.rest import endpoint
-from girder.models.user import User
+from girderformindlogger import config
+from girderformindlogger.api.rest import endpoint
+from girderformindlogger.models.user import User
 
 
 def setUpModule():

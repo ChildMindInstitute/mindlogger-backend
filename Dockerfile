@@ -3,7 +3,7 @@ LABEL maintainer="Kitware, Inc. <kitware@kitware.com>"
 
 EXPOSE 8080
 
-RUN mkdir /girder
+RUN mkdir /girderformindlogger
 
 RUN apt-get update && apt-get install -qy \
     gcc \
@@ -15,12 +15,12 @@ RUN apt-get update && apt-get install -qy \
 
 RUN wget https://bootstrap.pypa.io/get-pip.py && python get-pip.py
 
-WORKDIR /girder
-COPY . /girder/
+WORKDIR /girderformindlogger
+COPY . /girderformindlogger/
 
 # TODO: Do we want to create editable installs of plugins as well?  We
 # will need a plugin only requirements file for this.
 RUN pip install --upgrade --upgrade-strategy eager --editable .
-RUN girder build
+RUN girderformindlogger build
 
-ENTRYPOINT ["girder", "serve"]
+ENTRYPOINT ["girderformindlogger", "serve"]

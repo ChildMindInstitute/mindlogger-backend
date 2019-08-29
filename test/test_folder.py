@@ -2,8 +2,8 @@
 import pytest
 from bson.objectid import ObjectId
 
-from girder.exceptions import AccessException
-from girder.models.folder import Folder
+from girderformindlogger.exceptions import AccessException
+from girderformindlogger.models.folder import Folder
 from pytest_girder.assertions import assertStatus, assertStatusOk
 
 

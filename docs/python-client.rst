@@ -70,12 +70,12 @@ Specifying credentials
 The recommended way is to generate an :ref:`API key <api_keys>` and specify
 the ``api-key`` argument. ::
 
-    girder-client --api-url https://girder.example.com:443/api/v1  --api-key abcdefghijklmopqrstuvwxyz012345678901234 ...
+    girder-client --api-url https://girderformindlogger.example.com:443/api/v1  --api-key abcdefghijklmopqrstuvwxyz012345678901234 ...
 
 Setting the ``GIRDER_API_KEY`` environment variable is also supported: ::
 
     export GIRDER_API_KEY=abcdefghijklmopqrstuvwxyz012345678901234
-    girder-client --api-url https://girder.example.com:443/api/v1 ...
+    girder-client --api-url https://girderformindlogger.example.com:443/api/v1 ...
 
 The client also supports ``username`` and ``password`` args. If only the
 ``username`` is specified, the client will prompt the user to interactively
@@ -188,7 +188,7 @@ the local folder `download_folder`::
 File
 """"
 
-To download a specific file from girder with id `58b8eb798d777f0aef5d0f78` to
+To download a specific file from girderformindlogger with id `58b8eb798d777f0aef5d0f78` to
 the local file `local_file` ::
 
     girder-client download --parent-type file 8b8eb798d777f0aef5d0f78  local_file
@@ -220,8 +220,8 @@ can be synchronized locally by ::
 This will only download new Items or Items that have been modified since the
 last download/localsync. Local files that are no longer present in the remote
 Girder Folder will not be removed. This command relies on a presence of
-metadata file `.metadata-girder` within `download_folder`, which is created
-upon `girder-client download`. If `.metadata-girder` is not present,
+metadata file `.metadata-girderformindlogger` within `download_folder`, which is created
+upon `girder-client download`. If `.metadata-girderformindlogger` is not present,
 `localsync` will fallback to `download`.
 
 The Python Client Library
@@ -238,7 +238,7 @@ id `54b43e9b8926486c0c06cb4f` and copy those to all of the descendant Folders
 
 .. code-block:: python
 
-    import girder_client
+    import girderformindlogger_client
     gc = girder_client.GirderClient(apiUrl='https://data.kitware.com/api/v1')
     gc.authenticate('username', 'password')
     gc.inheritAccessControlRecursive('54b43e9b8926486c0c06cb4f')
@@ -256,7 +256,7 @@ and Items are uploaded to the Folder.
 
 .. code-block:: python
 
-    import girder_client
+    import girderformindlogger_client
     gc = girder_client.GirderClient()
 
     def folderCallback(folder, filepath):

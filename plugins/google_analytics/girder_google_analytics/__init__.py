@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-from girder.plugin import GirderPlugin
+from girderformindlogger.plugin import GirderPlugin
 
 from . import rest
 

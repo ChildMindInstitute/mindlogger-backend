@@ -90,7 +90,7 @@ To create and enable a Python virtual environment, run the commands:
 
              source girder_env/bin/activate
 
-          in any other shell where you want to install or run Girder.
+          in any other shell where you want to install or run girderformindlogger.
 
 MongoDB
 -------

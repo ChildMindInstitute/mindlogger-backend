@@ -1,13 +1,13 @@
 import json
 from bson import json_util
-from girder import events
-from girder.api import access, rest
-from girder.api.v1.folder import Folder as FolderResource
-from girder.constants import AccessType
-from girder.exceptions import ValidationException
-from girder.models.folder import Folder
-from girder.models.item import Item
-from girder.plugin import GirderPlugin
+from girderformindlogger import events
+from girderformindlogger.api import access, rest
+from girderformindlogger.api.v1.folder import Folder as FolderResource
+from girderformindlogger.constants import AccessType
+from girderformindlogger.exceptions import ValidationException
+from girderformindlogger.models.folder import Folder
+from girderformindlogger.models.item import Item
+from girderformindlogger.plugin import GirderPlugin
 
 
 def _validateFolder(event):

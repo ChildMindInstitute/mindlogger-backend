@@ -1,8 +1,8 @@
 # -*- coding: utf-8 -*-
-from girder import events
-from girder.constants import AccessType
-from girder.models.file import File
-from girder.plugin import GirderPlugin
+from girderformindlogger import events
+from girderformindlogger.constants import AccessType
+from girderformindlogger.models.file import File
+from girderformindlogger.plugin import GirderPlugin
 
 
 def _onDownloadFileRequest(event):

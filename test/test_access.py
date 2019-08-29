@@ -1,12 +1,12 @@
 # -*- coding: utf-8 -*-
 import pytest
 
-from girder.api.rest import loadmodel, Resource
-from girder.api import access
-from girder.constants import AccessType, TokenScope
-from girder.models.user import User
-from girder.models.token import Token
-from girder.settings import SettingKey
+from girderformindlogger.api.rest import loadmodel, Resource
+from girderformindlogger.api import access
+from girderformindlogger.constants import AccessType, TokenScope
+from girderformindlogger.models.user import User
+from girderformindlogger.models.token import Token
+from girderformindlogger.settings import SettingKey
 from pytest_girder.assertions import assertStatus, assertStatusOk
 
 

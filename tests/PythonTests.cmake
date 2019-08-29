@@ -3,7 +3,7 @@ set(server_port 20200)
 if(RUN_CORE_TESTS)
   set(_python_coverage_omit_extra "")
 else()
-  set(_python_coverage_omit_extra "--omit=girder/*,clients/python/*")
+  set(_python_coverage_omit_extra "--omit=girderformindlogger/*,clients/python/*")
 endif()
 
 if(WIN32)
@@ -92,7 +92,7 @@ function(add_python_test case)
     WORKING_DIRECTORY "${PROJECT_SOURCE_DIR}"
     COMMAND "${PYTHON_COVERAGE_EXECUTABLE}" run
       ${_python_coverage_omit_extra}
-      "--source=girder,${PROJECT_SOURCE_DIR}/clients/python/girder_client${other_covg}"
+      "--source=girderformindlogger,${PROJECT_SOURCE_DIR}/clients/python/girder_client${other_covg}"
       -m unittest -v ${module}
   )
 

@@ -13,12 +13,12 @@ For this, you need `Vagrant <https://www.vagrantup.com/downloads.html>`_ and `Vi
 Girder is tested to work seamlessly with Vagrant 2.0 and VirtualBox 5.1.
 
 Once you have those installed, obtain the Girder source code by cloning the Git
-repository on `GitHub <https://github.com/girder/girder>`_:
+repository on `GitHub <https://github.com/girderformindlogger/girderformindlogger>`_:
 
 .. code-block:: bash
 
-    git clone https://github.com/girder/girder.git
-    cd girder
+    git clone https://github.com/girderformindlogger/girderformindlogger.git
+    cd girderformindlogger
 
 Inside of the Girder directory, simply run:
 
@@ -26,7 +26,7 @@ Inside of the Girder directory, simply run:
 
     vagrant up
     vagrant ssh
-    girder serve
+    girderformindlogger serve
 
 This creates a VM running Ubuntu 18.04, then automatically installs Girder
 within it. After it completes, Girder will be up and running at
@@ -45,6 +45,6 @@ To rebuild the web client:
 
 .. code-block:: bash
 
-    girder build --dev
+    girderformindlogger build --dev
 
 For more development documentation, see `During Development <development.html#during-development>`__

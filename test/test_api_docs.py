@@ -5,7 +5,7 @@ import pytest
 from pytest_girder.assertions import assertStatusOk
 from pytest_girder.utils import getResponseBody
 
-from girder.plugin import GirderPlugin
+from girderformindlogger.plugin import GirderPlugin
 
 
 class CustomAPIDocs(GirderPlugin):

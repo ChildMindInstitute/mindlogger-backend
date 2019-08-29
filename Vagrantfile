@@ -18,7 +18,7 @@ Vagrant.configure("2") do |config|
   end
 
   config.vm.box = vagrant_box
-  config.vm.hostname = "girder"
+  config.vm.hostname = "girderformindlogger"
   config.vm.provider "virtualbox" do |virtualbox|
     virtualbox.memory = 2048
   end
@@ -27,20 +27,20 @@ Vagrant.configure("2") do |config|
   config.vm.post_up_message = <<-eos
 Girder has been installed, to run it perform the following steps:
 vagrant ssh
-girder serve
+girderformindlogger serve
 
 Visit http://localhost:9080.
 eos
 
   config.vm.synced_folder ".", "/vagrant", disabled: true
-  config.vm.synced_folder ".", "/home/vagrant/girder"
+  config.vm.synced_folder ".", "/home/vagrant/girderformindlogger"
 
   config.vm.provision "ansible_local" do |ansible|
     ansible.compatibility_mode = '2.0'
     ansible.config_file = 'devops/vagrant/ansible.cfg'
     ansible.galaxy_role_file = 'devops/vagrant/vagrant-requirements.yml'
     ansible.playbook = "devops/vagrant/vagrant-playbook.yml"
-    ansible.provisioning_path = "/home/vagrant/girder"
+    ansible.provisioning_path = "/home/vagrant/girderformindlogger"
     ansible.extra_vars = {
       bind_node_modules: bind_node_modules
     }

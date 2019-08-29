@@ -5,7 +5,7 @@ Girder is a platform-centric web application whose client and server are very
 loosely coupled. As such, development of Girder can be divided into the server
 (a CherryPy-based Python module) and the primary client (a Backbone-based) web
 client. This section is intended to get prospective contributors to understand
-the tools used to develop Girder.
+the tools used to develop girderformindlogger.
 
 Configuring Your Development Environment
 ----------------------------------------
@@ -20,11 +20,11 @@ provide helpful development tools and to allow the test suite to run: ::
 
 Install front-end web client development dependencies and build the web client code: ::
 
-    girder build --dev
+    girderformindlogger build --dev
 
 For more options for building the web client, run: ::
 
-    girder build --help
+    girderformindlogger build --help
 
 Finally, you'll want to set your server into development mode. Add the following entry into your
 local config file (see :ref:`Configuration <configuration>` for instructions):
@@ -50,7 +50,7 @@ documentation on how to set this up, see `Developer Installation <dev-installati
 During Development
 ------------------
 
-Once Girder is started via ``girder serve``, the server
+Once Girder is started via ``girderformindlogger serve``, the server
 will reload itself whenever a Python file is modified.
 
 If you are doing front-end development, it's much faster to use a *watch* process to perform
@@ -58,11 +58,11 @@ automatic fast rebuilds of your code whenever you make changes to source files.
 
 If you are making changes to Girder's core web client, run the following watch command: ::
 
-    girder build --watch
+    girderformindlogger build --watch
 
 If you are developing a web client of a plugin, run: ::
 
-    girder build --watch-plugin your_plugin_name
+    girderformindlogger build --watch-plugin your_plugin_name
 
 With ``watch`` option, *sourcemaps* will be generated, which helps debugging front-end code in browser.
 When you want to end the watch process, press Ctrl+C (or however you would normally terminate a
@@ -74,10 +74,10 @@ Girder Shell
 To test various functionality in a typical REPL (Python, IPython, etc) some bootstrapping
 is required to configure the Girder server. This sets up an "embedded" server, meaning no TCP ports
 are actually bound but requests can still be performed via Python. Bootstrapping the server
-involves running ``girder.utility.server.configureServer`` with the plugins to be enabled.
+involves running ``girderformindlogger.utility.server.configureServer`` with the plugins to be enabled.
 
 Girder provides a utility script for entering into a shell with the server preconfigured. Once
-Girder is installed the script can be run using ``girder shell`` which optionally takes a comma
+Girder is installed the script can be run using ``girderformindlogger shell`` which optionally takes a comma
 separated list of plugins to enable.
 
 Utilities
@@ -93,10 +93,10 @@ The Girder configuration loader allows for lazy-loading of configuration values
 in a CherryPy-agnostic manner. The recommended idiom for getting the config
 object is: ::
 
-    from girder.utility import config
+    from girderformindlogger.utility import config
     cur_config = config.getConfig()
 
-There is a configuration file for Girder located in **girder/conf**. The file
+There is a configuration file for Girder located in **girderformindlogger/conf**. The file
 **girder.dist.cfg** is the file distributed with the repository and containing
 the default configuration values. This file should not be edited when deploying
 Girder. Rather, create a custom **girder.cfg** file and place it in one of the supported
@@ -184,7 +184,7 @@ First, you will need to configure the project with
 
     mkdir ../girder-build
     cd ../girder-build
-    cmake ../girder
+    cmake ../girderformindlogger
 
 You only need to do this once. From then on, whenever you want to run the
 tests, just: ::
@@ -244,7 +244,7 @@ The coverage data will be automatically generated. After the tests are run,
 you can find the HTML output from the coverage tool in the source directory
 under **build/test/artifacts/**.
 
-.. note:: Non-packaged third-party modules in the the ``girder/external`` directory are not included
+.. note:: Non-packaged third-party modules in the the ``girderformindlogger/external`` directory are not included
           in test coverage tracking.
 
 
@@ -282,11 +282,11 @@ kill the process, and then try your tests again.
 Adding a New Client Side Test
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-To add a new client side test, add a new spec file in ``/girder/web_client/test/spec/``, add a line
-referencing your spec file to ``/girder/tests/CMakeLists.txt`` using the ``add_web_client_test`` function,
+To add a new client side test, add a new spec file in ``/girderformindlogger/web_client/test/spec/``, add a line
+referencing your spec file to ``/girderformindlogger/tests/CMakeLists.txt`` using the ``add_web_client_test`` function,
 and then run in your build directory ::
 
-    cmake ../girder
+    cmake ../girderformindlogger
 
 before running your tests.
 
@@ -305,7 +305,7 @@ Here ``ENABLEDPLUGINS`` ensures that my_plugin *and* the jobs plugin are loaded,
 .. note:: Core functionality shouldn't depend on plugins being enabled, this test definition is more suitable for a plugin. Information for testing plugins can be found under :doc:`plugin-development`.
 
 You will find many useful methods for client side testing in the ``girderTest`` object
-defined at ``/girder/web_client/test/testUtils.js``.
+defined at ``/girderformindlogger/web_client/test/testUtils.js``.
 
 
 Initializing the Database for a Test
@@ -352,18 +352,18 @@ file will be automatically detected and loaded before executing your test code. 
 javascript tests added in core or inside plugins.
 
 The python module ``setup_database.py`` that generates the database can also be run standalone to help in development.  To use it,
-you should point girder to an empty database ::
+you should point girderformindlogger to an empty database ::
 
     GIRDER_MONGO_URI='mongodb://127.0.0.1:27017/mytest' python tests/setup_database.py tests/test_database/spec.yml
 
 You can browse the result in Girder by running ::
 
-    GIRDER_MONGO_URI='mongodb://127.0.0.1:27017/mytest' girder serve
+    GIRDER_MONGO_URI='mongodb://127.0.0.1:27017/mytest' girderformindlogger serve
 
 .. note::
 
     The ``setup_database`` module is meant to provision fixures for tests **only**.  If you want to provision
-    a Girder instance for deployment, see the `Girder ansible client <https://github.com/girder/girder/tree/master/devops/ansible-role-girder/library>`_.
+    a Girder instance for deployment, see the `Girder ansible client <https://github.com/girderformindlogger/girderformindlogger/tree/master/devops/ansible-role-girderformindlogger/library>`_.
 
 
 Code Review
@@ -425,15 +425,15 @@ should be done:
 
        npm install -g 'npm@>=5.6'
 
-2. Update ``girder/web_client/package.json.template`` or ``girder/web_client/src/package.json`` to
+2. Update ``girderformindlogger/web_client/package.json.template`` or ``girderformindlogger/web_client/src/package.json`` to
    add a new *abstract* specifier for the package:
 
   * Packages that are bundled into the web client must be listed under the ``dependencies`` field
-    of ``girder/web_client/src/package.json`` and should generally use the
+    of ``girderformindlogger/web_client/src/package.json`` and should generally use the
     `tilde range <https://www.npmjs.com/package/semver#tilde-ranges-123-12-1>`_
     to specify versions.
   * Packages that are part of the build or testing process should be listed under either the
-    ``dependencies`` or ``devDependencies`` fields of ``girder/web_client/package.json.template``
+    ``dependencies`` or ``devDependencies`` fields of ``girderformindlogger/web_client/package.json.template``
     and should generally use the
     `caret range <https://www.npmjs.com/package/semver#caret-ranges-123-025-004>`_
     to specify versions.
@@ -444,7 +444,7 @@ the top-level ``package.json`` file, run ``npm update``, then commit the modifie
 Creating a new release
 ----------------------
 
-Girder releases are uploaded to `PyPI <https://pypi.python.org/pypi/girder>`_
+Girder releases are uploaded to `PyPI <https://pypi.python.org/pypi/girderformindlogger>`_
 for easy installation via ``pip``. Each time a pull request is merged to master, an incremental
 "dev" release is created during CI as a pre-release package and published to PyPI, making it easy
 for downstreams to install bleeding edge packages without needing to clone the Girder repository.

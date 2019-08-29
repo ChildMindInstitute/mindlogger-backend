@@ -1,7 +1,7 @@
 ---
 # Add an initial user - this user will be admin
 - name: Create 'admin' User
-  girder:
+  girderformindlogger:
     port: 8080
     user:
       firstName: "John"
@@ -14,7 +14,7 @@
   register: gc_return
 
 - name: Get current users
-  girder:
+  girderformindlogger:
     port: 8080
     username: "admin"
     password: "letmein"
@@ -35,7 +35,7 @@
 # Should show 'ok' rather than 'changed' because
 # There is no actual update
 - name: Update 'admin' User (No actual update)
-  girder:
+  girderformindlogger:
     port: 8080
     user:
       firstName: "John"
@@ -56,7 +56,7 @@
 # Should show 'changed'  because we update the name
 # Note that 'login' and 'password' cannot but updated
 - name: Update 'admin' User (John => Jack)
-  girder:
+  girderformindlogger:
     port: 8080
     user:
       firstName: "Jack"
@@ -74,7 +74,7 @@
       - ret.changed
 
 - name: Get current users
-  girder:
+  girderformindlogger:
     port: 8080
     username: "admin"
     password: "letmein"
@@ -88,7 +88,7 @@
 
 # Create a 'foobar' user
 - name: Create 'foobar' User
-  girder:
+  girderformindlogger:
     port: 8080
     username: "admin"
     password: "letmein"
@@ -102,7 +102,7 @@
     state: present
 
 - name: Get current users
-  girder:
+  girderformindlogger:
     port: 8080
     username: "admin"
     password: "letmein"
@@ -118,7 +118,7 @@
 
 # Remove the 'foobar' user
 - name: Remove 'foobar' User
-  girder:
+  girderformindlogger:
     port: 8080
     username: "admin"
     password: "letmein"
@@ -128,7 +128,7 @@
     state: absent
 
 - name: Get current users
-  girder:
+  girderformindlogger:
     port: 8080
     username: "admin"
     password: "letmein"

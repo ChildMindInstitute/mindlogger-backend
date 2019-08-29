@@ -4,12 +4,12 @@ import json
 import six
 from .. import base
 
-from girder.api import access, describe, docs
-from girder.api.rest import Resource, filtermodel
-from girder.constants import AccessType, registerAccessFlag, VERSION
-from girder.models.setting import Setting
-from girder.models.user import User
-from girder.settings import SettingKey
+from girderformindlogger.api import access, describe, docs
+from girderformindlogger.api.rest import Resource, filtermodel
+from girderformindlogger.constants import AccessType, registerAccessFlag, VERSION
+from girderformindlogger.models.setting import Setting
+from girderformindlogger.models.user import User
+from girderformindlogger.settings import SettingKey
 
 server = None
 Routes = [

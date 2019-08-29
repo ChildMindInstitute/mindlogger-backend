@@ -19,7 +19,7 @@ def prerelease_local_scheme(version):
 
 
 setup(
-    name='pytest-girder',
+    name='pytest-girderformindlogger',
     use_scm_version={'root': '..', 'local_scheme': prerelease_local_scheme},
     setup_requires=['setuptools-scm'],
     description='A set of pytest fixtures for testing Girder applications.',
@@ -31,7 +31,7 @@ setup(
     ],
     packages=find_packages(),
     install_requires=[
-        'girder',
+        'girderformindlogger',
         'mock',
         'mongomock',
         'pytest>=3.6',
@@ -40,6 +40,6 @@ setup(
     ],
     entry_points={
         'pytest11': [
-            'girder = pytest_girder.plugin'
+            'girderformindlogger = pytest_girder.plugin'
         ]
     })

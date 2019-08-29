@@ -3,12 +3,12 @@
     "version": "0.0.0",
     "description": "Authenticate user credentials against LDAP or Active Directory servers.",
     "bugs": {
-        "url": "https://github.com/girder/girder/issues"
+        "url": "https://github.com/girderformindlogger/girderformindlogger/issues"
     },
     "license": "Apache-2.0",
     "repository": {
         "type": "git",
-        "url": "https://github.com/girder/girder.git"
+        "url": "https://github.com/girderformindlogger/girderformindlogger.git"
     },
     "peerDependencies": {
         "@girder/core": "*"

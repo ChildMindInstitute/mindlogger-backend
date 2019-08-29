@@ -2,14 +2,14 @@
     "name": "@girder/authorized_upload",
     "version": "0.0.0",
     "description": "Allows registered users to authorize file uploads on their behalf via a secure one-use URL.",
-    "homepage": "http://girder.readthedocs.io/en/latest/plugins.html#authorized-uploads",
+    "homepage": "http://girderformindlogger.readthedocs.io/en/latest/plugins.html#authorized-uploads",
     "bugs": {
-        "url": "https://github.com/girder/girder/issues"
+        "url": "https://github.com/girderformindlogger/girderformindlogger/issues"
     },
     "license": "Apache-2.0",
     "repository": {
         "type": "git",
-        "url": "https://github.com/girder/girder.git"
+        "url": "https://github.com/girderformindlogger/girderformindlogger.git"
     },
     "peerDependencies": {
         "@girder/core": "*"

@@ -2,11 +2,11 @@
 import mock
 import pytest
 
-from girder import _setupCache
-from girder.models.setting import Setting
-from girder.settings import SettingKey
-from girder.utility import config
-from girder.utility._cache import cache, requestCache
+from girderformindlogger import _setupCache
+from girderformindlogger.models.setting import Setting
+from girderformindlogger.settings import SettingKey
+from girderformindlogger.utility import config
+from girderformindlogger.utility._cache import cache, requestCache
 
 
 @pytest.fixture

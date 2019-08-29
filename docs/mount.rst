@@ -14,12 +14,12 @@ Girder FUSE mount is available, these will work -- instead of passing the
 Girder file object, call `File().getGirderMountFilePath()` to get a path to the
 file.
 
-To enable a Girder FUSE mount, run ``girder mount <mount path>``, where
+To enable a Girder FUSE mount, run ``girderformindlogger mount <mount path>``, where
 ``<mount path>`` is an empty directory.  This can be done before or after a
 Girder server is started -- the mount process sets a value in the Girder Mongo
 database to inform Girder servers where the mount is located.
 
-The mount can be unmounted used ``girder mount <mount path> -u`` or with
+The mount can be unmounted used ``girderformindlogger mount <mount path> -u`` or with
 standard system unmount commands (e.g., ``fusermount -u <mount path>`` or
 ``sudo umount <mount path>``.
 

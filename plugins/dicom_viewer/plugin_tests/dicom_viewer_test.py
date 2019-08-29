@@ -2,11 +2,11 @@ import os
 import json
 import six
 
-from girder.models.collection import Collection
-from girder.models.folder import Folder
-from girder.models.item import Item
-from girder.models.upload import Upload
-from girder.models.user import User
+from girderformindlogger.models.collection import Collection
+from girderformindlogger.models.folder import Folder
+from girderformindlogger.models.item import Item
+from girderformindlogger.models.upload import Upload
+from girderformindlogger.models.user import User
 import pydicom
 from tests import base
 

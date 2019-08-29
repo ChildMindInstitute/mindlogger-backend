@@ -75,7 +75,7 @@ clients
                     sendRestRequest
                 help
                 main
-girder
+girderformindlogger
     LogFormatter
         format
         formatException

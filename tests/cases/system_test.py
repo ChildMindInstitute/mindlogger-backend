@@ -6,20 +6,20 @@ import time
 import six
 
 from .. import base
-from girder.api import access
-from girder.api.describe import describeRoute
-from girder.api.rest import getApiUrl, loadmodel, Resource
-from girder.constants import AccessType, registerAccessFlag, ROOT_DIR, VERSION
-from girder.exceptions import AccessException, ValidationException
-from girder.models.collection import Collection
-from girder.models.file import File
-from girder.models.folder import Folder
-from girder.models.group import Group
-from girder.models.item import Item
-from girder.models.setting import Setting
-from girder.models.user import User
-from girder.settings import SettingDefault, SettingKey
-from girder.utility import config
+from girderformindlogger.api import access
+from girderformindlogger.api.describe import describeRoute
+from girderformindlogger.api.rest import getApiUrl, loadmodel, Resource
+from girderformindlogger.constants import AccessType, registerAccessFlag, ROOT_DIR, VERSION
+from girderformindlogger.exceptions import AccessException, ValidationException
+from girderformindlogger.models.collection import Collection
+from girderformindlogger.models.file import File
+from girderformindlogger.models.folder import Folder
+from girderformindlogger.models.group import Group
+from girderformindlogger.models.item import Item
+from girderformindlogger.models.setting import Setting
+from girderformindlogger.models.user import User
+from girderformindlogger.settings import SettingDefault, SettingKey
+from girderformindlogger.utility import config
 
 
 class TestEndpoints(Resource):
@@ -344,7 +344,7 @@ class SystemTestCase(base.TestCase):
         del config.getConfig()['logging']
 
     def testLogLevel(self):
-        from girder import logger, _attachFileLogHandlers
+        from girderformindlogger import logger, _attachFileLogHandlers
         _attachFileLogHandlers()
         for handler in logger.handlers:
             if handler._girderLogHandler == 'info':

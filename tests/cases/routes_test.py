@@ -3,13 +3,13 @@ import os
 import requests
 
 from .. import base
-from girder import config
-from girder.api import access
-from girder.api.describe import Description, describeRoute
-from girder.api.rest import Resource
-from girder.exceptions import GirderException, RestException
-from girder.models.setting import Setting
-from girder.settings import SettingDefault, SettingKey
+from girderformindlogger import config
+from girderformindlogger.api import access
+from girderformindlogger.api.describe import Description, describeRoute
+from girderformindlogger.api.rest import Resource
+from girderformindlogger.exceptions import GirderException, RestException
+from girderformindlogger.models.setting import Setting
+from girderformindlogger.settings import SettingDefault, SettingKey
 
 testServer = None
 

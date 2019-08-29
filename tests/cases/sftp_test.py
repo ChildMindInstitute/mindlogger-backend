@@ -6,11 +6,11 @@ import stat
 import threading
 
 from .. import base
-from girder.api import sftp
-from girder.models.collection import Collection
-from girder.models.folder import Folder
-from girder.models.upload import Upload
-from girder.models.user import User
+from girderformindlogger.api import sftp
+from girderformindlogger.models.collection import Collection
+from girderformindlogger.models.folder import Folder
+from girderformindlogger.models.upload import Upload
+from girderformindlogger.models.user import User
 from six.moves import StringIO
 
 server = None

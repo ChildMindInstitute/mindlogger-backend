@@ -6,7 +6,7 @@
 # From .gitignore
 *.py[cod]
 node_modules
-girder.egg-info
+girderformindlogger.egg-info
 .DS_Store
 .*.swp
 .*.swo

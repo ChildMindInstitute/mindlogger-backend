@@ -1,7 +1,7 @@
 ---
 # Add an initial user - this user will be admin
 - name: Create 'admin' User
-  girder:
+  girderformindlogger:
     port: 8080
     user:
       firstName: "John"
@@ -22,7 +22,7 @@
 # want alice to have public and private folders you
 # must make sure to specify them!
 - name: Create 'alice' User with a Test Folder
-  girder:
+  girderformindlogger:
     port: 8080
     username: "admin"
     password: "letmein"
@@ -41,8 +41,8 @@
     state: present
   register: alice
 
-- name: Get user info from girder
-  girder:
+- name: Get user info from girderformindlogger
+  girderformindlogger:
     port: 8080
     username: "admin"
     password: "letmein"
@@ -55,8 +55,8 @@
       - ret['gc_return']['login'] == 'alice'
 
 
-- name: Get user folder info from girder
-  girder:
+- name: Get user folder info from girderformindlogger
+  girderformindlogger:
     port: 8080
     username: "admin"
     password: "letmein"
@@ -91,7 +91,7 @@
 
 # Create an 'bill' user
 - name: Create 'bill' User
-  girder:
+  girderformindlogger:
     port: 8080
     username: "admin"
     password: "letmein"
@@ -105,7 +105,7 @@
 
 # Create an 'chris' user
 - name: Create 'chris' User
-  girder:
+  girderformindlogger:
     port: 8080
     username: "admin"
     password: "letmein"
@@ -118,7 +118,7 @@
     state: present
 
 - name: Create a test group with users
-  girder:
+  girderformindlogger:
     port: 8080
     username: "admin"
     password: "letmein"
@@ -134,7 +134,7 @@
 
 
 - name: Make sure collection is not present
-  girder:
+  girderformindlogger:
     port: 8080
     username: "admin"
     password: "letmein"
@@ -148,7 +148,7 @@
 ###
 
 - name: Create collection with a folder
-  girder:
+  girderformindlogger:
     port: 8080
     username: "admin"
     password: "letmein"
@@ -161,8 +161,8 @@
   register: test_collection
 
 
-- name: Get user folder info from girder
-  girder:
+- name: Get user folder info from girderformindlogger
+  girderformindlogger:
     port: 8080
     username: "admin"
     password: "letmein"
@@ -190,7 +190,7 @@
 ###
 
 - name: Add a second folder
-  girder:
+  girderformindlogger:
     port: 8080
     username: "admin"
     password: "letmein"
@@ -204,8 +204,8 @@
           description: "A test folder"
   register: test_collection
 
-- name: Get user folder info from girder
-  girder:
+- name: Get user folder info from girderformindlogger
+  girderformindlogger:
     port: 8080
     username: "admin"
     password: "letmein"
@@ -236,7 +236,7 @@
 
 
 - name: Remove a folder, add another folder
-  girder:
+  girderformindlogger:
     port: 8080
     username: "admin"
     password: "letmein"
@@ -250,8 +250,8 @@
           description: "A test folder"
   register: test_collection
 
-- name: Get user folder info from girder
-  girder:
+- name: Get user folder info from girderformindlogger
+  girderformindlogger:
     port: 8080
     username: "admin"
     password: "letmein"
@@ -282,7 +282,7 @@
 ###
 
 - name: Remove Test Collection
-  girder:
+  girderformindlogger:
     port: 8080
     username: "admin"
     password: "letmein"
@@ -293,7 +293,7 @@
 
 
 - name: Create collection with a subfolder
-  girder:
+  girderformindlogger:
     port: 8080
     username: "admin"
     password: "letmein"
@@ -308,8 +308,8 @@
             - name: "test subfolder 2"
   register: test_collection
 
-- name: Get user folder info from girder
-  girder:
+- name: Get user folder info from girderformindlogger
+  girderformindlogger:
     port: 8080
     username: "admin"
     password: "letmein"
@@ -329,8 +329,8 @@
       - "{{ 'test folder' in folders }}"
       - "{{ folders['test folder'][0]['parentId'] == test_collection['gc_return']['_id'] }}"
 
-- name: Get sub folder info from girder
-  girder:
+- name: Get sub folder info from girderformindlogger
+  girderformindlogger:
     port: 8080
     username: "admin"
     password: "letmein"
@@ -360,7 +360,7 @@
 ###
 
 - name: Remove Test Collection
-  girder:
+  girderformindlogger:
     port: 8080
     username: "admin"
     password: "letmein"
@@ -371,7 +371,7 @@
 
 # Remove test Group
 - name: Remove test group
-  girder:
+  girderformindlogger:
     port: 8080
     username: "admin"
     password: "letmein"
@@ -382,7 +382,7 @@
 
 
 - name: Remove 'alice' User
-  girder:
+  girderformindlogger:
     port: 8080
     username: "admin"
     password: "letmein"
@@ -395,7 +395,7 @@
     state: absent
 
 - name: Remove 'bill' User
-  girder:
+  girderformindlogger:
     port: 8080
     username: "admin"
     password: "letmein"
@@ -408,7 +408,7 @@
     state: absent
 
 - name: Remove 'chris' User
-  girder:
+  girderformindlogger:
     port: 8080
     username: "admin"
     password: "letmein"

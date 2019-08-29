@@ -15,7 +15,7 @@ that uses `Swagger <https://swagger.io>`_ to document
 all available RESTful endpoints in the web API and also provide an easy way
 for users to execute those endpoints with parameters of their choosing. In
 this way, the Swagger page is just the simplest and lightest client application
-for Girder. This page is served out of the path ``/api`` under the root path of
+for girderformindlogger. This page is served out of the path ``/api`` under the root path of
 your Girder instance.
 
 
@@ -39,7 +39,7 @@ normal objects. For example, to use the ``list`` method of the Group model:
 
 .. code-block:: python
 
-    from girder.models.group import Group
+    from girderformindlogger.models.group import Group
     groups = Group().list(user=self.getCurrentUser())
 
 All models that require the standard access control semantics should extend the
@@ -53,7 +53,7 @@ on that collection, you would use the following ``initialize`` method:
 
 .. code-block:: python
 
-    from girder.models.model_base import Model
+    from girderformindlogger.models.model_base import Model
 
     class Cat(Model):
         def initialize(self):
@@ -63,78 +63,78 @@ on that collection, you would use the following ``initialize`` method:
 
 Model Helper Functions
 ~~~~~~~~~~~~~~~~~~~~~~
-.. automodule:: girder.models
+.. automodule:: girderformindlogger.models
    :members:
 
 Model Base
 ~~~~~~~~~~
-.. automodule:: girder.models.model_base
+.. automodule:: girderformindlogger.models.model_base
    :members:
 
 API Key
 ~~~~~~~
-.. automodule:: girder.models.api_key
+.. automodule:: girderformindlogger.models.api_key
    :members:
 
 User
 ~~~~
-.. automodule:: girder.models.user
+.. automodule:: girderformindlogger.models.user
    :members:
 
 Token
 ~~~~~
-.. automodule:: girder.models.token
+.. automodule:: girderformindlogger.models.token
    :members:
 
 Group
 ~~~~~
-.. automodule:: girder.models.group
+.. automodule:: girderformindlogger.models.group
    :members:
 
 Collection
 ~~~~~~~~~~
 
-.. automodule:: girder.models.collection
+.. automodule:: girderformindlogger.models.collection
    :members:
 
 Folder
 ~~~~~~
-.. automodule:: girder.models.folder
+.. automodule:: girderformindlogger.models.folder
    :members:
 
 Item
 ~~~~
-.. automodule:: girder.models.item
+.. automodule:: girderformindlogger.models.item
    :members:
 
 Setting
 ~~~~~~~
 
-.. automodule:: girder.models.setting
+.. automodule:: girderformindlogger.models.setting
    :members:
 
 Assetstore
 ~~~~~~~~~~
 
-.. automodule:: girder.models.assetstore
+.. automodule:: girderformindlogger.models.assetstore
    :members:
 
 File
 ~~~~
 
-.. automodule:: girder.models.file
+.. automodule:: girderformindlogger.models.file
    :members:
 
 Upload
 ~~~~~~
 
-.. automodule:: girder.models.upload
+.. automodule:: girderformindlogger.models.upload
    :members:
 
 Notification
 ~~~~~~~~~~~~
 
-.. automodule:: girder.models.notification
+.. automodule:: girderformindlogger.models.notification
     :members:
 
 Web API Endpoints
@@ -142,110 +142,110 @@ Web API Endpoints
 
 Base Classes and Helpers
 ~~~~~~~~~~~~~~~~~~~~~~~~
-.. automodule:: girder.api.access
+.. automodule:: girderformindlogger.api.access
    :members:
 
-.. automodule:: girder.api.api_main
+.. automodule:: girderformindlogger.api.api_main
    :members:
 
-.. automodule:: girder.api.describe
+.. automodule:: girderformindlogger.api.describe
    :members:
 
-.. automodule:: girder.api.docs
+.. automodule:: girderformindlogger.api.docs
    :members:
 
-.. automodule:: girder.api.filter_logging
+.. automodule:: girderformindlogger.api.filter_logging
    :members:
 
-.. automodule:: girder.api.rest
+.. automodule:: girderformindlogger.api.rest
    :members:
 
 .. _api-docs-utility:
 
 Utility
 ^^^^^^^
-.. automodule:: girder.utility
+.. automodule:: girderformindlogger.utility
    :members:
 
-.. automodule:: girder.utility.abstract_assetstore_adapter
+.. automodule:: girderformindlogger.utility.abstract_assetstore_adapter
    :members:
 
-.. automodule:: girder.utility.acl_mixin
+.. automodule:: girderformindlogger.utility.acl_mixin
    :members:
 
-.. automodule:: girder.utility.assetstore_utilities
+.. automodule:: girderformindlogger.utility.assetstore_utilities
    :members:
 
-.. automodule:: girder.utility.config
+.. automodule:: girderformindlogger.utility.config
    :members:
 
-.. automodule:: girder.utility.filesystem_assetstore_adapter
+.. automodule:: girderformindlogger.utility.filesystem_assetstore_adapter
    :members:
 
-.. automodule:: girder.utility.gridfs_assetstore_adapter
+.. automodule:: girderformindlogger.utility.gridfs_assetstore_adapter
    :members:
 
-.. automodule:: girder.utility.mail_utils
+.. automodule:: girderformindlogger.utility.mail_utils
    :members:
 
-.. automodule:: girder.utility.model_importer
+.. automodule:: girderformindlogger.utility.model_importer
    :members:
 
-.. automodule:: girder.utility.path
+.. automodule:: girderformindlogger.utility.path
    :members:
 
-.. automodule:: girder.utility.progress
+.. automodule:: girderformindlogger.utility.progress
    :members:
 
-.. automodule:: girder.utility.resource
+.. automodule:: girderformindlogger.utility.resource
    :members:
 
-.. automodule:: girder.utility.s3_assetstore_adapter
+.. automodule:: girderformindlogger.utility.s3_assetstore_adapter
    :members:
 
-.. automodule:: girder.utility.search
+.. automodule:: girderformindlogger.utility.search
    :members:
 
-.. automodule:: girder.utility.server
+.. automodule:: girderformindlogger.utility.server
    :members:
 
-.. automodule:: girder.utility.setting_utilities
+.. automodule:: girderformindlogger.utility.setting_utilities
    :members:
 
-.. automodule:: girder.utility.system
+.. automodule:: girderformindlogger.utility.system
    :members:
 
-.. automodule:: girder.utility.webroot
+.. automodule:: girderformindlogger.utility.webroot
    :members:
 
-.. automodule:: girder.utility.ziputil
+.. automodule:: girderformindlogger.utility.ziputil
    :members:
 
 Constants
 ~~~~~~~~~
-.. automodule:: girder.constants
+.. automodule:: girderformindlogger.constants
    :members:
 
 .. _events:
 
 Events
 ~~~~~~
-.. automodule:: girder.events
+.. automodule:: girderformindlogger.events
     :members:
 
 Exceptions
 ~~~~~~~~~~
-.. automodule:: girder.exceptions
+.. automodule:: girderformindlogger.exceptions
    :members:
 
 Logging
 ~~~~~~~
-.. automodule:: girder
+.. automodule:: girderformindlogger
    :members:
 
 Plugins
 ~~~~~~~
-.. automodule:: girder.plugin
+.. automodule:: girderformindlogger.plugin
    :members:
 
 Python Client
@@ -257,4 +257,4 @@ Web client
 ----------
 
 Documentation for Girder's web client library is built and hosted by esdoc and can be found
-`here <https://doc.esdoc.org/github.com/girder/girder>`_.
+`here <https://doc.esdoc.org/github.com/girderformindlogger/girderformindlogger>`_.

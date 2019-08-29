@@ -2,9 +2,9 @@
 import ldap
 import mock
 
-from girder.exceptions import ValidationException
-from girder.models.setting import Setting
-from girder.models.user import User
+from girderformindlogger.exceptions import ValidationException
+from girderformindlogger.models.setting import Setting
+from girderformindlogger.models.user import User
 from tests import base
 
 from girder_ldap.settings import PluginSettings

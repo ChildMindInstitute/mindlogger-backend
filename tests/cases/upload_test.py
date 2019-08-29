@@ -8,13 +8,13 @@ import six
 import threading
 from six.moves import range
 
-from girder import events
-from girder.models.assetstore import Assetstore
-from girder.models.file import File
-from girder.models.folder import Folder
-from girder.models.upload import Upload
-from girder.models.user import User
-from girder.utility import assetstore_utilities
+from girderformindlogger import events
+from girderformindlogger.models.assetstore import Assetstore
+from girderformindlogger.models.file import File
+from girderformindlogger.models.folder import Folder
+from girderformindlogger.models.upload import Upload
+from girderformindlogger.models.user import User
+from girderformindlogger.utility import assetstore_utilities
 
 from .. import base
 from .. import mongo_replicaset

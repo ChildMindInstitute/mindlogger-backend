@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
-import girder
-import girder_client
+import girderformindlogger
+import girderformindlogger_client
 import json
 import mock
 import os
@@ -11,12 +11,12 @@ from six import StringIO
 import hashlib
 import httmock
 
-from girder import config, events
-from girder.models.file import File
-from girder.models.folder import Folder
-from girder.models.item import Item
-from girder.models.upload import Upload
-from girder.models.user import User
+from girderformindlogger import config, events
+from girderformindlogger.models.file import File
+from girderformindlogger.models.folder import Folder
+from girderformindlogger.models.item import Item
+from girderformindlogger.models.upload import Upload
+from girderformindlogger.models.user import User
 from tests import base
 
 os.environ['GIRDER_PORT'] = os.environ.get('GIRDER_TEST_PORT', '20200')
@@ -762,7 +762,7 @@ class PythonClientTestCase(base.TestCase):
         def mock(url, request):
             hits.append(url)
 
-        expected_version = girder.constants.VERSION['release']
+        expected_version = girderformindlogger.constants.VERSION['release']
 
         with httmock.HTTMock(mock):
             self.assertEqual(
@@ -789,7 +789,7 @@ class PythonClientTestCase(base.TestCase):
             self.assertEqual(description['basePath'], '/api/v1')
             self.assertEqual(description['definitions'], {})
             self.assertEqual(description['info']['title'], 'Girder REST API')
-            self.assertEqual(description['info']['version'], girder.constants.VERSION['release'])
+            self.assertEqual(description['info']['version'], girderformindlogger.constants.VERSION['release'])
             self.assertGreater(len(description['paths']), 0)
 
         with httmock.HTTMock(mock):

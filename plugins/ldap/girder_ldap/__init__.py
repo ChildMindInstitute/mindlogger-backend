@@ -2,14 +2,14 @@
 import ldap
 import six
 
-from girder import events, logger
-from girder.api import access
-from girder.api.describe import autoDescribeRoute, Description
-from girder.api.rest import boundHandler
-from girder.exceptions import ValidationException
-from girder.models.setting import Setting
-from girder.models.user import User
-from girder.plugin import GirderPlugin
+from girderformindlogger import events, logger
+from girderformindlogger.api import access
+from girderformindlogger.api.describe import autoDescribeRoute, Description
+from girderformindlogger.api.rest import boundHandler
+from girderformindlogger.exceptions import ValidationException
+from girderformindlogger.models.setting import Setting
+from girderformindlogger.models.user import User
+from girderformindlogger.plugin import GirderPlugin
 
 from .settings import PluginSettings
 

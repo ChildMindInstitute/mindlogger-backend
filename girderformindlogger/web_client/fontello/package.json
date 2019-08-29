@@ -1,0 +1,23 @@
+{
+  "name": "@girder/fontello",
+  "version": "0.0.0",
+  "description": "Built Fontello files for use in girderformindlogger.",
+  "license": "Apache-2.0",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/girderformindlogger/girderformindlogger.git"
+  },
+  "bugs": {
+    "url": "https://github.com/girderformindlogger/girderformindlogger/issues"
+  },
+  "main": "index.js",
+  "scripts": {
+    "build": "grunt",
+    "prepublishOnly": "$npm_execpath install && $npm_execpath run build"
+  },
+  "devDependencies": {
+    "grunt": "^1.0.3",
+    "grunt-contrib-clean": "^2.0.0",
+    "grunt-fontello": "^0.3.6"
+  }
+}

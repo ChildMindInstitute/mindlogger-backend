@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
-from girder import events
-from girder.plugin import GirderPlugin
+from girderformindlogger import events
+from girderformindlogger.plugin import GirderPlugin
 
 from .quota import QuotaPolicy
 

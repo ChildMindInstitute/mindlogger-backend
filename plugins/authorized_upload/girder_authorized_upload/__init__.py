@@ -3,14 +3,14 @@ import os
 
 from bson.objectid import ObjectId
 from bson.errors import InvalidId
-from girder import events
-from girder.api import access
-from girder.api.rest import getCurrentToken, setCurrentUser
-from girder.models.item import Item
-from girder.models.token import Token
-from girder.models.user import User
-from girder.plugin import GirderPlugin
-from girder.utility import mail_utils
+from girderformindlogger import events
+from girderformindlogger.api import access
+from girderformindlogger.api.rest import getCurrentToken, setCurrentUser
+from girderformindlogger.models.item import Item
+from girderformindlogger.models.token import Token
+from girderformindlogger.models.user import User
+from girderformindlogger.plugin import GirderPlugin
+from girderformindlogger.utility import mail_utils
 
 from .constants import TOKEN_SCOPE_AUTHORIZED_UPLOAD
 from .rest import AuthorizedUpload

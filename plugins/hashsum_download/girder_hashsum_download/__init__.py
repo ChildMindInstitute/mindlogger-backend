@@ -2,19 +2,19 @@
 import hashlib
 import six
 
-import girder
-from girder import events
-from girder.api import access
-from girder.api.describe import autoDescribeRoute, Description
-from girder.api.rest import (
+import girderformindlogger
+from girderformindlogger import events
+from girderformindlogger.api import access
+from girderformindlogger.api.describe import autoDescribeRoute, Description
+from girderformindlogger.api.rest import (
     filtermodel, setRawResponse, setResponseHeader, setContentDisposition)
-from girder.api.v1.file import File
-from girder.constants import AccessType, TokenScope
-from girder.exceptions import RestException
-from girder.models.file import File as FileModel
-from girder.models.setting import Setting
-from girder.plugin import GirderPlugin
-from girder.utility.progress import ProgressContext, noProgress
+from girderformindlogger.api.v1.file import File
+from girderformindlogger.constants import AccessType, TokenScope
+from girderformindlogger.exceptions import RestException
+from girderformindlogger.models.file import File as FileModel
+from girderformindlogger.models.setting import Setting
+from girderformindlogger.plugin import GirderPlugin
+from girderformindlogger.utility.progress import ProgressContext, noProgress
 
 from .settings import PluginSettings
 
@@ -26,7 +26,7 @@ _CHUNK_LEN = 65536
 class HashedFile(File):
     @property
     def supportedAlgorithms(self):
-        girder.logger.warning(
+        girderformindlogger.logger.warning(
             'HashedFile.supportedAlgorithms is deprecated, use the module-level '
             'SUPPORTED_ALGORITHMS instead.')
         return SUPPORTED_ALGORITHMS

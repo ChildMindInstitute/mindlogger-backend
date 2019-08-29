@@ -50,8 +50,8 @@ form parameters, or as the value of a custom HTTP header with the key ``Girder-T
    reasons, merely passing the cookie value back is not sufficient for authentication.
 
 .. note:: If you are using Girder's JavaScript web client library in a CORS environment,
-   be sure to set ``girder.corsAuth = true;`` in your application prior to calling
-   ``girder.login``. This will allow users' login sessions to be saved on the origin
+   be sure to set ``girderformindlogger.corsAuth = true;`` in your application prior to calling
+   ``girderformindlogger.login``. This will allow users' login sessions to be saved on the origin
    site's cookie.
 
 Upload a file
@@ -151,7 +151,7 @@ The process of creating new REST resources and routes is documented
 :ref:`here <extending-the-api>`.
 
 The API docs of the ``route`` method can be found
-`here <api-docs.html#girder.api.rest.Resource.route>`__.
+`here <api-docs.html#girderformindlogger.api.rest.Resource.route>`__.
 
 Loading a resource by its ID
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -164,10 +164,10 @@ corresponding document from the database, it would look like:
 
 .. code-block:: python
 
-    from girder.models.folder import Folder
+    from girderformindlogger.models.folder import Folder
     folder = Folder().load(theFolderId, user=self.getCurrentUser(), level=AccessType.READ)
 
-The `load <api-docs.html#girder.models.model_base.AccessControlledModel.load>`__
+The `load <api-docs.html#girderformindlogger.models.model_base.AccessControlledModel.load>`__
 method of each model class takes the resource's unique ID as its
 first argument (this is the ``_id`` field in the documents). For access controlled
 models like the above example, it also requires the developer to specify
@@ -192,13 +192,13 @@ in some cases you may want to force your endpoint to send a raw response body
 back to the client.
 
 If you want to send a raw response, you can simply decorate your route handler
-with the ``girder.api.rest.rawResponse`` decorator, or call
-``girder.api.rest.setRawResponse()`` within the body of the route handler.
+with the ``girderformindlogger.api.rest.rawResponse`` decorator, or call
+``girderformindlogger.api.rest.setRawResponse()`` within the body of the route handler.
 For example:
 
 .. code-block:: python
 
-    from girder.api import access, rest
+    from girderformindlogger.api import access, rest
 
     @access.public
     @rest.rawResponse
@@ -219,7 +219,7 @@ body would be ``0123456789``.
 
 .. code-block:: python
 
-    from girder.api import access
+    from girderformindlogger.api import access
 
     @access.public
     def streamingExample(self, params):
@@ -238,7 +238,7 @@ example:
 .. code-block:: python
 
     import os
-    from girder.utility.server import staticFile
+    from girderformindlogger.utility.server import staticFile
 
     def load(info):
         path = os.path.join(PLUGIN_ROOT_DIR, 'static', 'index.html')
@@ -258,13 +258,13 @@ Sending Emails
 Girder has a utility module that make it easy to send emails from the server. For
 the sake of maintainability and reusability of the email content itself, emails are stored
 as `Mako templates <http://www.makotemplates.org/>`_ in the
-**girder/mail_templates** directory. By convention, email templates should
+**girderformindlogger/mail_templates** directory. By convention, email templates should
 include ``_header.mako`` above and ``_footer.mako`` below the content. If you wish
 to send an email from some point within the application, you can use the
-utility functions within ``girder.utility.mail_utils``, as in the example
+utility functions within ``girderformindlogger.utility.mail_utils``, as in the example
 below: ::
 
-    from girder.utility import mail_utils
+    from girderformindlogger.utility import mail_utils
 
     ...
 
@@ -279,7 +279,7 @@ If you wish to send email from within a plugin, simply create a
 **mail_templates** directory within your plugin and register it inside your
 plugin's load method as follows ::
 
-  from girder.utility import mail_utils
+  from girderformindlogger.utility import mail_utils
   mail_utils.addTemplateDirectory(os.path.join(PLUGIN_ROOT_DIR, 'mail_templates'))
 
 To avoid name collisions, convention dictates that mail templates within your
@@ -311,7 +311,7 @@ behaviors, use the following examples:
 
 .. code-block:: python
 
-    from girder import logger
+    from girderformindlogger import logger
 
     try:
         ...
@@ -400,7 +400,7 @@ Test cases for pytest are stored in ``test/``.
 **Provided Fixtures**
 
 All helper utilities for developing tests with ``pytest`` are stored in the
-``pytest_girder`` package within Girder. A list of fixtures provided can be viewed
+``pytest_girder`` package within girderformindlogger. A list of fixtures provided can be viewed
 by running ``pytest --fixtures`` from the Girder directory.
 
 **Adding to an Existing Test Case**
@@ -443,7 +443,7 @@ into the mark.  For example,
 
 .. code-block:: python
 
-    from girder.plugin import GirderPlugin
+    from girderformindlogger.plugin import GirderPlugin
 
     class TestPlugin(GirderPlugin):
         def load(self, info):
@@ -505,7 +505,7 @@ By default, python tests added via the ``add_python_test`` cmake function
 will only report coverage for python files within certain paths.  For
 core tests, the following paths are used:
 
-- ``girder``
+- ``girderformindlogger``
 - ``clients/python/girder_client``
 
 For tests created within a plugin, the plugin's ``server`` directory is
@@ -537,7 +537,7 @@ as you wish. In your plugin's ``load`` method, you would follow this convention:
 
 .. code-block:: python
 
-    from girder.plugin import registerPluginWebroot
+    from girderformindlogger.plugin import registerPluginWebroot
     registerPluginWebroot(CustomAppRoot(), info['name'])
 
 This will register your ``CustomAppRoot`` with Girder so that it can then be mounted
@@ -562,7 +562,7 @@ In order to allow cookie authentication for your route, simply add the
 
 .. code-block:: python
 
-    from girder.api import access
+    from girderformindlogger.api import access
 
     @access.public(cookie=True)
     def download(self, params):

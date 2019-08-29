@@ -1,9 +1,9 @@
-set(CTEST_SOURCE_DIRECTORY "$ENV{CIRCLE_WORKING_DIRECTORY}/girder")
+set(CTEST_SOURCE_DIRECTORY "$ENV{CIRCLE_WORKING_DIRECTORY}/girderformindlogger")
 set(CTEST_BINARY_DIRECTORY "$ENV{CIRCLE_WORKING_DIRECTORY}/girder_build")
 
 set(test_group $ENV{TEST_GROUP})
 set(branch $ENV{CIRCLE_BRANCH})
-set(CTEST_PROJECT_NAME "girder")
+set(CTEST_PROJECT_NAME "girderformindlogger")
 set(CTEST_CMAKE_GENERATOR "Unix Makefiles")
 
 if(test_group STREQUAL python)

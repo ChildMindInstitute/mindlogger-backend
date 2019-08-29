@@ -15,7 +15,7 @@ Authorized Uploads
 
 This plugin allows registered users to grant access to others to upload data on their behalf
 via a secure URL. The secure URL allows a third party to upload a single file into the selected
-folder, even if that third party does not have a registered user in Girder.
+folder, even if that third party does not have a registered user in girderformindlogger.
 
 To authorize an upload on behalf of your user:
 
@@ -66,7 +66,7 @@ call ``scheduleJob``, which triggers the ``jobs.schedule`` event with the job
 document as the event info.
 
 The jobs plugin contains several built-in status codes within the
-``girder.plugins.jobs.constants.JobStatus`` namespace. These codes represent
+``girderformindlogger.plugins.jobs.constants.JobStatus`` namespace. These codes represent
 various states a job can be in, which are:
 
 - INACTIVE (0)
@@ -84,7 +84,7 @@ downstream plugin with a custom job status with the value *1234* would add the f
 
 .. code-block:: python
 
-    from girder import events
+    from girderformindlogger import events
 
     def validateJobStatus(event):
         if event.info == 1234:
@@ -155,7 +155,7 @@ DICOM Viewer
 ------------
 
 The DICOM Viewer plugin adds support for previewing DICOM files when viewing
-an item in girder. If multiple DICOM files are present in a single item, they
+an item in girderformindlogger. If multiple DICOM files are present in a single item, they
 are presented as multiple slices. The DICOM image is shown as well as a table
 of DICOM tags. The window center and width can be changed by the user. Controls
 allow the user to step through slices, auto-level the window, auto-zoom, or
@@ -220,10 +220,10 @@ Those values can be created in the Google Developer Console, in the **APIS & AUT
 **Credentials** section. When you create a new Client ID, you must enter the
 ``AUTHORIZED_JAVASCRIPT_ORIGINS`` and ``AUTHORIZED_REDIRECT_URI`` fields. These *must*
 point back to your Girder instance. For example, if your Girder instance is hosted
-at ``https://my.girder.com``, then you should specify the following values: ::
+at ``https://my.girderformindlogger.com``, then you should specify the following values: ::
 
-    AUTHORIZED_JAVASCRIPT_ORIGINS: https://my.girder.com
-    AUTHORIZED_REDIRECT_URI: https://my.girder.com/api/v1/oauth/google/callback
+    AUTHORIZED_JAVASCRIPT_ORIGINS: https://my.girderformindlogger.com
+    AUTHORIZED_REDIRECT_URI: https://my.girderformindlogger.com/api/v1/oauth/google/callback
 
 After successfully creating the Client ID, copy and paste the client ID and client
 secret values into the plugin's configuration page, and hit **Save**. Users should
@@ -240,7 +240,7 @@ to authorize during the OAuth login process.
 
 .. code-block:: python
 
-    from girder.plugins.oauth.providers.google import Google
+    from girderformindlogger.plugins.oauth.providers.google import Google
     Google.addScopes(['https://www.googleapis.com/auth/plus.circles.read'])
 
 Then, you can hook into the event of a user logging in via OAuth. You can
@@ -257,7 +257,7 @@ if this is the first time logging in with these OAuth credentials).
             user = event.info['user']
             ...
 
-    from girder import events
+    from girderformindlogger import events
     events.bind('oauth.auth_callback.after', 'my_plugin', readCircles)
 
 .. note:: If ``event.preventDefault()`` is called in the event handler for
@@ -288,7 +288,7 @@ acceptances stored only on the local browser.
 Javascript clients
 ******************
 
-The Gravatar plugin's javascript code extends the Girder web client's ``girder.models.UserModel``
+The Gravatar plugin's javascript code extends the Girder web client's ``girderformindlogger.models.UserModel``
 by adding the ``getGravatarUrl(size)`` method that adheres to the above behavior
 internally. You can use it on any user model with the ``_id`` field set, as in the following example:
 
@@ -371,7 +371,7 @@ provide a local file path to access the data file contents.
 Sentry
 ----------------
 
-The Sentry plugin enables the use of `Sentry <https://sentry.io>`_ to detect and report errors in Girder.
+The Sentry plugin enables the use of `Sentry <https://sentry.io>`_ to detect and report errors in girderformindlogger.
 
 Usage by a software project maintainer
 **************************************
@@ -381,7 +381,7 @@ Again, for more background, using the example Girder instance https://data.kitwa
 see the CMake External Data documentation for CMake project configuration
 `help <https://cmake.org/cmake/help/latest/module/ExternalData.html>`_.
 
-In your project, you must set ExternalData_URL_TEMPLATES to a girder url, e.g.
+In your project, you must set ExternalData_URL_TEMPLATES to a girderformindlogger url, e.g.
 "https://data.kitware.com/api/v1/file/hashsum/%(algo)/%(hash)/download".
 
 See the ITK configuration for an `example <https://github.com/InsightSoftwareConsortium/ITKExamples/blob/master/CMake/ITKExamplesExternalData.cmake>`_
@@ -410,4 +410,4 @@ Girder.
 
 You can also use the API to download the file based on the hash returned by the previous endpoint,
 with an endpoint ``/api/v1/file/hashsum/sha512/<file sha512 hash>/download``, where the sha512 hash
-comes from the specific file in Girder.
+comes from the specific file in girderformindlogger.

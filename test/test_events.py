@@ -3,7 +3,7 @@ import mock
 import pytest
 import time
 
-from girder import events
+from girderformindlogger import events
 
 
 class EventsHelper(object):

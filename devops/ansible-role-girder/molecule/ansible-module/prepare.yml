@@ -9,7 +9,7 @@
         state: present
         force_apt_get: true
   roles:
-    - role: girder.girder
+    - role: girderformindlogger.girderformindlogger
       vars:
-        girder_database_uri: "mongodb://mongodb:27017/girder"
+        girder_database_uri: "mongodb://mongodb:27017/girderformindlogger"
         girder_web: false

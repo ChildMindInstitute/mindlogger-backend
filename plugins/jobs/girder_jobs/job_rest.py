@@ -1,9 +1,9 @@
 # -*- coding: utf-8 -*-
-from girder.api import access
-from girder.api.describe import Description, autoDescribeRoute
-from girder.api.rest import Resource, filtermodel
-from girder.constants import AccessType, SortDir
-from girder.models.user import User
+from girderformindlogger.api import access
+from girderformindlogger.api.describe import Description, autoDescribeRoute
+from girderformindlogger.api.rest import Resource, filtermodel
+from girderformindlogger.constants import AccessType, SortDir
+from girderformindlogger.models.user import User
 from .models.job import Job as JobModel
 from . import constants
 

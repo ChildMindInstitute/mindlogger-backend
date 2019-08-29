@@ -1,6 +1,6 @@
-from girder.constants import AccessType
-from girder.models.group import Group
-from girder.models.user import User
+from girderformindlogger.constants import AccessType
+from girderformindlogger.models.group import Group
+from girderformindlogger.models.user import User
 from tests import base
 import json
 

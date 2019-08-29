@@ -9,12 +9,12 @@ import zipfile
 
 from .. import base
 
-from girder.models.notification import Notification, ProgressState
-from girder.models.collection import Collection
-from girder.models.item import Item
-from girder.models.folder import Folder
-from girder.models.user import User
-import girder.utility.ziputil
+from girderformindlogger.models.notification import Notification, ProgressState
+from girderformindlogger.models.collection import Collection
+from girderformindlogger.models.item import Item
+from girderformindlogger.models.folder import Folder
+from girderformindlogger.models.user import User
+import girderformindlogger.utility.ziputil
 
 
 def setUpModule():
@@ -205,7 +205,7 @@ class ResourceTestCase(base.TestCase):
         # file creation (artificially forced).  We could do this naturally by
         # downloading >65536 files, but that would make the test take several
         # minutes.
-        girder.utility.ziputil.Z_FILECOUNT_LIMIT = 5
+        girderformindlogger.utility.ziputil.Z_FILECOUNT_LIMIT = 5
         resourceList = {
             'item': [str(item['_id']) for item in self.items]
             }
@@ -696,7 +696,7 @@ class ResourceTestCase(base.TestCase):
 
             return genEmptyData
 
-        zip = girder.utility.ziputil.ZipGenerator()
+        zip = girderformindlogger.utility.ziputil.ZipGenerator()
         # Most of the time in generating a zip file is spent in CRC
         # calculation.  We turn it off so that we can perform tests in a timely
         # fashion.

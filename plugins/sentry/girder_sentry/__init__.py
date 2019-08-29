@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 import sentry_sdk
-from girder.plugin import GirderPlugin
-from girder.models.setting import Setting
+from girderformindlogger.plugin import GirderPlugin
+from girderformindlogger.models.setting import Setting
 
 from . import rest
 from .settings import PluginSettings

@@ -11,19 +11,19 @@ import zipfile
 from hashlib import sha512
 from .. import base, mock_s3
 
-from girder import events
-from girder.models import getDbConnection
-from girder.exceptions import AccessException, GirderException, FilePathException
-from girder.models.assetstore import Assetstore
-from girder.models.collection import Collection
-from girder.models.file import File
-from girder.models.folder import Folder
-from girder.models.setting import Setting
-from girder.models.user import User
-from girder.settings import SettingKey
-from girder.utility import gridfs_assetstore_adapter
-from girder.utility.filesystem_assetstore_adapter import DEFAULT_PERMS
-from girder.utility.s3_assetstore_adapter import makeBotoConnectParams, S3AssetstoreAdapter
+from girderformindlogger import events
+from girderformindlogger.models import getDbConnection
+from girderformindlogger.exceptions import AccessException, GirderException, FilePathException
+from girderformindlogger.models.assetstore import Assetstore
+from girderformindlogger.models.collection import Collection
+from girderformindlogger.models.file import File
+from girderformindlogger.models.folder import Folder
+from girderformindlogger.models.setting import Setting
+from girderformindlogger.models.user import User
+from girderformindlogger.settings import SettingKey
+from girderformindlogger.utility import gridfs_assetstore_adapter
+from girderformindlogger.utility.filesystem_assetstore_adapter import DEFAULT_PERMS
+from girderformindlogger.utility.s3_assetstore_adapter import makeBotoConnectParams, S3AssetstoreAdapter
 from six.moves import urllib
 
 # The latest moto/boto/botocore requires dummy credentials to function.  It is unclear if

@@ -161,7 +161,7 @@ var QuotaPoliciesWidget = View.extend({
             handleClose('quota');
             this.trigger('g:hidden');
         });
-        modal.trigger($.Event('ready.girder.modal', { relatedTarget: modal }));
+        modal.trigger($.Event('ready.girderformindlogger.modal', { relatedTarget: modal }));
         this.$('#g-fileSizeQuota').focus();
         handleOpen('quota');
         return this;

@@ -1,9 +1,9 @@
 # -*- coding: utf-8 -*-
-from girder import events
-from girder.constants import SortDir
-from girder.exceptions import ValidationException
-from girder.models.user import User
-from girder.plugin import GirderPlugin
+from girderformindlogger import events
+from girderformindlogger.constants import SortDir
+from girderformindlogger.exceptions import ValidationException
+from girderformindlogger.models.user import User
+from girderformindlogger.plugin import GirderPlugin
 
 from . import rest, providers
 

@@ -9,12 +9,12 @@ import tempfile
 import threading
 import time
 
-from girder.cli import mount
-from girder.exceptions import ValidationException
-from girder.models.file import File
-from girder.models.setting import Setting
-from girder.models.user import User
-from girder.settings import SettingKey
+from girderformindlogger.cli import mount
+from girderformindlogger.exceptions import ValidationException
+from girderformindlogger.models.file import File
+from girderformindlogger.models.setting import Setting
+from girderformindlogger.models.user import User
+from girderformindlogger.settings import SettingKey
 from tests import base
 
 
@@ -124,7 +124,7 @@ class ServerFuseTestCase(base.TestCase):
         """
         blockFile = os.path.join(self.extraMountPath, 'block')
         open(blockFile, 'wb').close()
-        with mock.patch('girder.plugin.logprint.error') as logprint:
+        with mock.patch('girderformindlogger.plugin.logprint.error') as logprint:
             self._mountServer(path=self.extraMountPath, shouldSucceed=False)
             logprint.assert_called_once()
         os.unlink(blockFile)
@@ -133,7 +133,7 @@ class ServerFuseTestCase(base.TestCase):
         """
         Test that when asking for an RW mount, a warning is issued.
         """
-        with mock.patch('girder.plugin.logprint.warning') as logprint:
+        with mock.patch('girderformindlogger.plugin.logprint.warning') as logprint:
             self._mountServer(path=self.extraMountPath, options='foreground,rw=true')
             logprint.assert_called_once()
             logprint.assert_called_with('Ignoring the rw=True option')
@@ -168,7 +168,7 @@ class ServerFuseTestCase(base.TestCase):
         Test that if an assetstore adapter doesn't respond to getLocalFilePath,
         we always get the fuse path.
         """
-        from girder.utility.filesystem_assetstore_adapter import FilesystemAssetstoreAdapter
+        from girderformindlogger.utility.filesystem_assetstore_adapter import FilesystemAssetstoreAdapter
 
         def getLocalFilePath(self, file):
             return super(FilesystemAssetstoreAdapter, self).getLocalFilePath(file)

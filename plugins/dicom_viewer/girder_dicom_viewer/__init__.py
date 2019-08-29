@@ -8,17 +8,17 @@ import pydicom.multival
 import pydicom.sequence
 import six
 
-from girder import events
-from girder.api import access
-from girder.api.describe import Description, autoDescribeRoute
-from girder.api.rest import Resource
-from girder.constants import AccessType, TokenScope
-from girder.exceptions import RestException
-from girder.plugin import GirderPlugin
-from girder.models.item import Item
-from girder.models.file import File
-from girder.utility import search
-from girder.utility.progress import setResponseTimeLimit
+from girderformindlogger import events
+from girderformindlogger.api import access
+from girderformindlogger.api.describe import Description, autoDescribeRoute
+from girderformindlogger.api.rest import Resource
+from girderformindlogger.constants import AccessType, TokenScope
+from girderformindlogger.exceptions import RestException
+from girderformindlogger.plugin import GirderPlugin
+from girderformindlogger.models.item import Item
+from girderformindlogger.models.file import File
+from girderformindlogger.utility import search
+from girderformindlogger.utility.progress import setResponseTimeLimit
 
 
 class DicomViewerPlugin(GirderPlugin):

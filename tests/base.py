@@ -13,16 +13,16 @@ import warnings
 
 from six import BytesIO
 from six.moves import urllib
-from girder.utility._cache import cache, requestCache
-from girder.utility.server import setup as setupServer
-from girder.constants import AccessType, ROOT_DIR, ServerMode
-from girder.models import getDbConnection
-from girder.models.model_base import _modelSingletons
-from girder.models.assetstore import Assetstore
-from girder.models.file import File
-from girder.models.setting import Setting
-from girder.models.token import Token
-from girder.settings import SettingKey
+from girderformindlogger.utility._cache import cache, requestCache
+from girderformindlogger.utility.server import setup as setupServer
+from girderformindlogger.constants import AccessType, ROOT_DIR, ServerMode
+from girderformindlogger.models import getDbConnection
+from girderformindlogger.models.model_base import _modelSingletons
+from girderformindlogger.models.assetstore import Assetstore
+from girderformindlogger.models.file import File
+from girderformindlogger.models.setting import Setting
+from girderformindlogger.models.token import Token
+from girderformindlogger.settings import SettingKey
 from . import mock_smtp
 from . import mock_s3
 from . import mongo_replicaset

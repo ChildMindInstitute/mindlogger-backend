@@ -2,11 +2,11 @@
 import collections
 import pytest
 
-from girder.models.collection import Collection
-from girder.models.file import File
-from girder.models.folder import Folder
-from girder.models.item import Item
-from girder.models.user import User
+from girderformindlogger.models.collection import Collection
+from girderformindlogger.models.file import File
+from girderformindlogger.models.folder import Folder
+from girderformindlogger.models.item import Item
+from girderformindlogger.models.user import User
 from pytest_girder.assertions import assertStatus, assertStatusOk
 
 Hierarchy = collections.namedtuple('Hierarchy', ['collections', 'folders', 'items', 'files'])

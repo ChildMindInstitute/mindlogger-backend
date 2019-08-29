@@ -1,10 +1,10 @@
 # -*- coding: utf-8 -*-
 import pytest
 
-from girder.models.model_base import AccessControlledModel, Model, AccessType
-from girder.models.group import Group
-from girder.models.user import User
-from girder.utility import acl_mixin, model_importer
+from girderformindlogger.models.model_base import AccessControlledModel, Model, AccessType
+from girderformindlogger.models.group import Group
+from girderformindlogger.models.user import User
+from girderformindlogger.utility import acl_mixin, model_importer
 
 
 @pytest.fixture

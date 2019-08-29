@@ -1,5 +1,5 @@
 """
-This script migrates data from Midas to Girder.
+This script migrates data from Midas to girderformindlogger.
 
 It can migrate users, collections (communities in Midas), folders, items and
 files (bitstreams in Midas).
@@ -24,7 +24,7 @@ Large migrations are difficult and take a while. Failures are to be expected.
 
 from functools import wraps
 from joblib import Parallel, delayed
-import girder_client
+import girderformindlogger_client
 import logging
 import os
 import pydas

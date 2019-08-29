@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 import contextlib
-import girder_client.cli
+import girderformindlogger_client.cli
 import logging
 import mock
 import os
@@ -10,11 +10,11 @@ import sys
 import six
 import httmock
 
-from girder import config
-from girder.models.api_key import ApiKey
-from girder.models.folder import Folder
-from girder.models.item import Item
-from girder.models.user import User
+from girderformindlogger import config
+from girderformindlogger.models.api_key import ApiKey
+from girderformindlogger.models.folder import Folder
+from girderformindlogger.models.item import Item
+from girderformindlogger.models.user import User
 from girder_client.cli import GirderCli
 from tests import base
 from six.moves.http_client import HTTPConnection
@@ -119,10 +119,10 @@ class PythonCliTestCase(base.TestCase):
         for case in [
             # Check that apiUrl is preferred
             {
-                'input': {'apiUrl': 'https://girder.example.com:74/api/v74',
+                'input': {'apiUrl': 'https://girderformindlogger.example.com:74/api/v74',
                           'host': 'foo', 'scheme': 'bar', 'port': 42, 'apiRoot': 'bar'},
                 'expected': {
-                    'urlBase': 'https://girder.example.com:74/api/v74/',
+                    'urlBase': 'https://girderformindlogger.example.com:74/api/v74/',
                     'host': None, 'scheme': None, 'port': None}
             },
             # Check different configuration of URL by part
@@ -151,16 +151,16 @@ class PythonCliTestCase(base.TestCase):
                     'host': 'localhost', 'scheme': 'https', 'port': 443}
             },
             {
-                'input': {'host': 'girder.example.com'},
+                'input': {'host': 'girderformindlogger.example.com'},
                 'expected': {
-                    'urlBase': 'https://girder.example.com:443/api/v1/',
-                    'host': 'girder.example.com', 'scheme': 'https', 'port': 443}
+                    'urlBase': 'https://girderformindlogger.example.com:443/api/v1/',
+                    'host': 'girderformindlogger.example.com', 'scheme': 'https', 'port': 443}
             },
             {
-                'input': {'host': 'girder.example.com', 'scheme': 'http'},
+                'input': {'host': 'girderformindlogger.example.com', 'scheme': 'http'},
                 'expected': {
-                    'urlBase': 'http://girder.example.com:80/api/v1/',
-                    'host': 'girder.example.com', 'scheme': 'http', 'port': 80}
+                    'urlBase': 'http://girderformindlogger.example.com:80/api/v1/',
+                    'host': 'girderformindlogger.example.com', 'scheme': 'http', 'port': 80}
             },
             {
                 'input': {'host': 'localhost', 'port': 42},
@@ -169,10 +169,10 @@ class PythonCliTestCase(base.TestCase):
                     'host': 'localhost', 'scheme': 'http', 'port': 42}
             },
             {
-                'input': {'host': 'girder.example.com', 'port': 42},
+                'input': {'host': 'girderformindlogger.example.com', 'port': 42},
                 'expected': {
-                    'urlBase': 'https://girder.example.com:42/api/v1/',
-                    'host': 'girder.example.com', 'scheme': 'https', 'port': 42}
+                    'urlBase': 'https://girderformindlogger.example.com:42/api/v1/',
+                    'host': 'girderformindlogger.example.com', 'scheme': 'https', 'port': 42}
             },
             {
                 'input': {'host': 'localhost', 'scheme': 'https'},
@@ -181,10 +181,10 @@ class PythonCliTestCase(base.TestCase):
                     'host': 'localhost', 'scheme': 'https', 'port': 443}
             },
             {
-                'input': {'host': 'girder.example.com', 'scheme': 'https'},
+                'input': {'host': 'girderformindlogger.example.com', 'scheme': 'https'},
                 'expected': {
-                    'urlBase': 'https://girder.example.com:443/api/v1/',
-                    'host': 'girder.example.com', 'scheme': 'https', 'port': 443}
+                    'urlBase': 'https://girderformindlogger.example.com:443/api/v1/',
+                    'host': 'girderformindlogger.example.com', 'scheme': 'https', 'port': 443}
             },
 
         ]:

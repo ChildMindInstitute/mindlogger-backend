@@ -46,7 +46,7 @@ Installation
    .. code-block:: shell
 
       pip install -e .
-      girder build
+      girderformindlogger build
 
    Note: if ``pip install -e .`` fails with ``assert tag is not None, 'cant parse version %s' % tag`` from `setuptools_scm <https://github.com/pypa/setuptools_scm/>`_, check for git tags with ``-``s and delete those tags or replace them with ``+``s.
 
@@ -54,7 +54,7 @@ Installation
 
    .. code-block:: shell
 
-      girder serve
+      girderformindlogger serve
 
 5. When you're finished
 
@@ -82,7 +82,7 @@ Deployment
 Elastic Beanstalk
 #################
 
-If you're updating an existing Girder 2.x instance of Elastic Beanstalk, be sure to change your static files path from ``clients/web/static`` to ``girder/web_client/static/``.
+If you're updating an existing Girder 2.x instance of Elastic Beanstalk, be sure to change your static files path from ``clients/web/static`` to ``girderformindlogger/web_client/static/``.
 
 Data Structure
 --------------
@@ -172,16 +172,16 @@ Links
 Girder Source
 -------------
 
-This source code is a customization of `:octocat: girder/girder@5ed7bdd <https://github.com/girder/girder/tree/5ed7bdd850e9dc8657cf25984627628374811048>`_
+This source code is a customization of `:octocat: girderformindlogger/girderformindlogger@5ed7bdd <https://github.com/girderformindlogger/girderformindlogger/tree/5ed7bdd850e9dc8657cf25984627628374811048>`_
 
 Girder is a free and open source web-based data management platform developed by
 `Kitware <https://kitware.com>`_ as part of the `Resonant <https://resonant.kitware.com>`_ data and analytics ecosystem.
 
 Documentation of the Girder platform can be found at
-`:closed_book: Read the Docs <https://girder.readthedocs.io/en/latest>`_.
+`:closed_book: Read the Docs <https://girderformindlogger.readthedocs.io/en/latest>`_.
 
-For questions, comments, or to get in touch with the maintainers, head to their `Discourse forum <https://discourse.girder.org>`_, or use their `Gitter Chatroom
-<https://gitter.im/girder/girder>`_.
+For questions, comments, or to get in touch with the maintainers, head to their `Discourse forum <https://discourse.girderformindlogger.org>`_, or use their `Gitter Chatroom
+<https://gitter.im/girderformindlogger/girderformindlogger>`_.
 
 We'd love for you to `contribute to Girder <CONTRIBUTING.rst>`_.
 
@@ -189,7 +189,7 @@ We'd love for you to `contribute to Girder <CONTRIBUTING.rst>`_.
     :alt: MindLogger database entity-relationship diagram
     :target: ./docs/images/Mindlogger-DB-ER.dia
 
-.. |logo| image:: ./girder/web_client/src/assets/ML-logo.png
+.. |logo| image:: ./girderformindlogger/web_client/src/assets/ML-logo.png
     :width: 25px
     :alt: Girder for MindLogger
 

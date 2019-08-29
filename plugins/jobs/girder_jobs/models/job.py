@@ -3,13 +3,13 @@ import datetime
 import six
 from bson import json_util
 
-from girder import events
-from girder.constants import AccessType, SortDir
-from girder.exceptions import ValidationException
-from girder.models.model_base import AccessControlledModel
-from girder.models.notification import Notification
-from girder.models.token import Token
-from girder.models.user import User
+from girderformindlogger import events
+from girderformindlogger.constants import AccessType, SortDir
+from girderformindlogger.exceptions import ValidationException
+from girderformindlogger.models.model_base import AccessControlledModel
+from girderformindlogger.models.notification import Notification
+from girderformindlogger.models.token import Token
+from girderformindlogger.models.user import User
 
 from ..constants import JobStatus, JOB_HANDLER_LOCAL
 

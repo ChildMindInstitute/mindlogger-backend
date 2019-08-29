@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 from tests import base
-from girder.models.setting import Setting
+from girderformindlogger.models.setting import Setting
 
 from girder_google_analytics.settings import PluginSettings
 

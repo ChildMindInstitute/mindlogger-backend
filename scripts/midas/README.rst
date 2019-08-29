@@ -1,7 +1,7 @@
 Midas to Girder Migration
 =========================
 
-This folder contains scripts for migrating data from Midas to Girder.
+This folder contains scripts for migrating data from Midas to girderformindlogger.
 
 It can migrate users, collections (communities in Midas), folders, items, item
 metadata, and files (bitstreams in Midas).

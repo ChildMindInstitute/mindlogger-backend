@@ -68,7 +68,7 @@ class PluginRegistry(object):
 
     @contextmanager
     def __call__(self):
-        from girder import plugin
+        from girderformindlogger import plugin
 
         try:
             with mock.patch.object(

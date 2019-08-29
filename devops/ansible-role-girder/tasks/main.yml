@@ -33,7 +33,7 @@
 
 - name: Configure Girder config file
   ini_file:
-    path: "{{ ansible_user_dir }}/.girder/girder.cfg"
+    path: "{{ ansible_user_dir }}/.girderformindlogger/girder.cfg"
     section: "{{ item.section }}"
     option: "{{ item.option }}"
     value: "{{ item.value }}"
@@ -61,7 +61,7 @@
 
     - name: Enable Girder service
       systemd:
-        name: girder
+        name: girderformindlogger
         daemon_reload: true
         enabled: true
   become: true
