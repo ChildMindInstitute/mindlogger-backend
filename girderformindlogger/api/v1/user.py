@@ -221,6 +221,8 @@ class User(Resource):
         reviewer = self.getCurrentUser()
         # New schema, new roles
         applets = AppletModel().getAppletsForUser(role, user, active=True)
+        if len(applets)==0:
+            return([])
         if ids_only==True:
             return([applet.get('_id') for applet in applets])
         try:
@@ -234,7 +236,10 @@ class User(Resource):
                             refreshCache=False
                         ),
                         "users": AppletModel().getAppletUsers(applet),
-                        "groups": AppletModel().getAppletGroups(applet, True)
+                        "groups": AppletModel().getAppletGroups(
+                            applet,
+                            arrayOfObjects=True
+                        )
                     } if role=="manager" else {
                         **jsonld_expander.formatLdObject(
                             applet,
@@ -247,11 +252,11 @@ class User(Resource):
                             ).getAppletGroups(applet).get(role) if ObjectId(
                                 group
                             ) in [
-                                *user.get('groups'),
-                                *user.get('formerGroups'),
+                                *user.get('groups', []),
+                                *user.get('formerGroups', []),
                                 *[invite['groupId'] for invite in [
-                                    *user.get('groupInvites'),
-                                    *user.get('declinedInvites')
+                                    *user.get('groupInvites', []),
+                                    *user.get('declinedInvites', [])
                                 ]]
                             ]
                         ]
