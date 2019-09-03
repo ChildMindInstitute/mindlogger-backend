@@ -25,6 +25,7 @@ class Group(Resource):
         self.route('DELETE', (':id', 'moderator'), self.demote)
         self.route('DELETE', (':id', 'admin'), self.demote)
         self.route('GET', (), self.find)
+        self.route('GET', ('open',), self.getOpenGroups)
         self.route('GET', (':id',), self.getGroup)
         self.route('GET', (':id', 'access'), self.getGroupAccess)
         self.route('GET', (':id', 'invitation'), self.getGroupInvitations)
@@ -61,6 +62,22 @@ class Group(Resource):
                 user=user, offset=offset, limit=limit, sort=sort)
         return groupList
 
+    @access.public
+    @filtermodel(model=GroupModel)
+    @autoDescribeRoute(
+        Description('List all groups with open registration.')
+        .pagingParams(defaultSort='name')
+        .errorResponse()
+    )
+    def getOpenGroups(self, limit, offset, sort):
+        groupList = self._model.find(
+            query={'openRegistration': True},
+            limit=limit,
+            offset=offset,
+            sort=sort
+        )
+        return groupList
+
     @access.user
     @filtermodel(model=GroupModel)
     @autoDescribeRoute(
@@ -70,14 +87,26 @@ class Group(Resource):
         .param('name', 'Unique name for the group.', strip=True)
         .param('description', 'Description of the group.', required=False,
                default='', strip=True)
+        .param(
+            'openRegistration',
+            'Whether users can join without being invited.',
+            required=False,
+            dataType='boolean',
+            default=False
+        )
         .param('public', 'Whether the group should be publicly visible.',
                required=False, dataType='boolean', default=False)
         .errorResponse()
         .errorResponse('Write access was denied on the parent', 403)
     )
-    def createGroup(self, name, description, public):
-        return self._model.createGroup(
-            name=name, creator=self.getCurrentUser(), description=description, public=public)
+    def createGroup(self, name, description, openRegistration, public):
+        return(self._model.createGroup(
+            name=name,
+            creator=self.getCurrentUser(),
+            description=description,
+            openRegistration=openRegistration,
+            public=public
+        ))
 
     @access.public
     @filtermodel(model=GroupModel)
@@ -141,6 +170,12 @@ class Group(Resource):
         .modelParam('id', model=GroupModel, level=AccessType.WRITE)
         .param('name', 'The name to set on the group.', required=False, strip=True)
         .param('description', 'Description for the group.', required=False, strip=True)
+        .param(
+            'openRegistration',
+            'Whether users can join without being invited.',
+            required=False,
+            dataType='boolean'
+        )
         .param('public', 'Whether the group should be publicly visible', dataType='boolean',
                required=False)
         .param('addAllowed', 'Can admins or moderators directly add members '
@@ -150,10 +185,20 @@ class Group(Resource):
         .errorResponse()
         .errorResponse('Write access was denied for the group.', 403)
     )
-    def updateGroup(self, group, name, description, public, addAllowed):
+    def updateGroup(
+        self,
+        group,
+        name,
+        description,
+        openRegistration,
+        public,
+        addAllowed
+    ):
         if public is not None:
             self._model.setPublic(group, public)
 
+        if openRegistration is not None:
+            group['openRegistration'] = openRegistration
         if name is not None:
             group['name'] = name
         if description is not None:
@@ -162,7 +207,7 @@ class Group(Resource):
             self.requireAdmin(self.getCurrentUser())
             group['addAllowed'] = addAllowed
 
-        return self._model.updateGroup(group)
+        return(self._model.updateGroup(group))
 
     @access.user
     @filtermodel(model=GroupModel, addFields={'access', 'requests'})

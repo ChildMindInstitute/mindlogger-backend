@@ -73,6 +73,7 @@ clients
             cli
                 GirderCli
                     sendRestRequest
+                help
                 main
 girder
     LogFormatter
@@ -179,6 +180,14 @@ girder
                 allow_reuse_address
                 shutdown_request
         v1
+            activity
+                Activity
+                    getActivity
+                    getActivityByURL
+            activity_set
+                ActivitySet
+                    getActivitySet
+                    getActivitySetFromURL
             api_key
                 ApiKey
                     createKey
@@ -186,6 +195,23 @@ girder
                     deleteKey
                     listKeys
                     updateKey
+            applet
+                Applet
+                    assignGroup
+                    createApplet
+                    deactivateApplet
+                    getApplet
+                    getAppletFromURL
+                    getAppletGroups
+                    getAppletRoles
+                    getAppletUsers
+                    invite
+                    inviteFromURL
+                    setConstraints
+                USER_ROLE_KEYS
+                authorizeReviewer
+                authorizeReviewers
+                selfAssignment
             assetstore
                 Assetstore
                     createAssetstore
@@ -209,6 +235,10 @@ girder
                     setMetadata
                     updateCollection
                     updateCollectionAccess
+            context
+                Context
+                    getContext
+                    getSkin
             file
                 File
                     cancelUpload
@@ -249,6 +279,7 @@ girder
                     getGroup
                     getGroupAccess
                     getGroupInvitations
+                    getOpenGroups
                     inviteToGroup
                     joinGroup
                     listMembers
@@ -256,6 +287,7 @@ girder
                     promoteToModerator
                     removeFromGroup
                     updateGroup
+                    updateGroupAccess
             item
                 Item
                     copyItem
@@ -290,6 +322,15 @@ girder
                     setTimestamp
                 allowedDeleteTypes
                 allowedSearchTypes
+            response
+                ResponseItem
+                    createResponseItem
+                    getResponses
+            screen
+                Screen
+                    createScreen
+                    getScreen
+                    getScreenByURL
             system
                 LOG_BUF_SIZE
                 ModuleStartTime
@@ -303,6 +344,7 @@ girder
                     getPartialUploads
                     getPlugins
                     getSetting
+                    getSkin
                     getVersion
                     setLogLevel
                     setSetting
@@ -325,8 +367,11 @@ girder
                     finalizeOtp
                     find
                     generateTemporaryPassword
+                    getGroupInvites
                     getMe
                     getUser
+                    getUserAccess
+                    getUserApplets
                     getUserDetails
                     getUsersDetails
                     initializeOtp
@@ -335,11 +380,14 @@ girder
                     removeOtp
                     sendVerificationEmail
                     updateUser
+                    updateUserAccess
                     verifyEmail
     auditLogger
     cli
         build
+            help
             main
+        context_settings
         main
         mount
             FUSELogError
@@ -357,13 +405,17 @@ girder
                 readdir
                 release
                 use_ns
+            help
             main
             mountServer
+            show_default
             unmountServer
         serve
             main
         sftpd
             DEFAULT_PORT
+            default
+            help
             main
         shell
             main
@@ -392,7 +444,9 @@ girder
         LOG_ROOT
         MAX_LOG_SIZE
         PACKAGE_DIR
+        PREFERRED_NAMES
         ROOT_DIR
+        SPECIAL_SUBJECTS
         STATIC_PREFIX
         STATIC_ROOT_DIR
         ServerMode
@@ -430,6 +484,7 @@ girder
             describeScope
             listScopes
             scopeIds
+        USER_ROLES
         VERSION
         registerAccessFlag
     events
@@ -467,16 +522,23 @@ girder
         mongodb_proxy
             EXECUTABLE_MONGO_METHODS
             Executable
-            MongoClient
             MongoProxy
                 next
-            MongoReplicaSetClient
             get_methods
     getLogPaths
     logStdoutStderr
     logger
     logprint
     models
+        activity
+            Activity
+                importUrl
+                listVersionId
+                load
+        activitySet
+            ActivitySet
+                importUrl
+                load
         api_key
             ApiKey
                 createApiKey
@@ -485,6 +547,15 @@ girder
                 list
                 remove
                 validate
+        applet
+            Applet
+                createApplet
+                getAppletGroups
+                getAppletUsers
+                getAppletsForGroup
+                getAppletsForUser
+                importUrl
+                load
         assetstore
             Assetstore
                 addComputedInfo
@@ -497,6 +568,11 @@ girder
                 list
                 remove
                 validate
+        assignment
+            Assignment
+                create
+                findAssignments
+                load
         collection
             Collection
                 countFolders
@@ -607,6 +683,7 @@ girder
                 findWithPermissions
                 getAccessLevel
                 getFullAccessList
+                getFullRolesList
                 hasAccess
                 hasAccessFlags
                 list
@@ -617,9 +694,11 @@ girder
                 requireAccessFlags
                 setAccessList
                 setGroupAccess
+                setGroupRole
                 setPublic
                 setPublicFlags
                 setUserAccess
+                setUserRole
                 textSearch
             Model
                 ensureIndex
@@ -630,10 +709,14 @@ girder
                 filterDocument
                 find
                 findOne
+                getCached
+                getFromUrl
+                getModelCollection
                 hideFields
                 increment
                 initialize
                 load
+                preferredName
                 prefixSearch
                 reconnect
                 remove
@@ -644,6 +727,7 @@ girder
                 update
                 validate
                 validateKeys
+            USER_ROLE_KEYS
         notification
             Notification
                 createNotification
@@ -658,6 +742,33 @@ girder
                 QUEUED
                 SUCCESS
                 isComplete
+        protoUser
+            ProtoUser
+                createProtoUser
+                initialize
+                remove
+                validate
+        response_folder
+            ResponseFolder
+                load
+            ResponseItem
+                createResponseItem
+                initialize
+        roles
+            canonicalUser
+            checkRole
+            createCipher
+            decipherUser
+            getCanonicalUser
+            getUserCipher
+            nextCipher
+            userByEmail
+        screen
+            Screen
+                createScreen
+                importUrl
+                initialize
+                load
         setting
             Setting
                 get
@@ -858,6 +969,28 @@ girder
                 validateInfo
             RECENT_CONNECTION_CACHE_MAX_SIZE
             RECENT_CONNECTION_CACHE_TIME
+        jsonld_expander
+            KEYS_TO_EXPAND
+            MODELS
+            camelCase
+            contextualize
+            expand
+            fileObjectToStr
+            formatLdObject
+            generic
+            getByLanguage
+            getFromLongestMatchingKey
+            getFromLongestMatchingValue
+            getMoreGeneric
+            key
+            keyExpansion
+            listOfValues
+            objectList
+            reverse
+            snake_case
+            value
+            xsdNow
+        loadJSON
         mail_utils
             addTemplateDirectory
             getEmailUrlPrefix
@@ -892,6 +1025,8 @@ girder
             setResponseTimeLimit
         random
         resource
+            allowedSearchTypes
+            listFromString
         s3_assetstore_adapter
             BUF_LEN
             DEFAULT_REGION
@@ -975,6 +1110,7 @@ plugins
                 get_file_download_records
                 index_folder
                 report
+                required
     authorized_upload
         girder_authorized_upload
             AuthorizedUploadPlugin
