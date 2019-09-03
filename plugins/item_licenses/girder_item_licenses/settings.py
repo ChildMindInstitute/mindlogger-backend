@@ -1,7 +1,7 @@
 import six
 
-from girder.exceptions import ValidationException
-from girder.utility import setting_utilities
+from girderformindlogger.exceptions import ValidationException
+from girderformindlogger.utility import setting_utilities
 
 
 class PluginSettings(object):

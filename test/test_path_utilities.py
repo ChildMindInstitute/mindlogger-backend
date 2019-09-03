@@ -1,5 +1,5 @@
 import pytest
-from girder.utility import path
+from girderformindlogger.utility import path
 
 
 @pytest.mark.parametrize('raw,encoded', [

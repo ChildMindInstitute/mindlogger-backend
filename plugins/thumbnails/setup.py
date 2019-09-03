@@ -43,14 +43,14 @@ setup(
     packages=find_packages(exclude=['plugin_tests']),
     zip_safe=False,
     install_requires=[
-        'girder>=3',
+        'girderformindlogger>=0.3',
         'girder-jobs>=3',
         'Pillow',
         'pydicom>=1.0.2',
         'numpy'
     ],
     entry_points={
-        'girder.plugin': [
+        'girderformindlogger.plugin': [
             'thumbnails = girder_thumbnails:ThumbnailsPlugin'
         ]
     }

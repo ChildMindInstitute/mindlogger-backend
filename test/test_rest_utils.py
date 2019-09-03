@@ -4,9 +4,9 @@ import json
 import pytest
 import pytz
 
-from girder.api import rest
-from girder.exceptions import GirderException
-import girder.events
+from girderformindlogger.api import rest
+from girderformindlogger.exceptions import GirderException
+import girderformindlogger.events
 
 date = datetime.datetime.now()
 
@@ -59,7 +59,7 @@ def testGetApiUrl():
     assert parts.query == 'foo=bar'
     assert parts.fragment == 'test'
 
-    url = 'https://localhost/girder#users'
+    url = 'https://localhost/girderformindlogger#users'
     with pytest.raises(GirderException, match='Could not determine API root in %s.$' % url):
         rest.getApiUrl(url)
 
@@ -83,7 +83,7 @@ def testCustomJsonEncoderEvent():
         if isinstance(obj, set):
             event.addResponse(str(list(obj)))
 
-    with girder.events.bound('rest.json_encode', 'toString', _toString):
+    with girderformindlogger.events.bound('rest.json_encode', 'toString', _toString):
         resource = TestResource()
         resp = resource.returnsSet().decode('utf8')
         assert json.loads(resp) == {'key': '[1, 2, 3]'}

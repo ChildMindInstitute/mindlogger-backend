@@ -1,7 +1,7 @@
 ---
 # Add an initial user - this user will be admin
 - name: Create 'admin' User
-  girder:
+  girderformindlogger:
     port: 8080
     user:
       firstName: "John"
@@ -13,7 +13,7 @@
     state: present
 
 - name: Create apiKey
-  girder:
+  girderformindlogger:
     port: 8080
     username: "admin"
     password: "letmein"
@@ -30,7 +30,7 @@
     apiKeyId: "{{ token['gc_return']['_id'] }}"
 
 - name: Create collection
-  girder:
+  girderformindlogger:
     port: 8080
     apiKey: "{{ apiKey }}"
     collection:
@@ -39,7 +39,7 @@
   register: test_collection
 
 - name: Delete the test collection
-  girder:
+  girderformindlogger:
     port: 8080
     apiKey: "{{ apiKey }}"
     collection:
@@ -49,7 +49,7 @@
 
 
 - name: Delete apiKey
-  girder:
+  girderformindlogger:
     port: 8080
     username: "admin"
     password: "letmein"

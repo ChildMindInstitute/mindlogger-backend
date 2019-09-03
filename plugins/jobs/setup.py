@@ -27,7 +27,7 @@ setup(
     description='A general purpose plugin for managing offline jobs.',
     author='Kitware, Inc.',
     author_email='kitware@kitware.com',
-    url='http://girder.readthedocs.io/en/latest/plugins.html#jobs',
+    url='http://girderformindlogger.readthedocs.io/en/latest/plugins.html#jobs',
     license='Apache 2.0',
     classifiers=[
         'Development Status :: 5 - Production/Stable',
@@ -43,9 +43,9 @@ setup(
     include_package_data=True,
     packages=find_packages(exclude=['plugin_tests']),
     zip_safe=False,
-    install_requires=['girder>=3'],
+    install_requires=['girderformindlogger>=0.3'],
     entry_points={
-        'girder.plugin': [
+        'girderformindlogger.plugin': [
             'jobs = girder_jobs:JobsPlugin'
         ]
     }

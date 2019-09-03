@@ -1,7 +1,7 @@
 """
 This script is for deleting old audit log entries from the database. Example invocation:
 
-    girder audit-logs-cleanup --days=30 --types=rest.request
+    girderformindlogger audit-logs-cleanup --days=30 --types=rest.request
 """
 
 import click

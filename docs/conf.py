@@ -11,7 +11,7 @@ needs_sphinx = '1.6'
 if os.environ.get('READTHEDOCS'):
     # If this is being built on ReadTheDocs (RTD); then package installation will not be done via
     # Tox. Instead, RTD will run "python setup.py install" on the root "setup.py" file for Girder
-    # only. Since the docs also import girder_client via autodoc, that package must be explictly
+    # only. Since the docs also import girderformindlogger_client via autodoc, that package must be explictly
     # installed too.
     subprocess.check_call(
         ['python', 'setup.py', 'install'],
@@ -19,8 +19,8 @@ if os.environ.get('READTHEDOCS'):
     )
 
 # Get package imports and version
-# The 'girder' and "girder_client" packages must be installed at this point
-_girder_package = pkg_resources.get_distribution('girder')
+# The 'girderformindlogger' and "girder_client" packages must be installed at this point
+_girder_package = pkg_resources.get_distribution('girderformindlogger')
 _girder_client_package = pkg_resources.get_distribution('girder_client')
 _girder_version = _girder_package.version
 _girder_imports = {
@@ -37,7 +37,7 @@ _girder_imports |= {
     'requests_toolbelt',
     'yaml'
 }
-# The funcsigs package (only used in Python2) is necessary to ensure import-time logic in girder
+# The funcsigs package (only used in Python2) is necessary to ensure import-time logic in girderformindlogger
 # executes correctly. For some reason (which doesn't apply to six), mocking it interferes with its
 # import, even if it's installed.
 _girder_imports.discard('funcsigs')

@@ -8,12 +8,12 @@ import httmock
 import requests
 import six
 
-from girder.exceptions import ValidationException
-from girder.models.setting import Setting
-from girder.models.token import Token
-from girder.models.user import User
-from girder.settings import SettingKey
-import girder.events
+from girderformindlogger.exceptions import ValidationException
+from girderformindlogger.models.setting import Setting
+from girderformindlogger.models.token import Token
+from girderformindlogger.models.user import User
+from girderformindlogger.settings import SettingKey
+import girderformindlogger.events
 from tests import base
 
 from girder_oauth.providers.base import ProviderBase
@@ -156,11 +156,11 @@ class OauthTest(base.TestCase):
         event_handler = EventHandler()
 
         params = _getCallbackParams(providerInfo, redirect)
-        with girder.events.bound(
+        with girderformindlogger.events.bound(
             'oauth.auth_callback.before',
             'oauth_before',
             event_handler._oauth_before_stop
-        ), girder.events.bound(
+        ), girderformindlogger.events.bound(
             'oauth.auth_callback.after',
             'oauth_after',
             event_handler._oauth_after
@@ -172,11 +172,11 @@ class OauthTest(base.TestCase):
             self.assertEqual(event_handler.state, 'been in "before"')
 
         params = _getCallbackParams(providerInfo, redirect)
-        with girder.events.bound(
+        with girderformindlogger.events.bound(
             'oauth.auth_callback.before',
             'oauth_before',
             event_handler._oauth_before
-        ), girder.events.bound(
+        ), girderformindlogger.events.bound(
             'oauth.auth_callback.after',
             'oauth_after',
             event_handler._oauth_after

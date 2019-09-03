@@ -30,7 +30,7 @@ Install from PyPI
 
 To install the Girder distribution from the Python package index, simply run ::
 
-    pip install girder
+    pip install girderformindlogger
 
 This will install the core Girder server as a site package in your system
 or virtual environment. At this point, you might want to check the
@@ -39,7 +39,7 @@ paths.  In order to use the web interface, you must also install the web client
 libraries. Girder installs a Python script that will automatically build and
 install these libraries for you. Just run the following command: ::
 
-   girder build
+   girderformindlogger build
 
 .. note:: Installing the web client code requires Node.js. See the :ref:`Node.js installation guide <nodejs-install>`
           for installation instructions.
@@ -48,7 +48,7 @@ install these libraries for you. Just run the following command: ::
    need to run the above commands as root.
 
 Once this is done, you are ready to start using Girder as described in this
-section: :ref:`run-girder`.
+section: :ref:`run-girderformindlogger`.
 
 Install from Git repository
 +++++++++++++++++++++++++++
@@ -58,23 +58,23 @@ Obtain the Girder source code by cloning the Git repository on
 
 `GitHub <https://github.com>`_: ::
 
-    git clone https://github.com/girder/girder.git
-    pip install -e ./girder
+    git clone https://github.com/girderformindlogger/girderformindlogger.git
+    pip install -e ./girderformindlogger
 
 Plugins must be installed as separate packages. Once all plugins are installed,
 you can build the web client code by running: ::
 
-    girder build
+    girderformindlogger build
 
 
-.. _run-girder:
+.. _run-girderformindlogger:
 
 Run
 ---
 
 To run Girder, just use the following command: ::
 
-    girder serve
+    girderformindlogger serve
 
 Then, open http://localhost:8080/ in your web browser, and you should see the application.
 
@@ -116,4 +116,4 @@ Third party plugins are packaged as standalone python packages.  To install one,
 install the package and rebuild the web client. ::
 
    pip install <plugin name>
-   girder build
+   girderformindlogger build

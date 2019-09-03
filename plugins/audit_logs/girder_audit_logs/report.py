@@ -2,12 +2,12 @@
 This script is for creating download reports for a given folder, recursively.
 
 Examples:
-    girder audit-logs-report
+    girderformindlogger audit-logs-report
         --folder=57557fac8d777f68be8f3f49
         --start-date=2018-09-10T13:55:34.847Z
         --end-date=2018-09-13T13:55:34.847Z
         --output report.csv
-    girder audit-logs-report -f 57557fac8d777f68be8f3f49
+    girderformindlogger audit-logs-report -f 57557fac8d777f68be8f3f49
 
 """
 import click
@@ -17,8 +17,8 @@ import sys
 
 from bson.objectid import ObjectId
 
-from girder.models.item import Item
-from girder.models.folder import Folder
+from girderformindlogger.models.item import Item
+from girderformindlogger.models.folder import Folder
 from girder_audit_logs import Record
 
 

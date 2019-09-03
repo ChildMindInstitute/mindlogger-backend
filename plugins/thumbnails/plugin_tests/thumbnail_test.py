@@ -5,13 +5,13 @@ import six
 import time
 
 from tests import base
-from girder import events
-from girder.constants import ROOT_DIR
-from girder.models.file import File
-from girder.models.folder import Folder
-from girder.models.item import Item
-from girder.models.upload import Upload
-from girder.models.user import User
+from girderformindlogger import events
+from girderformindlogger.constants import ROOT_DIR
+from girderformindlogger.models.file import File
+from girderformindlogger.models.folder import Folder
+from girderformindlogger.models.item import Item
+from girderformindlogger.models.upload import Upload
+from girderformindlogger.models.user import User
 from girder_jobs.constants import JobStatus
 from PIL import Image
 
@@ -57,7 +57,7 @@ class ThumbnailsTestCase(base.TestCase):
             else:
                 self.privateFolder = folder
 
-        path = os.path.join(ROOT_DIR, 'girder', 'web_client', 'src', 'assets', 'Girder_Mark.png')
+        path = os.path.join(ROOT_DIR, 'girderformindlogger', 'web_client', 'src', 'assets', 'Girder_Mark.png')
         with open(path, 'rb') as file:
             self.image = file.read()
         events.unbind('thumbnails.create', 'test')

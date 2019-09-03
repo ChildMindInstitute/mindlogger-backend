@@ -1,9 +1,9 @@
 # -*- coding: utf-8 -*-
 import importlib
 
-from girder import events
-from girder.plugin import GirderPlugin
-from girder.utility.model_importer import ModelImporter
+from girderformindlogger import events
+from girderformindlogger.plugin import GirderPlugin
+from girderformindlogger.utility.model_importer import ModelImporter
 
 from . import constants, job_rest
 from .models.job import Job

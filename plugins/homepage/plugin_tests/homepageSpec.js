@@ -31,7 +31,7 @@ function _goToHomepagePluginSettings() {
     }, 'homepage config to display');
 
     waitsFor(function () {
-        return girder.rest.numberOutstandingRestRequests() === 0;
+        return girderformindlogger.rest.numberOutstandingRestRequests() === 0;
     }, 'rest requests to finish');
 }
 
@@ -39,7 +39,7 @@ function _verifyMarkdownContent(elem) {
     expect(elem.find('p:contains("It\'s very easy")').length).toBe(1);
     expect(elem.find('strong:contains("bold")').length).toBe(1);
     expect(elem.find('em:contains("italic")').length).toBe(1);
-    expect(elem.find('a[href="https://girder.readthedocs.io/"]:contains("link to Girder!")').length).toBe(1);
+    expect(elem.find('a[href="https://girderformindlogger.readthedocs.io/"]:contains("link to Girder!")').length).toBe(1);
 }
 
 function _verifyHomepageSettings(elem) {
@@ -59,7 +59,7 @@ describe('homepage plugin test', function () {
         runs(function () {
             $('.g-homepage-container textarea.g-markdown-text').val(
                 'It\'s very easy to make some words **bold** and other words *italic* with ' +
-                    'Markdown. You can even [link to Girder!](https://girder.readthedocs.io/)'
+                    'Markdown. You can even [link to Girder!](https://girderformindlogger.readthedocs.io/)'
             );
 
             $('.g-homepage-container a.g-preview-link').click();
@@ -81,7 +81,7 @@ describe('homepage plugin test', function () {
         });
 
         waitsFor(function () {
-            return girder.rest.numberOutstandingRestRequests() === 0;
+            return girderformindlogger.rest.numberOutstandingRestRequests() === 0;
         }, 'rest requests to finish');
 
         runs(function () {
@@ -95,7 +95,7 @@ describe('homepage plugin test', function () {
         runs(function () {
             expect($('.g-homepage-container textarea.g-markdown-text').val()).toEqual(
                 'It\'s very easy to make some words **bold** and other words *italic* with ' +
-                'Markdown. You can even [link to Girder!](https://girder.readthedocs.io/)'
+                'Markdown. You can even [link to Girder!](https://girderformindlogger.readthedocs.io/)'
             );
         });
     });
@@ -137,7 +137,7 @@ describe('homepage plugin test', function () {
 
             $('.g-homepage-welcome-text-container textarea.g-markdown-text').val(
                 'It\'s very easy to make some words **bold** and other words *italic* with ' +
-                'Markdown. You can even [link to Girder!](https://girder.readthedocs.io/)'
+                'Markdown. You can even [link to Girder!](https://girderformindlogger.readthedocs.io/)'
             );
 
             $('.g-homepage-welcome-text-container a.g-preview-link').click();
@@ -159,7 +159,7 @@ describe('homepage plugin test', function () {
         });
 
         waitsFor(function () {
-            return girder.rest.numberOutstandingRestRequests() === 0;
+            return girderformindlogger.rest.numberOutstandingRestRequests() === 0;
         }, 'rest requests to finish');
 
         runs(function () {

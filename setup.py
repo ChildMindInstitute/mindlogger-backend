@@ -62,14 +62,14 @@ extrasReqs = {
 }
 
 setup(
-    name='girder',
+    name='girderformindlogger',
     use_scm_version={'local_scheme': prerelease_local_scheme},
     setup_requires=['setuptools-scm'],
-    description='Web-based data management platform',
+    description='Web-based data management platform customized for MindLogger',
     long_description=readme,
-    author='Kitware, Inc.',
-    author_email='kitware@kitware.com',
-    url='https://girder.readthedocs.org',
+    author='Child Mind Institute MATTER Lab & Kitware',
+    author_email='matterlab@childmind.org',
+    url='https://github.com/ChildMindInstitute/mindlogger-app-backend',
     license='Apache 2.0',
     classifiers=[
         'Development Status :: 5 - Production/Stable',
@@ -83,7 +83,7 @@ setup(
         'Programming Language :: Python :: 3.6'
     ],
     packages=find_packages(
-        exclude=('girder.test', 'tests.*', 'tests', '*.plugin_tests.*', '*.plugin_tests')
+        exclude=('girderformindlogger.test', 'tests.*', 'tests', '*.plugin_tests.*', '*.plugin_tests')
     ),
     include_package_data=True,
     python_requires='>=2.7, !=3.0.*, !=3.1.*, !=3.2.*, !=3.3.*, !=3.4.*',
@@ -92,17 +92,17 @@ setup(
     zip_safe=False,
     entry_points={
         'console_scripts': [
-            'girder-server = girder.cli.serve:main',
-            'girder-sftpd = girder.cli.sftpd:main',
-            'girder-shell = girder.cli.shell:main',
-            'girder = girder.cli:main'
+            'girder-server = girderformindlogger.cli.serve:main',
+            'girder-sftpd = girderformindlogger.cli.sftpd:main',
+            'girder-shell = girderformindlogger.cli.shell:main',
+            'girderformindlogger = girderformindlogger.cli:main'
         ],
-        'girder.cli_plugins': [
-            'serve = girder.cli.serve:main',
-            'mount = girder.cli.mount:main',
-            'shell = girder.cli.shell:main',
-            'sftpd = girder.cli.sftpd:main',
-            'build = girder.cli.build:main'
+        'girderformindlogger.cli_plugins': [
+            'serve = girderformindlogger.cli.serve:main',
+            'mount = girderformindlogger.cli.mount:main',
+            'shell = girderformindlogger.cli.shell:main',
+            'sftpd = girderformindlogger.cli.sftpd:main',
+            'build = girderformindlogger.cli.build:main'
         ]
     }
 )

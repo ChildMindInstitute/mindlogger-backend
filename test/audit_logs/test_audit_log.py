@@ -2,11 +2,11 @@ import datetime
 import pytest
 import six
 from click.testing import CliRunner
-from girder import auditLogger
-from girder.models.file import File
-from girder.models.folder import Folder
-from girder.models.upload import Upload
-from girder.models.user import User
+from girderformindlogger import auditLogger
+from girderformindlogger.models.file import File
+from girderformindlogger.models.folder import Folder
+from girderformindlogger.models.upload import Upload
+from girderformindlogger.models.user import User
 from girder_audit_logs import Record, cleanup
 
 

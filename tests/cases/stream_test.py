@@ -4,9 +4,9 @@ import requests
 import time
 
 from .. import base
-from girder import config
-from girder.api import access
-from girder.api.rest import Resource, iterBody
+from girderformindlogger import config
+from girderformindlogger.api import access
+from girderformindlogger.api.rest import Resource, iterBody
 
 _chunks = []
 os.environ['GIRDER_PORT'] = os.environ.get('GIRDER_TEST_PORT', '20200')

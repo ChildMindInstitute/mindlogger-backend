@@ -215,7 +215,7 @@ describe('test the user quota plugin', function () {
             $('#g-user-quota-form input.btn-primary').click();
         });
         waitsFor(function () {
-            var resp = girder.rest.restRequest({
+            var resp = girderformindlogger.rest.restRequest({
                 url: 'system/setting',
                 method: 'GET',
                 data: { key: 'user_quota.default_user_quota' },
@@ -374,7 +374,7 @@ describe('test the user quota plugin', function () {
             $('#g-user-quota-form input.btn-primary').click();
         });
         waitsFor(function () {
-            var resp = girder.rest.restRequest({
+            var resp = girderformindlogger.rest.restRequest({
                 url: 'system/setting',
                 method: 'GET',
                 data: { key: 'user_quota.default_collection_quota' },

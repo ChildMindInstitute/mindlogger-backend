@@ -2,22 +2,22 @@
 import six
 
 from bson.objectid import ObjectId, InvalidId
-from girder import logger
-from girder.api import access
-from girder.api.describe import Description, autoDescribeRoute
-from girder.api.rest import Resource
-from girder.constants import AccessType
-from girder.exceptions import GirderException, ValidationException, RestException
-from girder.models.assetstore import Assetstore
-from girder.models.collection import Collection
-from girder.models.file import File
-from girder.models.item import Item
-from girder.models.setting import Setting
-from girder.models.upload import Upload
-from girder.models.user import User
-from girder.utility import assetstore_utilities
-from girder.utility.model_importer import ModelImporter
-from girder.utility.system import formatSize
+from girderformindlogger import logger
+from girderformindlogger.api import access
+from girderformindlogger.api.describe import Description, autoDescribeRoute
+from girderformindlogger.api.rest import Resource
+from girderformindlogger.constants import AccessType
+from girderformindlogger.exceptions import GirderException, ValidationException, RestException
+from girderformindlogger.models.assetstore import Assetstore
+from girderformindlogger.models.collection import Collection
+from girderformindlogger.models.file import File
+from girderformindlogger.models.item import Item
+from girderformindlogger.models.setting import Setting
+from girderformindlogger.models.upload import Upload
+from girderformindlogger.models.user import User
+from girderformindlogger.utility import assetstore_utilities
+from girderformindlogger.utility.model_importer import ModelImporter
+from girderformindlogger.utility.system import formatSize
 
 from .settings import PluginSettings
 

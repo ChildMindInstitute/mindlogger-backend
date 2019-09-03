@@ -12,7 +12,7 @@ Reverse Proxy
 In many cases, it is useful to route multiple web services from a single
 server.  For example, if you have a server accepting requests at
 ``www.example.com``, you may want to forward requests to
-``www.example.com/girder`` to a Girder instance listening on port ``9000``.
+``www.example.com/girderformindlogger`` to a Girder instance listening on port ``9000``.
 
 Anytime you deploy behind a proxy, Girder must be configured properly in order to serve
 content correctly.  This can be accomplished by setting a few parameters in
@@ -27,7 +27,7 @@ example, we have the following:
     tools.proxy.on = True
 
     [server]
-    api_root = "/girder/api/v1"
+    api_root = "/girderformindlogger/api/v1"
 
 .. note:: If your chosen proxy server does not add the appropriate
    ``X-Forwarded-Host`` header (containing the host used in http requests,
@@ -37,7 +37,7 @@ example, we have the following:
 
    .. code-block:: ini
 
-       tools.proxy.base = "http://www.example.com/girder"
+       tools.proxy.base = "http://www.example.com/girderformindlogger"
        tools.proxy.local = ""
 
 Apache
@@ -51,8 +51,8 @@ config:
 .. code-block:: apacheconf
 
     <VirtualHost *:80>
-        ProxyPass /girder http://localhost:9000
-        ProxyPassReverse /girder http://localhost:9000
+        ProxyPass /girderformindlogger http://localhost:9000
+        ProxyPassReverse /girderformindlogger http://localhost:9000
     </VirtualHost>
 
 Nginx
@@ -62,7 +62,7 @@ Nginx can be used by adding a block such as:
 
 .. code-block:: nginx
 
-    location /girder/ {
+    location /girderformindlogger/ {
         proxy_set_header Host $proxy_host;
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
         proxy_set_header X-Forwarded-Host $host;
@@ -99,7 +99,7 @@ like `uWSGI`.
 A simple example of running Girder with ``uwsgi`` instead of CherryPy's built in HTTP server
 would be::
 
-  uwsgi --lazy --http :8080 --module girder.wsgi --check-static `python -c "import sys; print(sys.prefix)"`/share/girder
+  uwsgi --lazy --http :8080 --module girderformindlogger.wsgi --check-static `python -c "import sys; print(sys.prefix)"`/share/girderformindlogger
 
 .. seealso::
 
@@ -110,13 +110,13 @@ Docker Container
 ----------------
 
 Every time a new commit is pushed to master, Docker Hub is updated with a new
-image of a docker container running Girder. This container exposes Girder at
+image of a docker container running girderformindlogger. This container exposes Girder at
 port 8080 and requires the database URL to be passed in as an option. For more
 information, see the
-`Docker Hub Page <https://registry.hub.docker.com/u/girder/girder/>`_. Since the
+`Docker Hub Page <https://registry.hub.docker.com/u/girderformindlogger/girderformindlogger/>`_. Since the
 container does not run a database, you'll need to run a command in the form: ::
 
-   $ docker run -p 8080:8080 girder/girder -d mongodb://db-server-external-ip:27017/girder --host 0.0.0.0
+   $ docker run -p 8080:8080 girderformindlogger/girderformindlogger -d mongodb://db-server-external-ip:27017/girderformindlogger --host 0.0.0.0
 
 Google Container Engine
 -----------------------
@@ -131,13 +131,13 @@ We will assume you have performed ``gcloud auth login`` and
 the following environment variables set: ::
 
     $ export ZONE=us-central1-a
-    $ export CLUSTER_NAME=hello-girder
+    $ export CLUSTER_NAME=hello-girderformindlogger
 
 Start a new project in Google Developers Console
-(here we assume its identifier is ``my-girder``).
+(here we assume its identifier is ``my-girderformindlogger``).
 Set this as your active project with ::
 
-    $ gcloud config set project my-girder
+    $ gcloud config set project my-girderformindlogger
 
 Now click the Container Engine menu item on the left of the console
 to initialize the container service, then create a new cluster with: ::
@@ -152,7 +152,7 @@ This will create two instances, a master and a worker: ::
     k8s-hello-girder-node-1 us-central1-a n1-standard-2 X.X.X.X       X.X.X.X        RUNNING
 
 The worker will hold
-our Docker containers, MongoDB and Girder. The worker needs some extra storage
+our Docker containers, MongoDB and girderformindlogger. The worker needs some extra storage
 than the standard 10GB, so let's make a new 100GB storage drive and attach it
 to our worker: ::
 
@@ -180,7 +180,7 @@ to ``pod.yaml``:
 
     ---
         version: v1beta1
-        id: girder
+        id: girderformindlogger
         kind: Pod
         desiredState:
             manifest:
@@ -199,7 +199,7 @@ to ``pod.yaml``:
                         mountPath: /data/db
                   -
                     name: application
-                    image: girder/girder
+                    image: girder/girderformindlogger
                     ports:
                       -
                         name: app
@@ -217,14 +217,14 @@ which will have more space and will persist even if our containers
 are shut down and restarted. Start the pod back at your local
 command line with: ::
 
-    $ gcloud preview container pods --cluster-name $CLUSTER_NAME create girder --zone $ZONE --config-file pod.yaml
+    $ gcloud preview container pods --cluster-name $CLUSTER_NAME create girderformindlogger --zone $ZONE --config-file pod.yaml
 
 You can check the status of your pod with: ::
 
-    $ gcloud preview container pods --cluster-name $CLUSTER_NAME describe girder --zone $ZONE
+    $ gcloud preview container pods --cluster-name $CLUSTER_NAME describe girderformindlogger --zone $ZONE
     ID          Image(s)                          Host                                                     Labels      Status
     ----------  ----------                        ----------                                               ----------  ----------
-    girder      dockerfile/mongodb,girder/girder  k8s-hello-girder-node-1.c.hello-girder.internal/X.X.X.X              Running
+    girderformindlogger      dockerfile/mongodb,girderformindlogger/girderformindlogger  k8s-hello-girder-node-1.c.hello-girderformindlogger.internal/X.X.X.X              Running
 
 Add a firewall rule to expose port 80 on your worker: ::
 
@@ -265,15 +265,15 @@ Build Girder and its client-side assets locally: ::
 
   $ pip install -e .
   $ pip install -e plugins/jobs # optionally install specific plugins
-  $ girder build
+  $ girderformindlogger build
 
 .. seealso::
 
-   `Building specific plugins with pip <http://girder.readthedocs.io/en/latest/installation.html#installing-extra-dependencies-with-pip>`_.
+   `Building specific plugins with pip <http://girderformindlogger.readthedocs.io/en/latest/installation.html#installing-extra-dependencies-with-pip>`_.
 
 Create a requirements.txt for the Beanstalk application, overwriting the default Girder requirements.txt: ::
 
-  $ pip freeze | grep -v 'girder\|^awscli\|^awsebcli' > requirements.txt
+  $ pip freeze | grep -v 'girderformindlogger\|^awscli\|^awsebcli' > requirements.txt
 
 Copy the pre-packaged configurations for Beanstalk into the current directory: ::
 
@@ -289,7 +289,7 @@ Beanstalk deploys code based on commits, so create a git commit with the newly a
 Create an environment to deploy code to: ::
 
   $ eb create my-env-name --envvars \
-    GIRDER_CONFIG=/opt/python/current/app/girder.cfg,GIRDER_MONGO_URI=mongodb://my-mongo-uri:27017/girder
+    GIRDER_CONFIG=/opt/python/current/app/girder.cfg,GIRDER_MONGO_URI=mongodb://my-mongo-uri:27017/girderformindlogger
 
 At this point running ``eb open my-env-name`` should open a functioning Girder instance
 in your browser. Additionally, running ``eb terminate`` will terminate the newly created environment.
@@ -301,4 +301,4 @@ in your browser. Additionally, running ``eb terminate`` will terminate the newly
 .. seealso::
 
    It may be useful when deploying to AWS to make use of the built-in Girder support
-   for `S3 Assetstores <http://girder.readthedocs.io/en/latest/user-guide.html#assetstores>`_.
+   for `S3 Assetstores <http://girderformindlogger.readthedocs.io/en/latest/user-guide.html#assetstores>`_.

@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-from girder.models.setting import Setting
+from girderformindlogger.models.setting import Setting
 from tests import base
 
 

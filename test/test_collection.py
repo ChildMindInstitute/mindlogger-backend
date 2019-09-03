@@ -1,7 +1,7 @@
 import pytest
 import json
 
-from girder.models.collection import Collection
+from girderformindlogger.models.collection import Collection
 from pytest_girder.assertions import assertStatusOk
 
 METADATA = {

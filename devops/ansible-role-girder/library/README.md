@@ -1,17 +1,17 @@
 Girder Ansible Client
 =====================
 
-Use ansible to configure a running girder instance. Currently this supports configuring users and assetstores. Additionally the module supports non-idempotent ```get```, ```put```, ```post```, and ```delete``` API requests.  You can install this module by copying ```girder.py``` out of the girder source tree and placing it in a ```library/``` folder alongside your top level playbooks. You may also modify the ```ANSIBLE_LIBRARY``` environment variable,  or pass a custom ```--module-path``` to ansible-playbook to provide access to the library.  For more information see [Developing Modules](http://docs.ansible.com/ansible/developing_modules.html) in the ansible documentation.
+Use ansible to configure a running girderformindlogger instance. Currently this supports configuring users and assetstores. Additionally the module supports non-idempotent ```get```, ```put```, ```post```, and ```delete``` API requests.  You can install this module by copying ```girder.py``` out of the girderformindlogger source tree and placing it in a ```library/``` folder alongside your top level playbooks. You may also modify the ```ANSIBLE_LIBRARY``` environment variable,  or pass a custom ```--module-path``` to ansible-playbook to provide access to the library.  For more information see [Developing Modules](http://docs.ansible.com/ansible/developing_modules.html) in the ansible documentation.
 
 ### Important Note:
-The girder ansible module relies on the girder-client to do most of the heavy lifting.  You must ensure that girder-client is installed in your environment before attempting to use the girder module. For most use cases this means simply installing the girder-client utility before using the girder module.
+The girderformindlogger ansible module relies on the girder-client to do most of the heavy lifting.  You must ensure that girder-client is installed in your environment before attempting to use the girderformindlogger module. For most use cases this means simply installing the girder-client utility before using the girderformindlogger module.
 
 ```yaml
 - name: install girder-client pip package
   pip: name=girder-client version=1.1.3
   become: true
 
-  # Code that uses girder module
+  # Code that uses girderformindlogger module
 
 ```
 
@@ -20,7 +20,7 @@ The girder ansible module relies on the girder-client to do most of the heavy li
 ```yaml
 # Ensure "admin" user exists
 - name: Create 'admin' User
-  girder:
+  girderformindlogger:
     user:
       firstName: "John"
       lastName: "Doe"
@@ -34,7 +34,7 @@ The girder ansible module relies on the girder-client to do most of the heavy li
 
 ```yaml
 - name: Create 'foobar' User
-  girder:
+  girderformindlogger:
     username: "admin"
     password: "letmein"
     user:
@@ -51,7 +51,7 @@ The girder ansible module relies on the girder-client to do most of the heavy li
 - name: Remove 'foobar' User
   username: "admin"
   password: "letmein"
-  girder:
+  girderformindlogger:
     user:
       login: "foobar"
       password: "foobarbaz"
@@ -64,7 +64,7 @@ The girder ansible module relies on the girder-client to do most of the heavy li
 
 ```yaml
 - name: Create filesystem assetstore
-  girder:
+  girderformindlogger:
     username: "admin"
     password: "letmein"
     assetstore:
@@ -75,7 +75,7 @@ The girder ansible module relies on the girder-client to do most of the heavy li
     state: present
 
 - name: Delete filesystem assetstore
-  girder:
+  girderformindlogger:
     username: "admin"
     password: "letmein"
     assetstore:
@@ -91,7 +91,7 @@ The girder ansible module relies on the girder-client to do most of the heavy li
 ```yaml
 # Get my info
 - name: Get users from http://localhost:80/api/v1/users
-  girder:
+  girderformindlogger:
     username: 'admin'
     password: 'letmein'
     get:
@@ -113,7 +113,7 @@ Supports get, post, put, delete methods,  but does not guarantee idempotence on 
 
 ```yaml
 - name: Run a system check
-  girder:
+  girderformindlogger:
     username: "admin"
     password: "letmein"
     put:
@@ -127,7 +127,7 @@ An example of posting an item to Girder Note that this is NOT idempotent. Runnin
 
 ```yaml
 - name: Get Me
-  girder:
+  girderformindlogger:
     username: "admin"
     password: "letmein"
     get:
@@ -135,7 +135,7 @@ An example of posting an item to Girder Note that this is NOT idempotent. Runnin
   register: ret
 
 - name: Get my public folder
-  girder:
+  girderformindlogger:
     token: "{{ ret['token'] }}"
     get:
       path: "folder"
@@ -146,7 +146,7 @@ An example of posting an item to Girder Note that this is NOT idempotent. Runnin
   register: ret
 
 - name: Post an item to my public folder
-  girder:
+  girderformindlogger:
     host: "data.kitware.com"
     scheme: 'https'
     token: "{{ ret['token'] }}"

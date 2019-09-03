@@ -1,5 +1,5 @@
-sha512sum /home/circleci/project/girder/setup.py \
-    /home/circleci/project/girder/requirements-dev.txt \
-    /home/circleci/project/girder/pytest_girder/setup.py \
-    /home/circleci/project/girder/plugins/*/setup.py \
-    /home/circleci/project/girder/clients/python/setup.py
+sha512sum /home/circleci/project/girderformindlogger/setup.py \
+    /home/circleci/project/girderformindlogger/requirements-dev.txt \
+    /home/circleci/project/girderformindlogger/pytest_girder/setup.py \
+    /home/circleci/project/girderformindlogger/plugins/*/setup.py \
+    /home/circleci/project/girderformindlogger/clients/python/setup.py

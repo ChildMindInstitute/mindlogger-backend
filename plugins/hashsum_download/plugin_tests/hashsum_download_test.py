@@ -3,15 +3,15 @@ import hashlib
 import six
 import time
 
-from girder.exceptions import ValidationException
-from girder.models.file import File
-from girder.models.folder import Folder
-from girder.models.setting import Setting
-from girder.models.upload import Upload
-from girder.models.user import User
+from girderformindlogger.exceptions import ValidationException
+from girderformindlogger.models.file import File
+from girderformindlogger.models.folder import Folder
+from girderformindlogger.models.setting import Setting
+from girderformindlogger.models.upload import Upload
+from girderformindlogger.models.user import User
 from tests import base
 
-import girder_hashsum_download as hashsum_download
+import girderformindlogger_hashsum_download as hashsum_download
 
 
 def setUpModule():

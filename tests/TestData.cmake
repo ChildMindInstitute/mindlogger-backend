@@ -1,4 +1,4 @@
-# This module provides an interface for girder tests to include data
+# This module provides an interface for girderformindlogger tests to include data
 # artifacts that are hosted externally.  The current standard storage
 # location is https://data.kitware.com, but any site that supports
 # content-addressed URL's can be used.  This module is largely a
@@ -106,5 +106,5 @@ function(girder_ExternalData_expand_arguments)
   ExternalData_Expand_Arguments(${ARGN})
 endfunction()
 
-# Finally call the setup to generate the tree of source files for girder core.
+# Finally call the setup to generate the tree of source files for girderformindlogger core.
 _setup_base_data_path()

@@ -3,12 +3,12 @@
     "version": "0.0.0",
     "description": "Limits total file size stored for individual users and collections and can direct all files to a specific assetstore",
     "bugs": {
-        "url": "https://github.com/girder/girder/issues"
+        "url": "https://github.com/girderformindlogger/girderformindlogger/issues"
     },
     "license": "Apache-2.0",
     "repository": {
         "type": "git",
-        "url": "https://github.com/girder/girder.git"
+        "url": "https://github.com/girderformindlogger/girderformindlogger.git"
     },
     "peerDependencies": {
         "@girder/core": "*"

@@ -1,7 +1,7 @@
-from girder import events
-from girder.models.group import Group
-from girder.models.setting import Setting
-from girder.plugin import GirderPlugin
+from girderformindlogger import events
+from girderformindlogger.models.group import Group
+from girderformindlogger.models.setting import Setting
+from girderformindlogger.plugin import GirderPlugin
 
 from .settings import PluginSettings
 

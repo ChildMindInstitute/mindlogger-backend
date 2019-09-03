@@ -4,9 +4,9 @@ import mock
 import pytest
 from pytest_girder.plugin_registry import PluginRegistry
 
-from girder import plugin
-from girder.exceptions import GirderException
-from girder.plugin import GirderPlugin
+from girderformindlogger import plugin
+from girderformindlogger.exceptions import GirderException
+from girderformindlogger.plugin import GirderPlugin
 
 
 @pytest.fixture

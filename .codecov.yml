@@ -11,7 +11,7 @@ coverage:
       server:
         target: 80%
         paths:
-          - girder
+          - girderformindlogger
           - plugins/*/server
       python_client:
         target: 80%
@@ -20,5 +20,5 @@ coverage:
       web_client:
         target: 75%
         paths:
-          - girder/web_client/src
+          - girderformindlogger/web_client/src
           - plugins/*/web_client

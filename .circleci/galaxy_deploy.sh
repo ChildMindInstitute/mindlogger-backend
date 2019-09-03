@@ -2,10 +2,10 @@
 set -e
 
 # Ansible role repo to deploy to
-readonly ANSIBLE_ROLE_GITHUB_ORG="girder"
-readonly ANSIBLE_ROLE_GITHUB_REPO="ansible-role-girder"
+readonly ANSIBLE_ROLE_GITHUB_ORG="girderformindlogger"
+readonly ANSIBLE_ROLE_GITHUB_REPO="ansible-role-girderformindlogger"
 
-readonly SUBTREE_PREFIX="devops/ansible-role-girder"
+readonly SUBTREE_PREFIX="devops/ansible-role-girderformindlogger"
 readonly SUBTREE_DEST_REPO="git@github.com:$ANSIBLE_ROLE_GITHUB_ORG/$ANSIBLE_ROLE_GITHUB_REPO.git"
 readonly SUBTREE_DEST_BRANCH="master"
 
@@ -24,4 +24,4 @@ pip install ansible
 
 # Import the changes into Ansible Galaxy
 ansible-galaxy login --github-token="$ANSIBLE_GALAXY_GITHUB_TOKEN"
-ansible-galaxy import girder ansible-role-girder
+ansible-galaxy import girderformindlogger ansible-role-girderformindlogger

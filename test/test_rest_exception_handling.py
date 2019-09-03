@@ -2,8 +2,8 @@ import cherrypy
 import contextlib
 import mock
 import pytest
-from girder import config
-from girder.api import access
+from girderformindlogger import config
+from girderformindlogger.api import access
 from pytest_girder.assertions import assertStatus
 
 

@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
-from girder.models.setting import Setting
-from girder.models.user import User
-from girder.settings import SettingKey
+from girderformindlogger.models.setting import Setting
+from girderformindlogger.models.user import User
+from girderformindlogger.settings import SettingKey
 
 from tests import base
 

@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 import threading
 
-from girder import events
+from girderformindlogger import events
 
 
 class _EventHelper(object):

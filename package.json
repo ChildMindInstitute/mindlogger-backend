@@ -2,7 +2,7 @@
     "name": "@girder/lint",
     "version": "0.0.0",
     "description": "Extensible data management platform",
-    "homepage": "https://girder.readthedocs.org",
+    "homepage": "https://girderformindlogger.readthedocs.org",
     "bugs": {
         "url": "https://github.com/ChildMindInstitute/mindlogger-app-backend/issues"
     },
@@ -16,7 +16,7 @@
         "npm": ">=5.2"
     },
     "devDependencies": {
-        "@girder/eslint-config": "file:./girder/web_client/eslint-config",
+        "@girder/eslint-config": "file:./girderformindlogger/web_client/eslint-config",
         "esdoc": "^1.0.4",
         "eslint": "^5.16.0",
         "eslint-config-semistandard": "^13.0.0",
@@ -30,7 +30,7 @@
         "nyc": "^13.1.0",
         "phantomjs-prebuilt": "^2.1.16",
         "pug-lint": "^2.6.0",
-        "@girder/pug-lint-config": "file:./girder/web_client/pug-lint-config",
+        "@girder/pug-lint-config": "file:./girderformindlogger/web_client/pug-lint-config",
         "stylint": "^1.5.9"
     },
     "scripts": {
@@ -38,7 +38,7 @@
         "docs": "esdoc"
     },
     "esdoc": {
-        "source": "girder/web_client/src",
+        "source": "girderformindlogger/web_client/src",
         "destination": "build/docs/web",
         "index": "README.rst",
         "plugins": [
@@ -48,9 +48,9 @@
                     "brand": {
                         "title": "Girder",
                         "description": "Web-based data management platform",
-                        "repository": "https://github.com/girder/girder",
+                        "repository": "https://github.com/girderformindlogger/girderformindlogger",
                         "author": "Kitware, Inc.",
-                        "image": "girder/web_client/src/assets/Girder_Mark.png"
+                        "image": "girderformindlogger/web_client/src/assets/Girder_Mark.png"
                     }
                 }
             }
@@ -61,14 +61,14 @@
         "overrides": [
             {
                 "files": [
-                    "girder/web_client/test/**",
+                    "girderformindlogger/web_client/test/**",
                     "plugins/*/plugin_tests/**"
                 ],
                 "globals": {
                     "Backbone": true,
                     "_": true,
                     "girderTest": true,
-                    "girder": true,
+                    "girderformindlogger": true,
                     "moment": true
                 },
                 "env": {
@@ -81,7 +81,7 @@
     },
     "eslintIgnore": [
         "build/",
-        "girder/web_client/test/lib/",
+        "girderformindlogger/web_client/test/lib/",
         "**/node_modules/"
     ],
     "nyc": {

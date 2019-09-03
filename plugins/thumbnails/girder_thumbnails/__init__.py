@@ -1,14 +1,14 @@
 # -*- coding: utf-8 -*-
 import json
-from girder import events
-from girder.constants import AccessType
-from girder.models.collection import Collection
-from girder.models.file import File
-from girder.models.folder import Folder
-from girder.models.item import Item
-from girder.models.user import User
-from girder.plugin import getPlugin, GirderPlugin
-from girder.utility.model_importer import ModelImporter
+from girderformindlogger import events
+from girderformindlogger.constants import AccessType
+from girderformindlogger.models.collection import Collection
+from girderformindlogger.models.file import File
+from girderformindlogger.models.folder import Folder
+from girderformindlogger.models.item import Item
+from girderformindlogger.models.user import User
+from girderformindlogger.plugin import getPlugin, GirderPlugin
+from girderformindlogger.utility.model_importer import ModelImporter
 from . import rest, utils
 
 

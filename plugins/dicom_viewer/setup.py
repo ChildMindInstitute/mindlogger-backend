@@ -27,7 +27,7 @@ setup(
     description='View DICOM images in the browser',
     author='Kitware, Inc.',
     author_email='kitware@kitware.com',
-    url='http://girder.readthedocs.io/en/latest/plugins.html#dicom-viewer',
+    url='http://girderformindlogger.readthedocs.io/en/latest/plugins.html#dicom-viewer',
     license='Apache 2.0',
     classifiers=[
         'Development Status :: 4 - Beta',
@@ -43,9 +43,9 @@ setup(
     include_package_data=True,
     packages=find_packages(exclude=['plugin_tests']),
     zip_safe=False,
-    install_requires=['girder>=3', 'pydicom>=1.0.2'],
+    install_requires=['girderformindlogger>=0.3', 'pydicom>=1.0.2'],
     entry_points={
-        'girder.plugin': [
+        'girderformindlogger.plugin': [
             'dicom_viewer = girder_dicom_viewer:DicomViewerPlugin'
         ]
     }

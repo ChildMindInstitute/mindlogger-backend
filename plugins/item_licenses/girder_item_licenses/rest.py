@@ -1,8 +1,8 @@
 # -*- coding: utf-8 -*-
-from girder.api import access
-from girder.api.describe import Description, autoDescribeRoute
-from girder.api.rest import boundHandler
-from girder.models.setting import Setting
+from girderformindlogger.api import access
+from girderformindlogger.api.describe import Description, autoDescribeRoute
+from girderformindlogger.api.rest import boundHandler
+from girderformindlogger.models.setting import Setting
 
 from .settings import PluginSettings
 

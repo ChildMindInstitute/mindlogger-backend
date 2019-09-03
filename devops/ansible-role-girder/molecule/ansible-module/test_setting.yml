@@ -1,6 +1,6 @@
 ---
 - name: Create 'admin' User
-  girder:
+  girderformindlogger:
     port: 8080
     user:
       firstName: "John"
@@ -12,7 +12,7 @@
     state: present
 
 - name: Disable user default folders
-  girder:
+  girderformindlogger:
     port: 8080
     username: "admin"
     password: "letmein"
@@ -29,18 +29,18 @@
       - ret["gc_return"]["current_value"] == "none"
 
 - name: Test setting a dict-valued setting (the route table)
-  girder:
+  girderformindlogger:
     port: 8080
     username: "admin"
     password: "letmein"
     setting:
       key: "core.route_table"
       value:
-        core_girder: "/girder"
+        core_girder: "/girderformindlogger"
         core_static_root: "/static"
 
 - name: Set multiple settings for email
-  girder:
+  girderformindlogger:
     port: 8080
     username: "admin"
     password: "letmein"
@@ -49,7 +49,7 @@
       value: "{{ setting_item.value }}"
   loop:
     - key: "core.email_from_address"
-      value: "girder@girder.girder"
+      value: "girderformindlogger@girder.girderformindlogger"
     - key: "core.email_host"
       value: "myemailhost"
   loop_control:
@@ -57,7 +57,7 @@
     loop_var: setting_item
 
 - name: Get email settings
-  girder:
+  girderformindlogger:
     port: 8080
     username: "admin"
     password: "letmein"
@@ -70,5 +70,5 @@
 - name: Check that proper email settings are set
   assert:
     that:
-      - ret["gc_return"]["core.email_from_address"] == "girder@girder.girder"
+      - ret["gc_return"]["core.email_from_address"] == "girderformindlogger@girder.girderformindlogger"
       - ret["gc_return"]["core.email_host"] == "myemailhost"

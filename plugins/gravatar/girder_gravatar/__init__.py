@@ -2,13 +2,13 @@
 import cherrypy
 import hashlib
 
-from girder import events
-from girder.api import access
-from girder.api.describe import Description, autoDescribeRoute
-from girder.models.model_base import AccessType
-from girder.models.setting import Setting
-from girder.models.user import User
-from girder.plugin import GirderPlugin
+from girderformindlogger import events
+from girderformindlogger.api import access
+from girderformindlogger.api.describe import Description, autoDescribeRoute
+from girderformindlogger.models.model_base import AccessType
+from girderformindlogger.models.setting import Setting
+from girderformindlogger.models.user import User
+from girderformindlogger.plugin import GirderPlugin
 
 from .settings import PluginSettings
 

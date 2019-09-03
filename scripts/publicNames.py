@@ -7,9 +7,9 @@ import re
 Tree = lambda: collections.defaultdict(Tree)  # noqa: E731
 
 EXCLUDE_DIRS = [
-    # Only look in girder, plugins and clients folders i.e. exclude all directories that don't begin
-    # with "clients" or "girder" or "plugins"
-    '^(?!(clients|girder|plugins|pytest_girder))',
+    # Only look in girderformindlogger, plugins and clients folders i.e. exclude all directories that don't begin
+    # with "clients" or "girderformindlogger" or "plugins"
+    '^(?!(clients|girderformindlogger|plugins|pytest_girder))',
     # Exclude plugin tests
     'plugin_tests',
     '\\.egg/',
@@ -38,11 +38,11 @@ def addFileSymbols(filePath, symbolTree):
         '--languages=python',
         '--python-kinds=%s' % ''.join([
             # Skip imported symbols
-            '-i',
+            '-i'#,
             # Skip "as"-renamed imported modules
-            '-I'
+            #'-I'
             # Skip unknown symbols (which are typically "as"-renamed imported symbols)
-            '-x',
+            #'-x',
 
         ]),
         filePath

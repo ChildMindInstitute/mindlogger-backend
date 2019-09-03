@@ -2,16 +2,16 @@
 import datetime
 import hashlib
 
-from girder import events
-from girder.api import access
-from girder.api.describe import Description, autoDescribeRoute
-from girder.api.rest import boundHandler
-from girder.api.v1.collection import Collection
-from girder.constants import AccessType, TokenScope
-from girder.exceptions import RestException
-from girder.models.collection import Collection as CollectionModel
-from girder.models.user import User
-from girder.plugin import GirderPlugin
+from girderformindlogger import events
+from girderformindlogger.api import access
+from girderformindlogger.api.describe import Description, autoDescribeRoute
+from girderformindlogger.api.rest import boundHandler
+from girderformindlogger.api.v1.collection import Collection
+from girderformindlogger.constants import AccessType, TokenScope
+from girderformindlogger.exceptions import RestException
+from girderformindlogger.models.collection import Collection as CollectionModel
+from girderformindlogger.models.user import User
+from girderformindlogger.plugin import GirderPlugin
 
 
 @access.user(scope=TokenScope.DATA_READ)

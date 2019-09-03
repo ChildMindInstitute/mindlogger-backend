@@ -1,7 +1,7 @@
 External Web Clients
 ====================
 
-You may want to build your own custom web applications using Girder. Since
+You may want to build your own custom web applications using girderformindlogger. Since
 Girder cleanly separates API from UI, it is straightforward to use a mounted
 Girder API for app authentication and data storage. You may additionally
 use Girder's JavaScript libraries and UI templates to assist in building
@@ -61,12 +61,12 @@ application bootstrapping
     import eventStream from '@girder/core/utilities/EventStream';
     import App from '@girder/core/views/App';
 
-    // set the path where girder's API is mounted
-    setApiRoot('/girder/api/v1');
+    // set the path where girderformindlogger's API is mounted
+    setApiRoot('/girderformindlogger/api/v1');
 
     var MyApp = App.extend({
         start: function () {
-            // disable girder's router
+            // disable girderformindlogger's router
             router.enabled(false);
 
             // call the super method
@@ -118,7 +118,7 @@ To use Girder UI components, you will need the following CSS file in your page:
 
 .. code-block:: html
 
-    <link rel="stylesheet" href="/girder/static/built/girder_lib.min.css">
+    <link rel="stylesheet" href="/girderformindlogger/static/built/girder_lib.min.css">
 
 To make login and logout controls, provide a dialog container and
 login/logout/register links, and a container where the dialogs will be rendered:

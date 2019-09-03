@@ -3,28 +3,28 @@ Girder: a data management platform
 
 |build-status| |license-badge| |gitter-badge| |discourse-badge| |codecov-badge| |github-badge|
 
-.. |build-status| image:: https://circleci.com/gh/girder/girder.png?style=shield
-    :target: https://circleci.com/gh/girder/girder
+.. |build-status| image:: https://circleci.com/gh/girderformindlogger/girderformindlogger.png?style=shield
+    :target: https://circleci.com/gh/girderformindlogger/girderformindlogger
     :alt: Build Status
 
-.. |license-badge| image:: https://raw.githubusercontent.com/girder/girder/master/docs/license.png
-    :target: https://pypi.python.org/pypi/girder
+.. |license-badge| image:: https://raw.githubusercontent.com/girderformindlogger/girderformindlogger/master/docs/license.png
+    :target: https://pypi.python.org/pypi/girderformindlogger
     :alt: License
 
 .. |gitter-badge| image:: https://badges.gitter.im/Join Chat.svg
-    :target: https://gitter.im/girder/girder?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge&utm_content=badge
+    :target: https://gitter.im/girderformindlogger/girderformindlogger?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge&utm_content=badge
     :alt: Gitter Chat
 
-.. |codecov-badge| image:: https://img.shields.io/codecov/c/github/girder/girder.svg
-    :target: https://codecov.io/gh/girder/girder
+.. |codecov-badge| image:: https://img.shields.io/codecov/c/github/girderformindlogger/girderformindlogger.svg
+    :target: https://codecov.io/gh/girderformindlogger/girderformindlogger
     :alt: Coverage Status
 
-.. |github-badge| image:: https://img.shields.io/github/stars/girder/girder.svg?style=social&label=GitHub
-    :target: https://github.com/girder/girder
+.. |github-badge| image:: https://img.shields.io/github/stars/girderformindlogger/girderformindlogger.svg?style=social&label=GitHub
+    :target: https://github.com/girderformindlogger/girderformindlogger
     :alt: GitHub
 
 .. |discourse-badge| image:: https://img.shields.io/badge/discourse-forum-blue.svg
-   :target: https://discourse.girder.org
+   :target: https://discourse.girderformindlogger.org
    :alt: Discourse
 
 
@@ -62,7 +62,7 @@ that have some or all of the following requirements:
 For an overview of the concepts present in Girder, we recommend checking out the :doc:`user-guide`.
 
 Girder is published under the Apache 2.0 License. Its source code can be found at
-https://github.com/girder/girder.
+https://github.com/girderformindlogger/girderformindlogger.
 
 The architecture
 ----------------

@@ -4,12 +4,12 @@
   environment:
     - LC_ALL: "C.UTF-8"
     - LANG: "C.UTF-8"
-  command: "{{ girder_virtualenv }}/bin/girder build"
+  command: "{{ girder_virtualenv }}/bin/girderformindlogger build"
   when: girder_web|bool
 
 - name: Restart Girder
   systemd:
-    name: girder
+    name: girderformindlogger
     daemon_reload: true
     state: restarted
   become: true

@@ -7,12 +7,12 @@ import time
 
 from .. import base
 
-from girder.constants import ROOT_DIR
-from girder.exceptions import FilePathException
-from girder.models.file import File
-from girder.models.folder import Folder
-from girder.models.item import Item
-from girder.models.user import User
+from girderformindlogger.constants import ROOT_DIR
+from girderformindlogger.exceptions import FilePathException
+from girderformindlogger.models.file import File
+from girderformindlogger.models.folder import Folder
+from girderformindlogger.models.item import Item
+from girderformindlogger.models.user import User
 
 
 def setUpModule():
@@ -56,7 +56,7 @@ class MountCommandTestCase(base.TestCase):
             File().getGirderMountFilePath(self.file)
         self.assertIsNone(File().getGirderMountFilePath(self.file, validate=False))
         mountPath = tempfile.mkdtemp()
-        subprocess.check_call(['girder', 'mount', mountPath, '-d', os.environ['GIRDER_TEST_DB']])
+        subprocess.check_call(['girderformindlogger', 'mount', mountPath, '-d', os.environ['GIRDER_TEST_DB']])
         endTime = time.time() + 10  # maximum time to wait
         while time.time() < endTime:
             if os.path.exists(os.path.join(mountPath, 'user')):
@@ -68,7 +68,7 @@ class MountCommandTestCase(base.TestCase):
                             File().getLocalFilePath(self.file))
         self.assertTrue(os.path.exists(filePath))
         self.assertEqual(open(filePath).read().strip(), 'File 1A')
-        subprocess.check_call(['girder', 'mount', mountPath, '-u'])
+        subprocess.check_call(['girderformindlogger', 'mount', mountPath, '-u'])
         endTime = time.time() + 10  # maximum time to wait
         while time.time() < endTime:
             if not os.path.exists(os.path.join(mountPath, 'user')):

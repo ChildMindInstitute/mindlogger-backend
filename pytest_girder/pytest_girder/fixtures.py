@@ -20,7 +20,7 @@ def fastCrypt():
     """
     Use faster password hashing to avoid unnecessary testing bottlenecks.
     """
-    from girder.models.user import User
+    from girderformindlogger.models.user import User
 
     # CryptContext.update could be used to mutate the existing instance, but if this fixture's scope
     # is ever made more limited (so that the teardown matters), this approach is more maintainable
@@ -39,9 +39,9 @@ def db(request):
     created/destroyed based on the URI provided with the --mongo-uri option and tear-down
     behavior is modified by the --keep-db option.
     """
-    from girder.models import _dbClients, getDbConnection, pymongo
-    from girder.models import model_base
-    from girder.external import mongodb_proxy
+    from girderformindlogger.models import _dbClients, getDbConnection, pymongo
+    from girderformindlogger.models import model_base
+    from girderformindlogger.external import mongodb_proxy
 
     mockDb = request.config.getoption('--mock-db')
     dbUri = request.config.getoption('--mongo-uri')
@@ -134,8 +134,8 @@ def smtp(db, server):
     # depend on the events daemon, which is currently managed by the server fixture.
     # We should sort this out so that the daemon is its own fixture rather than being
     # started/stopped via the cherrypy server lifecycle.
-    from girder.models.setting import Setting
-    from girder.settings import SettingKey
+    from girderformindlogger.models.setting import Setting
+    from girderformindlogger.settings import SettingKey
 
     receiver = MockSmtpReceiver()
     receiver.start()
@@ -156,7 +156,7 @@ def admin(db):
 
     Provides a user with the admin flag set to True.
     """
-    from girder.models.user import User
+    from girderformindlogger.models.user import User
     u = User().createUser(email='admin@email.com', login='admin', firstName='Admin',
                           lastName='Admin', password='password', admin=True)
 
@@ -171,7 +171,7 @@ def user(db, admin):
     Provides a regular user with no additional privileges. Note this fixture requires
     the admin fixture since an administrative user must exist before a regular user can.
     """
-    from girder.models.user import User
+    from girderformindlogger.models.user import User
     u = User().createUser(email='user@email.com', login='user', firstName='user',
                           lastName='user', password='password', admin=False)
 
@@ -183,8 +183,8 @@ def fsAssetstore(db, request):
     """
     Require a filesystem assetstore. Its location will be derived from the test function name.
     """
-    from girder.constants import ROOT_DIR
-    from girder.models.assetstore import Assetstore
+    from girderformindlogger.constants import ROOT_DIR
+    from girderformindlogger.models.assetstore import Assetstore
 
     name = _uid(request.node)
     path = os.path.join(ROOT_DIR, 'tests', 'assetstore', name)

@@ -17,7 +17,7 @@ and `tutorial <https://python-packaging.readthedocs.io/en/latest/index.html>`_.
 Quick Start
 ^^^^^^^^^^^
 
-We maintain a `Cookiecutter template <https://github.com/girder/cookiecutter-girder-plugin>`_
+We maintain a `Cookiecutter template <https://github.com/girderformindlogger/cookiecutter-girder-plugin>`_
 to help developers get started with their own Girder plugin.  To generate your own plugin
 using this template, install the cookiecutter package ::
 
@@ -25,10 +25,10 @@ using this template, install the cookiecutter package ::
 
 and run this command ::
 
-    cookiecutter gh:girder/cookiecutter-girder-plugin
+    cookiecutter gh:girderformindlogger/cookiecutter-girder-plugin
 
 It will ask you a few questions to customize the plugin.  For details on these options
-see the `README <https://github.com/girder/cookiecutter-girder-plugin/blob/master/README.md>`_
+see the `README <https://github.com/girderformindlogger/cookiecutter-girder-plugin/blob/master/README.md>`_
 in the template's git repository.
 
 Example Plugin
@@ -63,9 +63,9 @@ package we are going to create.
       packages=find_packages(exclude=['plugin_tests']),
       zip_safe=False,
       setup_requires=['setuptools-git'],
-      install_requires=['girder>=3', 'girder-jobs'],
+      install_requires=['girderformindlogger>=0.3', 'girder-jobs'],
       entry_points={
-          'girder.plugin': [ 'cats = girder_cats:CatsPlugin' ]
+          'girderformindlogger.plugin': [ 'cats = girder_cats:CatsPlugin' ]
       }
   )
 
@@ -97,18 +97,18 @@ in this example are specific to a Girder plugin.  These are as follows:
     its non-python data files) as a python "egg".  Girder plugins including web
     extensions **do not** support this feature.
 
-``install_requires=['girder>=3', 'girder_jobs']``
+``install_requires=['girderformindlogger>=0.3', 'girder_jobs']``
     This tells the installer that Girder of at least version 3 is required for this package
     to function.  When installing with ``pip``, Girder will be automatically installed
     from pypi if it is not already installed.  Any additional dependencies (including
     other Girder plugins) should be added to this list as well.
 
-``entry_points={'girder.plugin': [ 'cats = girder_cats.CatsPlugin' ]}``
+``entry_points={'girderformindlogger.plugin': [ 'cats = girder_cats.CatsPlugin' ]}``
     This is the piece that registers your plugin with Girder's application.  When Girder
-    starts up, it queries this entrypoint (``girder.plugin``) for all registered plugins.
+    starts up, it queries this entrypoint (``girderformindlogger.plugin``) for all registered plugins.
     Here the name ``cats`` is the internal name registered to this plugin.  The value
     ``girder_cats.CatsPlugin`` is an import path resolving to a class that is expected
-    to derive from ``girder.plugin.GirderPlugin``.  See below for an example of how to
+    to derive from ``girderformindlogger.plugin.GirderPlugin``.  See below for an example of how to
     define this object.
 
 
@@ -122,14 +122,14 @@ python package ``girder_cats`` so that it is a unique name on pypi ::
     mkdir girder_cats
     touch girder_cats/__init__.py
 
-The base class at :py:class:`girder.plugin.GirderPlugin` defines the interface
+The base class at :py:class:`girderformindlogger.plugin.GirderPlugin` defines the interface
 between Girder and its plugins.  For advanced requirements, plugin authors can
 override the properties defined on this class, but for most use cases inserting
 the following into the top level ``__init__.py`` will suffice.
 
 .. code-block:: python
 
-    from girder.plugin import getPlugin, GirderPlugin
+    from girderformindlogger.plugin import getPlugin, GirderPlugin
 
     class CatsPlugin(GirderPlugin):
         DISPLAY_NAME = 'Cats in Girder'
@@ -155,7 +155,7 @@ class instance provide the following:
     the python package install path.
 
 Other optional attributes are defined on this class for more advanced use cases,
-see the class documentation at :py:class:`girder.plugin.GirderPlugin` for details.
+see the class documentation at :py:class:`girderformindlogger.plugin.GirderPlugin` for details.
 
 
 .. _extending-the-api:
@@ -169,8 +169,8 @@ route for ``GET /item/:id/cat`` to the system,
 
 .. code-block:: python
 
-    from girder.api import access
-    from girder.api.rest import boundHandler
+    from girderformindlogger.api import access
+    from girderformindlogger.api.rest import boundHandler
 
     @access.public
     @boundHandler
@@ -186,7 +186,7 @@ You can then attach this route to Girder in your plugin's load method
 
 .. code-block:: python
 
-    from girder.plugin import GirderPlugin
+    from girderformindlogger.plugin import GirderPlugin
     class CatsPlugin(GirderPlugin)
       def load(self, info):
           info['apiRoot'].item.route('GET', (':id', 'cat'), myHandler)
@@ -197,9 +197,9 @@ indicate who can call the new route.  The decorator is one of ``@access.admin``
 logged in can call the endpoint), or ``@access.public`` (any client can call
 the endpoint).
 
-In the above example, the :py:obj:`girder.api.rest.boundHandler` decorator is
+In the above example, the :py:obj:`girderformindlogger.api.rest.boundHandler` decorator is
 used to make the unbound method ``myHandler`` behave as though it is a member method
-of a :py:class:`girder.api.rest.Resource` instance, which enables convenient access
+of a :py:class:`girderformindlogger.api.rest.Resource` instance, which enables convenient access
 to methods like ``self.requireParams``.
 
 If you do not add an access decorator, a warning message appears:
@@ -209,13 +209,13 @@ will default to being restricted to administrators.
 When you start the server, you may notice a warning message appears:
 ``WARNING: No description docs present for route GET item/:id/cat``. You
 can add self-describing API documentation to your route using the
-``autoDescribeRoute`` decorator and :py:class:`girder.api.describe.Description` class as in the following
+``autoDescribeRoute`` decorator and :py:class:`girderformindlogger.api.describe.Description` class as in the following
 example:
 
 .. code-block:: python
 
-    from girder.api.describe import Description, autoDescribeRoute
-    from girder.api import access
+    from girderformindlogger.api.describe import Description, autoDescribeRoute
+    from girderformindlogger.api import access
 
     @access.public
     @autoDescribeRoute(
@@ -241,8 +241,8 @@ will be contained in the ``params`` kwarg as a dictionary, if that parameter is 
 validation of required parameters, coercion to the correct data type, and setting default
 values is all handled automatically for you based on the parameter descriptions in the
 ``Description`` object passed. Two special methods of the ``Description`` object can be used for
-additional behavior control: :py:func:`girder.api.describe.Description.modelParam` and
-:py:func:`girder.api.describe.Description.jsonParam`.
+additional behavior control: :py:func:`girderformindlogger.api.describe.Description.modelParam` and
+:py:func:`girderformindlogger.api.describe.Description.jsonParam`.
 
 The ``modelParam`` method is used to convert parameters passed in as IDs to the model document
 corresponding to those IDs, and also can perform access checks to ensure that the user calling the
@@ -284,7 +284,7 @@ classes, and we can add it to the API in the ``load()`` method.
 
 .. code-block:: python
 
-    from girder.api.rest import Resource
+    from girderformindlogger.api.rest import Resource
 
     class Cat(Resource):
         def __init__(self):
@@ -305,7 +305,7 @@ API inside your plugin's load method:
 
 .. code-block:: python
 
-    from girder.plugin import GirderPlugin
+    from girderformindlogger.plugin import GirderPlugin
     class CatsPlugin(GirderPlugin)
         def load(self, info):
             info['apiRoot'].cat = Cat()
@@ -322,8 +322,8 @@ from the mount location.
 
 .. code-block:: python
 
-    from girder.api.rest import Resource, Prefix
-    from girder.plugin import GirderPlugin
+    from girderformindlogger.api.rest import Resource, Prefix
+    from girderformindlogger.plugin import GirderPlugin
 
     class Cat(Resource):
         def __init__(self):
@@ -352,13 +352,13 @@ Adding a new model type in your plugin
 Most of the time, if you add a new resource type in your plugin, you'll have a
 ``Model`` class backing it. These model classes work just like the core model
 classes as described in the :ref:`models` section. If you need to use the
-:py:class:`~girder.utility.model_importer.ModelImporter` class with your model type,
+:py:class:`~girderformindlogger.utility.model_importer.ModelImporter` class with your model type,
 you will need to explicitly register the model type to a string, e.g.
 
 .. code-block:: python
 
-    from girder.plugin import GirderPlugin
-    from girder.utility.model_importer import ModelImporter
+    from girderformindlogger.plugin import GirderPlugin
+    from girderformindlogger.utility.model_importer import ModelImporter
     from .models.cat import Cat
 
     class CatsPlugin(GirderPlugin):
@@ -376,7 +376,7 @@ access flag on data, have your plugin globally register the flag in the system:
 
 .. code-block:: python
 
-    from girder.constants import registerAccessFlag
+    from girderformindlogger.constants import registerAccessFlag
 
     registerAccessFlag(key='cats.feed', name='Feed cats', description='Allows users to feed cats')
 
@@ -442,7 +442,7 @@ is executed by your plugin at startup time,
 
 .. code-block:: python
 
-    from girder import events
+    from girderformindlogger import events
 
     def handler(event):
         print event.info
@@ -472,7 +472,7 @@ receive the same kwargs as the default route handler in the event's info.
 
 Since handlers of this event run prior to the normal access level check of the
 underlying route handler, they are bound by the same access level rules as route
-handlers; they must be decorated by one of the functions in `girder.api.access`.
+handlers; they must be decorated by one of the functions in `girderformindlogger.api.access`.
 If you do not decorate them with one, they will default to requiring administrator
 access. This is to prevent accidental reduction of security by plugin developers.
 You may change the access level of the route in your handler, but you will
@@ -620,7 +620,7 @@ Install the custom template in the plugin's ``load`` function:
 .. code-block:: python
 
     import os
-    from girder.plugin import GirderPlugin
+    from girderformindlogger.plugin import GirderPlugin
 
     PLUGIN_PATH = os.path.dirname(__file__)
     class CustomTemplatePlugin(GirderPlugin):
@@ -867,7 +867,7 @@ configuration, to support optional dependencies.
 
 .. code-block:: python
 
-    from girder.plugin import getPlugin, GirderPlugin
+    from girderformindlogger.plugin import getPlugin, GirderPlugin
     # An example of loading dependent plugins
     class ExamplePlugin(GirderPlugin)
         def load(self, info):
@@ -911,7 +911,7 @@ Automated testing for plugins
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 We recommend using `pytest <https://docs.pytest.org/en/latest/>`_ to create automated tests for your plugin code.
-The core Girder development team maintains the `pytest-girder <https://pypi.org/project/pytest-girder/>`_ package,
+The core Girder development team maintains the `pytest-girderformindlogger <https://pypi.org/project/pytest-girderformindlogger/>`_ package,
 which contains several useful fixtures and other utilities that make testing Girder plugins easier.
 
 Example

@@ -27,7 +27,7 @@ setup(
     description='Customize the homepage using Markdown.',
     author='Kitware, Inc.',
     author_email='kitware@kitware.com',
-    url='http://girder.readthedocs.io/en/latest/plugins.html#homepage',
+    url='http://girderformindlogger.readthedocs.io/en/latest/plugins.html#homepage',
     license='Apache 2.0',
     classifiers=[
         'Development Status :: 5 - Production/Stable',
@@ -43,9 +43,9 @@ setup(
     include_package_data=True,
     packages=find_packages(exclude=['plugin_tests']),
     zip_safe=False,
-    install_requires=['girder>=3'],
+    install_requires=['girderformindlogger>=0.3'],
     entry_points={
-        'girder.plugin': [
+        'girderformindlogger.plugin': [
             'homepage = girder_homepage:HomepagePlugin'
         ]
     }

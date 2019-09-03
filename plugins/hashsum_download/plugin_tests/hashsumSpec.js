@@ -16,7 +16,7 @@ describe('Unit test the file view augmentation', function () {
         });
 
         runs(function () {
-            file = new girder.models.FileModel({
+            file = new girderformindlogger.models.FileModel({
                 _id: 'fake_id',
                 size: 12345,
                 name: 'my_file.txt',
@@ -25,7 +25,7 @@ describe('Unit test the file view augmentation', function () {
                 created: '2016-06-28T14:58:59.235000+00:00'
             });
 
-            new girder.views.widgets.FileInfoWidget({
+            new girderformindlogger.views.widgets.FileInfoWidget({
                 model: file,
                 el: $('#g-dialog-container'),
                 parentView: app
@@ -39,7 +39,7 @@ describe('Unit test the file view augmentation', function () {
             expect(container.length).toBe(1);
             expect($('input.g-hash-textbox', container).val()).toBe(sha512);
             expect($('a.g-keyfile-download', container).attr('href')).toBe(
-                girder.rest.getApiRoot() + '/file/fake_id/hashsum_file/sha512'
+                girderformindlogger.rest.getApiRoot() + '/file/fake_id/hashsum_file/sha512'
             );
         });
     });

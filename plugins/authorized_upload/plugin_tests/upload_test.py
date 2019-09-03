@@ -1,10 +1,10 @@
 # -*- coding: utf-8 -*-
-from girder.models.folder import Folder
-from girder.models.setting import Setting
-from girder.models.token import Token
-from girder.models.upload import Upload
-from girder.models.user import User
-from girder.settings import SettingKey
+from girderformindlogger.models.folder import Folder
+from girderformindlogger.models.setting import Setting
+from girderformindlogger.models.token import Token
+from girderformindlogger.models.upload import Upload
+from girderformindlogger.models.user import User
+from girderformindlogger.settings import SettingKey
 from tests import base
 
 from girder_authorized_upload.constants import TOKEN_SCOPE_AUTHORIZED_UPLOAD

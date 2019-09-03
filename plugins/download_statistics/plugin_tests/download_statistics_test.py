@@ -3,12 +3,12 @@ import os
 import json
 
 from tests import base
-from girder.constants import ROOT_DIR
-from girder.models.collection import Collection
-from girder.models.folder import Folder
-from girder.models.item import Item
-from girder.models.upload import Upload
-from girder.models.user import User
+from girderformindlogger.constants import ROOT_DIR
+from girderformindlogger.models.collection import Collection
+from girderformindlogger.models.folder import Folder
+from girderformindlogger.models.item import Item
+from girderformindlogger.models.upload import Upload
+from girderformindlogger.models.user import User
 
 
 def setUpModule():

@@ -5,15 +5,15 @@ import subprocess
 import sys
 import time
 
-from girder import config
-from girder.api import access
-from girder.api.describe import Description, describeRoute
-from girder.api.rest import Resource
-from girder.constants import registerAccessFlag, ROOT_DIR
-from girder.exceptions import RestException
-from girder.models.folder import Folder
-from girder.models.upload import Upload
-from girder.utility.progress import ProgressContext
+from girderformindlogger import config
+from girderformindlogger.api import access
+from girderformindlogger.api.describe import Description, describeRoute
+from girderformindlogger.api.rest import Resource
+from girderformindlogger.constants import registerAccessFlag, ROOT_DIR
+from girderformindlogger.exceptions import RestException
+from girderformindlogger.models.folder import Folder
+from girderformindlogger.models.upload import Upload
+from girderformindlogger.utility.progress import ProgressContext
 from . import base
 from six.moves import range
 
@@ -141,7 +141,7 @@ class WebClientTestCase(base.TestCase):
         if 'SETUP_MODULES' in os.environ:
             import imp
             for i, script in enumerate(os.environ['SETUP_MODULES'].split(':')):
-                imp.load_source('girder.web_test_setup%d' % i, script)
+                imp.load_source('girderformindlogger.web_test_setup%d' % i, script)
 
     def testWebClientSpec(self):
         baseUrl = '/static/built/testEnv.html'
@@ -151,7 +151,7 @@ class WebClientTestCase(base.TestCase):
         cmd = (
             'npx', 'phantomjs',
             '--web-security=%s' % self.webSecurity,
-            os.path.join(ROOT_DIR, 'girder', 'web_client', 'test', 'specRunner.js'),
+            os.path.join(ROOT_DIR, 'girderformindlogger', 'web_client', 'test', 'specRunner.js'),
             'http://localhost:%s%s' % (os.environ['GIRDER_PORT'], baseUrl),
             self.specFile,
             os.environ.get('JASMINE_TIMEOUT', ''),

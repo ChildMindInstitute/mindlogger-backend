@@ -28,7 +28,7 @@ setup(
     'via a secure one-use URL.',
     author='Kitware, Inc.',
     author_email='kitware@kitware.com',
-    url='http://girder.readthedocs.io/en/latest/plugins.html#authorized-uploads',
+    url='http://girderformindlogger.readthedocs.io/en/latest/plugins.html#authorized-uploads',
     license='Apache 2.0',
     classifiers=[
         'Development Status :: 4 - Beta',
@@ -44,9 +44,9 @@ setup(
     include_package_data=True,
     packages=find_packages(exclude=['plugin_tests']),
     zip_safe=False,
-    install_requires=['girder>=3'],
+    install_requires=['girderformindlogger>=0.3'],
     entry_points={
-        'girder.plugin': [
+        'girderformindlogger.plugin': [
             'authorized_upload = girder_authorized_upload:AuthorizedUploadPlugin'
         ]
     }

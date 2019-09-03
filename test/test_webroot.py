@@ -1,11 +1,11 @@
 # -*- coding: utf-8 -*-
 import cherrypy
 
-from girder.models.setting import Setting
-from girder.settings import SettingKey
+from girderformindlogger.models.setting import Setting
+from girderformindlogger.settings import SettingKey
 from pytest_girder.assertions import assertStatusOk
 from pytest_girder.utils import getResponseBody
-from girder.utility.webroot import WebrootBase
+from girderformindlogger.utility.webroot import WebrootBase
 
 
 def testEscapeJavascript():
@@ -79,7 +79,7 @@ def testWebRootTemplateFilename():
     Test WebrootBase.templateFilename attribute after initialization
     and after setting a custom template path.
     """
-    webroot = WebrootBase(templatePath='/girder/base_template.mako')
+    webroot = WebrootBase(templatePath='/girderformindlogger/base_template.mako')
     assert webroot.templateFilename == 'base_template.mako'
 
     webroot.setTemplatePath('/plugin/custom_template.mako')

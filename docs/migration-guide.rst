@@ -4,7 +4,7 @@ Migration Guide
 ===============
 
 This document is meant to guide Girder plugin developers in transitioning
-between major versions of Girder. Major version bumps contain breaking changes
+between major versions of girderformindlogger. Major version bumps contain breaking changes
 to the Girder core library, which are enumerated in this guide along with
 instructions on how to update your plugin code to work in the newer version.
 
@@ -34,9 +34,9 @@ plugin:
         version='1.0.0',
         description='An example plugin.', # This text will be displayed on the plugin page
         packages=['example_plugin'],
-        install_requires=['girder'],      # Add any plugin dependencies here
+        install_requires=['girderformindlogger'],      # Add any plugin dependencies here
         entry_points={
-          'girder.plugin': [              # Register the plugin with girder.  The next line registers
+          'girderformindlogger.plugin': [              # Register the plugin with girderformindlogger.  The next line registers
                                           # our plugin under the name "example".  The name here must be
                                           # unique for all installed plugins.  The right side points to
                                           # a subclass of GirderPlugin inside your plugin.
@@ -60,11 +60,11 @@ plugin:
         "version": "1.0.0",
         "peerDepencencies": {
             "@girder/other_plugin": "*",      // Peer dependencies should be as relaxed as possible.
-                                              // Add in any other girder plugins your plugin depends
+                                              // Add in any other girderformindlogger plugins your plugin depends
                                               // on for web_client code.
                                               // Plugin dependencies should also be listed by entrypoint
                                               // name in "girderPlugin" as shown below.
-            "@girder/core": "*"               // Your plugin will likely depend on girder/core.
+            "@girder/core": "*"               // Your plugin will likely depend on girderformindlogger/core.
         },
         "dependencies": {},                   // Any other dependencies of the client code
         "girderPlugin": {
@@ -77,14 +77,14 @@ plugin:
 
 * Delete the ``plugin.json`` file at the root of your plugin. Move the ``dependencies`` from that file to
   the top level ``dependencies`` key of the ``package.json`` file created in the previous step.
-* Create a subclass of :py:class:`girder.plugin.GirderPlugin` in your plugin package.  This class
+* Create a subclass of :py:class:`girderformindlogger.plugin.GirderPlugin` in your plugin package.  This class
   can be anywhere in your package, but a sensible place to put it is in the top-level ``__init__.py``.
   There are hooks for custom behavior in this class, but at a minimum you should move the old
   load method into this class and point to an npm package name containing your web client code.
 
   .. code-block:: python
 
-    from girder.plugin import getPlugin, GirderPlugin
+    from girderformindlogger.plugin import getPlugin, GirderPlugin
 
     class ExamplePlugin(GirderPlugin):
         DISPLAY_NAME = 'My Plugin'              # a user-facing plugin name, the plugin is still
@@ -102,9 +102,9 @@ plugin:
 * Migrate all imports in Python and Javascript source files.  The old plugin module paths are no longer
   valid.  Any import reference to:
 
-  * ``girder.plugins`` in Python must be changed to the actual installed module name
+  * ``girderformindlogger.plugins`` in Python must be changed to the actual installed module name
 
-    * For example, change ``from girder.plugins.jobs.models.job import Job`` to
+    * For example, change ``from girderformindlogger.plugins.jobs.models.job import Job`` to
       ``from girder_jobs.models.job import Job``
 
   * ``girder_plugins`` in Javascript must be changed to the actual installed package name
@@ -112,9 +112,9 @@ plugin:
     * For example, change ``import { JobListWidget } from 'girder_plugins/jobs/views';`` to
       ``import { JobListWidget } from '@girder/jobs/views';``
 
-  * ``girder`` in Javascript must be changed to ``@girder/core``
+  * ``girderformindlogger`` in Javascript must be changed to ``@girder/core``
 
-    * For example, change ``import { restRequest } from 'girder/rest';`` to
+    * For example, change ``import { restRequest } from 'girderformindlogger/rest';`` to
       ``import { restRequest } from '@girder/core/rest';``
 
 
@@ -122,10 +122,10 @@ Other backwards incompatible changes affecting plugins
 ++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
 * Automatic detection of mail templates has been removed.  Instead, plugins should register
-  them in their ``load`` method with :py:func:`girder.utility.mail_utils.addTemplateDirectory`.
+  them in their ``load`` method with :py:func:`girderformindlogger.utility.mail_utils.addTemplateDirectory`.
 * The ``mockPluginDir`` methods have been removed from the testing infrastructure.  If plugins
   need to generate a one-off plugin for testing, they can generate a subclass of
-  :py:class:`girder.plugin.GirderPlugin` in the test file and register it in a test context
+  :py:class:`girderformindlogger.plugin.GirderPlugin` in the test file and register it in a test context
   with the ``test_plugin`` mark.  For example,
 
   .. code-block:: python
@@ -137,7 +137,7 @@ Other backwards incompatible changes affecting plugins
     @pytest.mark.plugin('failing_plugin', FailingPlugin)
     def test_with_failing_plugin(server):
         # the test plugin will be installed in this context
-* When running the server in testing mode (``girder serve --mode=testing``), the source directory
+* When running the server in testing mode (``girderformindlogger serve --mode=testing``), the source directory
   is no longer served.  If you need any assets for testing, they have to be installed into
   the static directory during the client build process.
 * Automatic registration of plugin models is no longer provided.  If your plugin contains any
@@ -147,14 +147,14 @@ Other backwards incompatible changes affecting plugins
 
   .. code-block:: python
 
-    from girder.utility.model_importer import ModelImporter
+    from girderformindlogger.utility.model_importer import ModelImporter
     from .models.job import Job
 
     class JobsPlugin(GirderPlugin):
         def load(self, info):
             ModelImporter.registerModel('job', Job, 'jobs')
 
-* In the web client, ``girder.rest.restRequest`` no longer accepts the deprecated ``path``
+* In the web client, ``girderformindlogger.rest.restRequest`` no longer accepts the deprecated ``path``
   parameter; callers should use the ``url`` parameter instead. Callers are also encouraged to use
   the ``method`` parameter instead of ``type``.
 
@@ -172,16 +172,16 @@ Client build changes
 The ``girder_install`` command has been removed.  This command was primarily
 used to install plugins and run the client build.  Plugins should now be
 installed (and uninstalled) using ``pip`` directly.  For the client build,
-there is a new command, ``girder build``.  Without any arguments this command
-will execute a production build of all installed plugins.  Executing ``girder
+there is a new command, ``girderformindlogger build``.  Without any arguments this command
+will execute a production build of all installed plugins.  Executing ``girderformindlogger
 build --dev`` will build a *development* install of Girder's static assets as
 well as building targets only necessary when running testing.
 
-The new build process works by generating a ``package.json`` file in ``girder/web_client``
-from the template (``girder/web_client/package.json.template``). The generated ``package.json``
+The new build process works by generating a ``package.json`` file in ``girderformindlogger/web_client``
+from the template (``girderformindlogger/web_client/package.json.template``). The generated ``package.json``
 itself depends on the core web client and all plugin web clients. The build process is executed in
 place (in the Girder Python package) in both development and production installs. The built assets
-are installed into a virtual environment specific static path ``{sys.prefix}/share/girder``.
+are installed into a virtual environment specific static path ``{sys.prefix}/share/girderformindlogger``.
 
 Static public path is required during web client build
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -203,9 +203,9 @@ The static public path setting replaces all previous "static root" functionality
 
 * The server now serves all static content from ``/static``. The ``GIRDER_STATIC_ROUTE_ID`` constant
   has been removed.
-* In the server, ``girder.utility.server.getStaticRoot`` has been removed.
-* In the web client, ``girder.rest.staticRoot``, ``girder.rest.getStaticRoot``, and
-  ``girder.rest.setStaticRoot`` have been removed.
+* In the server, ``girderformindlogger.utility.server.getStaticRoot`` has been removed.
+* In the web client, ``girderformindlogger.rest.staticRoot``, ``girderformindlogger.rest.getStaticRoot``, and
+  ``girderformindlogger.rest.setStaticRoot`` have been removed.
 * The ability to set the web client static root / public path via the special element
   ``<div id="g-global-info-staticroot">`` has been removed
 
@@ -222,7 +222,7 @@ it made sense to change this access policy.
 ModelImporter behavior changes
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-The :py:class:`girder.utility.model_importer.ModelImporter` class allows model types to be mapped
+The :py:class:`girderformindlogger.utility.model_importer.ModelImporter` class allows model types to be mapped
 from strings, which is useful when model types must be provided by users via the REST API. In Girder
 2, there was logic to infer automatically where a model class resides without having to explicitly
 register it, but that logic was removed. If your plugin needs to expose a ``Model`` subclass for
@@ -238,7 +238,7 @@ string-based lookup, it must be explicitly registered, e.g.
 The ``load`` method of your plugin is a good place to register your plugin's models.
 
 In addition to explicitly requiring registration, the API of
-:py:meth:`~girder.utility.model_importer.ModelImporter.registerModel` has also changed. Before, one
+:py:meth:`~girderformindlogger.utility.model_importer.ModelImporter.registerModel` has also changed. Before, one
 would pass the model *instance*, but now, one passes the model *class*.
 
 .. code-block:: python
@@ -253,9 +253,9 @@ Additionally, several key base classes in Girder no longer mixin ``ModelImporter
 in is now generally discouraged. So instead of ``self.model``, just use ``ModelImporter.model`` if
 you must convert a string to a model instance. The following base classes are affected:
 
-* :py:class:`girder.api.rest.Resource`
-* :py:class:`girder.models.model_base.Model`
-* :py:class:`girder.utility.abstract_assetstore_adapter.AbstractAssetstoreAdapter`
+* :py:class:`girderformindlogger.api.rest.Resource`
+* :py:class:`girderformindlogger.models.model_base.Model`
+* :py:class:`girderformindlogger.utility.abstract_assetstore_adapter.AbstractAssetstoreAdapter`
 
 Multipart-encoded upload chunk support has been removed
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -285,7 +285,7 @@ must be bound to it with a unique handler name. Example:
 
 In the new behavior, a call to ``bind`` with the same event name and handler name as an existing
 handler will be ignored, and will emit a warning to the log. If you wish to overwrite the existing
-handler, you must call :py:func:`girder.events.unbind` on the existing mapping first.
+handler, you must call :py:func:`girderformindlogger.events.unbind` on the existing mapping first.
 
 .. code-block:: python
 
@@ -308,7 +308,7 @@ In version 3.7 of python ``async`` is a `reserved keyword argument <https://www.
 To mitigate any issues all instances of ``async`` in the codebase have changed to ``asynchronous``.
 This affects:
 
- * The event framework ``girder/events.py``
+ * The event framework ``girderformindlogger/events.py``
  * The built-in job plugin ``plugins/jobs/girder_jobs/models/job.py``
 
 The cookie access decorator has been removed
@@ -316,7 +316,7 @@ The cookie access decorator has been removed
 
 The ``@access.cookie`` decorator has been removed.  To allow cookie authentication on an endpoint, include ``cookie=True`` as a parameter to one of the other access decorators (e.g., ``@access.user(cookie=True)``).
 
-Storing girder.local.cfg inside the package directory is no longer supported
+Storing girderformindlogger.local.cfg inside the package directory is no longer supported
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 In order to facilitate the ability to upgrade Girder using ``pip``, the user configuration file
 can no longer be stored inside the package directory since it would be deleted on upgrade. Users must
@@ -325,8 +325,8 @@ the exact location. See :ref:`the configuration documentation <configuration>` f
 
 Invoking Girder and Girder Client with python -m is no longer supported
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-Using ``python -m girder`` and ``python -m girder-cli`` was deprecated in Girder 2.5 and is no longer supported.
-Users are expected to have the appropriate packages installed and then use ``girder serve`` and ``girder-client``
+Using ``python -m girderformindlogger`` and ``python -m girder-cli`` was deprecated in Girder 2.5 and is no longer supported.
+Users are expected to have the appropriate packages installed and then use ``girderformindlogger serve`` and ``girder-client``
 respectively.
 
 Removed insecure sha512 password hashing
@@ -339,11 +339,11 @@ additional rounds.
 Core setting constants now reside in settings.py
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 The ``SettingKey`` and ``SettingDefault`` classes (which contain constants for core settings) must
-now be imported from the ``girder.settings`` module.
+now be imported from the ``girderformindlogger.settings`` module.
 
 .. code-block:: python
 
-    from girder.settings import SettingDefault, SettingKey
+    from girderformindlogger.settings import SettingDefault, SettingKey
 
 The API for sending email has changed
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -356,7 +356,7 @@ Removed or moved plugins
 ++++++++++++++++++++++++
 
 Many plugins were either deleted from the main repository, or moved to other repositories. Plugins
-are no longer installable via a ``[plugins]`` extra when installing the ``girder`` Python package;
+are no longer installable via a ``[plugins]`` extra when installing the ``girderformindlogger`` Python package;
 rather, all are installed by ``pip install girder-[plugin_name]``. If you were depending on a plugin
 that was deleted altogether, please reach out to us on Discourse for discussion of a path forward.
 
@@ -374,19 +374,19 @@ The following plugins were **deleted**:
 The following plugins were **moved to different repositories**:
 
 * `candela <https://github.com/kitware/candela>`_
-* `curation (renamed to publication_approval) <https://github.com/girder/girder-publication-approval>`_
+* `curation (renamed to publication_approval) <https://github.com/girderformindlogger/girder-publication-approval>`_
 * `geospatial <https://github.com/OpenGeoscience/girder_geospatial>`_
-* `hdfs_assetstore <https://github.com/girder/girder-hdfs-assetstore>`_
-* `item_tasks <https://github.com/girder/girder-item-tasks>`_
-* `table_view <https://github.com/girder/girder-table-view>`_
-* `worker <https://github.com/girder/girder_worker>`_
+* `hdfs_assetstore <https://github.com/girderformindlogger/girder-hdfs-assetstore>`_
+* `item_tasks <https://github.com/girderformindlogger/girder-item-tasks>`_
+* `table_view <https://github.com/girderformindlogger/girder-table-view>`_
+* `worker <https://github.com/girderformindlogger/girder_worker>`_
 
 1.x |ra| 2.x
 ------------
 
 Existing installations may be upgraded to the latest 2.x release by running
-``pip install -U girder<3`` and re-running ``girder-install web``. You may need
-to remove ``node_modules`` directory from the installed girder package if you
+``pip install -U girderformindlogger<3`` and re-running ``girder-install web``. You may need
+to remove ``node_modules`` directory from the installed girderformindlogger package if you
 encounter problems while re-running ``girder-install web``. Note that the
 prerequisites may have changed in the latest version: make sure to review
 :doc:`dependencies` prior to the upgrade.
@@ -396,7 +396,7 @@ Server changes
 
 * The deprecated event ``'assetstore.adapter.get'`` has been removed. Plugins using this event to
   register their own assetstore implementations should instead just call the
-  ``girder.utility.assetstore_utilities.setAssetstoreAdapter`` method at load time.
+  ``girderformindlogger.utility.assetstore_utilities.setAssetstoreAdapter`` method at load time.
 * The ``'model.upload.assetstore'`` event no longer supports passing back the target assetstore by adding
   it to the ``event.info`` dictionary. Instead, handlers of this event should use ``event.addResponse``
   with the target assetstore as the response.
@@ -415,13 +415,13 @@ Server changes
 
     * The ``plugins.plugin_directory`` and ``plugins.plugin_install_path`` config file settings
       are no longer supported, but their presence will not cause problems.
-    * The ``defaultPluginDir``, ``getPluginDirs``, ``getPluginParentDir`` methods inside ``girder.utility.plugin_utilities``
+    * The ``defaultPluginDir``, ``getPluginDirs``, ``getPluginParentDir`` methods inside ``girderformindlogger.utility.plugin_utilities``
       were removed.
-    * All of the methods in ``girder.utility.plugin_utilities`` no longer accept a ``curConfig``
+    * All of the methods in ``girderformindlogger.utility.plugin_utilities`` no longer accept a ``curConfig``
       argument since the configuration is no longer read.
 
-* The ``girder.utility.sha512_state`` module has been removed.
-* The ``girder.utility.hash_state`` module has been made private. It should not be used downstream.
+* The ``girderformindlogger.utility.sha512_state`` module has been removed.
+* The ``girderformindlogger.utility.hash_state`` module has been made private. It should not be used downstream.
 
 
 Web client changes

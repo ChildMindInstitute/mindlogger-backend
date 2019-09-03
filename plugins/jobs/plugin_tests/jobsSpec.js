@@ -14,32 +14,32 @@ describe('Unit test the job detail widget.', function () {
         var jobInfo = {
             _id: 'foo',
             title: 'My batch job',
-            status: girder.plugins.jobs.JobStatus.INACTIVE,
+            status: girderformindlogger.plugins.jobs.JobStatus.INACTIVE,
             log: ['Hello world\n', 'goodbye world'],
             updated: '2015-01-12T12:00:12Z',
             created: '2015-01-12T12:00:00Z',
             when: '2015-01-12T12:00:00Z',
             timestamps: [{
-                status: girder.plugins.jobs.JobStatus.QUEUED,
+                status: girderformindlogger.plugins.jobs.JobStatus.QUEUED,
                 time: '2015-01-12T12:00:02Z'
             }, {
-                status: girder.plugins.jobs.JobStatus.RUNNING,
+                status: girderformindlogger.plugins.jobs.JobStatus.RUNNING,
                 time: '2015-01-12T12:00:03Z'
             }, {
-                status: girder.plugins.jobs.JobStatus.SUCCESS,
+                status: girderformindlogger.plugins.jobs.JobStatus.SUCCESS,
                 time: '2015-01-12T12:00:12Z'
             }]
         };
 
         runs(function () {
             // mock fetch to simulate fetching a job
-            spyOn(girder.plugins.jobs.models.JobModel.prototype, 'fetch').andCallFake(function () {
+            spyOn(girderformindlogger.plugins.jobs.models.JobModel.prototype, 'fetch').andCallFake(function () {
                 this.set(jobInfo);
                 this.trigger('g:fetched');
                 return $.Deferred().resolve(jobInfo).promise();
             });
 
-            girder.router.navigate('job/foo', { trigger: true });
+            girderformindlogger.router.navigate('job/foo', { trigger: true });
         });
 
         waitsFor(function () {
@@ -72,31 +72,31 @@ describe('Unit test the job detail widget.', function () {
 
             var backgroundColor = $('.g-timeline-point')[3].style.getPropertyValue('background-color');
             backgroundColor = rgbToHex(backgroundColor);
-            var successColor = girder.plugins.jobs.JobStatus.color(girder.plugins.jobs.JobStatus.SUCCESS);
+            var successColor = girderformindlogger.plugins.jobs.JobStatus.color(girderformindlogger.plugins.jobs.JobStatus.SUCCESS);
             expect(backgroundColor).toBe(successColor);
 
             // Make sure view change happens when notification is sent for this job
-            girder.utilities.eventStream.trigger('g:event.job_status', {
+            girderformindlogger.utilities.eventStream.trigger('g:event.job_status', {
                 data: {
                     _id: 'foo',
-                    status: girder.plugins.jobs.JobStatus.SUCCESS
+                    status: girderformindlogger.plugins.jobs.JobStatus.SUCCESS
                 }
             });
 
             expect($('.g-job-status-badge').text()).toContain('Success');
 
             // Make sure view change only happens for the currently viewed job
-            girder.utilities.eventStream.trigger('g:event.job_status', {
+            girderformindlogger.utilities.eventStream.trigger('g:event.job_status', {
                 data: {
                     _id: 'bar',
-                    status: girder.plugins.jobs.JobStatus.QUEUED
+                    status: girderformindlogger.plugins.jobs.JobStatus.QUEUED
                 }
             });
 
             expect($('.g-job-status-badge').text()).toContain('Success');
 
             // Test log output events
-            girder.utilities.eventStream.trigger('g:event.job_log', {
+            girderformindlogger.utilities.eventStream.trigger('g:event.job_log', {
                 data: {
                     _id: 'foo',
                     overwrite: true,
@@ -105,7 +105,7 @@ describe('Unit test the job detail widget.', function () {
             });
             expect($('.g-monospace-viewer[property="log"]').text()).toBe('overwritten log');
 
-            girder.utilities.eventStream.trigger('g:event.job_log', {
+            girderformindlogger.utilities.eventStream.trigger('g:event.job_log', {
                 data: {
                     _id: 'foo',
                     overwrite: false,
@@ -117,35 +117,35 @@ describe('Unit test the job detail widget.', function () {
                 'overwritten log<script type="text/javascript">xss probe!</script>');
             // Test that if the event stream stops and starts, the status can
             // be updated.
-            girder.utilities.eventStream.trigger('g:event.job_status', {
+            girderformindlogger.utilities.eventStream.trigger('g:event.job_status', {
                 data: {
                     _id: 'foo',
-                    status: girder.plugins.jobs.JobStatus.QUEUED
+                    status: girderformindlogger.plugins.jobs.JobStatus.QUEUED
                 }
             });
             expect($('.g-job-status-badge').text()).toContain('Queued');
-            jobInfo.status = girder.plugins.jobs.JobStatus.ERROR;
+            jobInfo.status = girderformindlogger.plugins.jobs.JobStatus.ERROR;
             // trigger event stream to start
-            girder.utilities.eventStream.trigger('g:eventStream.start', {});
+            girderformindlogger.utilities.eventStream.trigger('g:eventStream.start', {});
             expect($('.g-job-status-badge').text()).toContain('Error');
         });
 
         runs(function () {
-            girder.plugins.jobs.models.JobModel.prototype.fetch.andCallThrough();
+            girderformindlogger.plugins.jobs.models.JobModel.prototype.fetch.andCallThrough();
             // Return to the main page, since 'job/foo' isn't legal without mocking
-            girder.router.navigate('', { trigger: true });
+            girderformindlogger.router.navigate('', { trigger: true });
         });
         girderTest.waitForLoad();
     });
     it('finished value', function () {
         var jobs = _.map([
-            girder.plugins.jobs.JobStatus.QUEUED,
-            girder.plugins.jobs.JobStatus.RUNNING,
-            girder.plugins.jobs.JobStatus.ERROR,
-            girder.plugins.jobs.JobStatus.SUCCESS,
-            girder.plugins.jobs.JobStatus.CANCELED
+            girderformindlogger.plugins.jobs.JobStatus.QUEUED,
+            girderformindlogger.plugins.jobs.JobStatus.RUNNING,
+            girderformindlogger.plugins.jobs.JobStatus.ERROR,
+            girderformindlogger.plugins.jobs.JobStatus.SUCCESS,
+            girderformindlogger.plugins.jobs.JobStatus.CANCELED
         ], function (status, i) {
-            return new girder.plugins.jobs.models.JobModel({
+            return new girderformindlogger.plugins.jobs.models.JobModel({
                 _id: 'foo' + i,
                 title: 'My batch job ' + i,
                 status: status,
@@ -154,7 +154,7 @@ describe('Unit test the job detail widget.', function () {
                 when: '2015-01-12T12:00:0' + i
             });
         });
-        var JobStatus = girder.plugins.jobs.JobStatus;
+        var JobStatus = girderformindlogger.plugins.jobs.JobStatus;
         expect(JobStatus.finished(jobs[0].get('status'))).toBe(false);
         expect(JobStatus.finished(jobs[1].get('status'))).toBe(false);
         expect(JobStatus.finished(jobs[2].get('status'))).toBe(true);
@@ -168,7 +168,7 @@ describe('Unit test the job list widget.', function () {
     // bind and make calls to '_renderData' immediately
     var renderDataSpy;
     beforeEach(function () {
-        renderDataSpy = spyOn(girder.plugins.jobs.views.JobListWidget.prototype, '_renderData').andCallThrough();
+        renderDataSpy = spyOn(girderformindlogger.plugins.jobs.views.JobListWidget.prototype, '_renderData').andCallThrough();
     });
 
     it('Show a job list widget.', function () {
@@ -178,7 +178,7 @@ describe('Unit test the job list widget.', function () {
             'admin', 'admin@email.com', 'Quota', 'Admin', 'testpassword')();
 
         runs(function () {
-            widget = new girder.plugins.jobs.views.JobListWidget({
+            widget = new girderformindlogger.plugins.jobs.views.JobListWidget({
                 el: $('#g-app-body-container'),
                 filter: {},
                 parentView: app,
@@ -198,11 +198,11 @@ describe('Unit test the job list widget.', function () {
             expect($('.g-jobs-list-table>tbody>tr').length).toBe(0);
 
             jobs = _.map([
-                girder.plugins.jobs.JobStatus.QUEUED,
-                girder.plugins.jobs.JobStatus.RUNNING,
-                girder.plugins.jobs.JobStatus.SUCCESS
+                girderformindlogger.plugins.jobs.JobStatus.QUEUED,
+                girderformindlogger.plugins.jobs.JobStatus.RUNNING,
+                girderformindlogger.plugins.jobs.JobStatus.SUCCESS
             ], function (status, i) {
-                return new girder.plugins.jobs.models.JobModel({
+                return new girderformindlogger.plugins.jobs.models.JobModel({
                     _id: 'foo' + i,
                     title: 'My batch job ' + i,
                     status: status,
@@ -229,9 +229,9 @@ describe('Unit test the job list widget.', function () {
             expect($(rows[2]).text()).toContain('Queued');
 
             // Simulate an SSE notification that changes a job status
-            girder.utilities.eventStream.trigger('g:event.job_status', {
+            girderformindlogger.utilities.eventStream.trigger('g:event.job_status', {
                 data: _.extend({}, jobs[0].attributes, {
-                    status: girder.plugins.jobs.JobStatus.ERROR
+                    status: girderformindlogger.plugins.jobs.JobStatus.ERROR
                 })
             });
         });
@@ -244,11 +244,11 @@ describe('Unit test the job list widget.', function () {
         runs(function () {
             // The data in this is meaningless, but this will trigger a new API fetch
             renderDataSpy.reset();
-            girder.utilities.eventStream.trigger('g:event.job_created', {
+            girderformindlogger.utilities.eventStream.trigger('g:event.job_created', {
                 data: {
                     _id: 'foo' + 4,
                     title: 'My batch job ' + 4,
-                    status: girder.plugins.jobs.JobStatus.ERROR,
+                    status: girderformindlogger.plugins.jobs.JobStatus.ERROR,
                     updated: '2015-01-12T12:00:0' + 4,
                     created: '2015-01-12T12:00:0' + 4,
                     when: '2015-01-12T12:00:0' + 4
@@ -271,7 +271,7 @@ describe('Unit test the job list widget.', function () {
     it('Job list widget filter by status & type.', function () {
         var widget;
         runs(function () {
-            widget = new girder.plugins.jobs.views.JobListWidget({
+            widget = new girderformindlogger.plugins.jobs.views.JobListWidget({
                 el: $('#g-app-body-container'),
                 filter: {},
                 parentView: app,
@@ -320,7 +320,7 @@ describe('Unit test the job list widget.', function () {
         var jobs, widget;
 
         runs(function () {
-            widget = new girder.plugins.jobs.views.JobListWidget({
+            widget = new girderformindlogger.plugins.jobs.views.JobListWidget({
                 el: $('#g-app-body-container'),
                 parentView: app,
                 filter: {},
@@ -338,11 +338,11 @@ describe('Unit test the job list widget.', function () {
             expect($('.g-jobs-list-table>tbody>tr').length).toBe(0);
 
             jobs = _.map([
-                girder.plugins.jobs.JobStatus.QUEUED,
-                girder.plugins.jobs.JobStatus.RUNNING,
-                girder.plugins.jobs.JobStatus.SUCCESS
+                girderformindlogger.plugins.jobs.JobStatus.QUEUED,
+                girderformindlogger.plugins.jobs.JobStatus.RUNNING,
+                girderformindlogger.plugins.jobs.JobStatus.SUCCESS
             ], function (status, i) {
-                return new girder.plugins.jobs.models.JobModel({
+                return new girderformindlogger.plugins.jobs.models.JobModel({
                     _id: 'foo' + i,
                     title: 'My batch job ' + i,
                     status: status,
@@ -372,7 +372,7 @@ describe('Unit test the job list widget.', function () {
     it('job list widget in all jobs mode', function () {
         var widget;
         runs(function () {
-            widget = new girder.plugins.jobs.views.JobListWidget({
+            widget = new girderformindlogger.plugins.jobs.views.JobListWidget({
                 el: $('#g-app-body-container'),
                 parentView: app,
                 filter: {},
@@ -395,7 +395,7 @@ describe('Unit test the job list widget.', function () {
         var jobs, widget;
 
         runs(function () {
-            widget = new girder.plugins.jobs.views.JobListWidget({
+            widget = new girderformindlogger.plugins.jobs.views.JobListWidget({
                 el: $('#g-app-body-container'),
                 parentView: app,
                 filter: {},
@@ -410,7 +410,7 @@ describe('Unit test the job list widget.', function () {
 
         runs(function () {
             jobs = _.map([1, 2, 3], function (i) {
-                return new girder.plugins.jobs.models.JobModel({
+                return new girderformindlogger.plugins.jobs.models.JobModel({
                     _id: 'foo' + i,
                     title: 'My batch job ' + i,
                     status: i,
@@ -451,7 +451,7 @@ describe('Unit test the job list widget.', function () {
     it('timing history and time chart', function () {
         var jobs, widget;
         runs(function () {
-            widget = new girder.plugins.jobs.views.JobListWidget({
+            widget = new girderformindlogger.plugins.jobs.views.JobListWidget({
                 el: $('#g-app-body-container'),
                 filter: {},
                 parentView: app,
@@ -466,22 +466,22 @@ describe('Unit test the job list widget.', function () {
 
         runs(function () {
             jobs = _.map(['one', 'two', 'three'], function (type, i) {
-                return new girder.plugins.jobs.models.JobModel({
+                return new girderformindlogger.plugins.jobs.models.JobModel({
                     _id: 'foo' + i,
                     title: 'My batch job ' + i,
-                    status: girder.plugins.jobs.JobStatus.ERROR,
+                    status: girderformindlogger.plugins.jobs.JobStatus.ERROR,
                     type: type,
                     timestamps: [
                         {
-                            'status': girder.plugins.jobs.JobStatus.QUEUED,
+                            'status': girderformindlogger.plugins.jobs.JobStatus.QUEUED,
                             'time': '2017-03-10T18:31:59.008Z'
                         },
                         {
-                            'status': girder.plugins.jobs.JobStatus.RUNNING,
+                            'status': girderformindlogger.plugins.jobs.JobStatus.RUNNING,
                             'time': '2017-03-10T18:32:06.190Z'
                         },
                         {
-                            'status': girder.plugins.jobs.JobStatus.ERROR,
+                            'status': girderformindlogger.plugins.jobs.JobStatus.ERROR,
                             'time': '2017-03-10T18:32:34.760Z'
                         }
                     ],
@@ -521,7 +521,7 @@ describe('Unit test the job list widget.', function () {
         var widget;
 
         runs(function () {
-            widget = new girder.plugins.jobs.views.JobListWidget({
+            widget = new girderformindlogger.plugins.jobs.views.JobListWidget({
                 el: $('#g-app-body-container'),
                 parentView: app,
                 filter: {}

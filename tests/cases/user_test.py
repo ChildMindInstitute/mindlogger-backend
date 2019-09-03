@@ -7,14 +7,14 @@ import six
 
 from .. import base
 
-from girder import events
-from girder.constants import AccessType, TokenScope
-from girder.models.folder import Folder
-from girder.models.group import Group
-from girder.models.setting import Setting
-from girder.models.token import Token
-from girder.models.user import User
-from girder.settings import SettingKey
+from girderformindlogger import events
+from girderformindlogger.constants import AccessType, TokenScope
+from girderformindlogger.models.folder import Folder
+from girderformindlogger.models.group import Group
+from girderformindlogger.models.setting import Setting
+from girderformindlogger.models.token import Token
+from girderformindlogger.models.user import User
+from girderformindlogger.settings import SettingKey
 
 
 def setUpModule():

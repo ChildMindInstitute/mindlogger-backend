@@ -27,7 +27,7 @@ setup(
     description='Adds Gravatar URLs for users.',
     author='Kitware, Inc.',
     author_email='kitware@kitware.com',
-    url='http://girder.readthedocs.io/en/latest/plugins.html#gravatar-portraits',
+    url='http://girderformindlogger.readthedocs.io/en/latest/plugins.html#gravatar-portraits',
     license='Apache 2.0',
     classifiers=[
         'Development Status :: 5 - Production/Stable',
@@ -43,9 +43,9 @@ setup(
     include_package_data=True,
     packages=find_packages(exclude=['plugin_tests']),
     zip_safe=False,
-    install_requires=['girder>=3'],
+    install_requires=['girderformindlogger>=0.3'],
     entry_points={
-        'girder.plugin': [
+        'girderformindlogger.plugin': [
             'gravatar = girder_gravatar:GravatarPlugin'
         ]
     }

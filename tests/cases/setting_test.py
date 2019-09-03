@@ -1,9 +1,9 @@
 # -*- coding: utf-8 -*-
 import six
 from .. import base
-from girder.exceptions import ValidationException
-from girder.models.setting import Setting
-from girder.utility import setting_utilities
+from girderformindlogger.exceptions import ValidationException
+from girderformindlogger.models.setting import Setting
+from girderformindlogger.utility import setting_utilities
 
 
 def setUpModule():

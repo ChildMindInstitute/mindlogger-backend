@@ -12,19 +12,19 @@ import time
 import zipfile
 
 from .. import base, mock_s3
-from girder import events
-from girder.constants import AssetstoreType, ROOT_DIR
-from girder.models.assetstore import Assetstore
-from girder.models.file import File
-from girder.models.folder import Folder
-from girder.models.item import Item
-from girder.exceptions import GirderException
-from girder.models.upload import Upload
-from girder.models.user import User
-from girder.utility import assetstore_utilities
-from girder.utility.progress import ProgressContext
-from girder.utility.s3_assetstore_adapter import makeBotoConnectParams
-from girder.utility import path as path_util
+from girderformindlogger import events
+from girderformindlogger.constants import AssetstoreType, ROOT_DIR
+from girderformindlogger.models.assetstore import Assetstore
+from girderformindlogger.models.file import File
+from girderformindlogger.models.folder import Folder
+from girderformindlogger.models.item import Item
+from girderformindlogger.exceptions import GirderException
+from girderformindlogger.models.upload import Upload
+from girderformindlogger.models.user import User
+from girderformindlogger.utility import assetstore_utilities
+from girderformindlogger.utility.progress import ProgressContext
+from girderformindlogger.utility.s3_assetstore_adapter import makeBotoConnectParams
+from girderformindlogger.utility import path as path_util
 
 
 def setUpModule():
@@ -753,7 +753,7 @@ class AssetstoreTestCase(base.TestCase):
         self.assertTrue(client.get_object(Bucket='bucketname', Key='foo/bar/test') is not None)
 
         # Deleting an imported file should not delete it from S3
-        with mock.patch('girder.events.daemon.trigger') as daemon:
+        with mock.patch('girderformindlogger.events.daemon.trigger') as daemon:
             resp = self.request('/item/%s' % str(item['_id']), method='DELETE', user=self.admin)
             self.assertStatusOk(resp)
             self.assertEqual(len(daemon.mock_calls), 0)

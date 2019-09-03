@@ -1,9 +1,9 @@
 import six
 
-from girder.constants import AccessType
-from girder.exceptions import AccessException, ValidationException
-from girder.models.file import File
-from girder.utility import setting_utilities
+from girderformindlogger.constants import AccessType
+from girderformindlogger.exceptions import AccessException, ValidationException
+from girderformindlogger.models.file import File
+from girderformindlogger.utility import setting_utilities
 
 
 class PluginSettings(object):

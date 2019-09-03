@@ -1,7 +1,7 @@
 ---
 # Note: that the tasks until Item upload tests are tested in test_resources.yml.
 - name: Create 'admin' User
-  girder:
+  girderformindlogger:
     port: 8080
     user:
       firstName: "John"
@@ -13,7 +13,7 @@
     state: present
 
 - name: Create filesystem assetstore
-  girder:
+  girderformindlogger:
     port: 8080
     username: "admin"
     password: "letmein"
@@ -26,7 +26,7 @@
 
 
 - name: Create collection for folder
-  girder:
+  girderformindlogger:
     port: 8080
     username: "admin"
     password: "letmein"
@@ -37,7 +37,7 @@
 
 
 - name: Create folder
-  girder:
+  girderformindlogger:
     port: 8080
     username: "admin"
     password: "letmein"
@@ -59,7 +59,7 @@
 #
 
 - name: Create an item
-  girder:
+  girderformindlogger:
     port: 8080
     username: "admin"
     password: "letmein"
@@ -71,7 +71,7 @@
 
 
 - name: Upload files (should add test1.txt and test2.txt)
-  girder:
+  girderformindlogger:
     port: 8080
     username: "admin"
     password: "letmein"
@@ -88,7 +88,7 @@
       - ret['gc_return']['removed']|length == 0
 
 - name: Upload files same files (should show no change)
-  girder:
+  girderformindlogger:
     port: 8080
     username: "admin"
     password: "letmein"
@@ -107,7 +107,7 @@
 
 
 - name: Upload files (should remove test2.txt)
-  girder:
+  girderformindlogger:
     port: 8080
     username: "admin"
     password: "letmein"
@@ -125,7 +125,7 @@
 
 
 - name: Upload files (should add test3.txt)
-  girder:
+  girderformindlogger:
     port: 8080
     username: "admin"
     password: "letmein"
@@ -144,7 +144,7 @@
 
 
 - name: Remove all files
-  girder:
+  girderformindlogger:
     port: 8080
     username: "admin"
     password: "letmein"
@@ -162,7 +162,7 @@
 
 # Remove assetstore
 - name: Remove filesystem assetstore
-  girder:
+  girderformindlogger:
     port: 8080
     username: "admin"
     password: "letmein"
@@ -175,7 +175,7 @@
 
 
 - name: Remove collection
-  girder:
+  girderformindlogger:
     port: 8080
     username: "admin"
     password: "letmein"

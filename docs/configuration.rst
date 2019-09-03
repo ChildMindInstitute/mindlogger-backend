@@ -8,14 +8,14 @@ pip or from a source checkout or tarball. That said, the Girder config file can
 be set at the following locations (ordered by precedent):
 
 #. The path specified by the environment variable `GIRDER_CONFIG`.
-#. ~/.girder/girder.cfg
+#. ~/.girderformindlogger/girder.cfg
 #. /etc/girder.cfg
 
 Logging
 -------
 
 Much of Girder's output is placed into the error or info log file. By default,
-these logs are stored in ~/.girder/logs. To set the Girder log root or error and
+these logs are stored in ~/.girderformindlogger/logs. To set the Girder log root or error and
 info logs specifically, set the `log_root`, `error_log_file`, and/or
 `info_log_file` variables in the `logging` config group. If `log_root` is set,
 error and info will be set to error.log and info.log within `log_root`
@@ -63,7 +63,7 @@ using intermittent polling rather than long-duration connections.
 
 Each available thread uses up some additional memory and requires internal
 socket or handle resources.  The exact amount of memory and resources is
-dependent on the host operating system and the types of queries made to Girder.
+dependent on the host operating system and the types of queries made to girderformindlogger.
 As one benchmark from an Ubuntu server, each additional available but unused
 connection requires roughly 25 kb of memory.  If all connections are serving
 notification streams, each uses around 50 kb of memory.

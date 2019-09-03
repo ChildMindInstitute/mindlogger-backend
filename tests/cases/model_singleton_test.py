@@ -2,7 +2,7 @@
 import mock
 import unittest
 
-from girder.models.item import Item
+from girderformindlogger.models.item import Item
 
 
 class ModelSingletonTest(unittest.TestCase):

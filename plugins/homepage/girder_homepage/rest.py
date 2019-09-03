@@ -1,10 +1,10 @@
 # -*- coding: utf-8 -*-
-from girder.api import access
-from girder.api.describe import Description, autoDescribeRoute
-from girder.api.rest import Resource
-from girder.models.collection import Collection
-from girder.models.folder import Folder
-from girder.models.setting import Setting
+from girderformindlogger.api import access
+from girderformindlogger.api.describe import Description, autoDescribeRoute
+from girderformindlogger.api.rest import Resource
+from girderformindlogger.models.collection import Collection
+from girderformindlogger.models.folder import Folder
+from girderformindlogger.models.setting import Setting
 
 from . import constants
 from .settings import PluginSettings

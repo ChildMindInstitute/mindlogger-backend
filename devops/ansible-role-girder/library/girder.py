@@ -13,7 +13,7 @@ except ImportError:
     HAS_GIRDER_CLIENT = False
 
 try:
-    from girder.utility.s3_assetstore_adapter import DEFAULT_REGION
+    from girderformindlogger.utility.s3_assetstore_adapter import DEFAULT_REGION
 except ImportError:
     DEFAULT_REGION = 'us-east-1'
 
@@ -21,24 +21,24 @@ __version__ = '0.3.0'
 
 DOCUMENTATION = """
 ---
-module: girder
+module: girderformindlogger
 author: "Kitware, Inc. <kitware@kitware.com>
 version_added: "0.1"
 short_description: A module that wraps girder_client
 requirements: [ girder_client==1.1.0 ]
 description:
-   - Manage a girder instance using the RESTful API
+   - Manage a girderformindlogger instance using the RESTful API
 options:
     host:
         required: false
         default: 'localhost'
         description:
-            - domain or IP of the host running girder
+            - domain or IP of the host running girderformindlogger
     port:
         required: false
         default: '80' for http, '443' for https
         description:
-            - port the girder instance is running on
+            - port the girderformindlogger instance is running on
 
     apiRoot:
         required: false
@@ -50,7 +50,7 @@ options:
         required: false
         default: None
         description:
-            - full URL base of the girder instance API
+            - full URL base of the girderformindlogger instance API
     apiKey:
         required: false
         default: None
@@ -94,9 +94,9 @@ options:
     token:
         required: true
         description:
-            - A girder client token
+            - A girderformindlogger client token
             - Can be retrieved by accessing the accessing the 'token' attribute
-              from a successfully authenticated call to girder in a previous
+              from a successfully authenticated call to girderformindlogger in a previous
               task.
             - Required if 'username' and 'password' are not specified
                 - (See note on 'user')
@@ -113,7 +113,7 @@ options:
         description:
             - If using the 'user' task, you are NOT REQUIRED to pass in a
               'username' & 'password',  or a 'token' attributes. This is because
-              the first user created on an fresh install of girder is
+              the first user created on an fresh install of girderformindlogger is
               automatically made an administrative user. Once you are certain
               you have an admin user you should use those credentials in all
               subsequent tasks that use the 'user' task.
@@ -131,18 +131,18 @@ options:
 
                   firstName:
                       required: false
-                      default: pass through to girder client
+                      default: pass through to girderformindlogger client
                       description:
                           - The first name of the user
 
                   lastName:
                       required: false
-                      default: pass through to girder client
+                      default: pass through to girderformindlogger client
                       description:
                           - The last name of the user
                   email:
                       required: false
-                      default: pass through to girder client
+                      default: pass through to girderformindlogger client
                       description:
                           - The email of the user
                   admin:
@@ -312,7 +312,7 @@ options:
                 required: false
                 description:
                     - A list of folder options
-                    - Specified by the 'folder' option to the girder module
+                    - Specified by the 'folder' option to the girderformindlogger module
                     - (see 'folder:')
             public:
                 required: false
@@ -363,7 +363,7 @@ options:
                 required: false
                 description:
                     - A list of folder options
-                    - Specified by the 'folder' option to the girder module
+                    - Specified by the 'folder' option to the girderformindlogger module
                     - (see 'folder:')
             public:
                 required: false
@@ -446,7 +446,7 @@ EXAMPLES = """
 
 # Ensure "admin" user exists
 - name: Create 'admin' User
-  girder:
+  girderformindlogger:
     user:
       firstName: "John"
       lastName: "Doe"
@@ -458,7 +458,7 @@ EXAMPLES = """
 
 # Ensure a 'foobar' user exists
 - name: Create 'foobar' User
-  girder:
+  girderformindlogger:
     username: "admin"
     password: "letmein"
     user:
@@ -474,7 +474,7 @@ EXAMPLES = """
 - name: Remove 'foobar' User
   username: "admin"
   password: "letmein"
-  girder:
+  girderformindlogger:
     user:
       login: "foobar"
       password: "foobarbaz"
@@ -486,7 +486,7 @@ EXAMPLES = """
 
 # Create an 'alice' user
 - name: Create 'alice' User
-  girder:
+  girderformindlogger:
     port: 8080
     username: "admin"
     password: "letmein"
@@ -500,7 +500,7 @@ EXAMPLES = """
 
 # Create a 'bill' user
 - name: Create 'bill' User
-  girder:
+  girderformindlogger:
     port: 8080
     username: "admin"
     password: "letmein"
@@ -514,7 +514,7 @@ EXAMPLES = """
 
 # Create a 'chris' user
 - name: Create 'chris' User
-  girder:
+  girderformindlogger:
     port: 8080
     username: "admin"
     password: "letmein"
@@ -527,7 +527,7 @@ EXAMPLES = """
     state: present
 
 - name: Create a test group with users
-  girder:
+  girderformindlogger:
     port: 8080
     username: "admin"
     password: "letmein"
@@ -547,7 +547,7 @@ EXAMPLES = """
 # Note that 'group' list is idempotent - it describes the desired state
 
 - name: Remove bill from group
-  girder:
+  girderformindlogger:
     port: 8080
     username: "admin"
     password: "letmein"
@@ -567,7 +567,7 @@ EXAMPLES = """
 #
 
 - name: Create filesystem assetstore
-  girder:
+  girderformindlogger:
     username: "admin"
      password: "letmein"
      assetstore:
@@ -578,7 +578,7 @@ EXAMPLES = """
      state: present
 
 - name: Delete filesystem assetstore
-  girder:
+  girderformindlogger:
     username: "admin"
     password: "letmein"
     assetstore:
@@ -594,7 +594,7 @@ EXAMPLES = """
 
 # Creates a test collection called "Test Collection"
 - name: Create collection
-  girder:
+  girderformindlogger:
     port: 8080
     username: "admin"
     password: "letmein"
@@ -605,7 +605,7 @@ EXAMPLES = """
 
 # Creates a folder called "test folder" under "Test Collection"
 - name: Create folder
-  girder:
+  girderformindlogger:
     port: 8080
     username: "admin"
     password: "letmein"
@@ -618,7 +618,7 @@ EXAMPLES = """
 
 # Creates an item called "test item" under "test folder"
 - name: Create an item
-  girder:
+  girderformindlogger:
     port: 8080
     username: "admin"
     password: "letmein"
@@ -629,13 +629,13 @@ EXAMPLES = """
   register: test_item
 
 # Upload files on the localhost at /tmp/data/test1.txt and
-# /tmp/data/test2.txt to the girder instance under the item
+# /tmp/data/test2.txt to the girderformindlogger instance under the item
 # "test item"
 # Note:  the list is idempotent and will remove files that are
 # not listed under the item. Files are checked for both name
 # and size to determine if they should be updated.
 - name: Upload files
-  girder:
+  girderformindlogger:
     port: 8080
     username: "admin"
     password: "letmein"
@@ -652,7 +652,7 @@ EXAMPLES = """
 #
 
 - name: Create collection with a folder and a subfolder
-  girder:
+  girderformindlogger:
     port: 8080
     username: "admin"
     password: "letmein"
@@ -675,7 +675,7 @@ EXAMPLES = """
 
 
 - name: Create collection with access
-  girder:
+  girderformindlogger:
     port: 8080
     username: "admin"
     password: "letmein"
@@ -693,7 +693,7 @@ EXAMPLES = """
 
 
 - name: Add group to Test Collection
-  girder:
+  girderformindlogger:
     port: 8080
     username: "admin"
     password: "letmein"
@@ -715,7 +715,7 @@ EXAMPLES = """
   register: test_collection
 
 - name: Add Test Folder with access
-  girder:
+  girderformindlogger:
     port: 8080
     username: "admin"
     password: "letmein"
@@ -742,7 +742,7 @@ EXAMPLES = """
 
 # Get my info
 - name: Get users from http://localhost:80/api/v1/users
-  girder:
+  girderformindlogger:
     username: 'admin'
     password: 'letmein'
     get:
@@ -765,7 +765,7 @@ EXAMPLES = """
 # not guarantee idempotence on these methods!
 
 - name: Run a system check
-  girder:
+  girderformindlogger:
     username: "admin"
     password: "letmein"
     put:
@@ -777,7 +777,7 @@ EXAMPLES = """
 # "An Item (2)", etc..
 
 - name: Get Me
-  girder:
+  girderformindlogger:
     username: "admin"
     password: "letmein"
     get:
@@ -786,7 +786,7 @@ EXAMPLES = """
 
 # Show use of 'token' for subsequent authentication
 - name: Get my public folder
-  girder:
+  girderformindlogger:
     token: "{{ ret['token'] }}"
     get:
       path: "folder"
@@ -798,7 +798,7 @@ EXAMPLES = """
 
 
 - name: Post an item to my public folder
-  girder:
+  girderformindlogger:
     host: "data.kitware.com"
     scheme: 'https'
     token: "{{ ret['token'] }}"
@@ -1053,7 +1053,7 @@ class GirderClientModule(GirderClient):
                                     GirderClientModule._include_methods))
         self.required_one_of = self.spec.keys()
 
-        # Note: if additional types are added o girder this will
+        # Note: if additional types are added o girderformindlogger this will
         # have to be updated!
         self.access_types = {'member': 0, 'moderator': 1, 'admin': 2}
 
@@ -1764,7 +1764,7 @@ class GirderClientModule(GirderClient):
 
 def main():
     """
-    Entry point for ansible girder client module
+    Entry point for ansible girderformindlogger client module
 
     :returns: Nothing
     :rtype: NoneType

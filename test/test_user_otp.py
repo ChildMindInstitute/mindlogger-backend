@@ -1,10 +1,10 @@
 # -*- coding: utf-8 -*-
 import pytest
 
-from girder.exceptions import AccessException
-from girder.models.setting import Setting
-from girder.models.user import User
-from girder.settings import SettingKey
+from girderformindlogger.exceptions import AccessException
+from girderformindlogger.models.setting import Setting
+from girderformindlogger.models.user import User
+from girderformindlogger.settings import SettingKey
 from pytest_girder.assertions import assertStatus, assertStatusOk
 
 
@@ -167,7 +167,7 @@ def testOtpApiWorkflow(server, user):
 
     # The valid token from this time period was used to finalize OTP; to prevent having to wait for
     # the next time period, flush the rateLimitBuffer
-    from girder.utility._cache import rateLimitBuffer
+    from girderformindlogger.utility._cache import rateLimitBuffer
     rateLimitBuffer.invalidate()
 
     # Login without an OTP

@@ -4,14 +4,14 @@ import os
 import tempfile
 import warnings
 
-from girder.exceptions import GirderException
-from girder.settings import SettingKey
-from girder.utility.model_importer import ModelImporter
+from girderformindlogger.exceptions import GirderException
+from girderformindlogger.settings import SettingKey
+from girderformindlogger.utility.model_importer import ModelImporter
 
 warnings.warn(
     'setup_database.py is only meant for test fixtures, not for provisioning.'
     "\nSee Girder's ansible client for a deployment solution: "
-    'https://github.com/girder/girder/tree/master/devops/ansible-role-girder/library'
+    'https://github.com/girderformindlogger/girderformindlogger/tree/master/devops/ansible-role-girderformindlogger/library'
 )
 
 #: A prefix for all relative file paths
@@ -369,7 +369,7 @@ def main(file):
 # environment variable.  For example:
 #
 #   GIRDER_MONGO_URI='mongodb://127.0.0.1:27017/import_test' python setup_database.py spec.yml
-#   GIRDER_MONGO_URI='mongodb://127.0.0.1:27017/import_test' girder serve
+#   GIRDER_MONGO_URI='mongodb://127.0.0.1:27017/import_test' girderformindlogger serve
 if __name__ == '__main__':
     import sys
     main(sys.argv[1])

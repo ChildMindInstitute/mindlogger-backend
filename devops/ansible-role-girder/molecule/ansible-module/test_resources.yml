@@ -1,7 +1,7 @@
 ---
 # Add an initial user - this user will be admin
 - name: Create 'admin' User
-  girder:
+  girderformindlogger:
     port: 8080
     user:
       firstName: "John"
@@ -16,7 +16,7 @@
 # Collection tests
 #
 - name: Create collection
-  girder:
+  girderformindlogger:
     port: 8080
     username: "admin"
     password: "letmein"
@@ -31,7 +31,7 @@
       - test_collection["gc_return"]["description"] == "A test collection"
 
 - name: Create collection with same values (should not show changed)
-  girder:
+  girderformindlogger:
     port: 8080
     username: "admin"
     password: "letmein"
@@ -45,7 +45,7 @@
       - test_collection.changed == false
 
 - name: Change test collection description
-  girder:
+  girderformindlogger:
     port: 8080
     username: "admin"
     password: "letmein"
@@ -61,7 +61,7 @@
       - test_collection["gc_return"]["description"] == "A test collection with a different description"
 
 # Get current collections
-- girder:
+- girderformindlogger:
     port: 8080
     username: "admin"
     password: "letmein"
@@ -73,7 +73,7 @@
     num_collections: '{{ ret["gc_return"]|length }}'
 
 - name: Delete the test collection
-  girder:
+  girderformindlogger:
     port: 8080
     username: "admin"
     password: "letmein"
@@ -83,7 +83,7 @@
     state: absent
 
 # Get current collections
-- girder:
+- girderformindlogger:
     port: 8080
     username: "admin"
     password: "letmein"
@@ -97,7 +97,7 @@
 
 
 - name: Try to delete the text collection again (should show no change)
-  girder:
+  girderformindlogger:
     port: 8080
     username: "admin"
     password: "letmein"
@@ -116,7 +116,7 @@
 #
 
 - name: Create collection for folder
-  girder:
+  girderformindlogger:
     port: 8080
     username: "admin"
     password: "letmein"
@@ -127,7 +127,7 @@
 
 
 - name: Create folder
-  girder:
+  girderformindlogger:
     port: 8080
     username: "admin"
     password: "letmein"
@@ -138,7 +138,7 @@
       description: "A test folder"
   register: test_folder
 
-- girder:
+- girderformindlogger:
     port: 8080
     username: "admin"
     password: "letmein"
@@ -153,7 +153,7 @@
 
 
 - name: Create a subfolder (test parent type 'folder')
-  girder:
+  girderformindlogger:
     port: 8080
     username: "admin"
     password: "letmein"
@@ -164,7 +164,7 @@
       description: "A test subfolder"
   register: test_subfolder
 
-- girder:
+- girderformindlogger:
     port: 8080
     username: "admin"
     password: "letmein"
@@ -179,7 +179,7 @@
 
 
 - name: Try to create a subfolder (should show no change)
-  girder:
+  girderformindlogger:
     port: 8080
     username: "admin"
     password: "letmein"
@@ -194,7 +194,7 @@
       - ret.changed == false
 
 - name: Update subfolder description (should show change)
-  girder:
+  girderformindlogger:
     port: 8080
     username: "admin"
     password: "letmein"
@@ -211,7 +211,7 @@
 
 
 - name: Delete the subfolder from the collection
-  girder:
+  girderformindlogger:
     port: 8080
     username: "admin"
     password: "letmein"
@@ -221,7 +221,7 @@
       name: "test subfolder"
     state: absent
 
-- girder:
+- girderformindlogger:
     port: 8080
     username: "admin"
     password: "letmein"
@@ -235,7 +235,7 @@
       - ret['gc_return']['nItems'] == 0
 
 - name: Delete the test collection
-  girder:
+  girderformindlogger:
     port: 8080
     username: "admin"
     password: "letmein"
@@ -248,7 +248,7 @@
 # Item tests
 #
 - name: Create collection for folder for an item
-  girder:
+  girderformindlogger:
     port: 8080
     username: "admin"
     password: "letmein"
@@ -259,7 +259,7 @@
 
 
 - name: Create a folder for an item
-  girder:
+  girderformindlogger:
     port: 8080
     username: "admin"
     password: "letmein"
@@ -271,7 +271,7 @@
   register: test_folder
 
 - name: Create an item
-  girder:
+  girderformindlogger:
     port: 8080
     username: "admin"
     password: "letmein"
@@ -281,7 +281,7 @@
       description: "A test item"
   register: test_item
 
-- girder:
+- girderformindlogger:
     port: 8080
     username: "admin"
     password: "letmein"
@@ -294,7 +294,7 @@
       - ret['gc_return']['nItems'] == 1
 
 - name: Create an item (should not show change)
-  girder:
+  girderformindlogger:
     port: 8080
     username: "admin"
     password: "letmein"
@@ -309,7 +309,7 @@
       - test_item.changed == false
 
 - name: Update item (different description)
-  girder:
+  girderformindlogger:
     port: 8080
     username: "admin"
     password: "letmein"
@@ -324,7 +324,7 @@
       - test_item.changed
 
 - name: Delete item
-  girder:
+  girderformindlogger:
     port: 8080
     username: "admin"
     password: "letmein"
@@ -333,7 +333,7 @@
       name: "test item"
     state: absent
 
-- girder:
+- girderformindlogger:
     port: 8080
     username: "admin"
     password: "letmein"
@@ -347,7 +347,7 @@
 
 
 - name: Delete collection
-  girder:
+  girderformindlogger:
     port: 8080
     username: "admin"
     password: "letmein"

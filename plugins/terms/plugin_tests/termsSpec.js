@@ -1,4 +1,4 @@
-/* global girderTest, describe, it, expect, runs, waitsFor, girder, beforeEach */
+/* global girderTest, describe, it, expect, runs, waitsFor, girderformindlogger, beforeEach */
 
 girderTest.importPlugin('terms');
 girderTest.startApp();
@@ -10,7 +10,7 @@ describe('Create and log in to a user for testing', function () {
         var settingSaved;
         runs(function () {
             settingSaved = false;
-            girder.rest.restRequest({
+            girderformindlogger.rest.restRequest({
                 url: 'system/setting',
                 method: 'PUT',
                 data: {

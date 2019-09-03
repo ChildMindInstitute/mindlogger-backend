@@ -7,12 +7,12 @@ import traceback
 import pydicom
 import numpy as np
 
-from girder import events
-from girder.models.file import File
-from girder.models.upload import Upload
+from girderformindlogger import events
+from girderformindlogger.models.file import File
+from girderformindlogger.models.upload import Upload
 from girder_jobs.constants import JobStatus
 from girder_jobs.models.job import Job
-from girder.utility.model_importer import ModelImporter
+from girderformindlogger.utility.model_importer import ModelImporter
 from PIL import Image
 
 

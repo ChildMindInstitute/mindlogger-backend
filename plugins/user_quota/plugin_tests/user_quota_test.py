@@ -4,15 +4,15 @@ import json
 import os
 
 from tests import base
-from girder.constants import AssetstoreType
-from girder.exceptions import ValidationException
-from girder.models.assetstore import Assetstore
-from girder.models.collection import Collection
-from girder.models.folder import Folder
-from girder.models.setting import Setting
-from girder.models.user import User
-from girder.settings import SettingKey
-from girder.utility.system import formatSize
+from girderformindlogger.constants import AssetstoreType
+from girderformindlogger.exceptions import ValidationException
+from girderformindlogger.models.assetstore import Assetstore
+from girderformindlogger.models.collection import Collection
+from girderformindlogger.models.folder import Folder
+from girderformindlogger.models.setting import Setting
+from girderformindlogger.models.user import User
+from girderformindlogger.settings import SettingKey
+from girderformindlogger.utility.system import formatSize
 
 from girder_user_quota.settings import PluginSettings
 
@@ -91,7 +91,7 @@ class QuotaTestCase(base.TestCase):
                 }, exception=error is not None)
         if error:
             self.assertStatus(resp, 500)
-            self.assertEqual(resp.json['type'], 'girder')
+            self.assertEqual(resp.json['type'], 'girderformindlogger')
             self.assertEqual(resp.json['message'][:len(error)], error)
             return None
         elif validationError:

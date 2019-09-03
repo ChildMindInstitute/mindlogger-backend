@@ -7,9 +7,9 @@ import tempfile
 import time
 
 from .. import base
-from girder.api import filter_logging
-from girder.models.user import User
-from girder.utility import config
+from girderformindlogger.api import filter_logging
+from girderformindlogger.models.user import User
+from girderformindlogger.utility import config
 
 
 def setUpModule():

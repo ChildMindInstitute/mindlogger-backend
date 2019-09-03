@@ -5,7 +5,7 @@
 
 # Add an initial user - this user will be admin
 - name: Create 'admin' User
-  girder:
+  girderformindlogger:
     port: 8080
     user:
       firstName: "John"
@@ -18,7 +18,7 @@
 
 # Make sure no filesystem assetstore exists
 - name: Delete filesystem assetstore
-  girder:
+  girderformindlogger:
     port: 8080
     username: "admin"
     password: "letmein"
@@ -31,7 +31,7 @@
 
 # Make sure no filesystem assetstore exists
 - name: Delete filesystem assetstore
-  girder:
+  girderformindlogger:
     port: 8080
     username: "admin"
     password: "letmein"
@@ -51,7 +51,7 @@
 
 
 - name: Create filesystem assetstore
-  girder:
+  girderformindlogger:
     port: 8080
     username: "admin"
     password: "letmein"
@@ -72,7 +72,7 @@
       - ret["gc_return"]["name"] == "Temp Filesystem Assetstore"
 
 - name: Update filesystem assetstore with same information
-  girder:
+  girderformindlogger:
     port: 8080
     username: "admin"
     password: "letmein"
@@ -101,7 +101,7 @@
 
 # Update should trigger a change
 - name: Update filesystem assetstore
-  girder:
+  girderformindlogger:
     port: 8080
     username: "admin"
     password: "letmein"
@@ -123,7 +123,7 @@
 
 # Update should trigger a change
 - name: Update filesystem assetstore
-  girder:
+  girderformindlogger:
     port: 8080
     username: "admin"
     password: "letmein"
@@ -143,7 +143,7 @@
       - ret["gc_return"]["current"]
 
 - name: Delete filesystem assetstore
-  girder:
+  girderformindlogger:
     port: 8080
     username: "admin"
     password: "letmein"
@@ -161,7 +161,7 @@
       - "{{ 'message' in ret['gc_return'] }}"
 
 - name: Get all assetstores
-  girder:
+  girderformindlogger:
     port: 8080
     username: "admin"
     password: "letmein"

@@ -1,4 +1,4 @@
-from girder.utility import setting_utilities
+from girderformindlogger.utility import setting_utilities
 
 
 class PluginSettings(object):

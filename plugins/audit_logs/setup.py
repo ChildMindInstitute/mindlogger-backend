@@ -40,12 +40,12 @@ setup(
     ],
     packages=find_packages(),
     zip_safe=False,
-    install_requires=['girder>=3'],
+    install_requires=['girderformindlogger>=0.3'],
     entry_points={
-        'girder.plugin': [
+        'girderformindlogger.plugin': [
             'audit_logs = girder_audit_logs:AuditLogsPlugin'
         ],
-        'girder.cli_plugins': [
+        'girderformindlogger.cli_plugins': [
             'audit-logs-cleanup = girder_audit_logs.cleanup:cleanup',
             'audit-logs-report = girder_audit_logs.report:report'
         ]

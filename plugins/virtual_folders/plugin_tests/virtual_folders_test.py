@@ -2,11 +2,11 @@ import json
 import six
 
 from tests import base
-from girder.constants import AccessType, SortDir
-from girder.exceptions import ValidationException
-from girder.models.folder import Folder
-from girder.models.item import Item
-from girder.models.user import User
+from girderformindlogger.constants import AccessType, SortDir
+from girderformindlogger.exceptions import ValidationException
+from girderformindlogger.models.folder import Folder
+from girderformindlogger.models.item import Item
+from girderformindlogger.models.user import User
 
 
 def setUpModule():
