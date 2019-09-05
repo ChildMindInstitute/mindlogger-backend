@@ -224,10 +224,10 @@ class Applet(Folder):
             ) for groupId in user.get('groups', [])
         ])))
 
-    def getAppletUsers(self, appletId, user=None):
+    def getAppletUsers(self, applet, user=None):
         # get groups for applet
-        appletGroups = self.getAppletGroups(appletId)
-        if not self.isManager(appletId, user):
+        appletGroups = self.getAppletGroups(applet)
+        if not self.isManager(applet.get('_id', applet), user):
             return([])
         # query users for groups by status
         userList = {
