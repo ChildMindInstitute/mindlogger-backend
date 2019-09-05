@@ -235,7 +235,6 @@ class User(Resource):
                             reviewer,
                             refreshCache=False
                         ),
-                        "users": AppletModel().getAppletUsers(applet),
                         "groups": AppletModel().getAppletGroups(
                             applet,
                             arrayOfObjects=True
