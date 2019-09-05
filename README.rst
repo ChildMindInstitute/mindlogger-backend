@@ -172,7 +172,7 @@ Links
 Girder Source
 -------------
 
-This source code is a customization of `:octocat: girderformindlogger/girderformindlogger@5ed7bdd <https://github.com/girderformindlogger/girderformindlogger/tree/5ed7bdd850e9dc8657cf25984627628374811048>`_
+This source code is a customization of `:octocat: girder/girder@e97b1f7 <https://github.com/ChildMindInstitute/mindlogger-app-backend/pull/172/commits/e97b1f7ef7da894479e160cd4b64fb9be40128ce>`_
 
 Girder is a free and open source web-based data management platform developed by
 `Kitware <https://kitware.com>`_ as part of the `Resonant <https://resonant.kitware.com>`_ data and analytics ecosystem.

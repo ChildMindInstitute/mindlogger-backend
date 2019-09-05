@@ -254,11 +254,11 @@ class Applet(Resource):
         groups = [
             group for group in AppletModel(
             ).getAppletGroups(applet).get(role) if ObjectId(group) in [
-                *user.get('groups'),
-                *user.get('formerGroups'),
+                *user.get('groups', []),
+                *user.get('formerGroups', []),
                 *[invite['groupId'] for invite in [
-                    *user.get('groupInvites'),
-                    *user.get('declinedInvites')
+                    *user.get('groupInvites', []),
+                    *user.get('declinedInvites', [])
                 ]]
             ]
         ]
