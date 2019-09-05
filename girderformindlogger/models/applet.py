@@ -174,6 +174,16 @@ class Applet(Folder):
             ] if arrayOfObjects else appletGroups
         )
 
+    def isManager(self, appletId, user):
+        return(bool(
+            str(appletId) in [
+                str(applet.get('_id')) for applet in self.getAppletsForUser(
+                    'manager',
+                    user
+                ) if applet.get('_id') is not None
+            ]
+        ))
+
     def getAppletsForGroup(self, role, groupId, active=True):
         """
         Method get Applets for a Group.
@@ -214,9 +224,11 @@ class Applet(Folder):
             ) for groupId in user.get('groups', [])
         ])))
 
-    def getAppletUsers(self, appletId):
+    def getAppletUsers(self, appletId, user=None):
         # get groups for applet
         appletGroups = self.getAppletGroups(appletId)
+        if not self.isManager(appletId, user):
+            return([])
         # query users for groups by status
         userList = {
             role: {

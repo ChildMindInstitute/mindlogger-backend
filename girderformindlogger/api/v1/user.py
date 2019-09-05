@@ -38,6 +38,7 @@ class User(Resource):
         self.route('GET', (':id', 'access'), self.getUserAccess)
         self.route('PUT', (':id', 'access'), self.updateUserAccess)
         self.route('GET', (':id', 'applets'), self.getUserApplets)
+        self.route('GET', ('applets',), self.getOwnApplets)
         self.route('GET', (':id', 'details'), self.getUserDetails)
         self.route('GET', ('invites',), self.getGroupInvites)
         self.route('GET', ('details',), self.getUsersDetails)
@@ -208,24 +209,29 @@ class User(Resource):
             'You do not have permission to see any of this user\'s applets.',
             403
         )
+        .deprecated()
     )
     def getUserApplets(self, user, role, ids_only):
         from bson.objectid import ObjectId
-        user = user if user else self.getCurrentUser()
+        reviewer = self.getCurrentUser()
+        if reviewer is None:
+            raise AccessException("You must be logged in to get user applets.")
+        if user.get('_id') != reviewer.get('_id') and user.get(
+            '_id'
+        ) is not None:
+            raise AccessException("You can only get your own applets.")
         role = role.lower()
         if role not in USER_ROLES.keys():
             raise RestException(
                 'Invalid user role.',
                 'role'
             )
-        reviewer = self.getCurrentUser()
-        # New schema, new roles
-        applets = AppletModel().getAppletsForUser(role, user, active=True)
-        if len(applets)==0:
-            return([])
-        if ids_only==True:
-            return([applet.get('_id') for applet in applets])
         try:
+            applets = AppletModel().getAppletsForUser(role, user, active=True)
+            if len(applets)==0:
+                return([])
+            if ids_only==True:
+                return([applet.get('_id') for applet in applets])
             return(
                 [
                     {
@@ -235,6 +241,7 @@ class User(Resource):
                             reviewer,
                             refreshCache=False
                         ),
+                        "users": AppletModel().getAppletUsers(applet, user),
                         "groups": AppletModel().getAppletGroups(
                             applet,
                             arrayOfObjects=True
@@ -256,6 +263,96 @@ class User(Resource):
                                 *[invite['groupId'] for invite in [
                                     *user.get('groupInvites', []),
                                     *user.get('declinedInvites', [])
+                                ]]
+                            ]
+                        ]
+                    } for applet in applets if (
+                        applet is not None and not applet.get(
+                            'meta',
+                            {}
+                        ).get(
+                            'applet',
+                            {}
+                        ).get('deleted')
+                    )
+                ]
+            )
+        except Exception as e:
+            return(e)
+
+    @access.public(scope=TokenScope.DATA_READ)
+    @autoDescribeRoute(
+        Description('Get all your applets by role.')
+        .param(
+            'role',
+            'One of ' + str(USER_ROLES.keys()),
+            required=False,
+            default='user'
+        )
+        .param(
+            'ids_only',
+            'If true, only returns an Array of the IDs of assigned applets. '
+            'Otherwise, returns an Array of Objects keyed with "applet" '
+            '"activitySet", "activities" and "items" with expanded JSON-LD as '
+            'values.',
+            required=False,
+            default=False,
+            dataType='boolean'
+        )
+        .errorResponse('ID was invalid.')
+        .errorResponse(
+            'You do not have permission to see any of this user\'s applets.',
+            403
+        )
+    )
+    def getOwnApplets(self, role, ids_only):
+        from bson.objectid import ObjectId
+        reviewer = self.getCurrentUser()
+        if reviewer is None:
+            raise AccessException("You must be logged in to get user applets.")
+        role = role.lower()
+        if role not in USER_ROLES.keys():
+            raise RestException(
+                'Invalid user role.',
+                'role'
+            )
+        try:
+            applets = AppletModel().getAppletsForUser(role, reviewer, active=True)
+            if len(applets)==0:
+                return([])
+            if ids_only==True:
+                return([applet.get('_id') for applet in applets])
+            return(
+                [
+                    {
+                        **jsonld_expander.formatLdObject(
+                            applet,
+                            'applet',
+                            reviewer,
+                            refreshCache=False
+                        ),
+                        "users": AppletModel().getAppletUsers(applet, reviewer),
+                        "groups": AppletModel().getAppletGroups(
+                            applet,
+                            arrayOfObjects=True
+                        )
+                    } if role=="manager" else {
+                        **jsonld_expander.formatLdObject(
+                            applet,
+                            'applet',
+                            reviewer,
+                            dropErrors=True
+                        ),
+                        "groups": [
+                            group for group in AppletModel(
+                            ).getAppletGroups(applet).get(role) if ObjectId(
+                                group
+                            ) in [
+                                *reviewer.get('groups', []),
+                                *reviewer.get('formerGroups', []),
+                                *[invite['groupId'] for invite in [
+                                    *reviewer.get('groupInvites', []),
+                                    *reviewer.get('declinedInvites', [])
                                 ]]
                             ]
                         ]
