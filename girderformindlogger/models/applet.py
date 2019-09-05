@@ -160,6 +160,13 @@ class Applet(Folder):
             [
                 {
                     "id": groupId,
+                    "name": role,
+                    "openRegistration": GroupModel().load(
+                        groupId,
+                        force=True
+                    ).get('openRegistration', False)
+                } if role=='user' else {
+                    "id": groupId,
                     "name": role
                 } for role in appletGroups for groupId in appletGroups[
                     role
