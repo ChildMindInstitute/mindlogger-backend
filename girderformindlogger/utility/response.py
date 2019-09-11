@@ -22,25 +22,10 @@ def aggregate(metadata, informant, startDate=None, endDate=None, getAll=False):
         tzlocal.get_localzone()
     )
     endDate = thisResponseTime if endDate is None else endDate
-    # TODO: Delete this print fxn once the query works
-    print({
-        "baseParentType": 'user',
-        "baseParentId": informant.get("_id"),
-        "created": {
-            "$gte": "ISODate({})".format(startDate.isoformat()),
-            "$lt": "ISODate({})".format(endDate.isoformat())
-        } if startDate else {
-            "$lt": "ISODate({})".format(endDate.isoformat())
-        },
-        "meta.applet.@id": metadata.get("applet", {}).get("@id"),
-        "meta.activity.@id": metadata.get("activity", {}).get("@id"),
-        "meta.subject.@id": metadata.get("subject", {}).get("@id")
-    })
     definedRange = ResponseItem().find(
         query={
             "baseParentType": 'user',
             "baseParentId": informant.get("_id"),
-            # TODO: Figure out why this Date filter doesn't work
             "created": {
                 "$gte": datetime.fromisoformat(startDate.isoformat(
                 )).astimezone(utc),
