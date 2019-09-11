@@ -1,3 +1,4 @@
+import itertools
 import pandas as pd
 import tzlocal
 from backports.datetime_fromisoformat import MonkeyPatch
@@ -21,19 +22,20 @@ def aggregate(metadata, informant, startDate=None, endDate=None, getAll=False):
     ) if "responseCompleted" in metadata else datetime.now(
         tzlocal.get_localzone()
     )
-    endDate = thisResponseTime if endDate is None else endDate
-    definedRange = ResponseItem().find(
+    startDate = datetime.fromisoformat(startDate.isoformat(
+    )).astimezone(utc) if startDate is not None else None
+    endDate = datetime.fromisoformat((
+        thisResponseTime if endDate is None else endDate
+    ).isoformat()).astimezone(utc)
+    definedRange = list(ResponseItem().find(
         query={
             "baseParentType": 'user',
             "baseParentId": informant.get("_id"),
             "created": {
-                "$gte": datetime.fromisoformat(startDate.isoformat(
-                )).astimezone(utc),
-                "$lt": datetime.fromisoformat(endDate.isoformat(
-                )).astimezone(utc)
+                "$gte": startDate,
+                "$lt": endDate
             } if startDate else {
-                "$lt": datetime.fromisoformat(endDate.isoformat(
-                )).astimezone(utc)
+                "$lt": endDate
             },
             "meta.applet.@id": metadata.get("applet", {}).get("@id"),
             "meta.activity.@id": metadata.get("activity", {}).get("@id"),
@@ -43,27 +45,60 @@ def aggregate(metadata, informant, startDate=None, endDate=None, getAll=False):
         sort=[("created", ASCENDING)],
         fields=["baseParentId", "created", "meta"],
         options=CodecOptions(tz_aware=True)
-    )
-    print(definedRange.explain())
-    definedRange = list(definedRange)
-
-    # TODO: save the real data format (https://github.com/ChildMindInstitute/MATTER-spec-docs/blob/response-format/active/MindLogger/MindLogger-app-backend/response_format.md)
+    ))
+    startDate = min([
+        response.created for response in definedRange
+    ]) if (
+        startDate is None and len(definedRange)
+    ) else startDate
+    # TODO: Fix duration
+    duration = endDate - startDate if startDate is not None else 0
+    responseIRIs = list(set(itertools.chain.from_iterable([list(
+        response.get('meta', {}).get('responses').keys()
+    ) for response in definedRange])))
     aggregated = {
-        "schema:startDate": startDate if startDate else min([
-            response.get("created") for response in definedRange
-        ]),
+        "schema:startDate": startDate,
         "schema:endDate": endDate,
-        "schema:duration": endDate - startDate,
-        "responses": listResponseValues(definedRange)
-      } if getAll else {
-        "schema:startDate": startDate if startDate else min([
-            response.get("created") for response in definedRange
-        ]),
-        "schema:endDate": endDate,
-        "schema:duration": endDate - startDate,
-        "responses": countResponseValues(definedRange)
-      }
+        "schema:duration": 0,
+        "responses": {
+            itemIRI: [
+                {
+                    "value": response.get('meta', {}).get('responses', {}).get(
+                        itemIRI
+                    ),
+                    "date": completedDate(response)
+                } for response in definedRange if itemIRI in response.get(
+                    'meta',
+                    {}
+                ).get('responses', {})
+            ] for itemIRI in responseIRIs
+        }
+    } if getAll else {}
+    # TODO: save the real data format (https://github.com/ChildMindInstitute/MATTER-spec-docs/blob/response-format/active/MindLogger/MindLogger-app-backend/response_format.md)
+    # aggregated = {
+    #     "schema:startDate": startDate if startDate else min([
+    #         response.get("created") for response in definedRange
+    #     ]),
+    #     "schema:endDate": endDate,
+    #     "schema:duration": endDate - startDate,
+    #     "responses": listResponseValues(definedRange)
+    #   } if getAll else {
+    #     "schema:startDate": startDate if startDate else min([
+    #         response.get("created") for response in definedRange
+    #     ]),
+    #     "schema:endDate": endDate,
+    #     "schema:duration": endDate - startDate,
+    #     "responses": countResponseValues(definedRange)
+    #   }
     return(aggregated)
+
+def completedDate(response):
+    completed = response.get("meta", {}).get("responseCompleted")
+    return (
+        datetime.fromisoformat(datetime.fromtimestamp(
+            (completed/1000 if completed else response.get("created"))
+        ).isoformat())
+    )
 
 def countResponseValues(definedRange):
     # TODO write this fxn, return `allToDate` format (https://github.com/ChildMindInstitute/MATTER-spec-docs/blob/response-format/active/MindLogger/MindLogger-app-backend/response_format.md)
@@ -94,9 +129,12 @@ def listResponseValues(definedRange):
     # return(listedResponseValues)
 
 
-def aggregateAndSave(item, informant, save=False):
-    # TODO: finish this fxn. 1: calculate `last7Days`; 2: save; 3: calculate `allToDate`; 4: save. (https://github.com/ChildMindInstitute/MATTER-spec-docs/blob/response-format/active/MindLogger/MindLogger-app-backend/response_format.md)
+def aggregateAndSave(item, informant):
+    # TODO: finish this fxn. 0: save; 1: calculate `last7Days`; 2: save; 3: calculate `allToDate`; 4: save. (https://github.com/ChildMindInstitute/MATTER-spec-docs/blob/response-format/active/MindLogger/MindLogger-app-backend/response_format.md)
     metadata = item.get("meta", {})
+    # Save 1 (of 3)
+    if metadata:
+        item = ResponseItem().setMetadata(item, metadata)
     # sevenDay ...
     print("From {} to {}".format(
         ((datetime.fromtimestamp(
@@ -108,8 +146,7 @@ def aggregateAndSave(item, informant, save=False):
             tzlocal.get_localzone()
         ).strftime("%c")
     ))
-    print(metadata)
-    sevenDay = aggregate(
+    last7Days = aggregate(
         metadata,
         informant,
         startDate=((datetime.fromtimestamp(
@@ -119,7 +156,10 @@ def aggregateAndSave(item, informant, save=False):
         )) - timedelta(days=7)),
         getAll=True
     )
+    metadata["last7Days"] = last7Days
     # save
+    if metadata:
+        item = ResponseItem().setMetadata(item, metadata)
     # ResponseItem().setMetadata(newItem, metadata)
     # allTime
     # save again
