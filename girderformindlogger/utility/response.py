@@ -7,6 +7,7 @@ from datetime import datetime, timedelta
 from girderformindlogger.models.response_folder import ResponseItem
 from pandas.api.types import is_numeric_dtype
 from pymongo import ASCENDING, DESCENDING
+from pytz import utc
 MonkeyPatch.patch_fromisoformat()
 
 
@@ -35,17 +36,20 @@ def aggregate(metadata, informant, startDate=None, endDate=None, getAll=False):
         "meta.activity.@id": metadata.get("activity", {}).get("@id"),
         "meta.subject.@id": metadata.get("subject", {}).get("@id")
     })
-    definedRange = list(ResponseItem().find(
+    definedRange = ResponseItem().find(
         query={
             "baseParentType": 'user',
             "baseParentId": informant.get("_id"),
             # TODO: Figure out why this Date filter doesn't work
-            # "created": {
-            #     "$gte": datetime.fromisoformat(startDate.isoformat()),
-            #     "$lt": datetime.fromisoformat(endDate.isoformat())
-            # } if startDate else {
-            #     "$lt": datetime.fromisoformat(endDate.isoformat())
-            # },
+            "created": {
+                "$gte": datetime.fromisoformat(startDate.isoformat(
+                )).astimezone(utc),
+                "$lt": datetime.fromisoformat(endDate.isoformat(
+                )).astimezone(utc)
+            } if startDate else {
+                "$lt": datetime.fromisoformat(endDate.isoformat(
+                )).astimezone(utc)
+            },
             "meta.applet.@id": metadata.get("applet", {}).get("@id"),
             "meta.activity.@id": metadata.get("activity", {}).get("@id"),
             "meta.subject.@id": metadata.get("subject", {}).get("@id")
@@ -54,8 +58,9 @@ def aggregate(metadata, informant, startDate=None, endDate=None, getAll=False):
         sort=[("created", ASCENDING)],
         fields=["baseParentId", "created", "meta"],
         options=CodecOptions(tz_aware=True)
-    ))
-
+    )
+    print(definedRange.explain())
+    definedRange = list(definedRange)
 
     # TODO: save the real data format (https://github.com/ChildMindInstitute/MATTER-spec-docs/blob/response-format/active/MindLogger/MindLogger-app-backend/response_format.md)
     aggregated = {
