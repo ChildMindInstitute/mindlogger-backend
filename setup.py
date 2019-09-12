@@ -37,6 +37,7 @@ installReqs = [
     'dogpile.cache',
     'filelock',
     "funcsigs ; python_version < '3'",
+    'isodate',
     'jsonschema',
     'Mako',
     'pandas',

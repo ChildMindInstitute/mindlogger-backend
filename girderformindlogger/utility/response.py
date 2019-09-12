@@ -1,3 +1,4 @@
+import isodate
 import itertools
 import pandas as pd
 import tzlocal
@@ -51,15 +52,18 @@ def aggregate(metadata, informant, startDate=None, endDate=None, getAll=False):
     ]) if (
         startDate is None and len(definedRange)
     ) else startDate
-    # TODO: Fix duration
-    duration = endDate - startDate if startDate is not None else 0
+    duration = isodate.duration_isoformat(
+        endDate - startDate if startDate is not None else 0
+    )
+    print(duration)
+    print(type(duration))
     responseIRIs = list(set(itertools.chain.from_iterable([list(
         response.get('meta', {}).get('responses').keys()
     ) for response in definedRange])))
     aggregated = {
         "schema:startDate": startDate,
         "schema:endDate": endDate,
-        "schema:duration": 0,
+        "schema:duration": duration,
         "responses": {
             itemIRI: [
                 {
