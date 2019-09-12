@@ -98,7 +98,7 @@ def completedDate(response):
 
 
 def _responseIRIs(definedRange):
-    print(definedRange[0].get('meta'))
+    # print(definedRange[0].get('meta'))
     return(list(set(itertools.chain.from_iterable([list(
         response.get('meta', {}).get('responses').keys()
     ) for response in definedRange]))))

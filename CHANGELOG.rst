@@ -6,6 +6,10 @@ Girder for MindLogger
 
 Changes
 -------
+2019-09-12: v0.4.1
+^^^^^^^^^^^^^^^^^^
+* Response routes
+
 2019-05-29: v0.3.1
 ^^^^^^^^^^^^^^^^^^
 * New route: `GET /group/open`: List all groups with open registration.
