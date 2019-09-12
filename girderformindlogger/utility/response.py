@@ -5,7 +5,7 @@ import tzlocal
 from backports.datetime_fromisoformat import MonkeyPatch
 from bson.codec_options import CodecOptions
 # from bson.objectid import ObjectId
-from datetime import datetime, timedelta
+from datetime import date, datetime, timedelta
 from girderformindlogger.models.response_folder import ResponseItem
 from pandas.api.types import is_numeric_dtype
 from pymongo import ASCENDING, DESCENDING
@@ -18,14 +18,26 @@ def aggregate(metadata, informant, startDate=None, endDate=None, getAll=False):
     Function to calculate aggregates
     """
     responses = metadata.get("responses")
-    thisResponseTime = datetime.fromtimestamp(
+    print(responses)
+    startDate = delocalize(startDate) if startDate is not None else None
+    endDate = delocalize(datetime.fromtimestamp(
         metadata["responseCompleted"]/1000
     ) if "responseCompleted" in metadata else datetime.now(
         tzlocal.get_localzone()
-    )
-    print(thisResponseTime)
-    startDate = delocalize(startDate) if startDate is not None else None
-    endDate = delocalize(thisResponseTime if endDate is None else endDate)
+    ) if endDate is None else endDate)
+    # print({
+    #     "baseParentType": 'user',
+    #     "baseParentId": informant.get("_id"),
+    #     "created": {
+    #         "$gte": startDate,
+    #         "$lt": endDate
+    #     } if startDate else {
+    #         "$lt": endDate
+    #     },
+    #     "meta.applet.@id": metadata.get("applet", {}).get("@id"),
+    #     "meta.activity.@id": metadata.get("activity", {}).get("@id"),
+    #     "meta.subject.@id": metadata.get("subject", {}).get("@id")
+    # })
     definedRange = list(ResponseItem().find(
         query={
             "baseParentType": 'user',
@@ -42,9 +54,9 @@ def aggregate(metadata, informant, startDate=None, endDate=None, getAll=False):
         },
         force=True,
         sort=[("created", ASCENDING)],
-        fields=["baseParentId", "created", "meta"],
         options=CodecOptions(tz_aware=True)
     ))
+    print(definedRange)
     startDate = delocalize(min([
         response.get('created') for response in definedRange
     ])) if (
@@ -54,6 +66,7 @@ def aggregate(metadata, informant, startDate=None, endDate=None, getAll=False):
         endDate - startDate if startDate is not None else 0
     )
     responseIRIs = _responseIRIs(definedRange)
+    print(responseIRIs)
     aggregated = {
         "schema:startDate": startDate,
         "schema:endDate": endDate,
@@ -74,6 +87,7 @@ def aggregate(metadata, informant, startDate=None, endDate=None, getAll=False):
     }
     return(aggregated)
 
+
 def completedDate(response):
     completed = response.get("meta", {}).get("responseCompleted")
     return (
@@ -84,6 +98,7 @@ def completedDate(response):
 
 
 def _responseIRIs(definedRange):
+    print(definedRange[0].get('meta'))
     return(list(set(itertools.chain.from_iterable([list(
         response.get('meta', {}).get('responses').keys()
     ) for response in definedRange]))))
@@ -122,7 +137,6 @@ def _flattenDF(df, columnName):
 
 
 def countResponseValues(definedRange, responseIRIs=None):
-    # TODO write this fxn, return `allToDate` format (https://github.com/ChildMindInstitute/MATTER-spec-docs/blob/response-format/active/MindLogger/MindLogger-app-backend/response_format.md)
     responseIRIs = _responseIRIs(
         definedRange
     ) if responseIRIs is None else responseIRIs
@@ -147,34 +161,13 @@ def countResponseValues(definedRange, responseIRIs=None):
             ] for responseIRI in counts
         }
     )
-    # df = df[responseIRIs].melt()
-    # df['value'] = df['value'].astype(str)
-    # print(df.groupby(['variable', 'value']).count())
-    # return({
-    #     "value": ,
-    #     "count":
-    # })
-    #
-    # print(df.head())
-    # print(df.groupBy(''))
-    # return(df)
-    # counts = {}
-    # for responseItem in definedRange:
-    #     for responseIRI in definedRange:
-    #         pass
-    #     responseIRI: [
-    #         {
-    #             "value": definedRange[i].get("responses")[responseIRI],
-    #             "count":
-    #         } for i in len(definedRange)
-    #     ] for responseIRI in definedRange[0].get("responses").keys()
-    # }
-    # return(counts)
 
 
 def delocalize(dt):
     try:
-        return(datetime.fromisoformat((dt).isoformat()).astimezone(utc))
+        return(datetime.fromisoformat(dt.isoformat()).astimezone(utc).replace(
+            tzinfo=None
+        ))
     except:
         print(dt)
         print(type(dt))
@@ -183,42 +176,65 @@ def delocalize(dt):
 
 
 def aggregateAndSave(item, informant):
-    # TODO: finish this fxn. 0: save; 1: calculate `last7Days`; 2: save; 3: calculate `allToDate`; 4: save. (https://github.com/ChildMindInstitute/MATTER-spec-docs/blob/response-format/active/MindLogger/MindLogger-app-backend/response_format.md)
+    print(item)
     metadata = item.get("meta", {})
     # Save 1 (of 3)
     if metadata:
         item = ResponseItem().setMetadata(item, metadata)
     # sevenDay ...
+    endDate = datetime.fromtimestamp(
+        metadata["responseCompleted"]/1000
+    ) if "responseCompleted" in metadata else datetime.now()
+    startDate = endDate - timedelta(days=7)
     print("From {} to {}".format(
-        ((datetime.fromtimestamp(
-            metadata["responseCompleted"]/1000
-        ) if "responseCompleted" in metadata else datetime.now(
-            tzlocal.get_localzone()
-        )) - timedelta(days=7)).strftime("%c"),
-        datetime.now(
-            tzlocal.get_localzone()
-        ).strftime("%c")
+        startDate.strftime("%c"),
+        endDate.strftime("%c")
     ))
     metadata["last7Days"] = aggregate(
         metadata,
         informant,
-        startDate=((datetime.fromtimestamp(
-            metadata["responseCompleted"]/1000
-        ) if "responseCompleted" in metadata else datetime.now(
-            tzlocal.get_localzone()
-        )) - timedelta(days=7)),
+        startDate=startDate,
+        endDate=endDate,
         getAll=True
     )
-    # save
+    # save (2 of 3)
     if metadata:
         item = ResponseItem().setMetadata(item, metadata)
     # allTime
     metadata["allTime"] = aggregate(
         metadata,
         informant,
+        endDate=endDate,
         getAll=False
     )
-    # save again
+    # save (3 of 3)
     if metadata:
         item = ResponseItem().setMetadata(item, metadata)
     return(item)
+
+
+def last7Days(applet, reviewer, referenceDate=None):
+    # TODO: Refactor to allow reviewer and informant to be different
+    referenceDate = delocalize(
+        datetime.now() if referenceDate is None else referenceDate # TODO allow timeless dates
+    )
+    print(referenceDate)
+    latestResponse = list(ResponseItem().find(
+        query={
+            "baseParentType": 'user',
+            "baseParentId": reviewer.get('_id'),
+            "created": {
+                "$lte": referenceDate
+            },
+            "meta.applet.@id": applet.get('_id')
+        },
+        sort=[("created", DESCENDING)]
+    ))[0]
+    metadata = latestResponse.get('meta', {})
+    print(latestResponse)
+    print(metadata)
+    if "last7Days" not in metadata or "allTime" not in metadata:
+        latestResponse = aggregateAndSave(latestResponse, reviewer)
+    l7d = latestResponse.get('meta', {}).get('last7Days')
+    # TODO: parse
+    return(l7d)

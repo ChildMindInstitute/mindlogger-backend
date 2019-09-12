@@ -44,6 +44,7 @@ class ResponseItem(Resource):
         self.resourceName = 'response'
         self._model = ResponseItemModel()
         self.route('GET', (), self.getResponses)
+        self.route('GET', ('last7Days', ':applet'), self.getLast7Days)
         self.route('POST', (':applet', ':activity'), self.createResponseItem)
 
     """
@@ -209,6 +210,39 @@ class ResponseItem(Resource):
             )
         ] if len(applets) else allResponses
         return(allResponses)
+
+    @access.public(scope=TokenScope.DATA_READ)
+    @autoDescribeRoute(
+        Description(
+            'Get the last 7 days\' responses for the current user.'
+        )
+        .modelParam(
+            'applet',
+            model=AppletModel,
+            level=AccessType.READ,
+            destName='applet',
+            description='The ID of the Applet this response is to.'
+        )
+        .param(
+            'referenceDate',
+            'Final date of 7 day range. (Not plugged in yet).',
+            required=False
+        )
+        .errorResponse('ID was invalid.')
+        .errorResponse(
+            'Read access was denied for this applet for this user.',
+            403
+        )
+    )
+    def getLast7Days(
+        self,
+        applet,
+        referenceDate=None
+    ):
+        from girderformindlogger.utility.response import last7Days
+        user = self.getCurrentUser()
+        return(last7Days(applet, user, referenceDate))
+
 
 
     @access.user(scope=TokenScope.DATA_WRITE)
