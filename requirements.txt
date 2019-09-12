@@ -32,7 +32,6 @@ pandas==0.25.1
 passlib==1.7.1
 portend==2.5
 psutil==5.6.3
-pyAudioAnalysis==0.2
 pycparser==2.19
 PyLD==1.0.5
 pymongo==3.9.0
