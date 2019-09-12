@@ -23,11 +23,9 @@ def aggregate(metadata, informant, startDate=None, endDate=None, getAll=False):
     ) if "responseCompleted" in metadata else datetime.now(
         tzlocal.get_localzone()
     )
-    startDate = datetime.fromisoformat(startDate.isoformat(
-    )).astimezone(utc) if startDate is not None else None
-    endDate = datetime.fromisoformat((
-        thisResponseTime if endDate is None else endDate
-    ).isoformat()).astimezone(utc)
+    print(thisResponseTime)
+    startDate = delocalize(startDate) if startDate is not None else None
+    endDate = delocalize(thisResponseTime if endDate is None else endDate)
     definedRange = list(ResponseItem().find(
         query={
             "baseParentType": 'user',
@@ -47,19 +45,15 @@ def aggregate(metadata, informant, startDate=None, endDate=None, getAll=False):
         fields=["baseParentId", "created", "meta"],
         options=CodecOptions(tz_aware=True)
     ))
-    startDate = min([
-        response.created for response in definedRange
-    ]) if (
+    startDate = delocalize(min([
+        response.get('created') for response in definedRange
+    ])) if (
         startDate is None and len(definedRange)
     ) else startDate
     duration = isodate.duration_isoformat(
         endDate - startDate if startDate is not None else 0
     )
-    print(duration)
-    print(type(duration))
-    responseIRIs = list(set(itertools.chain.from_iterable([list(
-        response.get('meta', {}).get('responses').keys()
-    ) for response in definedRange])))
+    responseIRIs = _responseIRIs(definedRange)
     aggregated = {
         "schema:startDate": startDate,
         "schema:endDate": endDate,
@@ -76,24 +70,8 @@ def aggregate(metadata, informant, startDate=None, endDate=None, getAll=False):
                     {}
                 ).get('responses', {})
             ] for itemIRI in responseIRIs
-        }
-    } if getAll else {}
-    # TODO: save the real data format (https://github.com/ChildMindInstitute/MATTER-spec-docs/blob/response-format/active/MindLogger/MindLogger-app-backend/response_format.md)
-    # aggregated = {
-    #     "schema:startDate": startDate if startDate else min([
-    #         response.get("created") for response in definedRange
-    #     ]),
-    #     "schema:endDate": endDate,
-    #     "schema:duration": endDate - startDate,
-    #     "responses": listResponseValues(definedRange)
-    #   } if getAll else {
-    #     "schema:startDate": startDate if startDate else min([
-    #         response.get("created") for response in definedRange
-    #     ]),
-    #     "schema:endDate": endDate,
-    #     "schema:duration": endDate - startDate,
-    #     "responses": countResponseValues(definedRange)
-    #   }
+        } if getAll else countResponseValues(definedRange, responseIRIs)
+    }
     return(aggregated)
 
 def completedDate(response):
@@ -104,9 +82,83 @@ def completedDate(response):
         ).isoformat())
     )
 
-def countResponseValues(definedRange):
+
+def _responseIRIs(definedRange):
+    return(list(set(itertools.chain.from_iterable([list(
+        response.get('meta', {}).get('responses').keys()
+    ) for response in definedRange]))))
+
+
+def _flattenDF(df, columnName):
+    if isinstance(columnName, list):
+        for c in columnName:
+            df = _flattenDF(df, c)
+        return(df)
+    prefix = columnName if columnName not in ['meta', 'responses'] else ""
+    newDf = pd.concat(
+        [
+            df[columnName].apply(
+                pd.Series
+            ),
+            df.drop(columnName, axis=1)
+        ],
+        axis=1
+    )
+    return(
+        (
+            newDf.rename(
+                {
+                    col: "{}-{}".format(
+                        prefix,
+                        col
+                    ) for col in list(
+                        df[columnName][0].keys()
+                    )
+                },
+                axis='columns'
+            ) if len(prefix) else newDf
+        ).dropna('columns', 'all')
+    )
+
+
+def countResponseValues(definedRange, responseIRIs=None):
     # TODO write this fxn, return `allToDate` format (https://github.com/ChildMindInstitute/MATTER-spec-docs/blob/response-format/active/MindLogger/MindLogger-app-backend/response_format.md)
-    counts = {}
+    responseIRIs = _responseIRIs(
+        definedRange
+    ) if responseIRIs is None else responseIRIs
+    pd.set_option('display.max_colwidth', -1)
+    pd.set_option('display.max_columns', None)
+    df = pd.DataFrame(definedRange)
+    df = _flattenDF(df, ['meta', 'applet', 'activity', 'responses'])
+    counts = {
+        responseIRI: (
+            df[responseIRI].astype(str) if not(is_numeric_dtype(
+                df[responseIRI]
+            )) else df[responseIRI]
+        ).value_counts().to_dict() for responseIRI in responseIRIs
+    }
+    return(
+        {
+            responseIRI: [
+                {
+                    "value": value,
+                    "count": counts[responseIRI][value]
+                } for value in counts[responseIRI]
+            ] for responseIRI in counts
+        }
+    )
+    # df = df[responseIRIs].melt()
+    # df['value'] = df['value'].astype(str)
+    # print(df.groupby(['variable', 'value']).count())
+    # return({
+    #     "value": ,
+    #     "count":
+    # })
+    #
+    # print(df.head())
+    # print(df.groupBy(''))
+    # return(df)
+    # counts = {}
     # for responseItem in definedRange:
     #     for responseIRI in definedRange:
     #         pass
@@ -117,20 +169,17 @@ def countResponseValues(definedRange):
     #         } for i in len(definedRange)
     #     ] for responseIRI in definedRange[0].get("responses").keys()
     # }
-    return(counts)
+    # return(counts)
 
-def listResponseValues(definedRange):
-    # TODO: clean up this fxn, return `last7Days` format (https://github.com/ChildMindInstitute/MATTER-spec-docs/blob/response-format/active/MindLogger/MindLogger-app-backend/response_format.md)
-    df = pd.DataFrame(definedRange)
-    df = pd.concat([df.meta.apply(pd.Series), df.drop('meta', axis=1)], axis=1)
-    responses = pd.concat([df['responses'].apply(pd.Series), df['created']], axis=1)
-    print(responses.head())
-    df = pd.concat([responses, df.drop('responses', axis=1)], axis=1)
-    pd.set_option('display.max_colwidth', -1)
-    pd.set_option('display.max_columns', None)
-    print(df.head())
-    return(df)
-    # return(listedResponseValues)
+
+def delocalize(dt):
+    try:
+        return(datetime.fromisoformat((dt).isoformat()).astimezone(utc))
+    except:
+        print(dt)
+        print(type(dt))
+        raise ValueError(dt)
+        return(None)
 
 
 def aggregateAndSave(item, informant):
@@ -150,7 +199,7 @@ def aggregateAndSave(item, informant):
             tzlocal.get_localzone()
         ).strftime("%c")
     ))
-    last7Days = aggregate(
+    metadata["last7Days"] = aggregate(
         metadata,
         informant,
         startDate=((datetime.fromtimestamp(
@@ -160,11 +209,16 @@ def aggregateAndSave(item, informant):
         )) - timedelta(days=7)),
         getAll=True
     )
-    metadata["last7Days"] = last7Days
     # save
     if metadata:
         item = ResponseItem().setMetadata(item, metadata)
-    # ResponseItem().setMetadata(newItem, metadata)
     # allTime
+    metadata["allTime"] = aggregate(
+        metadata,
+        informant,
+        getAll=False
+    )
     # save again
-    return()
+    if metadata:
+        item = ResponseItem().setMetadata(item, metadata)
+    return(item)
