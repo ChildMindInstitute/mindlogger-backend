@@ -160,12 +160,29 @@ class Applet(Folder):
             [
                 {
                     "id": groupId,
+                    "name": role,
+                    "openRegistration": GroupModel().load(
+                        groupId,
+                        force=True
+                    ).get('openRegistration', False)
+                } if role=='user' else {
+                    "id": groupId,
                     "name": role
                 } for role in appletGroups for groupId in appletGroups[
                     role
                 ].keys()
             ] if arrayOfObjects else appletGroups
         )
+
+    def isManager(self, appletId, user):
+        return(bool(
+            str(appletId) in [
+                str(applet.get('_id')) for applet in self.getAppletsForUser(
+                    'manager',
+                    user
+                ) if applet.get('_id') is not None
+            ]
+        ))
 
     def getAppletsForGroup(self, role, groupId, active=True):
         """
@@ -207,9 +224,11 @@ class Applet(Folder):
             ) for groupId in user.get('groups', [])
         ])))
 
-    def getAppletUsers(self, appletId):
+    def getAppletUsers(self, applet, user=None):
         # get groups for applet
-        appletGroups = self.getAppletGroups(appletId)
+        appletGroups = self.getAppletGroups(applet)
+        if not self.isManager(applet.get('_id', applet), user):
+            return([])
         # query users for groups by status
         userList = {
             role: {
