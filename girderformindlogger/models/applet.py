@@ -70,12 +70,18 @@ class Applet(Folder):
         if user==None:
             raise AccessException("You must be logged in to create an applet.")
         appletsCollection = CollectionModel().findOne({"name": "Applets"})
+
+        # create the Applets collection if it isn't there!
+        if not appletsCollection:
+            CollectionModel().createCollection('Applets')
+            appletsCollection = CollectionModel().findOne({"name": "Applets"})
+
         # # check if applet exists with creator as a manager
         applets = list(FolderModel().find({
             "meta.actvitySet.url": activitySet.get('url'),
             "parentId": appletsCollection.get('_id')
         }))
-
+        print('\n\n APPLET MODEL line 79')
         # managed = [applet for applet in applets if applet.get('_id') in [
         #     a.get('_id') for a in list(itertools.chain.from_iterable([
         #         list(AppletModel().find(
