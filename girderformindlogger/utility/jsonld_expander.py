@@ -1,4 +1,4 @@
-import json
+from bson import json_util
 from copy import deepcopy
 from datetime import datetime
 from girderformindlogger.constants import AccessType
@@ -178,8 +178,11 @@ def formatLdObject(
         isinstance(obj, dict) and 'meta' not in obj.keys()
     ):
         return(None)
-    if "cached" in obj and not refreshCache:
-        return(obj["cached"])
+    if "cached" in obj and not refreshCache and isinstance(obj["cached"], str):
+        print(obj["cached"])
+        print('===')
+        print(json_util.loads(obj["cached"]))
+        return(json_util.loads(obj["cached"]))
     mesoPrefix = camelCase(mesoPrefix)
     if type(obj)==list:
         return([formatLdObject(o, mesoPrefix) for o in obj if o is not None])
@@ -260,10 +263,10 @@ def formatLdObject(
                 ])
             }
         }
-        obj["cached"] = {
+        obj["cached"] = json_util.dumps({
             **applet,
             "prov:generatedAtTime": xsdNow()
-        }
+        })
         AppletModel().save(obj)
         return(applet)
     if mesoPrefix=='activitySet':

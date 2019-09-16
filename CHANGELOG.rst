@@ -6,9 +6,10 @@ Girder for MindLogger
 
 Changes
 -------
-2019-09-12: v0.4.1
+2019-09-12 ‒ 16: v0.4.1
 ^^^^^^^^^^^^^^^^^^
 * Response routes
+* Revert swagger-ui from v3 to v2
 
 2019-05-29: v0.3.1
 ^^^^^^^^^^^^^^^^^^
