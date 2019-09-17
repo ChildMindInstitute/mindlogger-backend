@@ -6,8 +6,10 @@ Girder for MindLogger
 
 Changes
 -------
-2019-09-12: v0.4.1
+2019-09-17: v0.4.1
 ^^^^^^^^^^^^^^^^^^
+* `responseDates` added to `GET user/responses` for user role, returning a reverse chronological Array of ISO 8601 dates in which that applet has been responded to.
+* Reverted swagger-ui to v2
 * Response routes
 
 2019-05-29: v0.3.1

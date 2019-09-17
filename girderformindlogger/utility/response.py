@@ -18,7 +18,6 @@ def aggregate(metadata, informant, startDate=None, endDate=None, getAll=False):
     Function to calculate aggregates
     """
     responses = metadata.get("responses")
-    print(responses)
     startDate = delocalize(startDate) if startDate is not None else None
     endDate = delocalize(datetime.fromtimestamp(
         metadata["responseCompleted"]/1000
@@ -56,7 +55,6 @@ def aggregate(metadata, informant, startDate=None, endDate=None, getAll=False):
         sort=[("created", ASCENDING)],
         options=CodecOptions(tz_aware=True)
     ))
-    print(definedRange)
     startDate = delocalize(min([
         response.get('created') for response in definedRange
     ])) if (
@@ -66,7 +64,6 @@ def aggregate(metadata, informant, startDate=None, endDate=None, getAll=False):
         endDate - startDate if startDate is not None else 0
     )
     responseIRIs = _responseIRIs(definedRange)
-    print(responseIRIs)
     aggregated = {
         "schema:startDate": startDate,
         "schema:endDate": endDate,
@@ -98,7 +95,6 @@ def completedDate(response):
 
 
 def _responseIRIs(definedRange):
-    # print(definedRange[0].get('meta'))
     return(list(set(itertools.chain.from_iterable([list(
         response.get('meta', {}).get('responses').keys()
     ) for response in definedRange]))))
@@ -236,5 +232,51 @@ def last7Days(applet, reviewer, referenceDate=None):
     if "last7Days" not in metadata or "allTime" not in metadata:
         latestResponse = aggregateAndSave(latestResponse, reviewer)
     l7d = latestResponse.get('meta', {}).get('last7Days')
-    # TODO: parse
+    l7d["responses"] = _oneResponsePerDate(l7d.get("responses", {}))
     return(l7d)
+
+
+def determine_date(d):
+    if isinstance(d, int):
+        while (d > 10000000000):
+            d = d/10
+        d = datetime.fromtimestamp(d)
+    return((
+        datetime.fromisoformat(
+            d
+        ) if isinstance(d, str) else d
+    ).date())
+
+
+def responseDateList(appletId, userId, reviewer):
+    rdl = list(set([
+        determine_date(
+            response.get("meta", {}).get(
+                "responseCompleted",
+                response.get("created")
+            )
+        ).isoformat() for response in list(ResponseItem().find(
+            query={
+                "baseParentType": 'user',
+                "baseParentId": userId,
+                "meta.applet.@id": appletId
+            },
+            sort=[("created", DESCENDING)]
+        ))
+    ]))
+    rdl.sort(reverse=True)
+    return(rdl)
+
+
+def _oneResponsePerDate(responses):
+    newResponses = {}
+    for response in responses:
+        df = pd.DataFrame(responses[response])
+        df["datetime"] = df.date
+        df["date"] = df.date.apply(determine_date)
+        df.sort_values(by=['datetime'], ascending=False, inplace=True)
+        df = df.groupby('date').first()
+        df.drop('datetime', axis=1, inplace=True)
+        df['date'] = df.index
+        newResponses[response] = df.to_dict(orient="records")
+    return(newResponses)

@@ -12,6 +12,7 @@ from girderformindlogger.models.folder import Folder as FolderModel
 from girderformindlogger.models.item import Item as ItemModel
 from girderformindlogger.models.screen import Screen as ScreenModel
 from girderformindlogger.models.user import User as UserModel
+from girderformindlogger.utility.response import responseDateList
 from pyld import jsonld
 
 KEYS_TO_EXPAND = [
@@ -153,7 +154,8 @@ def formatLdObject(
     user=None,
     keepUndefined=False,
     dropErrors=False,
-    refreshCache=False):
+    refreshCache=False,
+    responseDates=False):
     """
     Function to take a compacted JSON-LD Object within a Girder for Mindlogger
     database and return an exapanded JSON-LD Object including an _id.
@@ -172,6 +174,8 @@ def formatLdObject(
     :type dropErrors: bool
     :param refreshCache: Refresh from Dereferencing URLs?
     :type refreshCache: bool
+    :param responseDates: Include list of ISO date strings of responses
+    :type responseDates: bool
     :returns: Expanded JSON-LD Object (dict or list)
     """
     if obj is None or (
@@ -179,7 +183,14 @@ def formatLdObject(
     ):
         return(None)
     if "cached" in obj and not refreshCache:
-        return(obj["cached"])
+        returnObj = obj["cached"]
+        if responseDates and mesoPrefix=="applet":
+            returnObj["applet"]["responseDates"] = responseDateList(
+                obj.get('_id'),
+                user.get('_id'),
+                user
+            )
+        return(returnObj)
     mesoPrefix = camelCase(mesoPrefix)
     if type(obj)==list:
         return([formatLdObject(o, mesoPrefix) for o in obj if o is not None])
@@ -265,6 +276,12 @@ def formatLdObject(
             "prov:generatedAtTime": xsdNow()
         }
         AppletModel().save(obj)
+        if responseDates:
+            applet["applet"]["responseDates"] = responseDateList(
+                obj.get('_id'),
+                user.get('_id'),
+                user
+            )
         return(applet)
     if mesoPrefix=='activitySet':
         activitySet = {
