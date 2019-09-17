@@ -237,11 +237,35 @@ def last7Days(applet, reviewer, referenceDate=None):
 
 
 def determine_date(d):
+    if isinstance(d, int):
+        while (d > 10000000000):
+            d = d/10
+        d = datetime.fromtimestamp(d)
     return((
         datetime.fromisoformat(
             d
         ) if isinstance(d, str) else d
     ).date())
+
+
+def responseDateList(appletId, userId, reviewer):
+    rdl = list(set([
+        determine_date(
+            response.get("meta", {}).get(
+                "responseCompleted",
+                response.get("created")
+            )
+        ).isoformat() for response in list(ResponseItem().find(
+            query={
+                "baseParentType": 'user',
+                "baseParentId": userId,
+                "meta.applet.@id": appletId
+            },
+            sort=[("created", DESCENDING)]
+        ))
+    ]))
+    rdl.sort(reverse=True)
+    return(rdl)
 
 
 def _oneResponsePerDate(responses):

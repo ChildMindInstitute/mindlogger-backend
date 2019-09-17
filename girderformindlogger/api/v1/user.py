@@ -329,7 +329,8 @@ class User(Resource):
                             applet,
                             'applet',
                             reviewer,
-                            refreshCache=False
+                            refreshCache=False,
+                            responseDates=False
                         ),
                         "users": AppletModel().getAppletUsers(applet, reviewer),
                         "groups": AppletModel().getAppletGroups(
@@ -341,7 +342,8 @@ class User(Resource):
                             applet,
                             'applet',
                             reviewer,
-                            dropErrors=True
+                            dropErrors=True,
+                            responseDates=True if role=="user" else False
                         ),
                         "groups": [
                             group for group in AppletModel(
