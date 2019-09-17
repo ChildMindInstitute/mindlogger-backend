@@ -24,19 +24,6 @@ def aggregate(metadata, informant, startDate=None, endDate=None, getAll=False):
     ) if "responseCompleted" in metadata else datetime.now(
         tzlocal.get_localzone()
     ) if endDate is None else endDate)
-    # print({
-    #     "baseParentType": 'user',
-    #     "baseParentId": informant.get("_id"),
-    #     "created": {
-    #         "$gte": startDate,
-    #         "$lt": endDate
-    #     } if startDate else {
-    #         "$lt": endDate
-    #     },
-    #     "meta.applet.@id": metadata.get("applet", {}).get("@id"),
-    #     "meta.activity.@id": metadata.get("activity", {}).get("@id"),
-    #     "meta.subject.@id": metadata.get("subject", {}).get("@id")
-    # })
     definedRange = list(ResponseItem().find(
         query={
             "baseParentType": 'user',
@@ -64,6 +51,16 @@ def aggregate(metadata, informant, startDate=None, endDate=None, getAll=False):
         endDate - startDate if startDate is not None else 0
     )
     responseIRIs = _responseIRIs(definedRange)
+    for itemIRI in responseIRIs:
+        for response in definedRange:
+            if itemIRI in response.get(
+                'meta',
+                {}
+            ).get('responses', {}):
+                try:
+                    completedDate(response)
+                except:
+                    print("!!!!")
     aggregated = {
         "schema:startDate": startDate,
         "schema:endDate": endDate,
@@ -87,11 +84,16 @@ def aggregate(metadata, informant, startDate=None, endDate=None, getAll=False):
 
 def completedDate(response):
     completed = response.get("meta", {}).get("responseCompleted")
-    return (
-        datetime.fromisoformat(datetime.fromtimestamp(
-            (completed/1000 if completed else response.get("created"))
-        ).isoformat())
-    )
+    try:
+        return (
+            datetime.fromisoformat(datetime.fromtimestamp((
+                completed/1000 if completed is not None else response.get("created")
+            )).isoformat())
+        )
+    except:
+        print(completed)
+        print(response)
+        print(response.get("created"))
 
 
 def _responseIRIs(definedRange):
@@ -172,7 +174,6 @@ def delocalize(dt):
 
 
 def aggregateAndSave(item, informant):
-    print(item)
     metadata = item.get("meta", {})
     # Save 1 (of 3)
     if metadata:
@@ -227,8 +228,6 @@ def last7Days(applet, reviewer, referenceDate=None):
         sort=[("created", DESCENDING)]
     ))[0]
     metadata = latestResponse.get('meta', {})
-    print(latestResponse)
-    print(metadata)
     if "last7Days" not in metadata or "allTime" not in metadata:
         latestResponse = aggregateAndSave(latestResponse, reviewer)
     l7d = latestResponse.get('meta', {}).get('last7Days')
@@ -246,6 +245,18 @@ def determine_date(d):
             d
         ) if isinstance(d, str) else d
     ).date())
+
+
+def isodatetime(d):
+    if isinstance(d, int):
+        while (d > 10000000000):
+            d = d/10
+        d = datetime.fromtimestamp(d)
+    return((
+        datetime.fromisoformat(
+            d
+        ) if isinstance(d, str) else d
+    ).isoformat())
 
 
 def responseDateList(appletId, userId, reviewer):
