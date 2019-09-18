@@ -218,7 +218,7 @@ class ResponseItem(Resource):
         )
         .param(
             'applet',
-            'The ID of the Applet this response is to.'
+            description='The ID of the Applet this response is to.'
         )
         .param(
             'subject',

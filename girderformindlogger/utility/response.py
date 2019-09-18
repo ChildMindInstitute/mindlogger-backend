@@ -19,48 +19,39 @@ def aggregate(metadata, informant, startDate=None, endDate=None, getAll=False):
     Function to calculate aggregates
     """
     responses = metadata.get("responses")
-    startDate = delocalize(startDate) if startDate is not None else None
-    endDate = delocalize(datetime.fromtimestamp(
+    thisResponseTime = datetime.fromtimestamp(
         metadata["responseCompleted"]/1000
     ) if "responseCompleted" in metadata else datetime.now(
         tzlocal.get_localzone()
-    ) if endDate is None else endDate)
-    print({
-        "baseParentType": 'user',
-        "baseParentId": informant.get("_id"),
-        "created": {
-            "$gte": startDate,
-            "$lte": endDate
-        } if startDate is not None else {
-            "$lte": endDate.isoformat()
-        },
-        "meta.applet.@id": metadata.get("applet", {}).get("@id"),
-        "meta.activity.@id": metadata.get("activity", {}).get("@id"),
-        "meta.subject.@id": metadata.get("subject", {}).get("@id")
-    })
+    )
+    startDate = datetime.fromisoformat(startDate.isoformat(
+    )).astimezone(utc) if startDate is not None else None
+    endDate = datetime.fromisoformat((
+        thisResponseTime if endDate is None else endDate
+    ).isoformat()).astimezone(utc)
     definedRange = list(ResponseItem().find(
         query={
             "baseParentType": 'user',
             "baseParentId": informant.get("_id"),
             "created": {
                 "$gte": startDate,
-                "$lte": endDate
-            } if startDate is not None else {
-                "$lte": endDate
+                "$lt": endDate
+            } if startDate else {
+                "$lt": endDate
             },
             "meta.applet.@id": metadata.get("applet", {}).get("@id"),
             "meta.activity.@id": metadata.get("activity", {}).get("@id"),
             "meta.subject.@id": metadata.get("subject", {}).get("@id")
         },
-        sort=[("created", ASCENDING)]
+        force=True,
+        sort=[("created", ASCENDING)],
+        fields=["baseParentId", "created", "meta"],
+        options=CodecOptions(tz_aware=True)
     ))
     print(definedRange)
     print("b")
-    startDate = delocalize(min([
-        response.get('created') for response in definedRange
-    ])) if (
-        startDate is None and len(definedRange)
-    ) else startDate
+    if not len(definedRange):
+        raise ValueError
     duration = isodate.duration_isoformat(
         endDate - startDate if startDate is not None else 0
     )
@@ -108,6 +99,10 @@ def completedDate(response):
         print(completed)
         print(response)
         print(response.get("created"))
+
+
+def string_or_ObjectID(s):
+    return([str(s), ObjectId(s)])
 
 
 def _responseIRIs(definedRange):
@@ -176,35 +171,39 @@ def countResponseValues(definedRange, responseIRIs=None):
 
 
 def delocalize(dt):
-    if isinstance(dt, datetime) and dt.tzinfo is None:
-        return(dt)
-    try:
-        return(datetime.fromisoformat(dt.isoformat()).astimezone(utc).replace(
+    print("delocalizing {} ({}; {})".format(dt, type(dt), dt.tzinfo if isinstance(dt, datetime) else ""))
+    if isinstance(dt, datetime):
+        if dt.tzinfo is None:
+            return(dt)
+        print(dt.astimezone(utc).replace(
             tzinfo=None
         ))
-    except:
-        print(dt)
-        print(type(dt))
-        raise ValueError(dt)
-        return(None)
+        return(dt.astimezone(utc).replace(
+            tzinfo=None
+        ))
+    elif isinstance(dt, str):
+        return(datetime.fromisoformat(dt).astimezone(utc).replace(
+            tzinfo=None
+        ))
+    print("Here's the problem: {}".format(dt))
+    raise TypeError
 
 
 def aggregateAndSave(item, informant):
     if item == {}:
         return({})
     metadata = item.get("meta", {})
-    print("1 of 3")
-    print(metadata)
     # Save 1 (of 3)
     if metadata and metadata != {}:
         item = ResponseItem().setMetadata(item, metadata)
     # sevenDay ...
     metadata = item.get("meta", {})
-    endDate = delocalize(datetime.fromtimestamp(
+    endDate = datetime.fromtimestamp(
         metadata["responseCompleted"]/1000
-    ) if "responseCompleted" in metadata else datetime.now()
+    ) if "responseCompleted" in metadata else datetime.now(
+        tzlocal.get_localzone()
     )
-    startDate = delocalize(endDate - timedelta(days=7))
+    startDate = endDate - timedelta(days=7)
     print("From {} to {}".format(
         startDate.strftime("%c"),
         endDate.strftime("%c")
@@ -216,11 +215,8 @@ def aggregateAndSave(item, informant):
         endDate=endDate,
         getAll=True
     )
-    print("2 of 3")
-    print(metadata)
     # save (2 of 3)
     if metadata and metadata != {}:
-        print(item)
         item = ResponseItem().setMetadata(item, metadata)
     # allTime
     metadata = item.get("meta", {})
@@ -230,11 +226,8 @@ def aggregateAndSave(item, informant):
         endDate=endDate,
         getAll=False
     )
-    print("3 of 3")
-    print(metadata)
     # save (3 of 3)
     if metadata and metadata != {}:
-        print(item)
         item = ResponseItem().setMetadata(item, metadata)
     return(item)
 
@@ -247,36 +240,18 @@ def last7Days(
     referenceDate=None
 ):
     referenceDate = delocalize(
-        datetime.now() if referenceDate is None else referenceDate # TODO allow timeless dates
+        datetime.now(
+            tzlocal.get_localzone()
+        ) if referenceDate is None else referenceDate # TODO allow timeless dates
     )
-    print(referenceDate)
-    query = {
-        "baseParentType": 'user',
-        "baseParentId": {
-            "$in": [
-                informantId,
-                ObjectId(informantId)
-            ]
-        },
-        "created": {
-            "$lte": referenceDate
-        },
-        "meta.applet.@id": {
-            "$in": [
-                appletId,
-                ObjectId(appletId)
-            ]
-        }
-    }
-    latestResponse = list(ResponseItem().find(
+
+    latestResponses = list(ResponseItem().find(
         query={
             "baseParentType": 'user',
-            "baseParentId": {
-                "$in": [
-                    informantId,
-                    ObjectId(informantId)
-                ]
-            },
+            "baseParentId": informantId if isinstance(
+                informantId,
+                ObjectId
+            ) else ObjectId(informantId),
             "created": {
                 "$lte": referenceDate
             },
@@ -287,18 +262,21 @@ def last7Days(
                 ]
             }
         },
+        force=True,
         sort=[("created", DESCENDING)]
     ))
-    latestResponse = latestResponse[0] if len(latestResponse) else {}
+    latestResponse = latestResponses[0] if len(latestResponses) else {}
     metadata = latestResponse.get('meta', {})
-    if "last7Days" not in metadata or "allTime" not in metadata:
+    if "last7Days" not in metadata or "allTime" not in metadata or metadata[
+        "last7Days"
+    ]=={}:
         latestResponse = aggregateAndSave(
             latestResponse,
             UserModel().load(informantId, force=True)
         )
     l7d = latestResponse.get('meta', {}).get('last7Days', {})
-    # print(l7d)
-    # print(metadata)
+    print(l7d)
+    print(metadata)
     l7d["responses"] = _oneResponsePerDate(l7d.get("responses", {}))
     return(l7d)
 
