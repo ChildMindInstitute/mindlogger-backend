@@ -174,11 +174,14 @@ def delocalize(dt):
 
 
 def aggregateAndSave(item, informant):
+    if item == {}:
+        return({})
     metadata = item.get("meta", {})
     # Save 1 (of 3)
-    if metadata:
+    if metadata and metadata != {}:
         item = ResponseItem().setMetadata(item, metadata)
     # sevenDay ...
+    metadata = item.get("meta", {})
     endDate = datetime.fromtimestamp(
         metadata["responseCompleted"]/1000
     ) if "responseCompleted" in metadata else datetime.now()
@@ -195,9 +198,11 @@ def aggregateAndSave(item, informant):
         getAll=True
     )
     # save (2 of 3)
-    if metadata:
+    if metadata and metadata != {}:
+        print(item)
         item = ResponseItem().setMetadata(item, metadata)
     # allTime
+    metadata = item.get("meta", {})
     metadata["allTime"] = aggregate(
         metadata,
         informant,
@@ -205,7 +210,8 @@ def aggregateAndSave(item, informant):
         getAll=False
     )
     # save (3 of 3)
-    if metadata:
+    if metadata and metadata != {}:
+        print(item)
         item = ResponseItem().setMetadata(item, metadata)
     return(item)
 
@@ -223,14 +229,16 @@ def last7Days(applet, reviewer, referenceDate=None):
             "created": {
                 "$lte": referenceDate
             },
-            "meta.applet.@id": applet.get('_id')
+            "meta.applet.@id": applet
         },
-        sort=[("created", DESCENDING)]
-    ))[0]
+        sort=[("created", DESCENDING)],
+        force=True
+    ))
+    latestResponse = latestResponse[0] if len(latestResponse) else {}
     metadata = latestResponse.get('meta', {})
     if "last7Days" not in metadata or "allTime" not in metadata:
         latestResponse = aggregateAndSave(latestResponse, reviewer)
-    l7d = latestResponse.get('meta', {}).get('last7Days')
+    l7d = latestResponse.get('meta', {}).get('last7Days', {})
     l7d["responses"] = _oneResponsePerDate(l7d.get("responses", {}))
     return(l7d)
 

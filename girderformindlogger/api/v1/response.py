@@ -216,12 +216,9 @@ class ResponseItem(Resource):
         Description(
             'Get the last 7 days\' responses for the current user.'
         )
-        .modelParam(
+        .param(
             'applet',
-            model=AppletModel,
-            level=AccessType.READ,
-            destName='applet',
-            description='The ID of the Applet this response is to.'
+            'The ID of the Applet this response is to.'
         )
         .param(
             'referenceDate',
