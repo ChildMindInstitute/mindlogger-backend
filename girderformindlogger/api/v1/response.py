@@ -44,6 +44,7 @@ class ResponseItem(Resource):
         self.resourceName = 'response'
         self._model = ResponseItemModel()
         self.route('GET', (), self.getResponses)
+        self.route('GET', ('last7Days', ':applet'), self.getLast7Days)
         self.route('POST', (':applet', ':activity'), self.createResponseItem)
 
     """
@@ -210,6 +211,39 @@ class ResponseItem(Resource):
         ] if len(applets) else allResponses
         return(allResponses)
 
+    @access.public(scope=TokenScope.DATA_READ)
+    @autoDescribeRoute(
+        Description(
+            'Get the last 7 days\' responses for the current user.'
+        )
+        .modelParam(
+            'applet',
+            model=AppletModel,
+            level=AccessType.READ,
+            destName='applet',
+            description='The ID of the Applet this response is to.'
+        )
+        .param(
+            'referenceDate',
+            'Final date of 7 day range. (Not plugged in yet).',
+            required=False
+        )
+        .errorResponse('ID was invalid.')
+        .errorResponse(
+            'Read access was denied for this applet for this user.',
+            403
+        )
+    )
+    def getLast7Days(
+        self,
+        applet,
+        referenceDate=None
+    ):
+        from girderformindlogger.utility.response import last7Days
+        user = self.getCurrentUser()
+        return(last7Days(applet, user, referenceDate))
+
+
 
     @access.user(scope=TokenScope.DATA_WRITE)
     @autoDescribeRoute(
@@ -244,6 +278,9 @@ class ResponseItem(Resource):
         .errorResponse('Write access was denied on the parent folder.', 403)
     )
     def createResponseItem(self, applet, activity, metadata, subject_id, pending, params):
+        import threading
+        from girderformindlogger.utility.response import aggregateAndSave
+        # TODO: pending
         metadata['applet'] = {
             "@id": applet.get('_id'),
             "name": AppletModel().preferredName(applet),
@@ -264,16 +301,13 @@ class ResponseItem(Resource):
         subject_id = subject_id if subject_id else str(
             informant['_id']
         )
-        appletAssignments = AssignmentModel().findAssignments(applet['_id'])
-        appletAssignments = [
-            AssignmentModel().create(applet['_id'], informant)
-        ] if not len(appletAssignments) else appletAssignments
-        subject_id = [
-            getUserCipher(
-                appletAssignment=assignment,
-                user=subject_id
-            ) for assignment in appletAssignments
-        ][0]
+
+        # subject_id = [
+        #     getUserCipher(
+        #         appletAssignment=assignment,
+        #         user=subject_id
+        #     ) for assignment in appletAssignments
+        # ][0]
         try:
             subject_info = Folder().load(
                 id=subject_id,
@@ -282,8 +316,9 @@ class ResponseItem(Resource):
             )
         except AccessException:
             subject_info = {}
-        metadata['subject'] = subject_info['meta'] if subject_info.get(
-            'meta'
+        metadata['subject'] = subject_info.get('meta', {}) if isinstance(
+            subject_info,
+            dict
         ) else {}
         metadata['subject']['@id'] = subject_id
         now = datetime.now(tzlocal.get_localzone())
@@ -296,7 +331,6 @@ class ResponseItem(Resource):
         UserAppletResponsesFolder = Folder().createFolder(
             parent=UserResponsesFolder, parentType='folder',
             name=appletName, reuseExisting=True, public=False)
-
         AppletSubjectResponsesFolder = Folder().createFolder(
             parent=UserAppletResponsesFolder, parentType='folder',
             name=subject_id, reuseExisting=True, public=False)
@@ -313,6 +347,7 @@ class ResponseItem(Resource):
             raise ValidationException(
                 "Couldn't find activity name for this response"
             )
+
         # for each blob in the parameter, upload it to a File under the item.
         for key, value in params.items():
             # upload the value (a blob)
@@ -337,8 +372,14 @@ class ResponseItem(Resource):
             newItem = self._model.setMetadata(newItem, metadata)
 
         if not pending:
+            # create a Thread to calculate and save aggregates
+            agg = threading.Thread(target=aggregateAndSave, args=(newItem, informant))
+            agg.start()
             newItem['readOnly'] = True
         return(newItem)
+
+def save():
+    return(lambda x: x)
 
 
 def _getUserResponses(
