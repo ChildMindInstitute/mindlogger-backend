@@ -48,12 +48,14 @@ def aggregate(metadata, informant, startDate=None, endDate=None, getAll=False):
         fields=["baseParentId", "created", "meta"],
         options=CodecOptions(tz_aware=True)
     ))
-    print(definedRange)
-    print("b")
     if not len(definedRange):
         raise ValueError
+    startDate = min([response.get(
+        'created',
+        endDate
+    ) for response in definedRange]) if startDate is None else startDate
     duration = isodate.duration_isoformat(
-        endDate - startDate if startDate is not None else 0
+        delocalize(endDate) - delocalize(startDate)
     )
     responseIRIs = _responseIRIs(definedRange)
     for itemIRI in responseIRIs:
