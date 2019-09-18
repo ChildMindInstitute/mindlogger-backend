@@ -13,6 +13,7 @@ from girderformindlogger.models.item import Item as ItemModel
 from girderformindlogger.models.screen import Screen as ScreenModel
 from girderformindlogger.models.user import User as UserModel
 from girderformindlogger.utility.response import responseDateList
+from json import JSONDecodeError
 from pyld import jsonld
 
 KEYS_TO_EXPAND = [
@@ -183,7 +184,10 @@ def formatLdObject(
     ):
         return(None)
     if "cached" in obj and not refreshCache:
-        returnObj = obj["cached"]
+        try:
+            returnObj = json_util.loads(obj["cached"])
+        except (JSONDecodeError, TypeError):
+            returnObj = obj["cached"]
         if responseDates and mesoPrefix=="applet":
             returnObj["applet"]["responseDates"] = responseDateList(
                 obj.get('_id'),
@@ -271,10 +275,10 @@ def formatLdObject(
                 ])
             }
         }
-        obj["cached"] = {
+        obj["cached"] = json_util.dumps({
             **applet,
             "prov:generatedAtTime": xsdNow()
-        }
+        })
         AppletModel().save(obj)
         if responseDates:
             applet["applet"]["responseDates"] = responseDateList(

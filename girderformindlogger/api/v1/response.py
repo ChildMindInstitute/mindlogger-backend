@@ -221,6 +221,11 @@ class ResponseItem(Resource):
             'The ID of the Applet this response is to.'
         )
         .param(
+            'subject',
+            'The ID of the Subject this response is about.',
+            required=False
+        )
+        .param(
             'referenceDate',
             'Final date of 7 day range. (Not plugged in yet).',
             required=False
@@ -234,11 +239,12 @@ class ResponseItem(Resource):
     def getLast7Days(
         self,
         applet,
+        subject=None,
         referenceDate=None
     ):
         from girderformindlogger.utility.response import last7Days
         user = self.getCurrentUser()
-        return(last7Days(applet, user, referenceDate))
+        return(last7Days(applet, user.get('_id'), user, referenceDate))
 
 
 
