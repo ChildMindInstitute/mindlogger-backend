@@ -64,10 +64,14 @@ def clean_empty(d):
     https://stackoverflow.com/a/27974027/7868821
     """
     if not isinstance(d, (dict, list)):
-        return d
+        return (d)
     if isinstance(d, list):
-        return [v for v in (clean_empty(v) for v in d) if v]
-    return {k: v for k, v in ((k, clean_empty(v)) for k, v in d.items()) if v}
+        return ([v for v in (clean_empty(v) for v in d) if v is not None])
+    return ({
+        k: v for k, v in (
+            (k, clean_empty(v)) for k, v in d.items()
+        ) if v is not None
+    })
 
 
 def contextualize(ldObj):
