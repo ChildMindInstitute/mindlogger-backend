@@ -220,7 +220,7 @@ class Model(object):
             sort=[('created', SortDir.DESCENDING)]
         ))
         return(
-            json.loads(cached[0]) if len(cached) else None
+            cached[0] if len(cached) else None
         )
 
     def getFromUrl(self, url, modelType, user=None, refreshCache=False):

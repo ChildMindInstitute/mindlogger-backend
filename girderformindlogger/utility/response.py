@@ -2,11 +2,15 @@ import isodate
 import itertools
 import pandas as pd
 import tzlocal
+import backports
+print(backports)
 from backports.datetime_fromisoformat import MonkeyPatch
 from bson.codec_options import CodecOptions
-# from bson.objectid import ObjectId
+from bson.objectid import ObjectId
 from datetime import date, datetime, timedelta
+from girderformindlogger.models.user import User as UserModel
 from girderformindlogger.models.response_folder import ResponseItem
+from girderformindlogger.utility import clean_empty
 from pandas.api.types import is_numeric_dtype
 from pymongo import ASCENDING, DESCENDING
 from pytz import utc
@@ -17,40 +21,57 @@ def aggregate(metadata, informant, startDate=None, endDate=None, getAll=False):
     """
     Function to calculate aggregates
     """
+    print('\n\n HELLO!!!')
     responses = metadata.get("responses")
-    startDate = delocalize(startDate) if startDate is not None else None
-    endDate = delocalize(datetime.fromtimestamp(
+    thisResponseTime = datetime.fromtimestamp(
         metadata["responseCompleted"]/1000
     ) if "responseCompleted" in metadata else datetime.now(
         tzlocal.get_localzone()
-    ) if endDate is None else endDate)
+    )
+    startDate = datetime.fromisoformat(startDate.isoformat(
+    )).astimezone(utc) if startDate is not None else None
+    endDate = datetime.fromisoformat((
+        thisResponseTime if endDate is None else endDate
+    ).isoformat()).astimezone(utc)
+
+    print('HERE LINE #35 {} {} \n\n'.format(startDate, endDate))
+    print(startDate)
+    print(endDate)
+
     definedRange = list(ResponseItem().find(
         query={
             "baseParentType": 'user',
             "baseParentId": informant.get("_id"),
-            "created": {
-                "$gte": startDate,
-                "$lt": endDate
-            } if startDate else {
-                "$lt": endDate
-            },
+            # "created": {
+            #     "$gte": startDate,
+            #     "$lt": endDate
+            # } if startDate else {
+            #     "$lt": endDate
+            # },
             "meta.applet.@id": metadata.get("applet", {}).get("@id"),
             "meta.activity.@id": metadata.get("activity", {}).get("@id"),
             "meta.subject.@id": metadata.get("subject", {}).get("@id")
         },
         force=True,
-        sort=[("created", ASCENDING)],
-        options=CodecOptions(tz_aware=True)
+        sort=[("created", ASCENDING)]
     ))
-    startDate = delocalize(min([
-        response.get('created') for response in definedRange
-    ])) if (
-        startDate is None and len(definedRange)
-    ) else startDate
+
+    print('\n\nDEFINED RANGE', definedRange)
+
+    if not len(definedRange):
+        raise ValueError("The defined range doesn't have a length")
+
+    startDate = min([response.get(
+        'created',
+        endDate
+    ) for response in definedRange]) if startDate is None else startDate
+
     duration = isodate.duration_isoformat(
-        endDate - startDate if startDate is not None else 0
+        delocalize(endDate) - delocalize(startDate)
     )
+
     responseIRIs = _responseIRIs(definedRange)
+    print('\n\nresponse IRIs are', responseIRIs)
     for itemIRI in responseIRIs:
         for response in definedRange:
             if itemIRI in response.get(
@@ -87,13 +108,72 @@ def completedDate(response):
     try:
         return (
             datetime.fromisoformat(datetime.fromtimestamp((
-                completed/1000 if completed is not None else response.get("created")
+                completed/1000 if completed is not None else response.get(
+                    "created"
+                )
             )).isoformat())
         )
     except:
         print(completed)
         print(response)
         print(response.get("created"))
+
+
+def formatResponse(response):
+    try:
+        metadata = response.get('meta', response)
+        if any([
+            key not in metadata.keys() for key in [
+                'allTime',
+                'last7Days'
+            ]
+        ]):
+            aggregateAndSave(response, response.get('baseParentId'))
+        thisResponse = {
+            "thisResponse": {
+                "schema:startDate": isodatetime(
+                    metadata.get(
+                        'responseStarted',
+                        response.get(
+                            'created',
+                            datetime.now()
+                        )
+                    )
+                ),
+                "schema:endDate": isodatetime(
+                    metadata.get(
+                        'responseCompleted',
+                        response.get(
+                            'created',
+                            datetime.now()
+                        )
+                    )
+                ),
+                "responses": {
+                    itemURI: metadata['responses'][
+                        itemURI
+                    ] for itemURI in metadata.get('responses', {})
+                }
+            },
+              "allToDate": metadata.get("allTime"),
+              "last7Days": metadata.get("last7Days")
+        } if isinstance(metadata, dict) and all([
+            key in metadata.keys() for key in [
+                'responses',
+                'applet',
+                'activity',
+                'subject'
+            ]
+        ]) else {}
+    except Exception as e:
+        print(e)
+        print(response)
+        thisResponse = None
+    return(clean_empty(thisResponse))
+
+
+def string_or_ObjectID(s):
+    return([str(s), ObjectId(s)])
 
 
 def _responseIRIs(definedRange):
@@ -162,26 +242,42 @@ def countResponseValues(definedRange, responseIRIs=None):
 
 
 def delocalize(dt):
-    try:
-        return(datetime.fromisoformat(dt.isoformat()).astimezone(utc).replace(
+    print("delocalizing {} ({}; {})".format(
+        dt,
+        type(dt),
+        dt.tzinfo if isinstance(dt, datetime) else ""
+    ))
+    if isinstance(dt, datetime):
+        if dt.tzinfo is None:
+            return(dt)
+        print(dt.astimezone(utc).replace(
             tzinfo=None
         ))
-    except:
-        print(dt)
-        print(type(dt))
-        raise ValueError(dt)
-        return(None)
+        return(dt.astimezone(utc).replace(
+            tzinfo=None
+        ))
+    elif isinstance(dt, str):
+        return(datetime.fromisoformat(dt).astimezone(utc).replace(
+            tzinfo=None
+        ))
+    print("Here's the problem: {}".format(dt))
+    raise TypeError
 
 
 def aggregateAndSave(item, informant):
+    if item == {}:
+        return({})
     metadata = item.get("meta", {})
     # Save 1 (of 3)
-    if metadata:
+    if metadata and metadata != {}:
         item = ResponseItem().setMetadata(item, metadata)
     # sevenDay ...
+    metadata = item.get("meta", {})
     endDate = datetime.fromtimestamp(
         metadata["responseCompleted"]/1000
-    ) if "responseCompleted" in metadata else datetime.now()
+    ) if "responseCompleted" in metadata else datetime.now(
+        tzlocal.get_localzone()
+    )
     startDate = endDate - timedelta(days=7)
     print("From {} to {}".format(
         startDate.strftime("%c"),
@@ -195,9 +291,10 @@ def aggregateAndSave(item, informant):
         getAll=True
     )
     # save (2 of 3)
-    if metadata:
+    if metadata and metadata != {}:
         item = ResponseItem().setMetadata(item, metadata)
     # allTime
+    metadata = item.get("meta", {})
     metadata["allTime"] = aggregate(
         metadata,
         informant,
@@ -205,32 +302,54 @@ def aggregateAndSave(item, informant):
         getAll=False
     )
     # save (3 of 3)
-    if metadata:
+    if metadata and metadata != {}:
         item = ResponseItem().setMetadata(item, metadata)
     return(item)
 
 
-def last7Days(applet, reviewer, referenceDate=None):
-    # TODO: Refactor to allow reviewer and informant to be different
+def last7Days(
+    appletId,
+    informantId,
+    reviewer,
+    subject=None,
+    referenceDate=None
+):
     referenceDate = delocalize(
-        datetime.now() if referenceDate is None else referenceDate # TODO allow timeless dates
+        datetime.now(
+            tzlocal.get_localzone()
+        ) if referenceDate is None else referenceDate # TODO allow timeless dates
     )
-    print(referenceDate)
-    latestResponse = list(ResponseItem().find(
+
+    latestResponses = list(ResponseItem().find(
         query={
             "baseParentType": 'user',
-            "baseParentId": reviewer.get('_id'),
+            "baseParentId": informantId if isinstance(
+                informantId,
+                ObjectId
+            ) else ObjectId(informantId),
             "created": {
                 "$lte": referenceDate
             },
-            "meta.applet.@id": applet.get('_id')
+            "meta.applet.@id": {
+                "$in": [
+                    appletId,
+                    ObjectId(appletId)
+                ]
+            }
         },
+        force=True,
         sort=[("created", DESCENDING)]
-    ))[0]
+    ))
+    latestResponse = latestResponses[0] if len(latestResponses) else {}
     metadata = latestResponse.get('meta', {})
-    if "last7Days" not in metadata or "allTime" not in metadata:
-        latestResponse = aggregateAndSave(latestResponse, reviewer)
-    l7d = latestResponse.get('meta', {}).get('last7Days')
+    if "last7Days" not in metadata or "allTime" not in metadata or metadata[
+        "last7Days"
+    ]=={}:
+        latestResponse = aggregateAndSave(
+            latestResponse,
+            UserModel().load(informantId, force=True)
+        )
+    l7d = latestResponse.get('meta', {}).get('last7Days', {})
     l7d["responses"] = _oneResponsePerDate(l7d.get("responses", {}))
     return(l7d)
 
