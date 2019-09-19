@@ -2,6 +2,8 @@ import isodate
 import itertools
 import pandas as pd
 import tzlocal
+import backports
+print(backports)
 from backports.datetime_fromisoformat import MonkeyPatch
 from bson.codec_options import CodecOptions
 from bson.objectid import ObjectId
@@ -19,6 +21,7 @@ def aggregate(metadata, informant, startDate=None, endDate=None, getAll=False):
     """
     Function to calculate aggregates
     """
+    print('\n\n HELLO!!!')
     responses = metadata.get("responses")
     thisResponseTime = datetime.fromtimestamp(
         metadata["responseCompleted"]/1000
@@ -30,16 +33,21 @@ def aggregate(metadata, informant, startDate=None, endDate=None, getAll=False):
     endDate = datetime.fromisoformat((
         thisResponseTime if endDate is None else endDate
     ).isoformat()).astimezone(utc)
+
+    print('HERE LINE #35 {} {} \n\n'.format(startDate, endDate))
+    print(startDate)
+    print(endDate)
+
     definedRange = list(ResponseItem().find(
         query={
             "baseParentType": 'user',
             "baseParentId": informant.get("_id"),
-            "created": {
-                "$gte": startDate,
-                "$lt": endDate
-            } if startDate else {
-                "$lt": endDate
-            },
+            # "created": {
+            #     "$gte": startDate,
+            #     "$lt": endDate
+            # } if startDate else {
+            #     "$lt": endDate
+            # },
             "meta.applet.@id": metadata.get("applet", {}).get("@id"),
             "meta.activity.@id": metadata.get("activity", {}).get("@id"),
             "meta.subject.@id": metadata.get("subject", {}).get("@id")
@@ -47,16 +55,23 @@ def aggregate(metadata, informant, startDate=None, endDate=None, getAll=False):
         force=True,
         sort=[("created", ASCENDING)]
     ))
+
+    print('\n\nDEFINED RANGE', definedRange)
+
     if not len(definedRange):
-        raise ValueError
+        raise ValueError("The defined range doesn't have a length")
+
     startDate = min([response.get(
         'created',
         endDate
     ) for response in definedRange]) if startDate is None else startDate
+
     duration = isodate.duration_isoformat(
         delocalize(endDate) - delocalize(startDate)
     )
+
     responseIRIs = _responseIRIs(definedRange)
+    print('\n\nresponse IRIs are', responseIRIs)
     for itemIRI in responseIRIs:
         for response in definedRange:
             if itemIRI in response.get(
