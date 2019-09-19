@@ -8,6 +8,7 @@ from bson.objectid import ObjectId
 from datetime import date, datetime, timedelta
 from girderformindlogger.models.user import User as UserModel
 from girderformindlogger.models.response_folder import ResponseItem
+from girderformindlogger.utility import clean_empty
 from pandas.api.types import is_numeric_dtype
 from pymongo import ASCENDING, DESCENDING
 from pytz import utc
@@ -146,7 +147,7 @@ def formatResponse(response):
         print(e)
         print(response)
         thisResponse = None
-    return(thisResponse)
+    return(clean_empty(thisResponse))
 
 
 def string_or_ObjectID(s):

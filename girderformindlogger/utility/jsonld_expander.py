@@ -49,31 +49,6 @@ def _createContextForStr(s):
     )
 
 
-def clean_empty(d):
-    """
-    The {..} construct is a dictionary comprehension; it'll only include keys
-    from the original dictionary if v is true, e.g. not empty. Similarly the
-    [..] construct builds a list.
-
-    The nested (.. for ..) constructs are generator expressions that allow the
-    code to compactly filter empty objects after recursing.
-
-    Note that any values set to numeric 0 (integer 0, float 0.0) will also be
-    cleared. You can retain numeric 0 values with if v or v == 0.
-
-    https://stackoverflow.com/a/27974027/7868821
-    """
-    if not isinstance(d, (dict, list)):
-        return (d)
-    if isinstance(d, list):
-        return ([v for v in (clean_empty(v) for v in d) if v is not None])
-    return ({
-        k: v for k, v in (
-            (k, clean_empty(v)) for k, v in d.items()
-        ) if v is not None
-    })
-
-
 def contextualize(ldObj):
     newObj = {}
     context = ldObj.get('@context', [])
