@@ -107,6 +107,13 @@ def completedDate(response):
 def formatResponse(response):
     try:
         metadata = response.get('meta', response)
+        if any([
+            key not in metadata.keys() for key in [
+                'allTime',
+                'last7Days'
+            ]
+        ]):
+            aggregateAndSave(response, response.get('baseParentId'))
         thisResponse = {
             "thisResponse": {
                 "schema:startDate": isodatetime(
@@ -328,8 +335,6 @@ def last7Days(
             UserModel().load(informantId, force=True)
         )
     l7d = latestResponse.get('meta', {}).get('last7Days', {})
-    print(l7d)
-    print(metadata)
     l7d["responses"] = _oneResponsePerDate(l7d.get("responses", {}))
     return(l7d)
 
