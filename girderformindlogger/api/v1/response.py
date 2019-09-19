@@ -37,7 +37,8 @@ from girderformindlogger.models.response_folder import ResponseFolder as \
 from girderformindlogger.models.roles import getCanonicalUser, getUserCipher
 from girderformindlogger.models.user import User as UserModel
 from girderformindlogger.models.upload import Upload as UploadModel
-from girderformindlogger.utility.response import formatResponse
+from girderformindlogger.utility.response import formatResponse, \
+    string_or_ObjectID
 from girderformindlogger.utility.resource import listFromString
 from pymongo import ASCENDING, DESCENDING
 
@@ -112,19 +113,27 @@ class ResponseItem(Resource):
         reviewer = self.getCurrentUser()
         props = {
             "informant": [
-                listFromString(informant),
+                list(itertools.chain.from_iterable(
+                    [string_or_ObjectID(s) for s in listFromString(informant)]
+                )),
                 "baseParentId"
             ],
             "subject": [
-                listFromString(subject),
+                list(itertools.chain.from_iterable(
+                    [string_or_ObjectID(s) for s in listFromString(subject)]
+                )),
                 "meta.subject.@id"
             ],
             "applet": [
-                listFromString(applet),
+                list(itertools.chain.from_iterable(
+                    [string_or_ObjectID(s) for s in listFromString(applet)]
+                )),
                 "meta.applet.@id"
             ],
             "activity": [
-                listFromString(activity),
+            list(itertools.chain.from_iterable(
+                    [string_or_ObjectID(s) for s in listFromString(activity)]
+                )),
                 "meta.activity.@id"
             ] # TODO: Add screen
         }
@@ -137,6 +146,7 @@ class ResponseItem(Resource):
                 props[prop][0]
             )
         }
+        print(q)
         allResponses = list(ResponseItemModel().find(
             query=q,
             user=reviewer,
