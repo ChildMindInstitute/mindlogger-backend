@@ -44,9 +44,7 @@ def aggregate(metadata, informant, startDate=None, endDate=None, getAll=False):
             "meta.subject.@id": metadata.get("subject", {}).get("@id")
         },
         force=True,
-        sort=[("created", ASCENDING)],
-        fields=["baseParentId", "created", "meta"],
-        options=CodecOptions(tz_aware=True)
+        sort=[("created", ASCENDING)]
     ))
     if not len(definedRange):
         raise ValueError
@@ -94,13 +92,61 @@ def completedDate(response):
     try:
         return (
             datetime.fromisoformat(datetime.fromtimestamp((
-                completed/1000 if completed is not None else response.get("created")
+                completed/1000 if completed is not None else response.get(
+                    "created"
+                )
             )).isoformat())
         )
     except:
         print(completed)
         print(response)
         print(response.get("created"))
+
+
+def formatResponse(response):
+    try:
+        metadata = response.get('meta', response)
+        thisResponse = {
+            "thisResponse": {
+                "schema:startDate": isodatetime(
+                    metadata.get(
+                        'responseStarted',
+                        response.get(
+                            'created',
+                            datetime.now()
+                        )
+                    )
+                ),
+                "schema:endDate": isodatetime(
+                    metadata.get(
+                        'responseCompleted',
+                        response.get(
+                            'created',
+                            datetime.now()
+                        )
+                    )
+                ),
+                "responses": {
+                    itemURI: metadata['responses'][
+                        itemURI
+                    ] for itemURI in metadata.get('responses', {})
+                }
+            },
+              "allToDate": metadata.get("allTime"),
+              "last7Days": metadata.get("last7Days")
+        } if isinstance(metadata, dict) and all([
+            key in metadata.keys() for key in [
+                'responses',
+                'applet',
+                'activity',
+                'subject'
+            ]
+        ]) else {}
+    except Exception as e:
+        print(e)
+        print(response)
+        thisResponse = None
+    return(thisResponse)
 
 
 def string_or_ObjectID(s):
@@ -173,7 +219,11 @@ def countResponseValues(definedRange, responseIRIs=None):
 
 
 def delocalize(dt):
-    print("delocalizing {} ({}; {})".format(dt, type(dt), dt.tzinfo if isinstance(dt, datetime) else ""))
+    print("delocalizing {} ({}; {})".format(
+        dt,
+        type(dt),
+        dt.tzinfo if isinstance(dt, datetime) else ""
+    ))
     if isinstance(dt, datetime):
         if dt.tzinfo is None:
             return(dt)
