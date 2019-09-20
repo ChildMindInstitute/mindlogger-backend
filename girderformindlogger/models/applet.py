@@ -236,6 +236,8 @@ class Applet(Folder):
         if not self.isManager(applet.get('_id', applet), user):
             return([])
         # query users for groups by status
+        print('\n\n\n', ProtoUserModel().findOne())
+        
         userList = {
             role: {
                 groupId: {

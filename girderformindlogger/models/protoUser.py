@@ -44,7 +44,6 @@ class ProtoUser(User):
         self._cryptContext = CryptContext(
             schemes=['bcrypt']
         )
-        print('\n\n ProtoUser initialized')
 
         # events.bind('model.user.save.created',
         #             CoreEventHandler.USER_SELF_ACCESS, self._grantSelfAccess)
