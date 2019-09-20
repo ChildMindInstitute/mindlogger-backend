@@ -44,6 +44,7 @@ class ProtoUser(User):
         self._cryptContext = CryptContext(
             schemes=['bcrypt']
         )
+        print('\n\n ProtoUser initialized')
 
         # events.bind('model.user.save.created',
         #             CoreEventHandler.USER_SELF_ACCESS, self._grantSelfAccess)
@@ -89,7 +90,6 @@ class ProtoUser(User):
         """
         from .group import Group
         from .setting import Setting
-
         protoUser = self.findOne(query={"email": email}, force=True)
         if protoUser:
             protoUser['groupInvites'] = [
@@ -125,7 +125,7 @@ class ProtoUser(User):
         text = mail_utils.renderTemplate('emailCreateAccount.mako', {
             'url': url
         })
-        mail_utils.sendEmail(
+        mail_utils.sendMail(
             to=user.get('email'),
             subject='MindLogger: Invitation',
             text=text)
