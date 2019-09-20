@@ -70,7 +70,8 @@ class Applet(Resource):
         )
     )
     def getAppletUsers(self, applet):
-        return(AppletModel().getAppletUsers(applet))
+        thisUser=self.getCurrentUser()
+        return(AppletModel().getAppletUsers(applet, thisUser))
 
     @access.user(scope=TokenScope.DATA_WRITE)
     @autoDescribeRoute(

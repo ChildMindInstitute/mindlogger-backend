@@ -321,6 +321,7 @@ class Group(Resource):
                 group["queue"] = list(set([email]))
             groupModel.updateGroup(group)
             # TODO: send email to invite user
+            print('\n\n GROUP IS', group)
             return(group)
         if force:
             if not user['admin']:
