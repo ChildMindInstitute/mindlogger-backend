@@ -287,6 +287,7 @@ def aggregateAndSave(item, informant):
 
 def last7Days(
     appletId,
+    appletInfo,
     informantId,
     reviewer,
     subject=None,
@@ -297,8 +298,12 @@ def last7Days(
             tzlocal.get_localzone()
         ) if referenceDate is None else referenceDate # TODO allow timeless dates
     )
+    import simplejson
+    
+    cachedApplet = simplejson.loads(appletInfo['cached'])
+    listOfActivities = list(cachedApplet['activities'].keys())
 
-    latestResponses = list(ResponseItem().find(
+    getLatestResponsesByAct = lambda activityURI: list(ResponseItem().find(
         query={
             "baseParentType": 'user',
             "baseParentId": informantId if isinstance(
@@ -313,23 +318,43 @@ def last7Days(
                     appletId,
                     ObjectId(appletId)
                 ]
-            }
+            },
+            "meta.activity.url": activityURI
         },
         force=True,
         sort=[("created", DESCENDING)]
     ))
-    latestResponse = latestResponses[0] if len(latestResponses) else {}
-    metadata = latestResponse.get('meta', {})
-    if "last7Days" not in metadata or "allTime" not in metadata or metadata[
-        "last7Days"
-    ]=={}:
-        latestResponse = aggregateAndSave(
-            latestResponse,
-            UserModel().load(informantId, force=True)
-        )
-    l7d = latestResponse.get('meta', {}).get('last7Days', {})
-    l7d["responses"] = _oneResponsePerDate(l7d.get("responses", {}))
-    return(l7d)
+
+    latestResponses = [getLatestResponsesByAct(act) for act in listOfActivities]
+
+    # destructure the responses
+    # TODO: we are assuming here that activities don't share items.
+    # might not be the case later on, so watch out.
+
+    outputResponses = {}
+
+    for resp in latestResponses:
+        if len(resp):
+            latest = resp[0]
+            latestresp = latest.get('meta', {}).get('last7Days', {})
+            if latestresp:
+                outputResponses.update(latestresp.get('responses', {}))
+
+    l7d = {}
+    l7d["responses"] = _oneResponsePerDate(outputResponses)
+    return l7d
+    # latestResponse = latestResponses[0] if len(latestResponses) else {}
+    # metadata = latestResponse.get('meta', {})
+    # if "last7Days" not in metadata or "allTime" not in metadata or metadata[
+    #     "last7Days"
+    # ]=={}:
+    #     latestResponse = aggregateAndSave(
+    #         latestResponse,
+    #         UserModel().load(informantId, force=True)
+    #     )
+    # l7d = latestResponse.get('meta', {}).get('last7Days', {})
+    # l7d["responses"] = _oneResponsePerDate(l7d.get("responses", {}))
+    # return(l7d)
 
 
 def determine_date(d):

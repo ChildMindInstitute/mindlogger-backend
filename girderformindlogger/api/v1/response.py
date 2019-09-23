@@ -195,8 +195,11 @@ class ResponseItem(Resource):
         referenceDate=None
     ):
         from girderformindlogger.utility.response import last7Days
+        from bson.objectid import ObjectId
+
+        appletInfo = AppletModel().findOne({'_id': ObjectId(applet)})
         user = self.getCurrentUser()
-        return(last7Days(applet, user.get('_id'), user, referenceDate))
+        return(last7Days(applet, appletInfo, user.get('_id'), user, referenceDate))
 
 
 
