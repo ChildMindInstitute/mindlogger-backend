@@ -778,8 +778,8 @@ def _setConstraints(applet, activity, schedule, user, refreshCache=False):
         applet,
         'applet',
         user
-    ).get('activitySet')
-    activitySetOrder = activitySetExpanded.get('ui').get('order')
+    ).get('activitySet', {})
+    activitySetOrder = activitySetExpanded.get('ui', {}).get('order', [])
     framedActivityKeys = [
         activitySetOrder[i] for i, v in enumerate(
             activitySetExpanded.get(

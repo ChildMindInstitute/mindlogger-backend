@@ -235,9 +235,9 @@ class Model(object):
         :type refreshCache: bool
         :returns: dict or None
         """
-        from girderformindlogger.utility import loadJSON
-        from girderformindlogger.utility.jsonld_expander import camelCase, contextualize, \
-            snake_case
+        from girderformindlogger.utility import firstLower, loadJSON
+        from girderformindlogger.utility.jsonld_expander import camelCase, \
+            contextualize, snake_case
         if user==None:
             raise AccessException(
                 "You must be logged in to load a{} by url".format(
@@ -249,9 +249,13 @@ class Model(object):
                 )
             )
         model = contextualize(loadJSON(url, modelType))
+        atType = model.get('@type', '').split('/')[-1]
+        modelType = firstLower(atType) if len(atType) else modelType
+        modelType = 'screen' if modelType.lower()=='field' else modelType
+        changedModel = atType != modelType and len(atType)
         prefName = self.preferredName(model)
         cachedDoc = self.getCached(url, modelType)
-        if cachedDoc:
+        if cachedDoc and not changedModel:
             if not refreshCache:
                 return(cachedDoc)
             provenenceProps = [
@@ -287,7 +291,8 @@ class Model(object):
             docCollection=self.getModelCollection(modelType)
             if self.name in ['folder', 'item']:
                 if self.name=='item':
-                    from girderformindlogger.models.folder import Folder as FolderModel
+                    from girderformindlogger.models.folder import Folder as \
+                        FolderModel
                 docFolder = (
                     FolderModel() if self.name=='item' else self
                 ).createFolder(
@@ -349,14 +354,9 @@ class Model(object):
         :type modelType: str
         :returns: dict
         """
+        from girderformindlogger.models import pluralize
         from girderformindlogger.models.collection import Collection
-        name = '{}s'.format(
-            modelType[:-1] if modelType.endswith(
-                's'
-            ) else "{}ie".format(modelType[:-1]) if modelType.endswith(
-                'y'
-            ) else modelType
-        ).title()
+        name = pluralize(modelType).title()
         collection = Collection().findOne(
             {'name': name}
         )

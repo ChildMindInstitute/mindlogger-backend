@@ -59,8 +59,19 @@ def camelcase(value):
     :type value: str
     :returns: the value converted to camel case.
     """
-    return ''.join(x.capitalize() if x else '_' for x in
-                   re.split('[._]+', value))
+    return(''.join(x.capitalize() if x else '_' for x in
+                   re.split('[._]+', value)))
+
+
+def firstLower(value):
+    """
+    Make the first letter of a string lowercase.
+
+    :param value: the string to convert
+    :type value: str
+    :returns: the value with the first character lowercased
+    """
+    return("".join([value[0].lower(), value[1:]]))
 
 
 def loadJSON(url, urlType='applet'):
@@ -69,6 +80,7 @@ def loadJSON(url, urlType='applet'):
         r = requests.get(url)
         data = r.json()
     except:
+        return({})
         raise ValidationException(
             'Invalid ' + urlType + ' URL: ' + url,
             'url'
