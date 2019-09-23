@@ -21,8 +21,6 @@ def aggregate(metadata, informant, startDate=None, endDate=None, getAll=False):
     """
     Function to calculate aggregates
     """
-    print('\n\n HELLO!!!')
-    responses = metadata.get("responses")
     thisResponseTime = datetime.fromtimestamp(
         metadata["responseCompleted"]/1000
     ) if "responseCompleted" in metadata else datetime.now(
@@ -34,20 +32,16 @@ def aggregate(metadata, informant, startDate=None, endDate=None, getAll=False):
         thisResponseTime if endDate is None else endDate
     ).isoformat()).astimezone(utc)
 
-    print('HERE LINE #35 {} {} \n\n'.format(startDate, endDate))
-    print(startDate)
-    print(endDate)
-
     definedRange = list(ResponseItem().find(
         query={
             "baseParentType": 'user',
             "baseParentId": informant.get("_id"),
-            # "created": {
-            #     "$gte": startDate,
-            #     "$lt": endDate
-            # } if startDate else {
-            #     "$lt": endDate
-            # },
+            "created": {
+                "$gte": startDate,
+                "$lt": endDate
+            } if startDate else {
+                "$lt": endDate
+            },
             "meta.applet.@id": metadata.get("applet", {}).get("@id"),
             "meta.activity.@id": metadata.get("activity", {}).get("@id"),
             "meta.subject.@id": metadata.get("subject", {}).get("@id")
@@ -56,7 +50,6 @@ def aggregate(metadata, informant, startDate=None, endDate=None, getAll=False):
         sort=[("created", ASCENDING)]
     ))
 
-    print('\n\nDEFINED RANGE', definedRange)
 
     if not len(definedRange):
         raise ValueError("The defined range doesn't have a length")
@@ -71,17 +64,13 @@ def aggregate(metadata, informant, startDate=None, endDate=None, getAll=False):
     )
 
     responseIRIs = _responseIRIs(definedRange)
-    print('\n\nresponse IRIs are', responseIRIs)
     for itemIRI in responseIRIs:
         for response in definedRange:
             if itemIRI in response.get(
                 'meta',
                 {}
             ).get('responses', {}):
-                try:
-                    completedDate(response)
-                except:
-                    print("!!!!")
+                completedDate(response)
     aggregated = {
         "schema:startDate": startDate,
         "schema:endDate": endDate,
@@ -104,19 +93,8 @@ def aggregate(metadata, informant, startDate=None, endDate=None, getAll=False):
 
 
 def completedDate(response):
-    completed = response.get("meta", {}).get("responseCompleted")
-    try:
-        return (
-            datetime.fromisoformat(datetime.fromtimestamp((
-                completed/1000 if completed is not None else response.get(
-                    "created"
-                )
-            )).isoformat())
-        )
-    except:
-        print(completed)
-        print(response)
-        print(response.get("created"))
+    completed = response.get("updated", {})
+    return completed
 
 
 def formatResponse(response):
