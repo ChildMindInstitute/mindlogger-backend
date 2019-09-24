@@ -17,24 +17,30 @@
 #  limitations under the License.
 ###############################################################################
 
+import itertools
+import tzlocal
 from ..describe import Description, autoDescribeRoute
-from ..rest import Resource, filtermodel, setResponseHeader, setContentDisposition
+from ..rest import Resource, filtermodel, setResponseHeader, \
+    setContentDisposition
 from datetime import datetime
 from girderformindlogger.utility import ziputil
 from girderformindlogger.constants import AccessType, TokenScope
-from girderformindlogger.exceptions import AccessException, RestException, ValidationException
+from girderformindlogger.exceptions import AccessException, RestException, \
+    ValidationException
 from girderformindlogger.api import access
 from girderformindlogger.models.activity import Activity as ActivityModel
 from girderformindlogger.models.applet import Applet as AppletModel
 from girderformindlogger.models.assignment import Assignment as AssignmentModel
 from girderformindlogger.models.folder import Folder
-from girderformindlogger.models.response_folder import ResponseFolder as ResponseFolderModel, ResponseItem as ResponseItemModel
+from girderformindlogger.models.response_folder import ResponseFolder as \
+    ResponseFolderModel, ResponseItem as ResponseItemModel
 from girderformindlogger.models.roles import getCanonicalUser, getUserCipher
 from girderformindlogger.models.user import User as UserModel
 from girderformindlogger.models.upload import Upload as UploadModel
+from girderformindlogger.utility.response import formatResponse, \
+    string_or_ObjectID
 from girderformindlogger.utility.resource import listFromString
-import itertools
-import tzlocal
+from pymongo import ASCENDING, DESCENDING
 
 
 class ResponseItem(Resource):
@@ -105,123 +111,71 @@ class ResponseItem(Resource):
         screen=[]
     ):
         reviewer = self.getCurrentUser()
-        allResponses = []
-        try:
-            informant = listFromString(informant)
-            informants = list(set([cu for cu in
-                [
-                    getCanonicalUser(u) for u in informant
-                ] if cu is not None
-            ]))
-            informants = informants if len(informants) else [
-                u['_id'] for u in list(UserModel().search(user=reviewer))
+        props = {
+            "informant": [
+                list(itertools.chain.from_iterable(
+                    [string_or_ObjectID(s) for s in listFromString(informant)]
+                )),
+                "baseParentId"
+            ],
+            "subject": [
+                list(itertools.chain.from_iterable(
+                    [string_or_ObjectID(s) for s in listFromString(subject)]
+                )),
+                "meta.subject.@id"
+            ],
+            "applet": [
+                list(itertools.chain.from_iterable(
+                    [string_or_ObjectID(s) for s in listFromString(applet)]
+                )),
+                "meta.applet.@id"
+            ],
+            "activity": [
+            list(itertools.chain.from_iterable(
+                    [string_or_ObjectID(s) for s in listFromString(activity)]
+                )),
+                "meta.activity.@id"
+            ] # TODO: Add screen
+        }
+        if not(len(props["informant"][0])):
+            props["informant"][0] = [reviewer.get('_id')] # TODO: allow getting all available
+        q = {
+            props[prop][1]: {
+                "$in": props[prop][0]
+            } for prop in props if len(
+                props[prop][0]
+            )
+        }
+        print(q)
+        allResponses = list(ResponseItemModel().find(
+            query=q,
+            user=reviewer,
+            sort=[("created", DESCENDING)]
+        ))
+        responseArray = [
+            formatResponse(response) for response in allResponses
+        ]
+        return([
+            response for response in responseArray if response not in [
+                {},
+                None
             ]
-        except:
-            raise ValidationException(
-                'Invalid parameter',
-                'informant'
-            )
-        try:
-            subject = listFromString(subject)
-            subjects = list(set([cu for cu in
-                [
-                    getCanonicalUser(u) for u in subject
-                ] if cu is not None
-            ]))
-        except:
-            raise ValidationException(
-                'Invalid parameter',
-                'subject'
-            )
-        try:
-            applets = [
-                str(a['_id']) for a in [
-                    AppletModel().load(
-                        id=a,
-                        force=True
-                    ) for a in listFromString(applet)
-                ] if a.get('_id')
-            ]
-        except:
-            raise ValidationException(
-                'Invalid parameter',
-                'applet'
-            )
-        try:
-            activities = listFromString(activity)
-            activities = [
-                *list(itertools.chain.from_iterable(
-                    ActivityModel().listVersionId(
-                        id=activity,
-                        user=reviewer
-                    ) for activity in activities
-                ))
-            ]
-        except:
-            raise ValidationException(
-                'Invalid parameter',
-                'activity'
-            )
-        try:
-            screens = listFromString(screen)
-        except:
-            raise ValidationException(
-                'Invalid parameter',
-                'screen'
-            )
-        del informant, subject, applet, activity, screen
-        for informant in informants:
-            allResponses += _getUserResponses(
-                reviewer=reviewer,
-                informant=informant
-            )
-        allResponses = [
-            r for r in allResponses if isinstance(r, dict) and any(
-                [
-                    str(r.get(
-                        'meta',
-                        {}
-                    ).get(
-                        'applet',
-                        {}
-                    ).get('@id') if isinstance(
-                        r.get(
-                            'meta',
-                            {}
-                        ).get(
-                            'applet',
-                            {}
-                        ),
-                        dict
-                    ) else r.get(
-                        'meta',
-                        {}
-                    ).get(
-                        'applet',
-                        {}
-                    ) if isinstance(
-                        r.get(
-                            'meta',
-                            {}
-                        ),
-                        dict
-                    ) else r.get('meta'))==str(applet) for applet in applets
-                ]
-            )
-        ] if len(applets) else allResponses
-        return(allResponses)
+        ])
+
 
     @access.public(scope=TokenScope.DATA_READ)
     @autoDescribeRoute(
         Description(
             'Get the last 7 days\' responses for the current user.'
         )
-        .modelParam(
+        .param(
             'applet',
-            model=AppletModel,
-            level=AccessType.READ,
-            destName='applet',
             description='The ID of the Applet this response is to.'
+        )
+        .param(
+            'subject',
+            'The ID of the Subject this response is about.',
+            required=False
         )
         .param(
             'referenceDate',
@@ -237,11 +191,20 @@ class ResponseItem(Resource):
     def getLast7Days(
         self,
         applet,
+        subject=None,
         referenceDate=None
     ):
         from girderformindlogger.utility.response import last7Days
-        user = self.getCurrentUser()
-        return(last7Days(applet, user, referenceDate))
+        from bson.objectid import ObjectId
+        try:
+            appletInfo = AppletModel().findOne({'_id': ObjectId(applet)})
+            user = self.getCurrentUser()
+            return(last7Days(applet, appletInfo, user.get('_id'), user, referenceDate))
+        except:
+            import sys, traceback
+            print(sys.exc_info())
+            print(traceback.print_tb(sys.exc_info()[2]))
+            return({})
 
 
 
@@ -373,8 +336,12 @@ class ResponseItem(Resource):
 
         if not pending:
             # create a Thread to calculate and save aggregates
-            agg = threading.Thread(target=aggregateAndSave, args=(newItem, informant))
-            agg.start()
+
+            # TODO: probably uncomment this as we scale.
+            # idea: thread all time, but synchronously do last7 days
+            # agg = threading.Thread(target=aggregateAndSave, args=(newItem, informant))
+            # agg.start()
+            aggregateAndSave(newItem, informant)
             newItem['readOnly'] = True
         return(newItem)
 

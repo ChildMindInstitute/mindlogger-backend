@@ -24,6 +24,31 @@ except NotImplementedError:
     import random
 
 
+def clean_empty(d):
+    """
+    The {..} construct is a dictionary comprehension; it'll only include keys
+    from the original dictionary if v is true, e.g. not empty. Similarly the
+    [..] construct builds a list.
+
+    The nested (.. for ..) constructs are generator expressions that allow the
+    code to compactly filter empty objects after recursing.
+
+    Note that any values set to numeric 0 (integer 0, float 0.0) will also be
+    cleared. You can retain numeric 0 values with if v or v == 0.
+
+    https://stackoverflow.com/a/27974027/7868821
+    """
+    if not isinstance(d, (dict, list)):
+        return (d)
+    if isinstance(d, list):
+        return ([v for v in (clean_empty(v) for v in d) if v is not None])
+    return ({
+        k: v for k, v in (
+            (k, clean_empty(v)) for k, v in d.items()
+        ) if v is not None
+    })
+
+
 def parseTimestamp(x, naive=True):
     """
     Parse a datetime string using the python-dateutil package.
@@ -59,8 +84,19 @@ def camelcase(value):
     :type value: str
     :returns: the value converted to camel case.
     """
-    return ''.join(x.capitalize() if x else '_' for x in
-                   re.split('[._]+', value))
+    return(''.join(x.capitalize() if x else '_' for x in
+                   re.split('[._]+', value)))
+
+
+def firstLower(value):
+    """
+    Make the first letter of a string lowercase.
+
+    :param value: the string to convert
+    :type value: str
+    :returns: the value with the first character lowercased
+    """
+    return("".join([value[0].lower(), value[1:]]))
 
 
 def loadJSON(url, urlType='applet'):
@@ -69,6 +105,7 @@ def loadJSON(url, urlType='applet'):
         r = requests.get(url)
         data = r.json()
     except:
+        return({})
         raise ValidationException(
             'Invalid ' + urlType + ' URL: ' + url,
             'url'

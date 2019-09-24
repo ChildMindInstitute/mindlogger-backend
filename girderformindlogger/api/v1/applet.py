@@ -70,7 +70,8 @@ class Applet(Resource):
         )
     )
     def getAppletUsers(self, applet):
-        return(AppletModel().getAppletUsers(applet))
+        thisUser=self.getCurrentUser()
+        return(AppletModel().getAppletUsers(applet, thisUser))
 
     @access.user(scope=TokenScope.DATA_WRITE)
     @autoDescribeRoute(
@@ -777,8 +778,8 @@ def _setConstraints(applet, activity, schedule, user, refreshCache=False):
         applet,
         'applet',
         user
-    ).get('activitySet')
-    activitySetOrder = activitySetExpanded.get('ui').get('order')
+    ).get('activitySet', {})
+    activitySetOrder = activitySetExpanded.get('ui', {}).get('order', [])
     framedActivityKeys = [
         activitySetOrder[i] for i, v in enumerate(
             activitySetExpanded.get(
