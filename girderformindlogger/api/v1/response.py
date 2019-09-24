@@ -41,6 +41,9 @@ from girderformindlogger.utility.response import formatResponse, \
     string_or_ObjectID
 from girderformindlogger.utility.resource import listFromString
 from pymongo import ASCENDING, DESCENDING
+from bson import ObjectId
+import hashlib
+
 
 
 class ResponseItem(Resource):
@@ -107,38 +110,66 @@ class ResponseItem(Resource):
         informant=[],
         subject=[],
         applet=[],
-        activity=[],
-        screen=[]
+        # activity=[],
+        # screen=[]
     ):
+        assert applet,  'you need to specify an applet'
+        
+        # grab the current user
         reviewer = self.getCurrentUser()
+
+        # check that they are a reviewer for the applet.
+
+        # get the applet information
+        appletInfo = AppletModel().findOne({'_id': ObjectId(applet)})
+
+        # TODO: for now, an applet only has one group
+        reviewerGroupOfApplet = appletInfo['roles']['reviewer']['groups']
+
+        assert len(reviewerGroupOfApplet) == 1, 'there should be only 1 group for an applet, for now.'
+        reviewerGroupOfApplet = reviewerGroupOfApplet[0]['id']
+        
+
+        # check that the current user's userId is in the list of reveiwersOfApplet
+        isAReviewer = list(filter(lambda x: x == reviewerGroupOfApplet, reviewer['groups']))
+
+        # TODO: for now, if the user is not a reviewer, then fail.
+        assert len(isAReviewer) == 1, 'the current user is not a reviewer'
+
+
+        # Build a query to get all the data.
+        # TODO: enable the query to filter by subjects, informants, and activities.
+
         props = {
-            "informant": [
-                list(itertools.chain.from_iterable(
-                    [string_or_ObjectID(s) for s in listFromString(informant)]
-                )),
-                "baseParentId"
-            ],
-            "subject": [
-                list(itertools.chain.from_iterable(
-                    [string_or_ObjectID(s) for s in listFromString(subject)]
-                )),
-                "meta.subject.@id"
-            ],
+            # "informant": [
+            #     list(itertools.chain.from_iterable(
+            #         [string_or_ObjectID(s) for s in listFromString(informant)]
+            #     )),
+            #     "baseParentId"
+            # ],
+            # "subject": [
+            #     list(itertools.chain.from_iterable(
+            #         [string_or_ObjectID(s) for s in listFromString(subject)]
+            #     )),
+            #     "meta.subject.@id"
+            # ],
             "applet": [
                 list(itertools.chain.from_iterable(
                     [string_or_ObjectID(s) for s in listFromString(applet)]
                 )),
                 "meta.applet.@id"
             ],
-            "activity": [
-            list(itertools.chain.from_iterable(
-                    [string_or_ObjectID(s) for s in listFromString(activity)]
-                )),
-                "meta.activity.@id"
-            ] # TODO: Add screen
+            # "activity": [
+            # list(itertools.chain.from_iterable(
+            #         [string_or_ObjectID(s) for s in listFromString(activity)]
+            #     )),
+            #     "meta.activity.@id"
+            # ] # TODO: Add screen
         }
-        if not(len(props["informant"][0])):
-            props["informant"][0] = [reviewer.get('_id')] # TODO: allow getting all available
+
+        # if not(len(props["informant"][0])):
+        #     props["informant"][0] = [reviewer.get('_id')] # TODO: allow getting all available
+    
         q = {
             props[prop][1]: {
                 "$in": props[prop][0]
@@ -147,20 +178,82 @@ class ResponseItem(Resource):
             )
         }
         print(q)
+
         allResponses = list(ResponseItemModel().find(
             query=q,
             user=reviewer,
             sort=[("created", DESCENDING)]
         ))
-        responseArray = [
-            formatResponse(response) for response in allResponses
-        ]
-        return([
-            response for response in responseArray if response not in [
-                {},
-                None
-            ]
-        ])
+
+
+        # for each response in allResponses, we need to encode a userId
+        # if the currentUser is also a manager, then we can put an email address.
+        # if the currentUser is ONLY a reviewer, then give the subject a unique id.
+        # the unique id is a hash of the baseParentId
+
+        # HINT: in appletModel there is a userCipher function
+
+        # TODO: check to see if the user is also a manager.
+        # TODO: for now, an applet only has one group
+        # get the manager group and make sure there is just 1:
+        managerGroupOfApplet = appletInfo['roles']['manager']['groups']
+        assert len(managerGroupOfApplet) == 1, 'there should be only 1 group for an applet, for now.'
+        managerGroupOfApplet = managerGroupOfApplet[0]['id']
+
+        # check to see if the current user is a manager too.       
+        isAManager = len(list(filter(lambda x: x == managerGroupOfApplet, reviewer['groups'])))
+
+        # Format the output response. If the user is a manager, then lookup an email and return it.
+        # else, get the userCipher and use that for the userId.
+        outputResponse = []
+        for response in allResponses:
+            userId = response['baseParentId']
+            
+            # encode the userId below:
+            if isAManager:
+                user = UserModel().findOne({'_id': ObjectId(userId)})
+                encodedId = user['email']
+            else:
+                # TODO: create a user cipher, which is the hash of
+                # an appletid concatenated with the user id
+                appletIdUserId = applet + str(userId)
+                # hash it:
+                hash_object = hashlib.md5(appletIdUserId.encode())
+                encodedId = hash_object.hexdigest()
+
+            # format the response and add the userId
+            formattedResponse = formatResponse(response)['thisResponse']
+            formattedResponse['userId'] = encodedId
+            outputResponse.append(formattedResponse)
+
+        # lets format the output response in tidy format.
+        # a list of objects, with columns:
+        # ['itemURI', 'value', 'userId', 'schema:startDate', 'schema:endDate']
+
+        formattedOutputResponse = []
+
+        for response in outputResponse:
+            tmp = {
+                'schema:startDate': response['schema:startDate'],
+                'schema:endDate': response['schema:endDate'],
+                'userId': response['userId'],
+            }
+            for key, value in response['responses'].items():
+                tmp['itemURI'] = key
+                tmp['value'] = value
+                formattedOutputResponse.append(tmp)
+
+        return formattedOutputResponse
+
+        # responseArray = [
+        #     formatResponse(response) for response in allResponses
+        # ]
+        # return([
+        #     response for response in responseArray if response not in [
+        #         {},
+        #         None
+        #     ]
+        # ])
 
 
     @access.public(scope=TokenScope.DATA_READ)
@@ -348,68 +441,3 @@ class ResponseItem(Resource):
 def save():
     return(lambda x: x)
 
-
-def _getUserResponses(
-    reviewer,
-    informant
-):
-    """
-    Gets a list of a given User's `Responses/{Applet}/{subject}` Folders if the
-    logged-in user has access to that folder, else returns an empty list.
-
-    Parameters
-    ----------
-    reviewer: UserModel
-        the logged-in user
-
-    informant: str
-        canonical user ID
-
-    Returns
-    -------
-    allResponses: list of Items or empty list
-    """
-    try:
-        informant = UserModel().load(
-            informant,
-            level=AccessType.NONE,
-            user=reviewer
-        )
-    except:
-        return([])
-    allResponses = []
-    try:
-        UserResponsesFolder = ResponseFolderModel().load(
-            user=informant,
-            level=AccessType.READ,
-            reviewer=reviewer
-        )
-    except AccessException:
-        UserResponsesFolder = []
-    if type(UserResponsesFolder)!=list:
-        UserAppletResponsesFolders = Folder().childFolders(
-            parent=UserResponsesFolder, parentType='folder',
-            user=reviewer)
-        for appletResponsesFolder in UserAppletResponsesFolders:
-            folder = Folder().load(
-                id=appletResponsesFolder["_id"], user=reviewer,
-                level=AccessType.READ, exc=True
-            )
-            subjectFolders = {
-                responseFolder[
-                    'name'
-                ]: responseFolder for responseFolder in Folder(
-                ).childFolders(
-                    parent=folder,
-                    parentType='folder',
-                    user=reviewer
-                )
-            }
-            for subjectFolder in subjectFolders:
-                allResponses += list(Folder().childItems(
-                    folder=subjectFolders[subjectFolder], user=reviewer
-                ))
-
-        return(allResponses)
-    else:
-        return([])
