@@ -1,4 +1,4 @@
-import json
+from bson import json_util
 from copy import deepcopy
 from datetime import datetime
 from girderformindlogger.constants import AccessType
@@ -15,6 +15,8 @@ from girderformindlogger.models.user import User as UserModel
 from girderformindlogger.utility.response import responseDateList
 from pyld import jsonld
 
+HIERARCHY = ['applet', 'activitySet', 'activity', 'screen', 'item']
+
 KEYS_TO_EXPAND = [
     "responseOptions",
     "https://schema.repronim.org/valueconstraints"
@@ -25,6 +27,7 @@ MODELS = {
     'activitySet': ActivitySetModel(),
     'applet': AppletModel(),
     'collection': CollectionModel(),
+    'field': ScreenModel(),
     'folder': FolderModel(),
     'item': ItemModel(),
     'screen': ScreenModel(),
@@ -91,9 +94,12 @@ def expand(obj, keepUndefined=False):
     try:
         newObj = jsonld.expand(obj)
     except jsonld.JsonLdError as e: # 👮 Catch illegal JSON-LD
-        print(e)
-        print(obj)
-        return(None)
+        if e.cause.type == "jsonld.ContextUrlError":
+            invalidContext = e.cause.details.get('url')
+            print("Invalid context: {}".format(invalidContext))
+            obj["@context"] = obj.get('@context', []).remove(invalidContext)
+            return(expand(obj, keepUndefined))
+        return(obj)
     newObj = newObj[0] if (
         isinstance(newObj, list) and len(newObj)==1
     ) else newObj
@@ -178,173 +184,226 @@ def formatLdObject(
     :type responseDates: bool
     :returns: Expanded JSON-LD Object (dict or list)
     """
-    if obj is None or (
-        isinstance(obj, dict) and 'meta' not in obj.keys()
-    ):
-        return(None)
-    if "cached" in obj and not refreshCache:
-        returnObj = obj["cached"]
+    from copy import deepcopy
+    from girderformindlogger.models import pluralize, smartImport
+    try:
+        if obj is None or (
+            isinstance(obj, dict) and 'meta' not in obj.keys()
+        ):
+            return(None)
+        if "cached" in obj and not refreshCache:
+            returnObj = obj["cached"]
+        else:
+            mesoPrefix = camelCase(mesoPrefix)
+            if type(obj)==list:
+                return([
+                    formatLdObject(o, mesoPrefix) for o in obj if o is not None
+                ])
+            if not type(obj)==dict and not dropErrors:
+                raise TypeError("JSON-LD must be an Object or Array.")
+            newObj = obj.get('meta', obj)
+            newObj = newObj.get(mesoPrefix, newObj)
+            newObj = expand(newObj, keepUndefined=keepUndefined)
+            if type(newObj)==list and len(newObj)==1:
+                try:
+                    newObj = newObj[0]
+                except:
+                    raise ValidationException(str(newObj))
+            if type(newObj)!=dict:
+                newObj = {}
+            objID = str(obj.get('_id', 'undefined'))
+            if objID=='undefined':
+                raise ResourcePathNotFound()
+            newObj['_id'] = "/".join([snake_case(mesoPrefix), objID])
+            if mesoPrefix=='applet':
+                activitySet = formatLdObject(
+                    ActivitySetModel().getFromUrl(
+                        obj.get('meta', {}).get('activitySet', obj).get(
+                            'url',
+                            ''
+                        ),
+                        'activitySet',
+                        user
+                    ),
+                    'activitySet',
+                    user,
+                    keepUndefined,
+                    dropErrors,
+                    refreshCache
+                )
+                applet = {}
+                applet['activities'] = activitySet.pop('activities', {})
+                applet['items'] = activitySet.pop('items', {})
+                applet['activitySet'] = {
+                    key: activitySet.get(
+                        'activitySet',
+                        {}
+                    ).pop(
+                        key
+                    ) for key in [
+                        '@type',
+                        '_id',
+                        'http://schema.org/url'
+                    ] if key in list(activitySet['activitySet'].keys())
+                }
+
+                applet['applet'] = {
+                    **activitySet.pop('activitySet', {}),
+                    **obj.get('meta', {}).get(mesoPrefix, {}),
+                    '_id': "/".join([snake_case(mesoPrefix), objID]),
+                    'url': "#".join([
+                        obj.get('meta', {}).get('activitySet', {}).get(
+                            "url",
+                            ""
+                        )
+                    ])
+                }
+                obj["cached"] = {
+                    **applet,
+                    "prov:generatedAtTime": xsdNow()
+                }
+                AppletModel().save(obj)
+                returnObj = applet
+            elif mesoPrefix=='activitySet':
+                activitySet = {
+                    'activitySet': newObj,
+                    'activities': {},
+                    "items": {}
+                }
+                activitiesNow = set()
+                itemsNow = set()
+                activitySet = componentImport(newObj, activitySet.copy(), user)
+                activitySet = {} if activitySet is None else activitySet
+                newActivities = list(
+                    set(activitySet.get('activities', {}).keys()) - activitiesNow
+                )
+                newItems = list(
+                    set(activitySet.get('items', {}).keys()) - itemsNow
+                )
+                while(len(newActivities)):
+                    for activityURL, activity in deepcopy(activitySet).get(
+                        'activities',
+                        {}
+                    ).items():
+                        activitySet = componentImport(
+                            deepcopy(activity),
+                            deepcopy(activitySet),
+                            user
+                        )
+                    activitiesNow = set(
+                        activitySet.get('activities', {}).keys()
+                    )
+                    for activityURL, activity in deepcopy(activitySet).get(
+                        'activities',
+                        {}
+                    ).items():
+                        activitySet = componentImport(
+                            deepcopy(activity),
+                            deepcopy(activitySet), user)
+                    newActivities = list(
+                        set(
+                            activitySet.get('activities', {}).keys()
+                        ) - activitiesNow
+                    )
+                while(len(newItems)):
+                    activitiesNow = set(activitySet.get('items', {}).keys())
+                    for activityURL, activity in deepcopy(activitySet).get(
+                        'items',
+                        {}
+                    ).items():
+                        activitySet = componentImport(
+                            deepcopy(activity),
+                            deepcopy(activitySet), user)
+                    newItems = list(
+                        set(activitySet.get('items', {}).keys()) - activitiesNow
+                    )
+                return(activitySet)
+            else:
+                return(newObj)
         if responseDates and mesoPrefix=="applet":
-            returnObj["applet"]["responseDates"] = responseDateList(
-                obj.get('_id'),
-                user.get('_id'),
-                user
-            )
+            try:
+                returnObj["applet"]["responseDates"] = responseDateList(
+                    obj.get('_id'),
+                    user.get('_id'),
+                    user
+                )
+            except:
+                pass
         return(returnObj)
-    mesoPrefix = camelCase(mesoPrefix)
-    if type(obj)==list:
-        return([formatLdObject(o, mesoPrefix) for o in obj if o is not None])
-    if not type(obj)==dict and not dropErrors:
-        raise TypeError("JSON-LD must be an Object or Array.")
-    newObj = obj.get('meta', obj)
-    newObj = newObj.get(mesoPrefix, newObj)
-    newObj = expand(newObj, keepUndefined=keepUndefined)
-    if type(newObj)==list and len(newObj)==1:
-        try:
-            newObj = newObj[0]
-        except:
-            raise ValidationException(str(newObj))
-    if type(newObj)!=dict:
-        newObj = {}
-    objID = str(obj.get('_id', 'undefined'))
-    if objID=='undefined':
-        raise ResourcePathNotFound()
-    newObj['_id'] = "/".join([snake_case(mesoPrefix), objID])
-    if mesoPrefix=='applet':
-        activitySet = formatLdObject(
-            ActivitySetModel().importUrl(
-                obj['meta']['activitySet'].get(
-                    'url',
-                    ''
-                ),
-                user,
-                refreshCache=refreshCache
-            ) if 'url' in obj.get('meta', {}).get(
-                'activitySet',
-                {}
-            ) else ActivitySetModel().load(
-                obj['meta']['activitySet'].get(
-                    '_id',
-                    ''
-                ).split('activity_set/')[-1].split('activitySet/')[-1],
-                level=AccessType.READ,
-                user=user
-            ) if '_id' in obj.get('meta', {}).get(
-                'activitySet',
-                {}
-            ) else {},
-            'activitySet',
-            user,
-            keepUndefined,
-            dropErrors,
-            refreshCache=refreshCache
-        ) if 'activitySet' in obj.get('meta', {}) and isinstance(
-            obj['meta']['activitySet'],
-            dict
-        ) else {}
-        applet = {
-            'activities': activitySet.pop('activities', {}),
-            'items': activitySet.pop('items', {}),
-            'activitySet': {
-                key: activitySet.get('activitySet', {}).get(
-                    key,
-                    None
-                ) for key in [
-                    'http://schema.org/url',
-                    '_id',
-                    '@type'
-                ]
-            } if 'activitySet' in activitySet else formatLdObject(
+    except:
+        if refreshCache==False:
+            return(formatLdObject(
                 obj,
-                'activitySet',
+                mesoPrefix,
                 user,
                 keepUndefined,
                 dropErrors,
-                refreshCache=refreshCache
-            ),
-            'applet': {
-                **activitySet.pop('activitySet', {}),
-                **obj.get('meta', {}).get(mesoPrefix, {}),
-                '_id': "/".join([snake_case(mesoPrefix), objID]),
-                'url': "#".join([
-                    obj.get('meta', {}).get('activitySet', {}).get("url", "")
-                ])
-            }
-        }
-        obj["cached"] = {
-            **applet,
-            "prov:generatedAtTime": xsdNow()
-        }
-        AppletModel().save(obj)
-        if responseDates:
-            applet["applet"]["responseDates"] = responseDateList(
-                obj.get('_id'),
-                user.get('_id'),
-                user
-            )
-        return(applet)
-    if mesoPrefix=='activitySet':
-        activitySet = {
-            'activitySet': newObj,
-            'activities': {
-                activity.get(
-                    'url',
-                    activity.get('@id')
-                ): formatLdObject(
-                    ActivityModel().importUrl(
-                        url=activity.get(
-                            'url',
-                            activity.get('@id')
-                        ),
-                        user=user,
-                        refreshCache=refreshCache
-                    ) if (
-                        'url' in activity or '@id' in activity
-                    ) else ActivityModel().load(
-                        activity.get('_id')
-                    ) if '_id' in activity else {},
-                    'activity',
-                    user,
-                    refreshCache=refreshCache
-                ) for order in newObj.get(
-                    "https://schema.repronim.org/order",
-                    {}
-                ) for activity in order.get("@list", [])
-            }
-        }
-        activitySet['items'] = {
-            screen.get(
-                'url',
-                screen.get('@id')
-            ): formatLdObject(
-                ScreenModel().importUrl(
-                    url=screen.get(
+                refreshCache=True,
+                responseDates=responseDates
+            ))
+        import sys, traceback
+        print(sys.exc_info())
+        print(traceback.print_tb(sys.exc_info()[2]))
+
+
+def componentImport(obj, activitySet, user=None, refreshCache=True):
+    """
+    :returns: activitySet (updated)
+    """
+    from girderformindlogger.models import pluralize, smartImport
+    from girderformindlogger.utility import firstLower
+    updatedActivitySet = activitySet.copy()
+    obj2 = obj.copy()
+    try:
+        for order in obj2.get(
+            "https://schema.repronim.org/order",
+            {}
+        ):
+            for activity in order.get("@list", []):
+                activityComponent, activityContent = smartImport(
+                    activity.get(
                         'url',
-                        screen.get('@id')
+                        activity.get('@id')
                     ),
                     user=user,
                     refreshCache=refreshCache
                 ) if (
-                    'url' in screen or '@id' in screen
-                ) else ScreenModel().load(
-                    screen.get('_id'),
-                    level=AccessType.READ,
-                    user=user,
-                    force=True
-                ) if '_id' in screen else {},
-                'screen',
-                user,
-                refreshCache=refreshCache
-            ) for activityURL, activity in activitySet.get(
-                'activities',
-                {}
-            ).items() for order in activity.get(
-                "https://schema.repronim.org/order",
-                {}
-            ) for screen in order.get("@list", order.get("@set", []))
-        }
-        return(activitySet)
-    return(newObj)
+                    'url' in activity or '@id' in activity
+                ) else (None, None)
+                activityComponent = pluralize(firstLower(
+                    activityComponent.get('@type', [''])[0].split('/')[-1]
+                )) if activityComponent is None else activityComponent
+                activityComponents = (
+                    pluralize(
+                        activityComponent
+                    ) if activityComponent != 'screen' else 'items'
+                )
+                updatedActivitySet[activityComponents][
+                    activityContent.get(
+                        'meta',
+                        {}
+                    ).get(
+                        activityComponent,
+                        {}
+                    ).get(
+                        'url',
+                        activityContent.get(
+                            'meta',
+                            {}
+                        ).get(
+                            activityComponent,
+                            {}
+                        ).get('item', '')
+                    )
+                ] = formatLdObject(
+                    activityContent,
+                    activityComponent,
+                    user,
+                    refreshCache=refreshCache
+                ).copy()
+        return(updatedActivitySet.copy())
+    except:
+        print("error!")
 
 
 def getByLanguage(object, tag=None):

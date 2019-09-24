@@ -54,7 +54,6 @@ class Applet(Resource):
         self.route('POST', (), self.createApplet)
         self.route('PUT', (':id', 'assign'), self.assignGroup)
         self.route('PUT', (':id', 'constraints'), self.setConstraints)
-        self.route('POST', (':id', 'invite'), self.invite)
         self.route('POST', ('invite',), self.inviteFromURL)
         self.route('GET', (':id', 'roles'), self.getAppletRoles)
         self.route('GET', (':id', 'users'), self.getAppletUsers)
@@ -71,7 +70,8 @@ class Applet(Resource):
         )
     )
     def getAppletUsers(self, applet):
-        return(AppletModel().getAppletUsers(applet))
+        thisUser=self.getCurrentUser()
+        return(AppletModel().getAppletUsers(applet, thisUser))
 
     @access.user(scope=TokenScope.DATA_WRITE)
     @autoDescribeRoute(
@@ -778,8 +778,8 @@ def _setConstraints(applet, activity, schedule, user, refreshCache=False):
         applet,
         'applet',
         user
-    ).get('activitySet')
-    activitySetOrder = activitySetExpanded.get('ui').get('order')
+    ).get('activitySet', {})
+    activitySetOrder = activitySetExpanded.get('ui', {}).get('order', [])
     framedActivityKeys = [
         activitySetOrder[i] for i, v in enumerate(
             activitySetExpanded.get(

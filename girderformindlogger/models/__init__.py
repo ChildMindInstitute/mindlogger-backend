@@ -109,3 +109,27 @@ def getDbConnection(uri=None, replicaSet=None, autoRetry=True, quiet=False, **kw
         _dbClients[origKey] = _dbClients[(uri, replicaSet)] = client
 
     return client
+
+
+def pluralize(modelType):
+    return('{}s'.format(
+        modelType[:-1] if modelType.endswith(
+            's'
+        ) else "{}ie".format(modelType[:-1]) if modelType.endswith(
+            'y'
+        ) else modelType
+    ))
+
+
+def smartImport(IRI, user=None, refreshCache=False):
+    from girderformindlogger.utility import firstLower, loadJSON
+    from girderformindlogger.utility.jsonld_expander import MODELS, \
+        contextualize
+    model = contextualize(loadJSON(IRI))
+    atType = model.get('@type', '').split('/')[-1]
+    modelType = firstLower(atType) if len(atType) else modelType
+    modelType = 'screen' if modelType=='field' else modelType
+    return((
+        modelType,
+        MODELS[modelType].getFromUrl(IRI, modelType, user, refreshCache)
+    ))
