@@ -35,7 +35,10 @@ def aggregate(metadata, informant, startDate=None, endDate=None, getAll=False):
     definedRange = list(ResponseItem().find(
         query={
             "baseParentType": 'user',
-            "baseParentId": informant.get("_id"),
+            "baseParentId": informant.get("_id") if isinstance(
+                informant,
+                dict
+            ) else informant,
             "created": {
                 "$gte": startDate,
                 "$lt": endDate
@@ -144,8 +147,9 @@ def formatResponse(response):
             ]
         ]) else {}
     except Exception as e:
-        print(e)
-        print(response)
+        import sys, traceback
+        print(sys.exc_info())
+        print(traceback.print_tb(sys.exc_info()[2]))
         thisResponse = None
     return(clean_empty(thisResponse))
 
@@ -293,15 +297,18 @@ def last7Days(
     subject=None,
     referenceDate=None
 ):
+    from bson import json_util
     referenceDate = delocalize(
         datetime.now(
             tzlocal.get_localzone()
         ) if referenceDate is None else referenceDate # TODO allow timeless dates
     )
-    import simplejson
-    
+
     # we need to get the activities
-    cachedApplet = simplejson.loads(appletInfo['cached'])
+    cachedApplet = appletInfo['cached'] if isinstance(
+        appletInfo['cached'],
+        dict
+    ) else json_util.loads(appletInfo['cached'])
     listOfActivities = list(cachedApplet['activities'].keys())
 
     getLatestResponsesByAct = lambda activityURI: list(ResponseItem().find(
