@@ -314,12 +314,12 @@ class Group(Resource):
         if email is not None:
             userToInvite = User().findOne(query={"email": email}, force=True)
         if userToInvite is None:
-            userToInvite = ProtoUser().createProtoUser(email=email)
             try:
                 group["queue"] = list(set([email, *group.get("queue", [])]))
             except:
                 group["queue"] = list(set([email]))
             groupModel.updateGroup(group)
+            userToInvite = ProtoUser().createProtoUser(email=email)
             # TODO: send email to invite user
             return(group)
         if force:

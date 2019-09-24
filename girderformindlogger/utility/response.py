@@ -2,6 +2,8 @@ import isodate
 import itertools
 import pandas as pd
 import tzlocal
+import backports
+print(backports)
 from backports.datetime_fromisoformat import MonkeyPatch
 from bson.codec_options import CodecOptions
 from bson.objectid import ObjectId
@@ -19,7 +21,6 @@ def aggregate(metadata, informant, startDate=None, endDate=None, getAll=False):
     """
     Function to calculate aggregates
     """
-    responses = metadata.get("responses")
     thisResponseTime = datetime.fromtimestamp(
         metadata["responseCompleted"]/1000
     ) if "responseCompleted" in metadata else datetime.now(
@@ -30,6 +31,7 @@ def aggregate(metadata, informant, startDate=None, endDate=None, getAll=False):
     endDate = datetime.fromisoformat((
         thisResponseTime if endDate is None else endDate
     ).isoformat()).astimezone(utc)
+
     definedRange = list(ResponseItem().find(
         query={
             "baseParentType": 'user',
@@ -47,15 +49,20 @@ def aggregate(metadata, informant, startDate=None, endDate=None, getAll=False):
         force=True,
         sort=[("created", ASCENDING)]
     ))
+
+
     if not len(definedRange):
-        raise ValueError
+        raise ValueError("The defined range doesn't have a length")
+
     startDate = min([response.get(
         'created',
         endDate
     ) for response in definedRange]) if startDate is None else startDate
+
     duration = isodate.duration_isoformat(
         delocalize(endDate) - delocalize(startDate)
     )
+
     responseIRIs = _responseIRIs(definedRange)
     for itemIRI in responseIRIs:
         for response in definedRange:
@@ -63,10 +70,7 @@ def aggregate(metadata, informant, startDate=None, endDate=None, getAll=False):
                 'meta',
                 {}
             ).get('responses', {}):
-                try:
-                    completedDate(response)
-                except:
-                    print("!!!!")
+                completedDate(response)
     aggregated = {
         "schema:startDate": startDate,
         "schema:endDate": endDate,
@@ -89,19 +93,8 @@ def aggregate(metadata, informant, startDate=None, endDate=None, getAll=False):
 
 
 def completedDate(response):
-    completed = response.get("meta", {}).get("responseCompleted")
-    try:
-        return (
-            datetime.fromisoformat(datetime.fromtimestamp((
-                completed/1000 if completed is not None else response.get(
-                    "created"
-                )
-            )).isoformat())
-        )
-    except:
-        print(completed)
-        print(response)
-        print(response.get("created"))
+    completed = response.get("updated", {})
+    return completed
 
 
 def formatResponse(response):
@@ -294,6 +287,7 @@ def aggregateAndSave(item, informant):
 
 def last7Days(
     appletId,
+    appletInfo,
     informantId,
     reviewer,
     subject=None,
@@ -304,8 +298,13 @@ def last7Days(
             tzlocal.get_localzone()
         ) if referenceDate is None else referenceDate # TODO allow timeless dates
     )
+    import simplejson
+    
+    # we need to get the activities
+    cachedApplet = simplejson.loads(appletInfo['cached'])
+    listOfActivities = list(cachedApplet['activities'].keys())
 
-    latestResponses = list(ResponseItem().find(
+    getLatestResponsesByAct = lambda activityURI: list(ResponseItem().find(
         query={
             "baseParentType": 'user',
             "baseParentId": informantId if isinstance(
@@ -320,23 +319,44 @@ def last7Days(
                     appletId,
                     ObjectId(appletId)
                 ]
-            }
+            },
+            "meta.activity.url": activityURI
         },
         force=True,
         sort=[("created", DESCENDING)]
     ))
-    latestResponse = latestResponses[0] if len(latestResponses) else {}
-    metadata = latestResponse.get('meta', {})
-    if "last7Days" not in metadata or "allTime" not in metadata or metadata[
-        "last7Days"
-    ]=={}:
-        latestResponse = aggregateAndSave(
-            latestResponse,
-            UserModel().load(informantId, force=True)
-        )
-    l7d = latestResponse.get('meta', {}).get('last7Days', {})
-    l7d["responses"] = _oneResponsePerDate(l7d.get("responses", {}))
-    return(l7d)
+
+    latestResponses = [getLatestResponsesByAct(act) for act in listOfActivities]
+
+    # destructure the responses
+    # TODO: we are assuming here that activities don't share items.
+    # might not be the case later on, so watch out.
+
+    outputResponses = {}
+
+    for resp in latestResponses:
+        if len(resp):
+            latest = resp[0]
+
+            # the last 7 days for the most recent entry for the activity
+            l7 = latest.get('meta', {}).get('last7Days', {}).get('responses', {})
+
+            # the current response for the most recent entry for the activity
+            currentResp = latest.get('meta', {}).get('responses', {})
+
+            # update the l7 with values from currentResp
+            for (key, val) in currentResp.items():
+                if key in l7.keys():
+                    l7[key].append(dict(date=latest['created'], value=val))
+                else:
+                    l7[key] = [dict(date=latest['created'], value=val)]
+
+            outputResponses.update(l7)
+
+    l7d = {}
+    l7d["responses"] = _oneResponsePerDate(outputResponses)
+    return l7d
+
 
 
 def determine_date(d):
