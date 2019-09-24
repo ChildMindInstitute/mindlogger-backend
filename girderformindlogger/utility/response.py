@@ -299,7 +299,7 @@ def last7Days(
         ) if referenceDate is None else referenceDate # TODO allow timeless dates
     )
     import simplejson
-    
+
     # we need to get the activities
     cachedApplet = simplejson.loads(appletInfo['cached'])
     listOfActivities = list(cachedApplet['activities'].keys())
