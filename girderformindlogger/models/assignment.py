@@ -58,6 +58,9 @@ class Assignment(Folder):
                 field='applet'
             )
         assignmentsCollection = Collection().findOne({'name': 'Assignments'})
+        # for some reason below didn't work/help.. so I added Assignments manually.
+        if not assignmentsCollection:
+            Collection().createCollection('Assignments')
         try:
             assignment = Folder().createFolder(
                 parent=assignmentsCollection, parentType='collection',

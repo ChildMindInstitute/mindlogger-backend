@@ -195,8 +195,11 @@ class ResponseItem(Resource):
         referenceDate=None
     ):
         from girderformindlogger.utility.response import last7Days
+        from bson.objectid import ObjectId
+
+        appletInfo = AppletModel().findOne({'_id': ObjectId(applet)})
         user = self.getCurrentUser()
-        return(last7Days(applet, user.get('_id'), user, referenceDate))
+        return(last7Days(applet, appletInfo, user.get('_id'), user, referenceDate))
 
 
 
@@ -328,8 +331,12 @@ class ResponseItem(Resource):
 
         if not pending:
             # create a Thread to calculate and save aggregates
-            agg = threading.Thread(target=aggregateAndSave, args=(newItem, informant))
-            agg.start()
+
+            # TODO: probably uncomment this as we scale. 
+            # idea: thread all time, but synchronously do last7 days
+            # agg = threading.Thread(target=aggregateAndSave, args=(newItem, informant))
+            # agg.start()
+            aggregateAndSave(newItem, informant)
             newItem['readOnly'] = True
         return(newItem)
 
