@@ -325,7 +325,9 @@ girderformindlogger
             response
                 ResponseItem
                     createResponseItem
+                    getLast7Days
                     getResponses
+                save
             screen
                 Screen
                     createScreen
@@ -369,6 +371,7 @@ girderformindlogger
                     generateTemporaryPassword
                     getGroupInvites
                     getMe
+                    getOwnApplets
                     getUser
                     getUserAccess
                     getUserApplets
@@ -555,6 +558,7 @@ girderformindlogger
                 getAppletsForGroup
                 getAppletsForUser
                 importUrl
+                isManager
                 load
         assetstore
             Assetstore
@@ -742,6 +746,7 @@ girderformindlogger
                 QUEUED
                 SUCCESS
                 isComplete
+        pluralize
         protoUser
             ProtoUser
                 createProtoUser
@@ -778,6 +783,7 @@ girderformindlogger
                 set
                 unset
                 validate
+        smartImport
         token
             Token
                 addScope
@@ -931,6 +937,7 @@ girderformindlogger
             removeAssetstoreAdapter
             setAssetstoreAdapter
         camelcase
+        clean_empty
         config
             getConfig
             getServerMode
@@ -954,6 +961,7 @@ girderformindlogger
                 requestOffset
                 uploadChunk
                 validateInfo
+        firstLower
         genToken
         gridfs_assetstore_adapter
             CHUNK_SIZE
@@ -970,9 +978,11 @@ girderformindlogger
             RECENT_CONNECTION_CACHE_MAX_SIZE
             RECENT_CONNECTION_CACHE_TIME
         jsonld_expander
+            HIERARCHY
             KEYS_TO_EXPAND
             MODELS
             camelCase
+            componentImport
             contextualize
             expand
             fileObjectToStr
@@ -1027,6 +1037,33 @@ girderformindlogger
         resource
             allowedSearchTypes
             listFromString
+        response
+            aggregate
+            aggregateAndSave
+            cachedApplet
+            completedDate
+            countResponseValues
+            currentResp
+            delocalize
+            determine_date
+            endDate
+            force
+            formatResponse
+            getLatestResponsesByAct
+            isodatetime
+            l7
+            l7d
+            last7Days
+            latest
+            latestResponses
+            listOfActivities
+            outputResponses
+            query
+            referenceDate
+            responseDateList
+            sort
+            startDate
+            string_or_ObjectID
         s3_assetstore_adapter
             BUF_LEN
             DEFAULT_REGION
