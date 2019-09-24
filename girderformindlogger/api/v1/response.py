@@ -331,6 +331,9 @@ class ResponseItem(Resource):
 
         if not pending:
             # create a Thread to calculate and save aggregates
+
+            # TODO: probably uncomment this as we scale. 
+            # idea: thread all time, but synchronously do last7 days
             # agg = threading.Thread(target=aggregateAndSave, args=(newItem, informant))
             # agg.start()
             aggregateAndSave(newItem, informant)

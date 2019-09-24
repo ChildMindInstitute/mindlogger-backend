@@ -300,6 +300,7 @@ def last7Days(
     )
     import simplejson
     
+    # we need to get the activities
     cachedApplet = simplejson.loads(appletInfo['cached'])
     listOfActivities = list(cachedApplet['activities'].keys())
 
@@ -336,25 +337,26 @@ def last7Days(
     for resp in latestResponses:
         if len(resp):
             latest = resp[0]
-            latestresp = latest.get('meta', {}).get('last7Days', {})
-            if latestresp:
-                outputResponses.update(latestresp.get('responses', {}))
+
+            # the last 7 days for the most recent entry for the activity
+            l7 = latest.get('meta', {}).get('last7Days', {}).get('responses', {})
+
+            # the current response for the most recent entry for the activity
+            currentResp = latest.get('meta', {}).get('responses', {})
+
+            # update the l7 with values from currentResp
+            for (key, val) in currentResp.items():
+                if key in l7.keys():
+                    l7[key].append(dict(date=latest['created'], value=val))
+                else:
+                    l7[key] = [dict(date=latest['created'], value=val)]
+
+            outputResponses.update(l7)
 
     l7d = {}
     l7d["responses"] = _oneResponsePerDate(outputResponses)
     return l7d
-    # latestResponse = latestResponses[0] if len(latestResponses) else {}
-    # metadata = latestResponse.get('meta', {})
-    # if "last7Days" not in metadata or "allTime" not in metadata or metadata[
-    #     "last7Days"
-    # ]=={}:
-    #     latestResponse = aggregateAndSave(
-    #         latestResponse,
-    #         UserModel().load(informantId, force=True)
-    #     )
-    # l7d = latestResponse.get('meta', {}).get('last7Days', {})
-    # l7d["responses"] = _oneResponsePerDate(l7d.get("responses", {}))
-    # return(l7d)
+
 
 
 def determine_date(d):
