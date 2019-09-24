@@ -293,20 +293,6 @@ jobs:
           command: tox -e public_names
           working_directory: girderformindlogger
 
-  ansible:
-    docker:
-      - image: girder/girder_test:latest-py3
-    working_directory: /home/circleci/project  # as $CIRCLE_WORKING_DIRECTORY
-    steps:
-      - checkout:
-          path: girderformindlogger
-      - setup_remote_docker:
-          docker_layer_caching: true
-      - run:
-          name: Run Ansible tests
-          command: tox -e ansible
-          working_directory: girderformindlogger
-
   release:
     docker:
       - image: girder/girder_test:latest-py3
@@ -355,22 +341,30 @@ workflows:
           filters:
             tags:
               only: /^v[0-9]+.*/
+            branches:
+              only: 💚
       - py3_serverTest:
           requires:
             - py3_serverInstall
           filters:
             tags:
               only: /^v[0-9]+.*/
+            branches:
+              only: 💚
       - py3_webBuild_webTest:
           requires:
             - py3_serverInstall
           filters:
             tags:
               only: /^v[0-9]+.*/
+            branches:
+              only: 💚
       - py3_integrationTests:
           filters:
             tags:
               only: /^v[0-9]+.*/
+            branches:
+              only: 💚
       - py3_coverage:
           requires:
             - py3_serverTest
@@ -379,14 +373,14 @@ workflows:
           filters:
             tags:
               only: /^v[0-9]+.*/
+            branches:
+              only: 💚
       - public_symbols:
           filters:
             tags:
               only: /^v[0-9]+.*/
-      - ansible:
-          filters:
-            tags:
-              only: /^v[0-9]+.*/
+            branches:
+              only: 💚
       - release:
           requires:
             - public_symbols
