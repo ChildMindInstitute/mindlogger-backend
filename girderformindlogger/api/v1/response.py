@@ -226,7 +226,24 @@ class ResponseItem(Resource):
             formattedResponse['userId'] = encodedId
             outputResponse.append(formattedResponse)
 
-        return outputResponse
+        # lets format the output response in tidy format.
+        # a list of objects, with columns:
+        # ['itemURI', 'value', 'userId', 'schema:startDate', 'schema:endDate']
+
+        formattedOutputResponse = []
+
+        for response in outputResponse:
+            tmp = {
+                'schema:startDate': response['schema:startDate'],
+                'schema:endDate': response['schema:endDate'],
+                'userId': response['userId'],
+            }
+            for key, value in response['responses'].items():
+                tmp['itemURI'] = key
+                tmp['value'] = value
+                formattedOutputResponse.append(tmp)
+
+        return formattedOutputResponse
 
         # responseArray = [
         #     formatResponse(response) for response in allResponses
