@@ -3,7 +3,6 @@ import itertools
 import pandas as pd
 import tzlocal
 import backports
-print(backports)
 from backports.datetime_fromisoformat import MonkeyPatch
 from bson.codec_options import CodecOptions
 from bson.objectid import ObjectId
@@ -362,6 +361,13 @@ def last7Days(
 
     l7d = {}
     l7d["responses"] = _oneResponsePerDate(outputResponses)
+    endDate = referenceDate.date()
+    l7d["schema:endDate"] = endDate.isoformat()
+    startDate = endDate - timedelta(days=7)
+    l7d["schema:startDate"] = startDate.isoformat()
+    l7d["schema:duration"] = isodate.duration_isoformat(
+        endDate - startDate
+    )
     return l7d
 
 
