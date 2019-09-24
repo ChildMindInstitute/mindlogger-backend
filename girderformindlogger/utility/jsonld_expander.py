@@ -331,6 +331,16 @@ def formatLdObject(
                 pass
         return(returnObj)
     except:
+        if refreshCache==False:
+            return(formatLdObject(
+                obj,
+                mesoPrefix,
+                user,
+                keepUndefined,
+                dropErrors,
+                refreshCache=True,
+                responseDates=responseDates
+            ))
         import sys, traceback
         print(sys.exc_info())
         print(traceback.print_tb(sys.exc_info()[2]))

@@ -317,7 +317,11 @@ class User(Resource):
                 'role'
             )
         try:
-            applets = AppletModel().getAppletsForUser(role, reviewer, active=True)
+            applets = AppletModel().getAppletsForUser(
+                role,
+                reviewer,
+                active=True
+            )
             if len(applets)==0:
                 return([])
             if ids_only==True:
@@ -369,8 +373,69 @@ class User(Resource):
                     )
                 ]
             )
-        except Exception as e:
-            return(e)
+        except:
+            try:
+                applets = AppletModel().getAppletsForUser(
+                    role,
+                    reviewer,
+                    active=True
+                )
+                if len(applets)==0:
+                    return([])
+                if ids_only==True:
+                    return([applet.get('_id') for applet in applets])
+                return(
+                    [
+                        {
+                            **jsonld_expander.formatLdObject(
+                                applet,
+                                'applet',
+                                reviewer,
+                                refreshCache=True,
+                                responseDates=False
+                            ),
+                            "users": AppletModel().getAppletUsers(
+                                applet,
+                                reviewer
+                            ),
+                            "groups": AppletModel().getAppletGroups(
+                                applet,
+                                arrayOfObjects=True
+                            )
+                        } if role=="manager" else {
+                            **jsonld_expander.formatLdObject(
+                                applet,
+                                'applet',
+                                reviewer,
+                                dropErrors=True,
+                                responseDates=True if role=="user" else False
+                            ),
+                            "groups": [
+                                group for group in AppletModel(
+                                ).getAppletGroups(applet).get(role) if ObjectId(
+                                    group
+                                ) in [
+                                    *reviewer.get('groups', []),
+                                    *reviewer.get('formerGroups', []),
+                                    *[invite['groupId'] for invite in [
+                                        *reviewer.get('groupInvites', []),
+                                        *reviewer.get('declinedInvites', [])
+                                    ]]
+                                ]
+                            ]
+                        } for applet in applets if (
+                            applet is not None and not applet.get(
+                                'meta',
+                                {}
+                            ).get(
+                                'applet',
+                                {}
+                            ).get('deleted')
+                        )
+                    ]
+                )
+            except Exception as e:
+                return(e)
 
 
     @access.public(scope=TokenScope.USER_INFO_READ)
