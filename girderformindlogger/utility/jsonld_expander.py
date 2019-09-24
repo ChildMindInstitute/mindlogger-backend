@@ -1,4 +1,4 @@
-import json
+from bson import json_util
 from copy import deepcopy
 from datetime import datetime
 from girderformindlogger.constants import AccessType
