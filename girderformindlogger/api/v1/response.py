@@ -331,8 +331,9 @@ class ResponseItem(Resource):
 
         if not pending:
             # create a Thread to calculate and save aggregates
-            agg = threading.Thread(target=aggregateAndSave, args=(newItem, informant))
-            agg.start()
+            # agg = threading.Thread(target=aggregateAndSave, args=(newItem, informant))
+            # agg.start()
+            aggregateAndSave(newItem, informant)
             newItem['readOnly'] = True
         return(newItem)
 
