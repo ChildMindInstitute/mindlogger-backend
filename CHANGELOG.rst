@@ -12,6 +12,10 @@ Unreleased
 ^^^^^^^^^^^^^^^^^^
 * Reviewer can see data
 
+2019-09-24: v0.4.4 ‒ v0.4.6
+^^^^^^^^^^^^^^^^^^^^^^^^^^^
+* Bug fixes regarding responses
+
 2019-09-20: v0.4.3
 ^^^^^^^^^^^^^^^^^^
 * Allow arbitrary levels of activity nesting rather than forcing 3-level heirarchy
