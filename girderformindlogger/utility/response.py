@@ -31,8 +31,7 @@ def aggregate(metadata, informant, startDate=None, endDate=None, getAll=False):
         thisResponseTime if endDate is None else endDate
     ).isoformat()).astimezone(utc)
 
-    definedRange = list(ResponseItem().find(
-        query={
+    query = {
             "baseParentType": 'user',
             "baseParentId": informant.get("_id") if isinstance(
                 informant,
@@ -47,7 +46,11 @@ def aggregate(metadata, informant, startDate=None, endDate=None, getAll=False):
             "meta.applet.@id": metadata.get("applet", {}).get("@id"),
             "meta.activity.@id": metadata.get("activity", {}).get("@id"),
             "meta.subject.@id": metadata.get("subject", {}).get("@id")
-        },
+        }
+    print('\n\n QUERY IS', query)
+
+    definedRange = list(ResponseItem().find(
+        query=query,
         force=True,
         sort=[("created", ASCENDING)]
     ))
