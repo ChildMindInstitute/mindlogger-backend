@@ -20,25 +20,24 @@ def aggregate(metadata, informant, startDate=None, endDate=None, getAll=False):
     """
     Function to calculate aggregates
     """
-    thisResponseTime = datetime.fromtimestamp(
-        metadata["responseCompleted"]/1000
-    ) if "responseCompleted" in metadata else datetime.now(
+    thisResponseTime = datetime.now(
         tzlocal.get_localzone()
     )
+
     startDate = datetime.fromisoformat(startDate.isoformat(
     )).astimezone(utc) if startDate is not None else None
+    
     endDate = datetime.fromisoformat((
         thisResponseTime if endDate is None else endDate
     ).isoformat()).astimezone(utc)
 
-    definedRange = list(ResponseItem().find(
-        query={
+    query = {
             "baseParentType": 'user',
             "baseParentId": informant.get("_id") if isinstance(
                 informant,
                 dict
             ) else informant,
-            "created": {
+            "updated": {
                 "$gte": startDate,
                 "$lt": endDate
             } if startDate else {
@@ -47,17 +46,20 @@ def aggregate(metadata, informant, startDate=None, endDate=None, getAll=False):
             "meta.applet.@id": metadata.get("applet", {}).get("@id"),
             "meta.activity.@id": metadata.get("activity", {}).get("@id"),
             "meta.subject.@id": metadata.get("subject", {}).get("@id")
-        },
-        force=True,
-        sort=[("created", ASCENDING)]
-    ))
+        }
+    print('\n\n QUERY IS', query)
 
+    definedRange = list(ResponseItem().find(
+        query=query,
+        force=True,
+        sort=[("updated", ASCENDING)]
+    ))
 
     if not len(definedRange):
         raise ValueError("The defined range doesn't have a length")
 
     startDate = min([response.get(
-        'created',
+        'updated',
         endDate
     ) for response in definedRange]) if startDate is None else startDate
 
@@ -73,6 +75,7 @@ def aggregate(metadata, informant, startDate=None, endDate=None, getAll=False):
                 {}
             ).get('responses', {}):
                 completedDate(response)
+
     aggregated = {
         "schema:startDate": startDate,
         "schema:endDate": endDate,
@@ -115,7 +118,7 @@ def formatResponse(response):
                     metadata.get(
                         'responseStarted',
                         response.get(
-                            'created',
+                            'updated',
                             datetime.now()
                         )
                     )
@@ -124,7 +127,7 @@ def formatResponse(response):
                     metadata.get(
                         'responseCompleted',
                         response.get(
-                            'created',
+                            'updated',
                             datetime.now()
                         )
                     )
@@ -254,9 +257,7 @@ def aggregateAndSave(item, informant):
         item = ResponseItem().setMetadata(item, metadata)
     # sevenDay ...
     metadata = item.get("meta", {})
-    endDate = datetime.fromtimestamp(
-        metadata["responseCompleted"]/1000
-    ) if "responseCompleted" in metadata else datetime.now(
+    endDate = datetime.now(
         tzlocal.get_localzone()
     )
     startDate = endDate - timedelta(days=7)
@@ -317,7 +318,7 @@ def last7Days(
                 informantId,
                 ObjectId
             ) else ObjectId(informantId),
-            "created": {
+            "updated": {
                 "$lte": referenceDate
             },
             "meta.applet.@id": {
@@ -329,7 +330,7 @@ def last7Days(
             "meta.activity.url": activityURI
         },
         force=True,
-        sort=[("created", DESCENDING)]
+        sort=[("updated", DESCENDING)]
     ))
 
     latestResponses = [getLatestResponsesByAct(act) for act in listOfActivities]
@@ -353,9 +354,9 @@ def last7Days(
             # update the l7 with values from currentResp
             for (key, val) in currentResp.items():
                 if key in l7.keys():
-                    l7[key].append(dict(date=latest['created'], value=val))
+                    l7[key].append(dict(date=latest['updated'], value=val))
                 else:
-                    l7[key] = [dict(date=latest['created'], value=val)]
+                    l7[key] = [dict(date=latest['updated'], value=val)]
 
             outputResponses.update(l7)
 
@@ -401,7 +402,7 @@ def responseDateList(appletId, userId, reviewer):
         determine_date(
             response.get("meta", {}).get(
                 "responseCompleted",
-                response.get("created")
+                response.get("updated")
             )
         ).isoformat() for response in list(ResponseItem().find(
             query={
@@ -409,7 +410,7 @@ def responseDateList(appletId, userId, reviewer):
                 "baseParentId": userId,
                 "meta.applet.@id": appletId
             },
-            sort=[("created", DESCENDING)]
+            sort=[("updated", DESCENDING)]
         ))
     ]))
     rdl.sort(reverse=True)
