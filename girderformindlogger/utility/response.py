@@ -260,7 +260,7 @@ def aggregateAndSave(item, informant):
     endDate = datetime.now(
         tzlocal.get_localzone()
     )
-    startDate = endDate - timedelta(days=7)
+    startDate = (endDate - timedelta(days=7)).date()
     print("From {} to {}".format(
         startDate.strftime("%c"),
         endDate.strftime("%c")
