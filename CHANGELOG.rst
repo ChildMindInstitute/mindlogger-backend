@@ -8,6 +8,10 @@ Changes
 -------
 Unreleased
 ==========
+2019-09-25: v0.4.8
+^^^^^^^^^^^^^^^^^^
+* Fix datetime bug
+
 2019-09-24: v0.4.7
 ^^^^^^^^^^^^^^^^^^
 * Reviewer can see data
