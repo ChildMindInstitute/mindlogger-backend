@@ -3,6 +3,7 @@ import girder_client as gc
 import pandas as pd
 import numpy as np
 import simplejson
+from girder_client import HttpError
 
 
 def createGirder(host, port):
@@ -360,6 +361,13 @@ def postResponse(girder, user, actURI, itemURI, appletObject, password="password
     return resp
 
 
+def getLast7Days(girder, user, appletObject):
+    authenticate(girder, user)
+    appletId = appletObject['_id']
+    last7 = girder.get('response/last7Days/{}'.format(appletId))
+    return last7
+
+
 def getDataForApplet(girder, user, appletObject):
     """
     get the data for an applet (as a manager or reviewer)
@@ -393,9 +401,43 @@ def makeAReviewer(girder, user, appletObject, userB):
     """
     authenticate(girder, user)
     reviewerGroupId = appletObject['roles']['reviewer']['groups'][0]['id']
-    girder.post('group/{}/invitation'.format(reviewerGroupId),
+    return girder.post('group/{}/invitation'.format(reviewerGroupId),
     {'email': userB['email']})
 
+
+def acceptReviewerInvite(girder, user, appletObject):
+    """
+    accept a reviewer invite for an applet
+
+    inputs
+    ------
+
+    girder: GirderClient
+    user: non-manager, non-reviewer user object
+    appletObject: appletObject
+    """
+    authenticate(girder, user)
+    reviewerGroupId = appletObject['roles']['reviewer']['groups'][0]['id']
+    userCReviewerInvite = girder.post('group/{}/member'.format(reviewerGroupId))
+    return userCReviewerInvite
+
+
+def testPrivacyCheck(girder, user, appletObject):
+    """
+    make sure the user cannot see private information
+    
+    inputs
+    ------
+
+    girder: GirderClient
+    user: non-manager, non-reviewer user object
+    appletObject: appletObject
+    """
+    try:
+        getDataForApplet(girder, user, appletObject)
+        raise ValueError('User can see private data!!')
+    except HttpError:
+        return 1
 
 def removeApplet(girder, user, appletObject):
     """
