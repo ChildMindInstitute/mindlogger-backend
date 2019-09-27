@@ -293,18 +293,6 @@ jobs:
           command: tox -e public_names
           working_directory: girderformindlogger
 
-  release:
-    docker:
-      - image: girder/girder_test:latest-py3
-    working_directory: /home/circleci/project
-    steps:
-      - checkout:
-          path: girderformindlogger
-      - run:
-          name: Publish python packages
-          command: tox -e release
-          working_directory: girderformindlogger
-
   deploy:
     docker:
       - image: girder/girder_test:latest-py3
@@ -381,18 +369,7 @@ workflows:
               only: /^v[0-9]+.*/
             branches:
               only: 💚
-      - release:
-          requires:
-            - public_symbols
-            - py3_coverage
-          filters:
-            tags:
-              only: /^v[0-9]+.*/
-            branches:
-              only: master
       - deploy:
-          requires:
-            - release
           filters:
             tags:
               only: /^v[0-9]+.*/
