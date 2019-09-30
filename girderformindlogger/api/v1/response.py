@@ -372,6 +372,7 @@ class ResponseItem(Resource):
             )
         except AccessException:
             subject_info = {}
+
         metadata['subject'] = subject_info.get('meta', {}) if isinstance(
             subject_info,
             dict
@@ -390,6 +391,7 @@ class ResponseItem(Resource):
         AppletSubjectResponsesFolder = Folder().createFolder(
             parent=UserAppletResponsesFolder, parentType='folder',
             name=subject_id, reuseExisting=True, public=False)
+
         try:
             newItem = self._model.createResponseItem(
                 folder=AppletSubjectResponsesFolder,
