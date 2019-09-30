@@ -499,7 +499,17 @@ def testDeleteUser(girder, user):
     
     return 1
 
-def tryExceptTester(func, args, message):
+def tryExceptTester(func, args, message, nreturn = 1):
+    """
+    a wrapper function to run a function and print a message in green if it succeeds
+    or red if it fails.
+
+    inputs::
+    func: a function
+    args: a list of args to the function
+    message: a string, what to print about the function
+    nreturn: (default 1), number of expected return params.
+    """
     try:
         output = func(*args)
         print("\033[1;32;40m {}".format(message))
@@ -509,6 +519,7 @@ def tryExceptTester(func, args, message):
         print("\033[1;31;40m {}".format(message))
         print("\033[1;31;40m {}  \n".format(e))
         print("\033[0;37;40m ")
+        return [None] * nreturn
     
 
 def fullTest(server, port, activitySetUrl, act1, act2, act1Item, act2Item):
@@ -521,14 +532,19 @@ def fullTest(server, port, activitySetUrl, act1, act2, act1Item, act2Item):
         authenticate(gc, user)
         return gc, user
 
-    gc, user = tryExceptTester(step01, [], 'Create a girder client and a new user')
+    gc, user = tryExceptTester(step01,
+        [],
+        'Create a girder client and a new user',
+        2)
 
     # make sure the user has 0 applets
     def step02(gc, user):
         no_applets = getAppletsUser(gc, user, 0)
         return no_applets
     
-    no_applets = tryExceptTester(step02, [gc, user], 'Make sure the user has 0 applets')
+    no_applets = tryExceptTester(step02,
+                                 [gc, user],
+                                 'Make sure the user has 0 applets')
 
     # add an applet and make sure it was added
     def step03(gc, user, activitySetUrl):
@@ -539,7 +555,8 @@ def fullTest(server, port, activitySetUrl, act1, act2, act1Item, act2Item):
 
     appletObject, appletList, checkItWasAdded = tryExceptTester(step03,
                                                                 [gc, user, activitySetUrl],
-                                                                'add an applet and make sure it was added')
+                                                                'add an applet and make sure it was added',
+                                                                3)
 
     # expand and refresh the applet
     # print('\033[1;37;40m expand and refresh the applet')
@@ -552,7 +569,8 @@ def fullTest(server, port, activitySetUrl, act1, act2, act1Item, act2Item):
     appletsExpanded, appletRefreshed = tryExceptTester(
         step04,
         [gc, user, appletObject],
-        'expand and refresh the applet'
+        'expand and refresh the applet',
+        2
     )
 
     # add a schedule to the applet
@@ -577,7 +595,8 @@ def fullTest(server, port, activitySetUrl, act1, act2, act1Item, act2Item):
     userB, userBInvite = tryExceptTester(
         step06,
         [gc, user, appletObject],
-        'create a new user and invite them to the applet'
+        'create a new user and invite them to the applet',
+        2
     )
 
     # check that the manager invited the user
@@ -613,7 +632,8 @@ def fullTest(server, port, activitySetUrl, act1, act2, act1Item, act2Item):
     userCemail, inviteC, appletUserTable = tryExceptTester(
         step09,
         [gc, user, appletObject],
-        'invite someone that doesn\'t have an account yet'
+        'invite someone that doesn\'t have an account yet',
+        3
     )
 
 
@@ -628,7 +648,8 @@ def fullTest(server, port, activitySetUrl, act1, act2, act1Item, act2Item):
     userC, userCApplets = tryExceptTester(
         step10,
         [gc, userCemail],
-        'create that person\'s account, check that they have an invite, and accept the invite'
+        'create that person\'s account, check that they have an invite',
+        2
     )
 
     # check from perspective of admin and user, if the invite exists.
@@ -689,7 +710,8 @@ def fullTest(server, port, activitySetUrl, act1, act2, act1Item, act2Item):
     last7user, last7userB, last7userC = tryExceptTester(
         step14,
         [gc, user, userB, userC, appletObject],
-        'get the last 7 days of data for each user'
+        'get the last 7 days of data for each user',
+        3
     )
 
     # as a manager, see the data. make sure you see emails
@@ -714,7 +736,8 @@ def fullTest(server, port, activitySetUrl, act1, act2, act1Item, act2Item):
     userCReviewer, userCAcceptReviewer = tryExceptTester(
         step16,
         [gc, user, appletObject, userC],
-        'add user as a reviewer'
+        'add user as a reviewer',
+        2
     )
 
     # as a reviewer, see the data and make sure you don't see emails
