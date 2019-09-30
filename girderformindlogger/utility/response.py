@@ -54,9 +54,14 @@ def aggregate(metadata, informant, startDate=None, endDate=None, getAll=False):
         force=True,
         sort=[("updated", ASCENDING)]
     ))
-
+    print('\n\n DEFINED RANGE', definedRange)
     if not len(definedRange):
-        raise ValueError("The defined range doesn't have a length")
+        # TODO: I'm afraid of some asynchronous database writes
+        # that sometimes make defined range an empty list.
+        # For now I'm exiting, but this needs to be looked
+        # into.
+        return
+        # raise ValueError("The defined range doesn't have a length")
 
     startDate = min([response.get(
         'updated',
@@ -272,6 +277,7 @@ def aggregateAndSave(item, informant):
         endDate=endDate,
         getAll=True
     )
+    print('\n\n 275 agg and save')
     # save (2 of 3)
     if metadata and metadata != {}:
         item = ResponseItem().setMetadata(item, metadata)
@@ -283,6 +289,7 @@ def aggregateAndSave(item, informant):
         endDate=endDate,
         getAll=False
     )
+    print('\n\n 287 agg and save')
     # save (3 of 3)
     if metadata and metadata != {}:
         item = ResponseItem().setMetadata(item, metadata)

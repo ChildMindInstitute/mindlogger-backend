@@ -1,9 +1,10 @@
 import girderformindlogger
-import girder_client as gc
+import girder_client
 import pandas as pd
 import numpy as np
 import simplejson
 from girder_client import HttpError
+import time
 
 
 def createGirder(host, port):
@@ -16,7 +17,7 @@ def createGirder(host, port):
     host: string ('localhost' or 'dev.mindlogger.org')
     port: integer (443 if https, 8080 if local)
     """
-    return gc.GirderClient(host=host, port=port)
+    return girder_client.GirderClient(host=host, port=port)
 
 
 def testCreateUser(girder, email=None):
@@ -153,6 +154,8 @@ def getExpandedApplets(girder, user):
     """
     authenticate(girder, user)
     expandedApplets = girder.get('user/applets')
+    # TODO: add some checks to the structure of expandedApplets to make sure
+    # the mobile app can parse it.
     return expandedApplets
 
 
@@ -336,7 +339,7 @@ def postResponse(girder, user, actURI, itemURI, appletObject, password="password
 
     expandedApplets = getExpandedApplets(girder, user)
     expandedApplet = list(filter(lambda x: x['applet']['_id'].split('/')[1] == appletId, expandedApplets))
-    assert len(expandedApplet) == 1, "can't find the applet you want"
+    assert len(expandedApplet) == 1, "can't find the applet you want when posting a response!"
 
     expandedApplet = expandedApplet[0]
     
@@ -482,8 +485,7 @@ def deactivateApplet(girder, user, appletObject):
     appletObject: appletObject
     """
     authenticate(girder, user)
-    girder.delete('applet/{}'.format(appletObject['_id']))
-    assert getAppletsUser(user, 0), "user still has the applet that should be deleted."
+    return girder.delete('applet/{}'.format(appletObject['_id']))
 
 
 def testDeleteUser(girder, user):
@@ -496,3 +498,306 @@ def testDeleteUser(girder, user):
                                                              'Deleted user {}'.format(user['login']))
     
     return 1
+
+def tryExceptTester(func, args, message):
+    try:
+        output = func(*args)
+        print("\033[1;32;40m {}".format(message))
+        print("\033[0;37;40m ")
+        return output
+    except Exception as e:
+        print("\033[1;31;40m {}".format(message))
+        print("\033[1;31;40m {}  \n".format(e))
+        print("\033[0;37;40m ")
+    
+
+def fullTest(server, port, activitySetUrl, act1, act2, act1Item, act2Item):
+    
+    # Create a girder client and a new user
+
+    def step01():
+        gc = createGirder(server, port)
+        user = testCreateUser(gc)
+        authenticate(gc, user)
+        return gc, user
+
+    gc, user = tryExceptTester(step01, [], 'Create a girder client and a new user')
+
+    # make sure the user has 0 applets
+    def step02(gc, user):
+        no_applets = getAppletsUser(gc, user, 0)
+        return no_applets
+    
+    no_applets = tryExceptTester(step02, [gc, user], 'Make sure the user has 0 applets')
+
+    # add an applet and make sure it was added
+    def step03(gc, user, activitySetUrl):
+        appletObject = addApplet(gc, user, activitySetUrl)
+        appletList = getAppletsUser(gc, user, 1)
+        checkItWasAdded = getAppletById(gc, user, appletObject)
+        return appletObject, appletList, checkItWasAdded
+
+    appletObject, appletList, checkItWasAdded = tryExceptTester(step03,
+                                                                [gc, user, activitySetUrl],
+                                                                'add an applet and make sure it was added')
+
+    # expand and refresh the applet
+    # print('\033[1;37;40m expand and refresh the applet')
+    def step04(gc, user, appletObject):
+        appletsExpanded = getExpandedApplets(gc, user)
+        assert len(appletsExpanded) == 1, 'we get no expanded applets.'
+        appletRefreshed = refreshApplet(gc, user, appletObject)
+        return appletsExpanded, appletRefreshed
+    
+    appletsExpanded, appletRefreshed = tryExceptTester(
+        step04,
+        [gc, user, appletObject],
+        'expand and refresh the applet'
+    )
+
+    # add a schedule to the applet
+    # print('add a schedule to the applet')
+    
+    def step05(gc, user, appletObject):
+        addSchedule(gc, user, appletObject)
+    
+    tryExceptTester(
+        step05,
+        [gc, user, appletObject],
+        'add a schedule to the applet'
+    )
+
+    # create a new user and invite them to the applet
+    # print('create a new user and invite them to the applet')
+    def step06(gc, user, appletObject):
+        userB = testCreateUser(gc)
+        userBInvite = inviteUserToApplet(gc, user, appletObject, userB)
+        return userB, userBInvite
+
+    userB, userBInvite = tryExceptTester(
+        step06,
+        [gc, user, appletObject],
+        'create a new user and invite them to the applet'
+    )
+
+    # check that the manager invited the user
+    # print('check that the manager invited the user')
+    def step07(gc, user, appletObject, userB):
+        checkInvitesForUser(gc, user, appletObject, userB)
+
+    tryExceptTester(
+        step07,
+        [gc, user, appletObject, userB],
+        'check that the manager invited the user'
+    )
+
+    # accept the applet invite
+    # print('accept the applet invite')
+    def step08(gc, userB, appletObject):
+        acceptAppletInvite(gc, userB, appletObject)
+
+    tryExceptTester(step08, [gc, userB, appletObject], 'accept the applet invite')
+
+    # invite someone that doesn't have an account yet
+    # print('\033[0;37;40m invite someone that doesn\'t have an account yet')
+
+    def step09(gc, user, appletObject):
+        userCemail = 'randomuserc{}@test.com'.format(np.random.randint(1000000))
+        inviteC = inviteUserToApplet(gc, user, appletObject,
+                                        {'email': userCemail})
+        appletUserTable = checkAppletUserTableForUser(gc, user,
+                                                    appletObject,
+                                                    {'email': userCemail})
+        return userCemail, inviteC, appletUserTable
+    
+    userCemail, inviteC, appletUserTable = tryExceptTester(
+        step09,
+        [gc, user, appletObject],
+        'invite someone that doesn\'t have an account yet'
+    )
+
+
+    # create that person's account, check that they have an invite, and 
+    # accept the invite
+
+    def step10(gc, userCemail):
+        userC = testCreateUser(gc, userCemail)
+        userCApplets = getAppletsUser(gc, userC, 0)
+        return userC, userCApplets
+
+    userC, userCApplets = tryExceptTester(
+        step10,
+        [gc, userCemail],
+        'create that person\'s account, check that they have an invite, and accept the invite'
+    )
+
+    # check from perspective of admin and user, if the invite exists.
+    # print('check from perspective of admin and user, if the invite exists.')
+    def step11(gc, user, appletObject, userC):
+        checkInvitesForUser(gc, user, appletObject, userC)
+        checkForInvite(gc, userC, appletObject)
+    
+    tryExceptTester(
+        step11,
+        [gc, user, appletObject, userC],
+        'check from perspective of admin and user, if the invite exists.'
+    )
+
+    # accept user c's invitation
+    def step12(gc, userC, appletObject):
+        acceptAppletInvite(gc, userC, appletObject)
+        userCApplets = getAppletsUser(gc, userC, 1)
+        return userCApplets
+
+    userCApplets = tryExceptTester(
+        step12,
+        [gc, userC, appletObject],
+        'accept user C\'s invitation'
+    )
+
+    # post a response
+    # each user posts a response for a single item in each activity.
+    def step13(gc, user, userB, userC, act1, act1Item, act2, act2Item):
+        for u in [user, userB, userC]:
+            for i in range(2):
+                postResponse(gc, u, act1, act1Item, appletObject)
+                time.sleep(1)
+                postResponse(gc, u, act2, act2Item, appletObject)
+                time.sleep(1)
+            time.sleep(1)
+    
+    tryExceptTester(
+        step13,
+        [gc, user, userB, userC, act1, act1Item, act2, act2Item],
+        'posted responses for all 3 users'
+    )
+
+    
+    # get the last 7 days
+    #print('get the last 7 days of data')
+
+    def step14(gc, user, userB, userC, appletObject):
+        last7user = getLast7Days(gc, user, appletObject)
+        last7userB = getLast7Days(gc, userB, appletObject)
+        last7userC = getLast7Days(gc, userC, appletObject)
+
+        assert len(last7user['responses']) == 2, 'there should only be 2 responses'
+        assert len(last7userB['responses']) == 2, 'there should only be 2 responses'
+        assert len(last7userC['responses']) == 2, 'there should only be 2 responses'
+        return last7user, last7userB, last7userC
+
+    last7user, last7userB, last7userC = tryExceptTester(
+        step14,
+        [gc, user, userB, userC, appletObject],
+        'get the last 7 days of data for each user'
+    )
+
+    # as a manager, see the data. make sure you see emails
+    def step15(gc, user, appletObject):
+        appletData = getDataForApplet(gc, user, appletObject)
+        assert '@' in appletData[0]['userId'], 'manager cannot see emails'
+        return appletData
+
+    appletData = tryExceptTester(
+        step15,
+        [gc, user, appletObject],
+        'as a manager, see the data. make sure you see emails'
+    )
+
+    # add user as a reviewer
+    # print('add user as a reviewer')
+    def step16(gc, user, appletObject, userC):
+        userCReviewer = makeAReviewer(gc, user, appletObject, userC)
+        userCAcceptReviewer = acceptReviewerInvite(gc, userC, appletObject)
+        return userCReviewer, userCAcceptReviewer
+    
+    userCReviewer, userCAcceptReviewer = tryExceptTester(
+        step16,
+        [gc, user, appletObject, userC],
+        'add user as a reviewer'
+    )
+
+    # as a reviewer, see the data and make sure you don't see emails
+    # print('as a reviewer, see the data and make sure you don\'t see emails')
+    def step17(gc, userC, appletObject):
+        appletData = getDataForApplet(gc, userC, appletObject)
+        assert '@' not in appletData[0]['userId'], 'reviewer can see emails'
+        return appletData
+    
+    appletData = tryExceptTester(
+        step17,
+        [gc, userC, appletObject],
+        'as a reviewer, see the data and make sure you don\'t see emails'
+    )
+
+    # make sure we don't see any data as a non-manager and non-reviewer
+    # print('make sure we don\'t see any data as a non-manager and non-reviewer')
+    def step18(gc, userB, appletObject):
+        testPrivacyCheck(gc, userB, appletObject)
+
+    tryExceptTester(
+        step18,
+        [gc, userB, appletObject],
+        'make sure we don\'t see any data as a non-manager and non-reviewer'
+    )
+
+    # remove an applet without deleting data
+
+    def step19(gc, userC, appletObject):
+        removeApplet(gc, userC, appletObject)
+        userCApplets = getAppletsUser(gc, userC, 0)
+        appletData = getDataForApplet(gc, user, appletObject)
+
+        userCData = list(filter(lambda x: x['userId'] == userC['email'],
+                            appletData))
+        assert len(userCData), "the user does not have data, but we expect it"
+
+    tryExceptTester(
+        step19,
+        [gc, userC, appletObject],
+        'remove an applet without deleting data'
+    )
+
+    # remove an applet and delete data
+
+    def step20(gc, userB, appletObject):
+        deleteApplet(gc, userB, appletObject)
+        userBApplets = getAppletsUser(gc, userB, 0)
+        appletData = getDataForApplet(gc, user, appletObject)
+
+        userBData = list(filter(lambda x: x['userId'] == userB['email'],
+                                appletData))
+        assert len(userBData) == 0, "the user still has data, but they should not"
+
+    tryExceptTester(
+        step20,
+        [gc, userB, appletObject],
+        'remove an applet and delete data'
+    )
+
+    # deactivate an applet
+    def step21(gc, user, appletObject):
+        appletDeactivated = deactivateApplet(gc, user, appletObject)
+        return appletDeactivated
+
+    appletDeactivated = tryExceptTester(
+        step21,
+        [gc, user, appletObject],
+        'deactivate an applet'
+    )
+
+    # remove all users
+    def step22(gc, user, userB, userC):
+        testDeleteUser(gc, user)
+        testDeleteUser(gc, userB)
+        testDeleteUser(gc, userC)
+    
+    tryExceptTester(
+        step22,
+        [gc, user, userB, userC],
+        'remove all users'
+    )
+
+    return 1
+
+
