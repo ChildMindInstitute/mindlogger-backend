@@ -372,7 +372,7 @@ class ResponseItem(Resource):
             )
         except AccessException:
             subject_info = {}
-        print('\n\n 375')
+
         metadata['subject'] = subject_info.get('meta', {}) if isinstance(
             subject_info,
             dict
@@ -391,7 +391,7 @@ class ResponseItem(Resource):
         AppletSubjectResponsesFolder = Folder().createFolder(
             parent=UserAppletResponsesFolder, parentType='folder',
             name=subject_id, reuseExisting=True, public=False)
-        print('\n\n 393')
+
         try:
             newItem = self._model.createResponseItem(
                 folder=AppletSubjectResponsesFolder,
@@ -405,7 +405,7 @@ class ResponseItem(Resource):
             raise ValidationException(
                 "Couldn't find activity name for this response"
             )
-        print('\n\n 406')
+
         # for each blob in the parameter, upload it to a File under the item.
         for key, value in params.items():
             # upload the value (a blob)
@@ -428,7 +428,7 @@ class ResponseItem(Resource):
 
         if metadata:
             newItem = self._model.setMetadata(newItem, metadata)
-        print('\n\n 429')
+
         if not pending:
             # create a Thread to calculate and save aggregates
 
