@@ -8,8 +8,20 @@ Changes
 -------
 Unreleased
 ==========
-2019-09-24: v0.4.4
+2019-09-30: v0.5.1
 ^^^^^^^^^^^^^^^^^^
+* Add integration tests to run locally
+
+2019-09-25: v0.4.8
+^^^^^^^^^^^^^^^^^^
+* Fix datetime bug
+
+2019-09-24: v0.4.7
+^^^^^^^^^^^^^^^^^^
+* Reviewer can see data
+
+2019-09-24: v0.4.4 ‒ v0.4.6
+^^^^^^^^^^^^^^^^^^^^^^^^^^^
 * Bug fixes regarding responses
 
 2019-09-20: v0.4.3
