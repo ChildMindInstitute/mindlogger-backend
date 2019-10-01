@@ -113,6 +113,9 @@ jobs:
       - run:
           name: Create Girder build directory
           command: mkdir girder_build
+      -run:
+          name: pwd
+          command: pwd && ls
       - run:
           name: Run tests
           command: pytest /home/circleci/project/test
