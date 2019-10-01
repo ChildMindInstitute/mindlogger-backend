@@ -51,6 +51,7 @@ installReqs = [
     'pytz',
     'requests',
     "shutilwhich ; python_version < '3'",
+    'simplejson',
     'six>=1.9',
     'tzlocal>=1.5.1'
 ]
