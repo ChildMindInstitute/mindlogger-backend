@@ -25,11 +25,11 @@ def aggregate(metadata, informant, startDate=None, endDate=None, getAll=False):
     )
 
     startDate = datetime.fromisoformat(startDate.isoformat(
-    )).astimezone(utc) if startDate is not None else None
-    
+    )).astimezone(utc).replace(tzinfo=None) if startDate is not None else None
+
     endDate = datetime.fromisoformat((
         thisResponseTime if endDate is None else endDate
-    ).isoformat()).astimezone(utc)
+    ).isoformat()).astimezone(utc).replace(tzinfo=None)
 
     query = {
             "baseParentType": 'user',
@@ -44,7 +44,7 @@ def aggregate(metadata, informant, startDate=None, endDate=None, getAll=False):
                 "$lt": endDate
             },
             "meta.applet.@id": metadata.get("applet", {}).get("@id"),
-            "meta.activity.@id": metadata.get("activity", {}).get("@id"),
+            "meta.activity.url": metadata.get("activity", {}).get("url"),
             "meta.subject.@id": metadata.get("subject", {}).get("@id")
         }
     print('\n\n QUERY IS', query)
