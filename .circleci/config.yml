@@ -199,23 +199,5 @@ workflows:
   version: 2
   test_all:
     jobs:
-      - py3_serverInstall:
-          filters:
-            tags:
-              only: /^v[0-9]+.*/
-            branches:
-              only: 💚
-      - py3_integrationTests:
-          filters:
-            tags:
-              only: /^v[0-9]+.*/
-            branches:
-              only: 💚
-      - py3_coverage:
-          requires:
-            - py3_integrationTests
-          filters:
-            tags:
-              only: /^v[0-9]+.*/
-            branches:
-              only: 💚
+      - py3_serverInstall
+      - py3_integrationTests
