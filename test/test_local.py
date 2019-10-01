@@ -1,4 +1,4 @@
-from testLib import fullTest
+from .testLib import fullTest
 
 server = 'localhost'
 port = '8080'
@@ -45,4 +45,3 @@ try:
     fullTest(server, port, nestedActivitySet, nact1, nact2, nact1Item, nact2Item)
 except Exception as e:
     print('\n\n ERROR:', e)
-
