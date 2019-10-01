@@ -114,18 +114,8 @@ jobs:
           name: Create Girder build directory
           command: mkdir girder_build
       - run:
-          name: pwd
-          command: pwd && ls
-      - run:
           name: Run tests
-          command: pytest /home/circleci/project/girderformindlogger/test
-      - store_artifacts:
-          # Failure screenshots from web tests
-          path: girderformindlogger/build/test/artifacts
-      - persist_to_workspace:
-          root: /home/circleci/project
-          paths:
-            - girderformindlogger/build/test/coverage
+          command: pytest girderformindlogger/test --capture=no
 
   py3_coverage:
     docker:
