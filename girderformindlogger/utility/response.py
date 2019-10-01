@@ -25,11 +25,11 @@ def aggregate(metadata, informant, startDate=None, endDate=None, getAll=False):
     )
 
     startDate = datetime.fromisoformat(startDate.isoformat(
-    )).astimezone(utc) if startDate is not None else None
-    
+    )).astimezone(utc).replace(tzinfo=None) if startDate is not None else None
+
     endDate = datetime.fromisoformat((
         thisResponseTime if endDate is None else endDate
-    ).isoformat()).astimezone(utc)
+    ).isoformat()).astimezone(utc).replace(tzinfo=None)
 
     query = {
             "baseParentType": 'user',
