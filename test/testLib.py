@@ -95,7 +95,7 @@ def getAppletById(girder, user, ar):
 def addApplet(girder, new_user, activitySetUrl):
     """
     adds an applet for the user, where the user becomes a manager for it.
-    
+
     inputs
     ------
     girder: a GirderClient object
@@ -108,7 +108,7 @@ def addApplet(girder, new_user, activitySetUrl):
 
     """
     authenticate(girder, new_user)
-    
+
     # TODO: create an activity-set that JUST for testing.
     # make sure it has all the weird qualities that can break
 
@@ -120,7 +120,7 @@ def addApplet(girder, new_user, activitySetUrl):
 
     assert ar['_id'], 'there is no ID!'
     assert ar['meta']['activitySet']['url'] == activitySetUrl, 'the URLS do not match! {} {}'.format(ar['meta']['activitySet']['url'], activitySetUrl)
-    
+
     assert getAppletById(girder, new_user, ar) == 1, 'something wrong with getAppletById'
     return ar
 
@@ -145,7 +145,7 @@ def getAppletsUser(girder, user, n=1):
 def getExpandedApplets(girder, user):
     """
     get the fully expanded applet for a user
-    
+
     inputs
     ------
 
@@ -188,7 +188,7 @@ def addSchedule(girder, user, appletObject):
     user: a user object
     appletObject: appletObject.
     """
-    
+
     scheduleString = """{"type":2,"size":1,"fill":true,"minimumSize":0,"repeatCovers":true,"listTimes":false,"eventsOutside":false,"updateRows":false,"updateColumns":false,"around":1567321200000,"events":[{"data":{"title":"EMA: Morning","description":"","location":"","color":"#673AB7","forecolor":"#ffffff","calendar":"","busy":true,"icon":"","URI":"http://repronim.org/schema-standardization/activity-sets/mindlogger-demo/mindlogger-demo_schema","notifications":[{"start":"09:00","end":null,"random":false,"notifyIfIncomplete":false}],"useNotifications":true},"schedule":{}}]}"""
     schedule = simplejson.loads(scheduleString)
     authenticate(girder, user)
@@ -268,7 +268,7 @@ def checkForInvite(girder, user, appletObject):
 
 def acceptAppletInvite(girder, user, appletObject):
     """
-    accept an applet invite 
+    accept an applet invite
 
     inputs
     ------
@@ -333,7 +333,7 @@ def postResponse(girder, user, actURI, itemURI, appletObject, password="password
     appletObject: appletObject
     password (optional): defaults to password
     """
-    
+
     authenticate(girder, user, password)
     appletId = appletObject['_id']
 
@@ -342,7 +342,7 @@ def postResponse(girder, user, actURI, itemURI, appletObject, password="password
     assert len(expandedApplet) == 1, "can't find the applet you want when posting a response!"
 
     expandedApplet = expandedApplet[0]
-    
+
     a = expandedApplet['activities'][actURI]
     activityId = a['_id'].split('/')[1]
 
@@ -428,7 +428,7 @@ def acceptReviewerInvite(girder, user, appletObject):
 def testPrivacyCheck(girder, user, appletObject):
     """
     make sure the user cannot see private information
-    
+
     inputs
     ------
 
@@ -476,7 +476,7 @@ def deleteApplet(girder, user, appletObject):
 
 def deactivateApplet(girder, user, appletObject):
     """
-    
+
     inputs
     ------
 
@@ -496,7 +496,7 @@ def testDeleteUser(girder, user):
 
     assert deleteUser['message'] == 'Deleted user {}.'.format(user['login']), "{} does not equal {}".format(deleteUser['message'],
                                                              'Deleted user {}'.format(user['login']))
-    
+
     return 1
 
 def tryExceptTester(func, args, message, nreturn = 1):
@@ -520,10 +520,10 @@ def tryExceptTester(func, args, message, nreturn = 1):
         print("\033[1;31;40m {}  \n".format(e))
         print("\033[0;37;40m ")
         return [None] * nreturn
-    
+
 
 def fullTest(server, port, activitySetUrl, act1, act2, act1Item, act2Item):
-    
+
     # Create a girder client and a new user
 
     def step01():
@@ -541,7 +541,7 @@ def fullTest(server, port, activitySetUrl, act1, act2, act1Item, act2Item):
     def step02(gc, user):
         no_applets = getAppletsUser(gc, user, 0)
         return no_applets
-    
+
     no_applets = tryExceptTester(step02,
                                  [gc, user],
                                  'Make sure the user has 0 applets')
@@ -565,7 +565,7 @@ def fullTest(server, port, activitySetUrl, act1, act2, act1Item, act2Item):
         assert len(appletsExpanded) == 1, 'we get no expanded applets.'
         appletRefreshed = refreshApplet(gc, user, appletObject)
         return appletsExpanded, appletRefreshed
-    
+
     appletsExpanded, appletRefreshed = tryExceptTester(
         step04,
         [gc, user, appletObject],
@@ -575,10 +575,10 @@ def fullTest(server, port, activitySetUrl, act1, act2, act1Item, act2Item):
 
     # add a schedule to the applet
     # print('add a schedule to the applet')
-    
+
     def step05(gc, user, appletObject):
         addSchedule(gc, user, appletObject)
-    
+
     tryExceptTester(
         step05,
         [gc, user, appletObject],
@@ -628,7 +628,7 @@ def fullTest(server, port, activitySetUrl, act1, act2, act1Item, act2Item):
                                                     appletObject,
                                                     {'email': userCemail})
         return userCemail, inviteC, appletUserTable
-    
+
     userCemail, inviteC, appletUserTable = tryExceptTester(
         step09,
         [gc, user, appletObject],
@@ -637,7 +637,7 @@ def fullTest(server, port, activitySetUrl, act1, act2, act1Item, act2Item):
     )
 
 
-    # create that person's account, check that they have an invite, and 
+    # create that person's account, check that they have an invite, and
     # accept the invite
 
     def step10(gc, userCemail):
@@ -657,7 +657,7 @@ def fullTest(server, port, activitySetUrl, act1, act2, act1Item, act2Item):
     def step11(gc, user, appletObject, userC):
         checkInvitesForUser(gc, user, appletObject, userC)
         checkForInvite(gc, userC, appletObject)
-    
+
     tryExceptTester(
         step11,
         [gc, user, appletObject, userC],
@@ -686,14 +686,14 @@ def fullTest(server, port, activitySetUrl, act1, act2, act1Item, act2Item):
                 postResponse(gc, u, act2, act2Item, appletObject)
                 time.sleep(1)
             time.sleep(1)
-    
+
     tryExceptTester(
         step13,
         [gc, user, userB, userC, act1, act1Item, act2, act2Item],
         'posted responses for all 3 users'
     )
 
-    
+
     # get the last 7 days
     #print('get the last 7 days of data')
 
@@ -732,7 +732,7 @@ def fullTest(server, port, activitySetUrl, act1, act2, act1Item, act2Item):
         userCReviewer = makeAReviewer(gc, user, appletObject, userC)
         userCAcceptReviewer = acceptReviewerInvite(gc, userC, appletObject)
         return userCReviewer, userCAcceptReviewer
-    
+
     userCReviewer, userCAcceptReviewer = tryExceptTester(
         step16,
         [gc, user, appletObject, userC],
@@ -746,7 +746,7 @@ def fullTest(server, port, activitySetUrl, act1, act2, act1Item, act2Item):
         appletData = getDataForApplet(gc, userC, appletObject)
         assert '@' not in appletData[0]['userId'], 'reviewer can see emails'
         return appletData
-    
+
     appletData = tryExceptTester(
         step17,
         [gc, userC, appletObject],
@@ -814,7 +814,7 @@ def fullTest(server, port, activitySetUrl, act1, act2, act1Item, act2Item):
         testDeleteUser(gc, user)
         testDeleteUser(gc, userB)
         testDeleteUser(gc, userC)
-    
+
     tryExceptTester(
         step22,
         [gc, user, userB, userC],
@@ -822,5 +822,3 @@ def fullTest(server, port, activitySetUrl, act1, act2, act1Item, act2Item):
     )
 
     return 1
-
-

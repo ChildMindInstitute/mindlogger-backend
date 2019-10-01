@@ -92,7 +92,7 @@ class FilesystemAssetstoreAdapter(AbstractAssetstoreAdapter):
         # prevents invalid new assetstores from being created, so this only
         # happens to existing assetstores that no longer can access their temp
         # directories.
-        self.tempDir = os.path.join(self.assetstore['root'], 'temp')
+        self.tempDir = os.path.join(self.assetstore.get('root', '/'), 'temp')
         try:
             mkdir(self.tempDir)
         except OSError:

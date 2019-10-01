@@ -44,110 +44,7 @@ jobs:
             - girderformindlogger
             - girder_env
 
-  py3_serverTest:
-    docker:
-      - image: girder/girder_test:latest-py3
-      # Use the latest MongoDB
-      - image: circleci/mongo:3.6-ram
-        command: ["mongod", "--storageEngine", "ephemeralForTest", "--dbpath", "/dev/shm/mongo"]
 
-    working_directory: /home/circleci/project  # as $CIRCLE_WORKING_DIRECTORY
-
-    steps:
-      - attach_workspace:
-          at: /home/circleci/project
-      - run:
-          name: Activate virtual environment
-          command: echo ". $CIRCLE_WORKING_DIRECTORY/girder_env/bin/activate" >> $BASH_ENV
-      - run:
-          name: Create Girder build directory
-          command: mkdir girder_build
-      - run:
-          name: Run CTest
-          command: ctest --extra-verbose --script "$CIRCLE_WORKING_DIRECTORY/girderformindlogger/.circleci/ci_test.cmake" --exclude-regex '^server_pytest_core$'
-          environment:
-            TEST_GROUP: python
-            PYTHON_VERSION: 3.6
-            PYTHON_EXECUTABLE: /home/circleci/project/girder_env/bin/python
-          working_directory: girder_build
-      - run:
-          name: Run tox
-          command: tox -e lint,circleci-py36,docs
-          working_directory: girderformindlogger
-      - store_test_results:
-          path: girderformindlogger/build/test/results
-      - persist_to_workspace:
-          root: /home/circleci/project
-          paths:
-            - girderformindlogger
-
-  py3_webBuild_webTest:
-    docker:
-      - image: girder/girder_test:latest-py3
-      - image: circleci/mongo:3.6-ram
-        command: ["mongod", "--storageEngine", "ephemeralForTest", "--dbpath", "/dev/shm/mongo"]
-
-    working_directory: /home/circleci/project  # as $CIRCLE_WORKING_DIRECTORY
-
-    steps:
-      - attach_workspace:
-          at: /home/circleci/project
-      - run:
-          name: Activate virtual environment
-          command: echo ". $CIRCLE_WORKING_DIRECTORY/girder_env/bin/activate" >> $BASH_ENV
-      - restore_cache:
-          key: npm-{{ arch }}-{{ checksum "girderformindlogger/package-lock.json" }}
-      - run:
-          name: Install @girder/lint for javascript linting
-          command: npm ci
-          environment:
-            - npm_config_cache: /home/circleci/project/npm_cache
-          working_directory: girderformindlogger
-      - run:
-          name: Build Girder web client
-          command: girderformindlogger build --dev | cat
-          environment:
-            - npm_config_cache: /home/circleci/project/npm_cache
-      - save_cache:
-          paths: npm_cache
-          key: npm-{{ arch }}-{{ checksum "girderformindlogger/package-lock.json" }}
-      - run:
-          name: Run Javascript linting
-          command: npm run lint
-          working_directory: girderformindlogger
-      - run:
-          name: Create Girder build directory
-          command: mkdir girder_build
-      - run:
-          name: Run CTest
-          command: ctest --extra-verbose --script "$CIRCLE_WORKING_DIRECTORY/girderformindlogger/.circleci/ci_test.cmake"
-          environment:
-            TEST_GROUP: browser
-            PYTHON_VERSION: 3.6
-            PYTHON_EXECUTABLE: /home/circleci/project/girder_env/bin/python
-            JASMINE_TIMEOUT: 15000
-          working_directory: girder_build
-      - store_artifacts:
-          # Failure screenshots from web tests
-          path: girderformindlogger/build/test/artifacts
-      - run:
-          name: Reduce workspace size
-          command: |
-            find . | grep --extended-regexp "(__pycache__|\.pyc|\.pyo$)" | xargs rm --recursive --force
-            pyclean girderformindlogger
-            pyclean girder_build
-            pyclean girder_env
-            # We don't need the packaging environment
-            rm --recursive --force girder_build/env
-            # Remove node_module caches
-            rm --recursive --force girderformindlogger/node_modules/.cache
-      - persist_to_workspace:
-          root: /home/circleci/project
-          paths:
-            - girderformindlogger/node_modules
-            - girderformindlogger/build/test/coverage
-            - girder_build
-            - girder_env
   py3_integrationTests:
     machine: true
     working_directory: /home/circleci/project  # as $CIRCLE_WORKING_DIRECTORY
@@ -217,31 +114,8 @@ jobs:
           name: Create Girder build directory
           command: mkdir girder_build
       - run:
-          name: Build Girder web client
-          command: |
-            source $NVM_DIR/nvm.sh
-            girderformindlogger build --dev | cat
-      - run:
-          name: CMake
-          command: cmake ../girderformindlogger -DPYTHON_VERSION=3.6 -DPYTHON_EXECUTABLE=/home/circleci/.virtualenvs/girderformindlogger/bin/python
-          working_directory: girder_build
-      - run:
-          name: make
-          command: make --jobs=3
-          working_directory: girder_build
-      - run:
-          name: CTest
-          command: ctest --parallel 3 --extra-verbose --label-regex girder_integration
-          working_directory: girder_build
-          environment:
-            JASMINE_TIMEOUT: 15000
-      - store_artifacts:
-          # Failure screenshots from web tests
-          path: girderformindlogger/build/test/artifacts
-      - persist_to_workspace:
-          root: /home/circleci/project
-          paths:
-            - girderformindlogger/build/test/coverage
+          name: Run tests
+          command: pytest girderformindlogger/test --capture=no
 
   py3_coverage:
     docker:
@@ -293,32 +167,6 @@ jobs:
           command: tox -e public_names
           working_directory: girderformindlogger
 
-  ansible:
-    docker:
-      - image: girder/girder_test:latest-py3
-    working_directory: /home/circleci/project  # as $CIRCLE_WORKING_DIRECTORY
-    steps:
-      - checkout:
-          path: girderformindlogger
-      - setup_remote_docker:
-          docker_layer_caching: true
-      - run:
-          name: Run Ansible tests
-          command: tox -e ansible
-          working_directory: girderformindlogger
-
-  release:
-    docker:
-      - image: girder/girder_test:latest-py3
-    working_directory: /home/circleci/project
-    steps:
-      - checkout:
-          path: girderformindlogger
-      - run:
-          name: Publish python packages
-          command: tox -e release
-          working_directory: girderformindlogger
-
   deploy:
     docker:
       - image: girder/girder_test:latest-py3
@@ -351,56 +199,5 @@ workflows:
   version: 2
   test_all:
     jobs:
-      - py3_serverInstall:
-          filters:
-            tags:
-              only: /^v[0-9]+.*/
-      - py3_serverTest:
-          requires:
-            - py3_serverInstall
-          filters:
-            tags:
-              only: /^v[0-9]+.*/
-      - py3_webBuild_webTest:
-          requires:
-            - py3_serverInstall
-          filters:
-            tags:
-              only: /^v[0-9]+.*/
-      - py3_integrationTests:
-          filters:
-            tags:
-              only: /^v[0-9]+.*/
-      - py3_coverage:
-          requires:
-            - py3_serverTest
-            - py3_webBuild_webTest
-            - py3_integrationTests
-          filters:
-            tags:
-              only: /^v[0-9]+.*/
-      - public_symbols:
-          filters:
-            tags:
-              only: /^v[0-9]+.*/
-      - ansible:
-          filters:
-            tags:
-              only: /^v[0-9]+.*/
-      - release:
-          requires:
-            - public_symbols
-            - py3_coverage
-          filters:
-            tags:
-              only: /^v[0-9]+.*/
-            branches:
-              only: master
-      - deploy:
-          requires:
-            - release
-          filters:
-            tags:
-              only: /^v[0-9]+.*/
-            branches:
-              only: 💚
+      - py3_serverInstall
+      - py3_integrationTests

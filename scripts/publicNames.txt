@@ -73,7 +73,6 @@ clients
             cli
                 GirderCli
                     sendRestRequest
-                help
                 main
 girderformindlogger
     LogFormatter
@@ -184,10 +183,21 @@ girderformindlogger
                 Activity
                     getActivity
                     getActivityByURL
+                ActivityModel
+                AppletModel
+                CollectionModel
+                FolderModel
+                ItemModel
             activity_set
                 ActivitySet
                     getActivitySet
                     getActivitySetFromURL
+                ActivitySetModel
+                AppletModel
+                CollectionModel
+                FolderModel
+                ItemModel
+                UserModel
             api_key
                 ApiKey
                     createKey
@@ -195,7 +205,10 @@ girderformindlogger
                     deleteKey
                     listKeys
                     updateKey
+                ApiKeyModel
             applet
+                ActivityModel
+                ActivitySetModel
                 Applet
                     assignGroup
                     createApplet
@@ -208,7 +221,13 @@ girderformindlogger
                     invite
                     inviteFromURL
                     setConstraints
+                AppletModel
+                CollectionModel
+                FolderModel
+                GroupModel
+                ItemModel
                 USER_ROLE_KEYS
+                UserModel
                 authorizeReviewer
                 authorizeReviewers
                 selfAssignment
@@ -221,6 +240,7 @@ girderformindlogger
                     getAssetstoreFiles
                     importData
                     updateAssetstore
+                AssetstoreModel
             collection
                 Collection
                     createCollection
@@ -235,10 +255,13 @@ girderformindlogger
                     setMetadata
                     updateCollection
                     updateCollectionAccess
+                CollectionModel
             context
+                CollectionModel
                 Context
                     getContext
                     getSkin
+                FolderModel
             file
                 File
                     cancelUpload
@@ -254,6 +277,7 @@ girderformindlogger
                     requestOffset
                     updateFile
                     updateFileContents
+                FileModel
             folder
                 Folder
                     copyFolder
@@ -270,6 +294,7 @@ girderformindlogger
                     setMetadata
                     updateFolder
                     updateFolderAccess
+                FolderModel
             group
                 Group
                     createGroup
@@ -288,6 +313,7 @@ girderformindlogger
                     removeFromGroup
                     updateGroup
                     updateGroupAccess
+                GroupModel
             item
                 Item
                     copyItem
@@ -301,6 +327,7 @@ girderformindlogger
                     rootpath
                     setMetadata
                     updateItem
+                ItemModel
             notification
                 DEFAULT_STREAM_TIMEOUT
                 MAX_POLL_INTERVAL
@@ -308,8 +335,10 @@ girderformindlogger
                 Notification
                     listNotifications
                     stream
+                NotificationModel
                 sseMessage
             resource
+                BaseResource
                 Resource
                     copyResources
                     delete
@@ -322,15 +351,30 @@ girderformindlogger
                     setTimestamp
                 allowedDeleteTypes
                 allowedSearchTypes
+                path_util
             response
+                ActivityModel
+                AppletModel
+                AssignmentModel
+                ResponseFolderModel
                 ResponseItem
                     createResponseItem
+                    getLast7Days
                     getResponses
+                ResponseItemModel
+                UploadModel
+                UserModel
+                save
             screen
+                ActivityModel
+                FileModel
+                FolderModel
+                ItemModel
                 Screen
                     createScreen
                     getScreen
                     getScreenByURL
+                ScreenModel
             system
                 LOG_BUF_SIZE
                 ModuleStartTime
@@ -357,7 +401,12 @@ girderformindlogger
                     deleteSession
                     getSession
                     listScopes
+                TokenModel
             user
+                AppletModel
+                CollectionModel
+                FolderModel
+                GroupModel
                 User
                     changePassword
                     changeUserPassword
@@ -369,6 +418,7 @@ girderformindlogger
                     generateTemporaryPassword
                     getGroupInvites
                     getMe
+                    getOwnApplets
                     getUser
                     getUserAccess
                     getUserApplets
@@ -382,12 +432,11 @@ girderformindlogger
                     updateUser
                     updateUserAccess
                     verifyEmail
+                UserModel
     auditLogger
     cli
         build
-            help
             main
-        context_settings
         main
         mount
             FUSELogError
@@ -405,17 +454,14 @@ girderformindlogger
                 readdir
                 release
                 use_ns
-            help
             main
             mountServer
-            show_default
+            path_util
             unmountServer
         serve
             main
         sftpd
             DEFAULT_PORT
-            default
-            help
             main
         shell
             main
@@ -522,8 +568,10 @@ girderformindlogger
         mongodb_proxy
             EXECUTABLE_MONGO_METHODS
             Executable
+            MongoClient
             MongoProxy
                 next
+            MongoReplicaSetClient
             get_methods
     getLogPaths
     logStdoutStderr
@@ -535,10 +583,14 @@ girderformindlogger
                 importUrl
                 listVersionId
                 load
+            AppletModel
+            CollectionModel
         activitySet
             ActivitySet
                 importUrl
                 load
+            FolderModel
+            UserModel
         api_key
             ApiKey
                 createApiKey
@@ -555,7 +607,13 @@ girderformindlogger
                 getAppletsForGroup
                 getAppletsForUser
                 importUrl
+                isManager
                 load
+            CollectionModel
+            FolderModel
+            GroupModel
+            ProtoUserModel
+            UserModel
         assetstore
             Assetstore
                 addComputedInfo
@@ -607,6 +665,7 @@ girderformindlogger
                 updateFile
                 updateSize
                 validate
+            path_util
         folder
             Folder
                 childFolders
@@ -742,6 +801,7 @@ girderformindlogger
                 QUEUED
                 SUCCESS
                 isComplete
+        pluralize
         protoUser
             ProtoUser
                 createProtoUser
@@ -755,6 +815,8 @@ girderformindlogger
                 createResponseItem
                 initialize
         roles
+            FolderModel
+            UserModel
             canonicalUser
             checkRole
             createCipher
@@ -764,6 +826,8 @@ girderformindlogger
             nextCipher
             userByEmail
         screen
+            ActivityModel
+            FolderModel
             Screen
                 createScreen
                 importUrl
@@ -778,6 +842,7 @@ girderformindlogger
                 set
                 unset
                 validate
+        smartImport
         token
             Token
                 addScope
@@ -931,6 +996,7 @@ girderformindlogger
             removeAssetstoreAdapter
             setAssetstoreAdapter
         camelcase
+        clean_empty
         config
             getConfig
             getServerMode
@@ -954,6 +1020,7 @@ girderformindlogger
                 requestOffset
                 uploadChunk
                 validateInfo
+        firstLower
         genToken
         gridfs_assetstore_adapter
             CHUNK_SIZE
@@ -970,25 +1037,29 @@ girderformindlogger
             RECENT_CONNECTION_CACHE_MAX_SIZE
             RECENT_CONNECTION_CACHE_TIME
         jsonld_expander
+            ActivityModel
+            ActivitySetModel
+            AppletModel
+            CollectionModel
+            FolderModel
+            HIERARCHY
+            ItemModel
             KEYS_TO_EXPAND
             MODELS
+            ScreenModel
+            UserModel
             camelCase
+            componentImport
             contextualize
             expand
             fileObjectToStr
             formatLdObject
-            generic
             getByLanguage
             getFromLongestMatchingKey
             getFromLongestMatchingValue
             getMoreGeneric
-            key
             keyExpansion
-            listOfValues
-            objectList
-            reverse
             snake_case
-            value
             xsdNow
         loadJSON
         mail_utils
@@ -1027,6 +1098,20 @@ girderformindlogger
         resource
             allowedSearchTypes
             listFromString
+        response
+            UserModel
+            aggregate
+            aggregateAndSave
+            completedDate
+            countResponseValues
+            delocalize
+            determine_date
+            formatResponse
+            isodatetime
+            last7Days
+            pd
+            responseDateList
+            string_or_ObjectID
         s3_assetstore_adapter
             BUF_LEN
             DEFAULT_REGION
@@ -1110,7 +1195,6 @@ plugins
                 get_file_download_records
                 index_folder
                 report
-                required
     authorized_upload
         girder_authorized_upload
             AuthorizedUploadPlugin
@@ -1172,6 +1256,7 @@ plugins
                     DEFAULT_IMAGE
     hashsum_download
         girder_hashsum_download
+            FileModel
             HashedFile
                 computeHashes
                 downloadKeyFile
@@ -1253,6 +1338,7 @@ plugins
                     listAllJobs
                     listJobs
                     updateJob
+                JobModel
             models
                 job
                     Job
@@ -1378,6 +1464,7 @@ plugins
                     FRONTEND_DSN
     terms
         girder_terms
+            CollectionModel
             TermsPlugin
                 CLIENT_SOURCE_PATH
                 DISPLAY_NAME
@@ -1400,6 +1487,7 @@ plugins
             worker
                 attachThumbnail
                 createThumbnail
+                np
                 run
                 scaleDicomLevels
     user_quota
@@ -1425,6 +1513,7 @@ plugins
                     DEFAULT_USER_QUOTA
     virtual_folders
         girder_virtual_folders
+            FolderResource
             VirtualFoldersPlugin
                 DISPLAY_NAME
                 load

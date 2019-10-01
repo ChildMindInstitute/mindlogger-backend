@@ -8,6 +8,15 @@ Changes
 -------
 Unreleased
 ==========
+2019-10-01: v0.5.2
+^^^^^^^^^^^^^^^^^^
+* Fetch activity responses by URL rather than ID
+* :green_heart: Restore continuous integration
+
+2019-09-30: v0.5.1
+^^^^^^^^^^^^^^^^^^
+* Add integration tests to run locally
+
 2019-09-25: v0.4.8
 ^^^^^^^^^^^^^^^^^^
 * Fix datetime bug
