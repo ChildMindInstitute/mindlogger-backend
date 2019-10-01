@@ -226,9 +226,3 @@ workflows:
               only: /^v[0-9]+.*/
             branches:
               only: 💚
-      - public_symbols:
-          filters:
-            tags:
-              only: /^v[0-9]+.*/
-            branches:
-              only: 💚
