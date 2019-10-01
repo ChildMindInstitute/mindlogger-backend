@@ -115,7 +115,7 @@ jobs:
           command: mkdir girder_build
       - run:
           name: Run tests
-          command: pytest test
+          command: pytest ../test
       - store_artifacts:
           # Failure screenshots from web tests
           path: girderformindlogger/build/test/artifacts
