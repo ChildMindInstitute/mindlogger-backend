@@ -44,7 +44,7 @@ def aggregate(metadata, informant, startDate=None, endDate=None, getAll=False):
                 "$lt": endDate
             },
             "meta.applet.@id": metadata.get("applet", {}).get("@id"),
-            "meta.activity.@id": metadata.get("activity", {}).get("@id"),
+            "meta.activity.url": metadata.get("activity", {}).get("url"),
             "meta.subject.@id": metadata.get("subject", {}).get("@id")
         }
     print('\n\n QUERY IS', query)
