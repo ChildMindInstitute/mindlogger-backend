@@ -391,11 +391,11 @@ class Group(AccessControlledModel):
         from .user import User
         userModel = User()
         for userId in group.get('requests', []):
-            user = userModel.load(userId, force=True, fields=['firstName', 'lastName', 'login'])
+            user = userModel.load(userId, force=True, fields=['firstName', 'login'])
             yield {
                 'id': userId,
                 'login': user['login'],
-                'name': '%s %s' % (user['firstName'], user['lastName'])
+                'name': user['firstName']
             }
 
     def hasAccess(self, doc, user=None, level=AccessType.READ):

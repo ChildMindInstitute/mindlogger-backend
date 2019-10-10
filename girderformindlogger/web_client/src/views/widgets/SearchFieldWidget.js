@@ -265,7 +265,7 @@ var SearchFieldWidget = View.extend({
                     _.each(results[type] || [], function (result) {
                         var text, icon;
                         if (type === 'user') {
-                            text = result.firstName + ' ' + result.lastName +
+                            text = result.firstName +
                                 ' (' + result.login + ')';
                             icon = 'user';
                         } else if (type === 'group') {

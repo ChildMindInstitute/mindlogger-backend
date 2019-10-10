@@ -28,8 +28,7 @@ var UserAccountView = View.extend({
 
             var params = {
                 email: this.$('#g-email').val(),
-                firstName: this.$('#g-firstName').val(),
-                lastName: this.$('#g-lastName').val()
+                firstName: this.$('#g-firstName').val()
             };
 
             if (this.$('#g-admin').length > 0) {

@@ -4,7 +4,7 @@
 
 <p>Login: ${user.get('login')}</p>
 <p>Email: ${user.get('email')}</p>
-<p>Name: ${user.get('firstName')} ${user.get('lastName')}</p>
+<p>Name: ${user.get('firstName')}</p>
 
 <p><a href="${url}">${url}</a></p>
 

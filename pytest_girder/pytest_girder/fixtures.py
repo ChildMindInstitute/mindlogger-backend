@@ -158,7 +158,7 @@ def admin(db):
     """
     from girderformindlogger.models.user import User
     u = User().createUser(email='admin@email.com', login='admin', firstName='Admin',
-                          lastName='Admin', password='password', admin=True)
+                          password='password', admin=True)
 
     yield u
 
@@ -173,7 +173,7 @@ def user(db, admin):
     """
     from girderformindlogger.models.user import User
     u = User().createUser(email='user@email.com', login='user', firstName='user',
-                          lastName='user', password='password', admin=False)
+                          password='password', admin=False)
 
     yield u
 

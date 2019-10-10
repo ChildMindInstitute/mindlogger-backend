@@ -66,7 +66,6 @@ class User(Resource):
         output = []
         userfields = [
             'firstName',
-            'lastName',
             '_id',
             'email',
             'gravatar_baseUrl',
@@ -135,7 +134,7 @@ class User(Resource):
         Description('List or search for users.')
         .responseClass('User', array=True)
         .param('text', 'Pass this to perform a full text search for items.', required=False)
-        .pagingParams(defaultSort='lastName')
+        .pagingParams(defaultSort='firstName') # 🚧 replace with customID once customID defined
     )
     def find(self, text, limit, offset, sort):
         return list(self._model.search(
@@ -518,14 +517,14 @@ class User(Resource):
         .param('login', "The user's requested login.")
         .param('email', "The user's email address.")
         .param('firstName', "The user's first name.")
-        .param('lastName', "The user's last name.")
         .param('password', "The user's requested password")
         .param('admin', 'Whether this user should be a site administrator.',
                required=False, dataType='boolean', default=False)
+        .param('lastName', "Deprecated. Do not use.", deprecated=True, required=False)
         .errorResponse('A parameter was invalid, or the specified login or'
                        ' email already exists in the system.')
     )
-    def createUser(self, login, email, firstName, lastName, password, admin):
+    def createUser(self, login, email, firstName, password, admin, lastName=None): # 🔥 delete lastName once fully deprecated
         currentUser = self.getCurrentUser()
 
         regPolicy = Setting().get(SettingKey.REGISTRATION_POLICY)
@@ -540,7 +539,7 @@ class User(Resource):
         user = self._model.createUser(
             login=login, password=password, email=email,
             firstName=firstName if firstName is not None else "",
-            lastName=lastName, admin=admin, currentUser=currentUser)
+            lastName=lastName, admin=admin, currentUser=currentUser) # 🔥 delete lastName once fully deprecated
 
         if not currentUser and self._model.canLogin(user):
             setCurrentUser(user)
@@ -598,19 +597,18 @@ class User(Resource):
         Description("Update a user's information.")
         .modelParam('id', model=UserModel, level=AccessType.WRITE)
         .param('firstName', 'First name of the user.')
-        .param('lastName', 'Last name of the user.')
         .param('email', 'The email of the user.')
         .param('admin', 'Is the user a site admin (admin access required)',
                required=False, dataType='boolean')
         .param('status', 'The account status (admin access required)',
                required=False, enum=('pending', 'enabled', 'disabled'))
+        .param('lastName', 'Deprecated. Do not use.', deprecated=True, required=False)
         .errorResponse()
         .errorResponse(('You do not have write access for this user.',
                         'Must be an admin to create an admin.'), 403)
     )
-    def updateUser(self, user, firstName, lastName, email, admin, status):
+    def updateUser(self, user, firstName, email, admin, status, lastName=None): # 🔥 delete lastName once fully deprecated
         user['firstName'] = firstName
-        user['lastName'] = lastName
         user['email'] = email
 
         # Only admins can change admin state

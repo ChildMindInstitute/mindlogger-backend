@@ -7,7 +7,6 @@ describe('Sort user list', function () {
         girderTest.createUser('admin',
             'admin@email.com',
             'BFirstName',
-            'BLastName',
             'adminpassword!',
             registeredUsers));
     it('logout', girderTest.logout());
@@ -16,7 +15,6 @@ describe('Sort user list', function () {
         girderTest.createUser('nonadmin',
             'nonadmin@email.com',
             'CFirstName',
-            'CLastName',
             'password!',
             registeredUsers));
     it('logout', girderTest.logout());
@@ -25,7 +23,6 @@ describe('Sort user list', function () {
         girderTest.createUser('nonadmin2',
             'nonadmin2@email.com',
             'AFirstName',
-            'ALastName',
             'password!',
             registeredUsers));
 
@@ -33,7 +30,7 @@ describe('Sort user list', function () {
         girderTest.goToUsersPage()();
         runs(function () {
             expect($('.g-user-list-entry').length).toBe(3);
-            var defaultOrder = /.*AFirstName.*ALastName.*BFirstName.*BLastName.*CFirstName.*CLastName.*/;
+            var defaultOrder = /.*AFirstName.*BFirstName.*CFirstName.*/;
             expect($('a.g-user-link').text()).toMatch(defaultOrder);
             $('a.g-sort-order-button:not(.hide)').click();
         });
@@ -43,7 +40,7 @@ describe('Sort user list', function () {
         }, 'switching sort order via icon');
 
         runs(function () {
-            var reversedDefaultOrder = /.*CFirstName.*CLastName.*BFirstName.*BLastName.*AFirstName.*ALastName.*/;
+            var reversedDefaultOrder = /.*CFirstName.*BFirstName.*AFirstName.*/;
             expect($('a.g-user-link').text()).toMatch(reversedDefaultOrder);
         });
 
@@ -63,12 +60,12 @@ describe('Sort user list', function () {
         waitsFor(function () {
             // FIXME: the condition here should be: wait for re-render of collection,
             //   but I don't know how to express that...
-            var sortedByCreationDate = /.*AFirstName.*ALastName.*CFirstName.*CLastName.*BFirstName.*BLastName.*/;
+            var sortedByCreationDate = /.*AFirstName.*CFirstName.*BFirstName.*/;
             return sortedByCreationDate.test($('.g-user-link').text());
         }, 'refetching and rendering user list');
 
         runs(function () {
-            var sortedByCreationDate = /.*AFirstName.*ALastName.*CFirstName.*CLastName.*BFirstName.*BLastName.*/;
+            var sortedByCreationDate = /.*AFirstName.*CFirstName.*BFirstName.*/;
             expect($('a.g-user-link').text()).toMatch(sortedByCreationDate);
         });
     });

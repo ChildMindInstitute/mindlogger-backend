@@ -672,7 +672,8 @@ class GirderClient(object):
         """
         return self.getResource('user', userId)
 
-    def createUser(self, login, email, firstName, lastName, password, admin=None):
+    def createUser(self, login, email, firstName, password, lastName=None, admin=None):
+        # 🔥 delete lastName once fully deprecated
         """
         Creates and returns a user.
         """
@@ -680,7 +681,6 @@ class GirderClient(object):
             'login': login,
             'email': email,
             'firstName': firstName,
-            'lastName': lastName,
             'password': password
         }
         if admin is not None:

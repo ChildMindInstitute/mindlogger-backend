@@ -83,8 +83,7 @@ describe('Test the hierarchy browser modal', function () {
             girderformindlogger.auth.setCurrentUser(new girderformindlogger.models.UserModel({
                 _id: '0',
                 login: 'johndoe',
-                firstName: 'John',
-                lastName: 'Doe'
+                firstName: 'John'
             }));
             returnVal = [];
 
@@ -115,8 +114,7 @@ describe('Test the hierarchy browser modal', function () {
                 user: {
                     _id: '0',
                     login: 'johndoe',
-                    firstName: 'John',
-                    lastName: 'Doe'
+                    firstName: 'John'
                 },
                 authToken: {
                     token: ''
@@ -281,8 +279,7 @@ describe('Test the hierarchy browser modal', function () {
             girderformindlogger.auth.setCurrentUser(new girderformindlogger.models.UserModel({
                 _id: '0',
                 login: 'johndoe',
-                firstName: 'John',
-                lastName: 'Doe'
+                firstName: 'John'
             }));
 
             runs(function () {
@@ -323,8 +320,7 @@ describe('Test the hierarchy browser modal', function () {
                     expect(evt.root.attributes).toEqual({
                         _id: '0',
                         login: 'johndoe',
-                        firstName: 'John',
-                        lastName: 'Doe'
+                        firstName: 'John'
                     });
                     called += 1;
                 });
@@ -421,8 +417,7 @@ describe('Test the hierarchy browser modal', function () {
             girderformindlogger.auth.setCurrentUser(new girderformindlogger.models.UserModel({
                 _id: '0',
                 login: 'johndoe',
-                firstName: 'John',
-                lastName: 'Doe'
+                firstName: 'John'
             }));
 
             returnVal = [];
@@ -470,8 +465,7 @@ describe('Test the hierarchy browser modal', function () {
             girderformindlogger.auth.setCurrentUser(new girderformindlogger.models.UserModel({
                 _id: '0',
                 login: 'johndoe',
-                firstName: 'John',
-                lastName: 'Doe'
+                firstName: 'John'
             }));
 
             var folderModel = new girderformindlogger.models.FolderModel({
@@ -526,8 +520,7 @@ describe('Test the hierarchy browser modal', function () {
             girderformindlogger.auth.setCurrentUser(new girderformindlogger.models.UserModel({
                 _id: '0',
                 login: 'johndoe',
-                firstName: 'John',
-                lastName: 'Doe'
+                firstName: 'John'
             }));
 
             returnVal = [];
@@ -565,8 +558,7 @@ describe('Test the hierarchy browser modal', function () {
             girderformindlogger.auth.setCurrentUser(new girderformindlogger.models.UserModel({
                 _id: '0',
                 login: 'johndoe',
-                firstName: 'John',
-                lastName: 'Doe'
+                firstName: 'John'
             }));
 
             returnVal = [];

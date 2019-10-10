@@ -7,8 +7,7 @@ var UserCollection = Collection.extend({
     model: UserModel,
 
     // Override default sort field
-    sortField: 'lastName',
-    secondarySortField: 'firstName'
+    sortField: 'firstName'
 }, {
     getTotalCount: function () {
         return restRequest({

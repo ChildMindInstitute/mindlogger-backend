@@ -7,7 +7,7 @@ ul.g-search-results-type
     li.g-search-result
       a(href=`#${type}/${element._id}`)
         if type === 'user'
-          | #{element.firstName} #{element.lastName} (#{element.login})
+          | #{element.firstName} (#{element.login})
         else
           | #{element.name}
 .g-search-results-paginate(id=`${type}Paginate`)

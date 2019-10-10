@@ -33,7 +33,7 @@ var UserModel = AccessControlledModel.extend({
     },
 
     name: function () {
-        return this.get('firstName') + ' ' + this.get('lastName');
+        return this.get('firstName');
     },
 
     /**

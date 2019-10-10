@@ -26,16 +26,15 @@ class User(AccessControlledModel):
         self.ensureIndices(['login', 'email', 'groupInvites.groupId', 'size',
                             'created'])
         self.prefixSearchFields = (
-            'login', ('firstName', 'i'), ('lastName', 'i'), 'email')
+            'login', ('firstName', 'i'), 'email')
         self.ensureTextIndex({
             'login': 1,
             'firstName': 1,
-            'lastName': 1,
             'email': 1,
         }, language='none')
         self.exposeFields(level=AccessType.READ, fields=(
             '_id', 'login', 'public', 'firstName', 'lastName', 'admin', 'email',
-            'created'))
+            'created')) # 🔥 delete lastName once fully deprecated
         self.exposeFields(level=AccessType.ADMIN, fields=(
             'size', 'status', 'emailVerified', 'creatorId'))
 
@@ -62,7 +61,6 @@ class User(AccessControlledModel):
         doc['login'] = doc.get('login', '').lower().strip()
         doc['email'] = doc.get('email', '').lower().strip()
         doc['firstName'] = doc.get('firstName', '').strip()
-        doc['lastName'] = doc.get('lastName', '').strip()
         doc['status'] = doc.get('status', 'enabled')
 
         if 'salt' not in doc:
@@ -72,10 +70,6 @@ class User(AccessControlledModel):
         if not doc['firstName']:
             raise ValidationException('First name must not be empty.',
                                       'firstName')
-
-        if not doc['lastName']:
-            raise ValidationException('Last name must not be empty.',
-                                      'lastName')
 
         if doc['status'] not in ('pending', 'enabled', 'disabled'):
             raise ValidationException(
@@ -383,8 +377,9 @@ class User(AccessControlledModel):
         # "totp.verify" security)
         rateLimitBuffer.set(lastCounterKey, totpMatch.counter)
 
-    def createUser(self, login, password, firstName, lastName, email,
-                   admin=False, public=False, currentUser=None):
+    def createUser(self, login, password, firstName, email,
+                   admin=False, public=False, currentUser=None,
+                   lastName=""): # 🔥 delete lastName once fully deprecated
         """
         Create a new user with the given information.
 
@@ -403,7 +398,6 @@ class User(AccessControlledModel):
             'login': login,
             'email': email,
             'firstName': firstName,
-            'lastName': lastName,
             'created': datetime.datetime.utcnow(),
             'emailVerified': False,
             'status': 'pending' if requireApproval else 'enabled',

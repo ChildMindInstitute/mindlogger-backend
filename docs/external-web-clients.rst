@@ -174,7 +174,7 @@ In your JavaScript, perform callbacks such as the following:
             $('#register').addClass('hidden');
             $('#name').removeClass('hidden');
             $('#logout').removeClass('hidden');
-            $('#name').text(currentUser.get('firstName') + ' ' + currentUser.get('lastName'));
+            $('#name').text(currentUser.get('firstName'));
 
             // Do anything else you'd like to do on login.
         } else {

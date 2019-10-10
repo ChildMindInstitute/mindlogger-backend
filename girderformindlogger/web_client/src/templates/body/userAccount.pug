@@ -33,9 +33,6 @@ ul.g-account-tabs.nav.nav-tabs
         .form-group
           label(for="g-firstName") First name
           input#g-firstName.input-sm.form-control(type="text", value=user.get('firstName'))
-        .form-group
-          label(for="g-lastName") Last name
-          input#g-lastName.input-sm.form-control(type="text", value=user.get('lastName'))
         if getCurrentUser().get('admin')
           .form-group
             label(for="g-admin") User is site admin

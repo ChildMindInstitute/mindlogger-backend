@@ -141,7 +141,7 @@ def delete_default_folders(user):
 
 def generate_login(user, seen):
     for i in range(1000):
-        login = '%s.%s' % (user['firstname'], user['lastname'])
+        login = user['firstname']
         login = login.lower().encode('ascii', 'ignore')
         login = ''.join(x for x in login if x in string.ascii_letters + '.')
         if i:
@@ -362,13 +362,12 @@ def migrate_users():
     for user in users:
         email = user['email']
         first = user['firstname']
-        last = user['lastname']
         password = generate_password(12, email)
         admin = bool(int(user['admin']))
         login = generate_login(user, seen)
         seen.add(login)
         logger.info('%s,%s,%s' % (email, login, password))
-        args = (login, email, first, last, password, admin)
+        args = (login, email, first, password, admin)
         to_create.append((user, args))
     # create users in parallel
     Parallel(n_jobs=N_JOBS, backend='threading')(

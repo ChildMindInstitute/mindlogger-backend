@@ -14,7 +14,7 @@ window.alert = function (msg) {
 // Timeout to wait for asynchronous actions
 girderTest.TIMEOUT = 5000;
 
-girderTest.createUser = function (login, email, firstName, lastName, password, userList) {
+girderTest.createUser = function (login, email, firstName, password, userList) {
     return function () {
         runs(function () {
             expect(girderformindlogger.auth.getCurrentUser()).toBe(null);
@@ -37,7 +37,6 @@ girderTest.createUser = function (login, email, firstName, lastName, password, u
             $('#g-login').val(login);
             $('#g-email').val(email);
             $('#g-firstName').val(firstName);
-            $('#g-lastName').val(lastName);
             $('#g-password,#g-password2').val(password);
             $('#g-register-button').click();
         });
@@ -49,7 +48,7 @@ girderTest.createUser = function (login, email, firstName, lastName, password, u
 
         runs(function () {
             expect(girderformindlogger.auth.getCurrentUser()).not.toBe(null);
-            expect(girderformindlogger.auth.getCurrentUser().name()).toBe(firstName + ' ' + lastName);
+            expect(girderformindlogger.auth.getCurrentUser().name()).toBe(firstName);
             expect(girderformindlogger.auth.getCurrentUser().get('login')).toBe(login);
 
             if (userList) {
@@ -59,7 +58,7 @@ girderTest.createUser = function (login, email, firstName, lastName, password, u
     };
 };
 
-girderTest.login = function (login, firstName, lastName, password) {
+girderTest.login = function (login, firstName, password) {
     return function () {
         runs(function () {
             expect(girderformindlogger.auth.getCurrentUser()).toBe(null);
@@ -93,7 +92,7 @@ girderTest.login = function (login, firstName, lastName, password) {
 
         runs(function () {
             expect(girderformindlogger.auth.getCurrentUser()).not.toBe(null);
-            expect(girderformindlogger.auth.getCurrentUser().name()).toBe(firstName + ' ' + lastName);
+            expect(girderformindlogger.auth.getCurrentUser().name()).toBe(firstName);
             expect(girderformindlogger.auth.getCurrentUser().get('login')).toBe(login);
         });
     };
@@ -146,7 +145,6 @@ girderTest.goToCurrentUserSettings = function () {
         runs(function () {
             expect($('input#g-email').val()).toBe(girderformindlogger.auth.getCurrentUser().get('email'));
             expect($('input#g-firstName').val()).toBe(girderformindlogger.auth.getCurrentUser().get('firstName'));
-            expect($('input#g-lastName').val()).toBe(girderformindlogger.auth.getCurrentUser().get('lastName'));
         });
     };
 };

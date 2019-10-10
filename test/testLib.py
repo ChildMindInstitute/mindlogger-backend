@@ -36,14 +36,12 @@ def testCreateUser(girder, email=None):
     """
     randomUser = np.random.randint(1000000)
     firstName = 'test'
-    lastName = 'user'
     # NOTE: girder makes login and email lowercase!!!
     login = 'testuser{}'.format(randomUser)
     if not email:
         email = 'testemail{}@testemail.com'.format(randomUser)
     password = 'password'
     createUser = girder.post('user', parameters=dict(firstName=firstName,
-                                        lastName=lastName,
                                         login=login,
                                         email=email,
                                         password=password
@@ -52,7 +50,6 @@ def testCreateUser(girder, email=None):
     # assert 'authToken' in createUser.keys(), 'user has no token, {}'.format(createUser)
     assert createUser['email'] == email, 'email does not match, {} {}'.format(createUser['email'], email)
     assert createUser['firstName'] == firstName, 'firstName does not match'
-    assert createUser['lastName'] == lastName, 'lastName does not match'
     assert createUser['login'] == login, 'login does not match, {} {}'.format(createUser['login'], login)
     assert createUser['admin'] == False, 'user is an admin'
     assert createUser['_modelType'] == 'user', 'model is not user'
