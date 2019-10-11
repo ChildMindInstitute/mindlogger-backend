@@ -249,12 +249,9 @@ class Model(object):
                 )
             )
         model = contextualize(loadJSON(url, modelType))
-        atType = model.get('@type', '').split('/')[-1]
-        modelType = firstLower((atType if len(atType) else modelType).split(
-            ":"
-        )[-1])
+        atType = model.get('@type', '').split('/')[-1].split(':')[-1]
+        modelType = firstLower(atType) if len(atType) else modelType
         modelType = 'screen' if modelType.lower()=='field' else modelType
-        print(modelType)
         changedModel = atType != modelType and len(atType)
         prefName = self.preferredName(model)
         cachedDoc = self.getCached(url, modelType)
@@ -281,7 +278,6 @@ class Model(object):
         else:
             cachedId = None
             cachedDocObj = {}
-        print(modelType)
         if not cachedDocObj or len(list(diff(cachedDocObj, model))):
             if cachedId:
                 for prop in provenenceProps:
@@ -345,7 +341,7 @@ class Model(object):
                             }
                         )
                     )
-            return(cachedDoc)
+        return(cachedDoc)
 
 
     def getModelCollection(self, modelType):
