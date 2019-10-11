@@ -249,7 +249,7 @@ class Model(object):
                 )
             )
         model = contextualize(loadJSON(url, modelType))
-        atType = model.get('@type', '').split('/')[-1]
+        atType = model.get('@type', '').split('/')[-1].split(':')[-1]
         modelType = firstLower(atType) if len(atType) else modelType
         modelType = 'screen' if modelType.lower()=='field' else modelType
         changedModel = atType != modelType and len(atType)
@@ -278,7 +278,6 @@ class Model(object):
         else:
             cachedId = None
             cachedDocObj = {}
-
         if not cachedDocObj or len(list(diff(cachedDocObj, model))):
             if cachedId:
                 for prop in provenenceProps:
