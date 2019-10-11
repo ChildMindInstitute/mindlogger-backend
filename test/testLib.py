@@ -516,9 +516,13 @@ def tryExceptTester(func, args, message, nreturn = 1):
         print("\033[0;37;40m ")
         return output
     except Exception as e:
+        import sys, traceback
         print("\033[1;31;40m {}".format(message))
         print("\033[1;31;40m {}  \n".format(e))
         print("\033[0;37;40m ")
+        print(sys.exc_info())
+        print(traceback.print_tb(sys.exc_info()[2]))
+        raise(e)
         return [None] * nreturn
 
 
