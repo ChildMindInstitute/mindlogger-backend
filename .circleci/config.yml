@@ -115,7 +115,7 @@ jobs:
           command: mkdir girder_build
       - run:
           name: Run tests
-          command: pytest girderformindlogger/test --capture=no
+          command: pytest girderformindlogger/test --capture=no --cov=girderformindlogger --cov-report html
 
   py3_coverage:
     docker:
