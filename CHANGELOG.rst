@@ -8,8 +8,8 @@ Changes
 -------
 Unreleased
 ==========
-2019-10-11: v0.5.3
-^^^^^^^^^^^^^^^^^^
+2019-10-11: v0.5.3; 2019-10-15: v0.5.4
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 * Handle change in the way schema are defined per [ReproNim/schema-standardization@`1c54072`](https://github.com/ReproNim/schema-standardization/commit/1c5407247817f2c8ec47f2f286683ad94065e2af)
 
 2019-10-01: v0.5.2
