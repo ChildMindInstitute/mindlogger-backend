@@ -122,6 +122,7 @@ jobs:
       - run:
           name: Install, build, run and test Girder for MindLogger
           command: >-
+            mongod &
             pip install -e ./girderformindlogger &
             girderformindlogger build &
             girderformindlogger serve &
