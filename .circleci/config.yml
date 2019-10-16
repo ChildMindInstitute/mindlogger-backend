@@ -6,8 +6,11 @@ jobs:
     docker:
       # This image uses the newest version of many dependencies
       - image: girder/girder_test:latest-py3
+          environment:
+            PIPENV_VENV_IN_PROJECT: true
 
     working_directory: /home/circleci/project  # as $CIRCLE_WORKING_DIRECTORY
+
 
     steps:
       - checkout:
@@ -117,8 +120,9 @@ jobs:
           name: Create test artifacts directory
           command: mkdir -p build/test/artifacts
       - run:
-          name: Build, run and test Girder for MindLogger
+          name: Install, build, run and test Girder for MindLogger
           command: >-
+            pip install -e ./girderformindlogger &
             girderformindlogger build &
             girderformindlogger serve &
             pytest girderformindlogger/test
