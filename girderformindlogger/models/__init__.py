@@ -126,7 +126,7 @@ def smartImport(IRI, user=None, refreshCache=False):
     from girderformindlogger.utility.jsonld_expander import MODELS, \
         contextualize
     model = contextualize(loadJSON(IRI))
-    atType = model.get('@type', '').split('/')[-1]
+    atType = model.get('@type', '').split('/')[-1].split(':')[-1]
     modelType = firstLower(atType) if len(atType) else modelType
     modelType = 'screen' if modelType=='field' else modelType
     return((

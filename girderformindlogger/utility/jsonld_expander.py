@@ -19,7 +19,9 @@ HIERARCHY = ['applet', 'activitySet', 'activity', 'screen', 'item']
 
 KEYS_TO_EXPAND = [
     "responseOptions",
-    "https://schema.repronim.org/valueconstraints"
+    "https://schema.repronim.org/valueconstraints",
+    "reproterms:valueconstraints",
+    "valueconstraints"
 ]
 
 MODELS = {
@@ -356,7 +358,8 @@ def componentImport(obj, activitySet, user=None, refreshCache=True):
     obj2 = obj.copy()
     try:
         for order in obj2.get(
-            "https://schema.repronim.org/order",
+            "https://raw.githubusercontent.com/ReproNim/schema-standardization/"
+            "master/terms/order",
             {}
         ):
             for activity in order.get("@list", []):
