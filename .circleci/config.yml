@@ -140,16 +140,6 @@ jobs:
       - run:
           name: Activate virtual environment
           command: echo ". $CIRCLE_WORKING_DIRECTORY/girder_env/bin/activate" >> $BASH_ENV
-      - run:
-          name: Run CTest
-          command: ctest --extra-verbose --script "$CIRCLE_WORKING_DIRECTORY/girderformindlogger/.circleci/ci_test.cmake"
-          environment:
-            TEST_GROUP: coverage
-            PYTHON_VERSION: 3.6
-            PYTHON_EXECUTABLE: /home/circleci/project/girder_env/bin/python
-            JASMINE_TIMEOUT: 15000
-            BUILD_JAVASCRIPT_TESTS: "ON"
-          working_directory: girder_build
       - store_artifacts:
           # Human-readable coverage reports
           path: girderformindlogger/build/test/artifacts
