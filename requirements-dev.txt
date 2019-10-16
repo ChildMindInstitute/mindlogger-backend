@@ -25,6 +25,7 @@
 # External dependencies
 configparser==3.5.0
 coverage
+girder_client
 girder-worker
 httmock
 mock
