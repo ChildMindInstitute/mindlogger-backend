@@ -6,8 +6,8 @@ jobs:
     docker:
       # This image uses the newest version of many dependencies
       - image: girder/girder_test:latest-py3
-          environment:
-            PIPENV_VENV_IN_PROJECT: true
+    environment:
+      PIPENV_VENV_IN_PROJECT: true
 
     working_directory: /home/circleci/project  # as $CIRCLE_WORKING_DIRECTORY
 
