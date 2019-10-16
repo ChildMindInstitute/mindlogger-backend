@@ -108,7 +108,7 @@ jobs:
             --upgrade --upgrade-strategy eager
             --editable .[sftp,mount]
             --editable clients/python
-            --requirement requirements-dev.txt
+            --requirement requirements-dev.txt & pip install -e .
           working_directory: girderformindlogger
       - run:
           name: Create Girder build directory
