@@ -114,6 +114,9 @@ jobs:
           name: Create Girder build directory
           command: mkdir girder_build
       - run:
+          name: Run Mongo & Girder
+          command: mongod & girderformindlogger serve &
+      - run:
           name: Run tests
           command: pytest girderformindlogger/test --capture=no --cov=girderformindlogger --cov-report html
       - store_test_results:
