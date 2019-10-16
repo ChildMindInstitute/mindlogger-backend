@@ -114,17 +114,16 @@ jobs:
           name: Create Girder build directory
           command: mkdir girder_build
       - run:
-          name: Build Girder For MindLogger
-          command: girderformindlogger build
-      - run:
-          name: Run Girder for MindLogger
-          command: girderformindlogger serve &
-      - run:
           name: Create test artifacts directory
           command: mkdir -p build/test/artifacts
       - run:
-          name: Run tests
-          command: pytest girderformindlogger/test --capture=no --cov=girderformindlogger --cov-report html --cov-report xml
+          name: Build, run and test Girder for MindLogger
+          command: >-
+            girderformindlogger build &
+            girderformindlogger serve &
+            pytest girderformindlogger/test
+            --capture=no --cov=girderformindlogger
+            --cov-report html --cov-report xml
       - store_test_results:
           path: build/test/artifacts
       - store_artifacts:
