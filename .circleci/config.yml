@@ -124,7 +124,7 @@ jobs:
           command: mkdir -p build/test/artifacts
       - run:
           name: Run tests
-          command: pytest girderformindlogger/test --capture=no --cov=girderformindlogger --cov-report html xml
+          command: pytest girderformindlogger/test --capture=no --cov=girderformindlogger --cov-report html --cov-report xml
       - store_test_results:
           path: build/test/artifacts
 
@@ -196,4 +196,8 @@ workflows:
     jobs:
       - py3_serverInstall
       - py3_integrationTests
+          requires:
+            - py3_serverInstall
       - py3_coverage
+          requires:
+            - py3_integrationTests
