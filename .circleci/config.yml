@@ -118,7 +118,7 @@ jobs:
           command: girderformindlogger build
       - run:
           name: Run Girder for MindLogger
-          command: girderformindlogger serve
+          command: girderformindlogger serve &
       - run:
           name: Create test artifacts directory
           command: mkdir -p build/test/artifacts
