@@ -515,16 +515,28 @@ class User(Resource):
         Description('Create a new user.')
         .responseClass('User')
         .param('login', "The user's requested login.")
-        .param('email', "The user's email address.")
         .param('firstName', "The user's first name.")
         .param('password', "The user's requested password")
+        .param('email', "The user's email address.", required=False)
         .param('admin', 'Whether this user should be a site administrator.',
                required=False, dataType='boolean', default=False)
-        .param('lastName', "Deprecated. Do not use.", deprecated=True, required=False)
+        .param(
+            'lastName',
+            'Deprecated. Do not use.',
+            required=False
+        )
         .errorResponse('A parameter was invalid, or the specified login or'
                        ' email already exists in the system.')
     )
-    def createUser(self, login, email, firstName, password, admin, lastName=None): # 🔥 delete lastName once fully deprecated
+    def createUser(
+        self,
+        login,
+        firstName,
+        password,
+        email="",
+        admin=False,
+        lastName=None
+    ): # 🔥 delete lastName once fully deprecated
         currentUser = self.getCurrentUser()
 
         regPolicy = Setting().get(SettingKey.REGISTRATION_POLICY)
@@ -588,7 +600,8 @@ class User(Resource):
         Description('Get detailed information of accessible users.')
     )
     def getUsersDetails(self):
-        nUsers = self._model.findWithPermissions(user=self.getCurrentUser()).count()
+        nUsers = self._model.findWithPermissions(user=self.getCurrentUser(
+        )).count()
         return {'nUsers': nUsers}
 
     @access.user
@@ -597,17 +610,35 @@ class User(Resource):
         Description("Update a user's information.")
         .modelParam('id', model=UserModel, level=AccessType.WRITE)
         .param('firstName', 'First name of the user.')
-        .param('email', 'The email of the user.')
+        .param(
+            'email',
+            'The email of the user.',
+            required=False,
+            dataType='string'
+        )
         .param('admin', 'Is the user a site admin (admin access required)',
                required=False, dataType='boolean')
         .param('status', 'The account status (admin access required)',
                required=False, enum=('pending', 'enabled', 'disabled'))
-        .param('lastName', 'Deprecated. Do not use.', deprecated=True, required=False)
+        .param(
+            'lastName',
+            'Deprecated. Do not use.',
+            deprecated=True,
+            required=False
+        )
         .errorResponse()
         .errorResponse(('You do not have write access for this user.',
                         'Must be an admin to create an admin.'), 403)
     )
-    def updateUser(self, user, firstName, email, admin, status, lastName=None): # 🔥 delete lastName once fully deprecated
+    def updateUser(
+        self,
+        user,
+        firstName,
+        email="",
+        admin=False,
+        status=None,
+        lastName=None
+    ): # 🔥 delete lastName once fully deprecated
         user['firstName'] = firstName
         user['email'] = email
 
@@ -681,7 +712,7 @@ class User(Resource):
                     'password is not changed.')
         .param('email', 'Your email address.', strip=True)
         .errorResponse('That email does not exist in the system.')
-    )
+    ) ## TODO: recreate by login
     def generateTemporaryPassword(self, email):
         user = self._model.findOne({'email': email.lower()})
 

@@ -34,7 +34,7 @@ class User(AccessControlledModel):
         }, language='none')
         self.exposeFields(level=AccessType.READ, fields=(
             '_id', 'login', 'public', 'firstName', 'lastName', 'admin', 'email',
-            'created')) # 🔥 delete lastName once fully deprecated
+            'created')) # 🔥 delete lastName and email once fully deprecated
         self.exposeFields(level=AccessType.ADMIN, fields=(
             'size', 'status', 'emailVerified', 'creatorId'))
 
@@ -81,7 +81,9 @@ class User(AccessControlledModel):
 
         self._validateLogin(doc['login'])
 
-        if not mail_utils.validateEmailAddress(doc['email']):
+        if len(doc['email']) and not mail_utils.validateEmailAddress(
+            doc['email']
+        ):
             raise ValidationException('Invalid email address.', 'email')
 
         # Ensure unique logins
@@ -94,15 +96,15 @@ class User(AccessControlledModel):
                                       'login')
 
         # Ensure unique emails
-        q = {'email': doc['email']}
-        if '_id' in doc:
-            q['_id'] = {'$ne': doc['_id']}
-        existing = self.findOne(q)
-        if existing is not None:
-            raise ValidationException(''.join([
-                                      'That email is already registered:',
-                                      str(existing["_id"])]),
-                                      'email')
+        # q = {'email': doc['email']}
+        # if '_id' in doc:
+        #     q['_id'] = {'$ne': doc['_id']}
+        # existing = self.findOne(q)
+        # if existing is not None:
+        #     raise ValidationException(''.join([
+        #                               'That email is already registered:',
+        #                               str(existing["_id"])]),
+        #                               'email')
 
         # If this is the first user being created, make it an admin
         existing = self.findOne({})
@@ -164,34 +166,48 @@ class User(AccessControlledModel):
         login = login.lower().strip()
         loginField = 'email' if '@' in login else 'login'
 
-        user = self.findOne({loginField: login})
-        if user is None:
+        if loginField=='login':
+            user = self.findOne({loginField: login})
+        else:
+            users = list(self.find({loginField: login}))
+        if user is None and users is None:
             raise AccessException('Login failed.')
 
-        # Handle users with no password
-        if not self.hasPassword(user):
-            e = events.trigger('no_password_login_attempt', {
-                'user': user,
-                'password': password
-            })
+        if user:
+            # Handle users with no password
+            if not self.hasPassword(user):
+                e = events.trigger('no_password_login_attempt', {
+                    'user': user,
+                    'password': password
+                })
 
-            if len(e.responses):
-                return e.responses[-1]
+                if len(e.responses):
+                    return e.responses[-1]
 
-            raise ValidationException(
-                'This user does not have a password. You must log in with an '
-                'external service, or reset your password.')
+                raise ValidationException(
+                    'This user does not have a password. You must log in with an '
+                    'external service, or reset your password.')
 
-        # Handle OTP token concatenation
-        if otpToken is True and self.hasOtpEnabled(user):
-            # Assume the last (typically 6) characters are the OTP, so split at that point
-            otpTokenLength = self._TotpFactory.digits
-            otpToken = password[-otpTokenLength:]
-            password = password[:-otpTokenLength]
+            # Handle OTP token concatenation
+            if otpToken is True and self.hasOtpEnabled(user):
+                # Assume the last (typically 6) characters are the OTP, so split at that point
+                otpTokenLength = self._TotpFactory.digits
+                otpToken = password[-otpTokenLength:]
+                password = password[:-otpTokenLength]
 
-        # Verify password
-        if not self._cryptContext.verify(password, user['salt']):
-            raise AccessException('Login failed.')
+            self._verify_password(password, user)
+
+        else:
+            user = {}
+            verified_password = False
+            for u in users:
+                try:
+                    verified_password = self._verify_password(password, u)
+                    user = u
+                except:
+                    verified_password = verified_password
+            if not verified_password:
+                raise AccessException('Login failed.')
 
         # Verify OTP
         if self.hasOtpEnabled(user):
@@ -377,7 +393,7 @@ class User(AccessControlledModel):
         # "totp.verify" security)
         rateLimitBuffer.set(lastCounterKey, totpMatch.counter)
 
-    def createUser(self, login, password, firstName, email,
+    def createUser(self, login, password, firstName, email="",
                    admin=False, public=False, currentUser=None,
                    lastName=""): # 🔥 delete lastName once fully deprecated
         """
@@ -391,7 +407,10 @@ class User(AccessControlledModel):
         """
         from .group import Group
         from .setting import Setting
-        requireApproval = Setting().get(SettingKey.REGISTRATION_POLICY) == 'approve'
+        requireApproval = Setting(
+        ).get(SettingKey.REGISTRATION_POLICY) == 'approve'
+        email = "" if not email else email
+        print("email: {}".format(email))
         if admin:
             requireApproval = False
         user = {
@@ -409,8 +428,10 @@ class User(AccessControlledModel):
                     "groupId": gi.get('_id'),
                     "level": 0
                 } for gi in list(Group().find(query={"queue": email}))
-            ]
+            ] if len(email) else []
         }
+
+        print(user)
 
         self.setPassword(user, password, save=False)
         self.setPublic(user, public, save=False)
@@ -692,3 +713,10 @@ class User(AccessControlledModel):
         existing = ProtoUser().findOne(q)
         if existing is not None:
             ProtoUser().remove(existing)
+
+    def _verify_password(self, password, user):
+        # Verify password
+        if not self._cryptContext.verify(password, user['salt']):
+            raise AccessException('Login failed.')
+        else:
+            return(True)
