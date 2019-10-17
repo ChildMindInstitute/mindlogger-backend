@@ -876,7 +876,7 @@ class User(Resource):
     @access.public
     @autoDescribeRoute(
         Description('Send verification email.')
-        .param('login', 'Your login or email address.', strip=True)
+        .param('login', 'Your login.', strip=True)
         .errorResponse('That login is not registered.', 401)
     )
     def sendVerificationEmail(self, login):
