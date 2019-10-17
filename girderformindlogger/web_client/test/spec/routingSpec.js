@@ -64,7 +64,7 @@ describe('Test routing paths', function () {
                 return window.location.hash === '';
             });
         girderTest.testRoute('?dialog=login', true, function () {
-            return $('label[for=g-login]').text() === 'Login or email';
+            return $('label[for=g-login]').text() === 'Login';
         });
         girderTest.testRoute('?dialog=register', true, function () {
             return $('input#g-password2').length === 1;
