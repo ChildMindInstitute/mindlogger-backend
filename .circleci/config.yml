@@ -81,8 +81,6 @@ jobs:
             echo "deb [ arch=amd64 ] https://repo.mongodb.org/apt/ubuntu trusty/mongodb-org/3.6 multiverse" | sudo tee /etc/apt/sources.list.d/mongodb-org-3.6.list
             sudo apt-get update
             sudo apt-get install -y mongodb-org-server
-            sudo mkdir -p /data/db
-            sudo chown `id -u` /data/db
       - run:
           # The "d3" npm package (required by some Girder plugins) has an optional dependency of
           # "canvas", which requires "node-gyp" to build. node-gyp strictly requires Python 2
@@ -124,7 +122,6 @@ jobs:
       - run:
           name: Install, build, run and test Girder for MindLogger
           command: >-
-            mongod &
             pip install -e ./girderformindlogger &&
             girderformindlogger build &&
             girderformindlogger serve &
