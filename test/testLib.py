@@ -20,7 +20,7 @@ def createGirder(host, port):
     return girder_client.GirderClient(host=host, port=port)
 
 
-def testCreateUser(girder, email=None):
+def testCreateUser(girder, email=None, admin=False):
     """
     Create a test user
 
@@ -54,7 +54,8 @@ def testCreateUser(girder, email=None):
     assert createUser['firstName'] == firstName, 'firstName does not match'
     assert createUser['lastName'] == lastName, 'lastName does not match'
     assert createUser['login'] == login, 'login does not match, {} {}'.format(createUser['login'], login)
-    assert createUser['admin'] == False, 'user is an admin'
+    if not admin:
+        assert createUser['admin'] == False, 'user is an admin'
     assert createUser['_modelType'] == 'user', 'model is not user'
     assert createUser['public'] == False, 'user is public!'
 
@@ -532,6 +533,7 @@ def fullTest(server, port, activitySetUrl, act1, act2, act1Item, act2Item):
 
     def step01():
         gc = createGirder(server, port)
+        admin = testCreateUser(gc, admin=True) # First user will be admin on a new image
         user = testCreateUser(gc)
         authenticate(gc, user)
         return gc, user
