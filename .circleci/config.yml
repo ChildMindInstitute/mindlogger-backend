@@ -117,9 +117,6 @@ jobs:
           name: Create Girder build directory
           command: mkdir girder_build
       - run:
-          name: Create test artifacts directory
-          command: mkdir -p build/test/artifacts
-      - run:
           name: Install, build, run and test Girder for MindLogger
           command: >-
             pip install -e ./girderformindlogger &&
@@ -130,9 +127,9 @@ jobs:
             --capture=no --cov=girderformindlogger
             --cov-report html --cov-report xml
       - store_test_results:
-          path: build/test/artifacts
+          path: coverage.xml
       - store_artifacts:
-          path: build/test/artifacts
+          path: htmlcov
 
   py3_coverage:
     docker:
