@@ -3,6 +3,7 @@ import girder_client
 import pandas as pd
 import numpy as np
 import simplejson
+from girderformindlogger.models.user import User as UserModel
 from girder_client import HttpError
 import time
 
@@ -532,7 +533,10 @@ def fullTest(server, port, activitySetUrl, act1, act2, act1Item, act2Item):
 
     def step01():
         gc = createGirder(server, port)
-        admin = testCreateUser(gc, admin=True) # First user will be admin on a new image
+        existingUser = UserModel().findOne({})
+        if existingUser is None:
+            # First user will be admin on a new image
+            admin = testCreateUser(gc, admin=True)
         user = testCreateUser(gc)
         authenticate(gc, user)
         return gc, user
