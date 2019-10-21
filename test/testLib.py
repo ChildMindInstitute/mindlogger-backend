@@ -54,8 +54,7 @@ def testCreateUser(girder, email=None, admin=False):
     assert createUser['firstName'] == firstName, 'firstName does not match'
     assert createUser['lastName'] == lastName, 'lastName does not match'
     assert createUser['login'] == login, 'login does not match, {} {}'.format(createUser['login'], login)
-    if not admin:
-        assert createUser['admin'] == False, 'user is an admin'
+    assert createUser['admin'] == admin, 'user\'s admin property does not match'
     assert createUser['_modelType'] == 'user', 'model is not user'
     assert createUser['public'] == False, 'user is public!'
 
