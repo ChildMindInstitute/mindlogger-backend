@@ -9,16 +9,6 @@ coverage:
     project:
       default: false
       server:
-        target: 80%
+        target: 7%
         paths:
           - girderformindlogger
-          - plugins/*/server
-      python_client:
-        target: 80%
-        paths:
-          - clients/python/girder_client
-      web_client:
-        target: 75%
-        paths:
-          - girderformindlogger/web_client/src
-          - plugins/*/web_client
