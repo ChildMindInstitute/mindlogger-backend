@@ -8,65 +8,70 @@ Changes
 -------
 Unreleased
 ==========
+2019-10-24: v0.5.6
+^^^^^^^^^^^^^^^^^^
+* :tractor: Update user model
+* :microscope: :snake: Test Python functions
+
 2019-10-21: v0.5.5
 ^^^^^^^^^^^^^^^^^^
-* Coverage reports
+* :books: :microscope: Coverage reports
 
 2019-10-11: v0.5.3; 2019-10-15: v0.5.4
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-* Handle change in the way schema are defined per [ReproNim/schema-standardization@`1c54072`](https://github.com/ReproNim/schema-standardization/commit/1c5407247817f2c8ec47f2f286683ad94065e2af)
+* :ambulance: :green_heart: Handle change in the way schema are defined per [ReproNim/schema-standardization@`1c54072`](https://github.com/ReproNim/schema-standardization/commit/1c5407247817f2c8ec47f2f286683ad94065e2af)
 
 2019-10-01: v0.5.2
 ^^^^^^^^^^^^^^^^^^
-* Fetch activity responses by URL rather than ID
+* :hammer: Fetch activity responses by URL rather than ID
 * :green_heart: Restore continuous integration
 
 2019-09-30: v0.5.1
 ^^^^^^^^^^^^^^^^^^
-* Add integration tests to run locally
+* :microscope: Add integration tests to run locally
 
 2019-09-25: v0.4.8
 ^^^^^^^^^^^^^^^^^^
-* Fix datetime bug
+* :ambulance: Fix datetime bug
 
 2019-09-24: v0.4.7
 ^^^^^^^^^^^^^^^^^^
-* Reviewer can see data
+* :sparkles: Reviewer can see data
 
 2019-09-24: v0.4.4 ‒ v0.4.6
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^
-* Bug fixes regarding responses
+* :ambulance: Bug fixes regarding responses
 
 2019-09-20: v0.4.3
 ^^^^^^^^^^^^^^^^^^
-* Allow arbitrary levels of activity nesting rather than forcing 3-level heirarchy
+* :hammer: Allow arbitrary levels of activity nesting rather than forcing 3-level heirarchy
 
 2019-09-19: v0.4.2
 ^^^^^^^^^^^^^^^^^^
-* Optimized `GET responses`
+* :racehorse: Optimized `GET responses`
 
 2019-09-17: v0.4.1
 ^^^^^^^^^^^^^^^^^^
-* `responseDates` added to `GET user/responses` for user role, returning a reverse chronological Array of ISO 8601 dates in which that applet has been responded to.
-* Reverted swagger-ui to v2
-* Response routes
+* :sparkles: `responseDates` added to `GET user/responses` for user role, returning a reverse chronological Array of ISO 8601 dates in which that applet has been responded to.
+* :arrow_down: Reverted swagger-ui to v2
+* :tractor: Response routes
 
 2019-05-29: v0.3.1
 ^^^^^^^^^^^^^^^^^^
-* New route: `GET /group/open`: List all groups with open registration.
-* New route params:
+* :sparkles: New route: `GET /group/open`: List all groups with open registration.
+* :sparkles: New route params:
   * `POST /group?openRegistration`: Whether users can join without being invited.
   * `PUT /group?openRegistration`: Whether users can join without being invited.
-* New route functionality: `POST /group/{id}/member`: Now allows users to join without an invitation if a group's `openRegistration` is set to `true`.
-* Changed package name from `girder` to `girderformindlogger` and matched versioning to documentation.
+* :sparkles: New route functionality: `POST /group/{id}/member`: Now allows users to join without an invitation if a group's `openRegistration` is set to `true`.
+* :sparkles: :tractor: Changed package name from `girder` to `girderformindlogger` and matched versioning to documentation.
 
 2019-05-13
 ^^^^^^^^^^
-* Allow undefined keys in JSON-LD Expansion
+* :hammer: :sparkles: Allow undefined keys in JSON-LD Expansion
 
 2019-05-08
 ^^^^^^^^^^
-* Rebase from Girder 2.5 to Girder 3.0 (Unreleased)
+* :hammer: :tractor: :arrow_up: Rebase from Girder 2.5 to Girder 3.0 (Unreleased)
 
 -----
 

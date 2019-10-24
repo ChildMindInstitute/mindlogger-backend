@@ -26,15 +26,15 @@ class User(AccessControlledModel):
         self.ensureIndices(['login', 'email', 'groupInvites.groupId', 'size',
                             'created'])
         self.prefixSearchFields = (
-            'login', ('firstName', 'i'), 'email')
+            'login', ('firstName', 'i'), ('displayName', 'i'), 'email')
         self.ensureTextIndex({
             'login': 1,
-            'firstName': 1,
+            'displayName': 1,
             'email': 1,
         }, language='none')
         self.exposeFields(level=AccessType.READ, fields=(
-            '_id', 'login', 'public', 'firstName', 'lastName', 'admin', 'email',
-            'created')) # 🔥 delete lastName and email once fully deprecated
+            '_id', 'login', 'public', 'displayName', 'firstName', 'lastName',
+            'admin', 'email', 'created')) # 🔥 delete firstName, lastName and email once fully deprecated
         self.exposeFields(level=AccessType.ADMIN, fields=(
             'size', 'status', 'emailVerified', 'creatorId'))
 
@@ -60,6 +60,10 @@ class User(AccessControlledModel):
         """
         doc['login'] = doc.get('login', '').lower().strip()
         doc['email'] = doc.get('email', '').lower().strip()
+        doc['displayName'] = doc.get(
+            'displayName',
+            doc.get('firstName', '')
+        ).strip()
         doc['firstName'] = doc.get('firstName', '').strip()
         doc['status'] = doc.get('status', 'enabled')
 
@@ -67,9 +71,9 @@ class User(AccessControlledModel):
             # Internal error, this should not happen
             raise Exception('Tried to save user document with no salt.')
 
-        if not doc['firstName']:
-            raise ValidationException('First name must not be empty.',
-                                      'firstName')
+        if not doc['displayName']:
+            raise ValidationException('Display name must not be empty.',
+                                      'displayName')
 
         if doc['status'] not in ('pending', 'enabled', 'disabled'):
             raise ValidationException(
@@ -393,9 +397,9 @@ class User(AccessControlledModel):
         # "totp.verify" security)
         rateLimitBuffer.set(lastCounterKey, totpMatch.counter)
 
-    def createUser(self, login, password, firstName, email="",
+    def createUser(self, login, password, displayName="", email="",
                    admin=False, public=False, currentUser=None,
-                   lastName=""): # 🔥 delete lastName once fully deprecated
+                   firstName="", lastName=""): # 🔥 delete firstName and lastName once fully deprecated
         """
         Create a new user with the given information.
 
@@ -416,6 +420,9 @@ class User(AccessControlledModel):
         user = {
             'login': login,
             'email': email,
+            'displayName': displayName if len(
+                displayName
+            ) else firstName if firstName is not None else "",
             'firstName': firstName,
             'created': datetime.datetime.utcnow(),
             'emailVerified': False,

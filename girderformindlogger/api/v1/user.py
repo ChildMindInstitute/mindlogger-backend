@@ -532,7 +532,7 @@ class User(Resource):
         )
         .param(
             'firstName',
-            'Deprecated. Do not use.'
+            'Deprecated. Do not use.',
             required=False
         )
         .errorResponse('A parameter was invalid, or the specified login or'
@@ -545,7 +545,7 @@ class User(Resource):
         displayName="",
         email="",
         admin=False,
-        lastName=None
+        lastName=None,
         firstName=None
     ): # 🔥 delete lastName once fully deprecated
         currentUser = self.getCurrentUser()
