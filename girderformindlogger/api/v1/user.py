@@ -515,8 +515,13 @@ class User(Resource):
         Description('Create a new user.')
         .responseClass('User')
         .param('login', "The user's requested login.")
-        .param('firstName', "The user's first name.")
         .param('password', "The user's requested password")
+        .param(
+            'displayName',
+            "The user's display name, usually just their first name.",
+            default="",
+            required=False
+        )
         .param('email', "The user's email address.", required=False)
         .param('admin', 'Whether this user should be a site administrator.',
                required=False, dataType='boolean', default=False)
@@ -525,17 +530,23 @@ class User(Resource):
             'Deprecated. Do not use.',
             required=False
         )
+        .param(
+            'firstName',
+            'Deprecated. Do not use.'
+            required=False
+        )
         .errorResponse('A parameter was invalid, or the specified login or'
                        ' email already exists in the system.')
     )
     def createUser(
         self,
         login,
-        firstName,
         password,
+        displayName="",
         email="",
         admin=False,
         lastName=None
+        firstName=None
     ): # 🔥 delete lastName once fully deprecated
         currentUser = self.getCurrentUser()
 
@@ -550,8 +561,10 @@ class User(Resource):
 
         user = self._model.createUser(
             login=login, password=password, email=email,
-            firstName=firstName if firstName is not None else "",
-            lastName=lastName, admin=admin, currentUser=currentUser) # 🔥 delete lastName once fully deprecated
+            firstName=displayName if len(
+                displayName
+            ) else firstName if firstName is not None else "",
+            lastName=lastName, admin=admin, currentUser=currentUser) # 🔥 delete firstName and lastName once fully deprecated
 
         if not currentUser and self._model.canLogin(user):
             setCurrentUser(user)
@@ -609,7 +622,12 @@ class User(Resource):
     @autoDescribeRoute(
         Description("Update a user's information.")
         .modelParam('id', model=UserModel, level=AccessType.WRITE)
-        .param('firstName', 'First name of the user.')
+        .param(
+            'displayName',
+            'Display name of the user, usually just their first name.',
+            default="",
+            required=False
+        )
         .param(
             'email',
             'The email of the user.',
@@ -620,6 +638,12 @@ class User(Resource):
                required=False, dataType='boolean')
         .param('status', 'The account status (admin access required)',
                required=False, enum=('pending', 'enabled', 'disabled'))
+        .param(
+            'firstName',
+            'Deprecated. Do not use.',
+            deprecated=True,
+            required=False
+        )
         .param(
             'lastName',
             'Deprecated. Do not use.',
@@ -633,13 +657,16 @@ class User(Resource):
     def updateUser(
         self,
         user,
-        firstName,
+        displayName="",
         email="",
         admin=False,
         status=None,
+        firstName=None,
         lastName=None
-    ): # 🔥 delete lastName once fully deprecated
-        user['firstName'] = firstName
+    ): # 🔥 delete firstName and lastName once fully deprecated
+        user['firstName'] = displayName if len(
+            displayName
+        ) else firstName if firstName is not None else ""
         user['email'] = email
 
         # Only admins can change admin state
