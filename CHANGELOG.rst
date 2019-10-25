@@ -8,7 +8,7 @@ Changes
 -------
 Unreleased
 ==========
-2019-10-24: v0.5.6
+2019-10-25: v0.5.6
 ^^^^^^^^^^^^^^^^^^
 * :tractor: Update user model
 * :microscope: :snake: Test Python functions
