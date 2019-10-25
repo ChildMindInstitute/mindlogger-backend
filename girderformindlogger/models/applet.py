@@ -222,13 +222,14 @@ class Applet(Folder):
         :type active: bool
         :returns: list of dicts
         """
-        return(list(itertools.chain.from_iterable([
-            self.getAppletsForGroup(
-                role,
-                groupId,
-                active
-            ) for groupId in user.get('groups', [])
-        ])))
+
+        applets = list(self.find(
+            {
+                'roles.' + role + '.groups.id': {'$in': user.get('groups', [])},
+                'meta.applet.deleted': {'$ne': active}
+            }
+        ))
+        return(applets if isinstance(applets, list) else [applets])
 
     def getAppletUsers(self, applet, user=None):
         # get groups for applet
