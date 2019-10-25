@@ -177,7 +177,6 @@ class ResponseItem(Resource):
                 props[prop][0]
             )
         }
-        print(q)
 
         allResponses = list(ResponseItemModel().find(
             query=q,

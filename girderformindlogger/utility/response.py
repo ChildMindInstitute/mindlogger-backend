@@ -47,7 +47,6 @@ def aggregate(metadata, informant, startDate=None, endDate=None, getAll=False):
             "meta.activity.url": metadata.get("activity", {}).get("url"),
             "meta.subject.@id": metadata.get("subject", {}).get("@id")
         }
-    print('\n\n QUERY IS', query)
 
     definedRange = list(ResponseItem().find(
         query=query,

@@ -169,7 +169,7 @@ class _SftpServerAdapter(paramiko.SFTPServerInterface):
 
 
 class _SftpRequestHandler(socketserver.BaseRequestHandler):
-    timeout = 60
+    timeout = 120 # temporary fix; revert back to 60 once we get to v0.6
     auth_timeout = 60
 
     def setup(self):
