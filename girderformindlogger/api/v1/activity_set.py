@@ -67,7 +67,7 @@ class ActivitySet(Resource):
 
     @access.user(scope=TokenScope.DATA_READ)
     @autoDescribeRoute(
-        Description('Get an activitty set by URL.')
+        Description('Get an activity set by URL.')
         .param('url', 'URL of activity set.', required=True)
         .errorResponse('Invalid activity set URL.')
         .errorResponse('Read access was denied for this activity set.', 403)

@@ -6,8 +6,11 @@ jobs:
     docker:
       # This image uses the newest version of many dependencies
       - image: girder/girder_test:latest-py3
+    environment:
+      PIPENV_VENV_IN_PROJECT: true
 
     working_directory: /home/circleci/project  # as $CIRCLE_WORKING_DIRECTORY
+
 
     steps:
       - checkout:
@@ -104,56 +107,35 @@ jobs:
       - run:
           name: Install Girder with extras
           command: >-
-            pip install
+            pip install -r requirements.txt & pip install
             --upgrade --upgrade-strategy eager
             --editable .[sftp,mount]
             --editable clients/python
-            --requirement requirements-dev.txt
+            --requirement requirements-dev.txt & pip install -e .
           working_directory: girderformindlogger
       - run:
           name: Create Girder build directory
           command: mkdir girder_build
       - run:
-          name: Run tests
-          command: pytest girderformindlogger/test --capture=no
-
-  py3_coverage:
-    docker:
-      - image: girder/girder_test:latest-py3
-      - image: circleci/mongo:3.6-ram
-        command: ["mongod", "--storageEngine", "ephemeralForTest", "--dbpath", "/dev/shm/mongo"]
-    working_directory: /home/circleci/project  # as $CIRCLE_WORKING_DIRECTORY
-    steps:
-      - attach_workspace:
-          at: /home/circleci/project
-      - run:
-          name: Activate virtual environment
-          command: echo ". $CIRCLE_WORKING_DIRECTORY/girder_env/bin/activate" >> $BASH_ENV
-      - run:
-          name: Run CTest
-          command: ctest --extra-verbose --script "$CIRCLE_WORKING_DIRECTORY/girderformindlogger/.circleci/ci_test.cmake"
-          environment:
-            TEST_GROUP: coverage
-            PYTHON_VERSION: 3.6
-            PYTHON_EXECUTABLE: /home/circleci/project/girder_env/bin/python
-            JASMINE_TIMEOUT: 15000
-            BUILD_JAVASCRIPT_TESTS: "ON"
-          working_directory: girder_build
-      - run:
-          name: Move machine-readable web coverage file to coverage directory
-          # Ideally, this would be output natively to the correct location (outside of the
-          # "artifacts" directory for human-readable files), but nyc does not yet support
-          # per-reporter configuration of output paths.
-          command: mv girderformindlogger/build/test/artifacts/web_coverage/cobertura-coverage.xml girderformindlogger/build/test/coverage
+          name: Install, build, run and test Girder for MindLogger
+          command: >-
+            pip install -e ./girderformindlogger &&
+            girderformindlogger build &&
+            girderformindlogger serve &
+            sleep 300 &&
+            pytest girderformindlogger/test
+            --capture=no --cov=girderformindlogger
+            --cov-report html --cov-report xml
+      - store_test_results:
+          path: coverage.xml
       - store_artifacts:
-          # Human-readable coverage reports
-          path: girderformindlogger/build/test/artifacts
+          path: htmlcov
       - run:
           name: Install Codecov client
           command: pip install codecov
       - run:
           name: Upload coverage
-          command: codecov --disable search pycov gcov --root girderformindlogger --file girderformindlogger/build/test/coverage/py_coverage.xml girderformindlogger/build/test/coverage/cobertura-coverage.xml
+          command: codecov --disable search pycov gcov --root girderformindlogger --file /home/circleci/project/coverage.xml
 
   public_symbols:
     docker:
@@ -200,4 +182,6 @@ workflows:
   test_all:
     jobs:
       - py3_serverInstall
-      - py3_integrationTests
+      - py3_integrationTests:
+          requires:
+            - py3_serverInstall

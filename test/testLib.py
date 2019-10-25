@@ -3,6 +3,7 @@ import girder_client
 import pandas as pd
 import numpy as np
 import simplejson
+from girderformindlogger.models.user import User as UserModel
 from girder_client import HttpError
 import time
 
@@ -20,7 +21,7 @@ def createGirder(host, port):
     return girder_client.GirderClient(host=host, port=port)
 
 
-def testCreateUser(girder, email=None):
+def testCreateUser(girder, email=None, admin=False):
     """
     Create a test user
 
@@ -54,7 +55,7 @@ def testCreateUser(girder, email=None):
     assert createUser['firstName'] == firstName, 'firstName does not match'
     assert createUser['lastName'] == lastName, 'lastName does not match'
     assert createUser['login'] == login, 'login does not match, {} {}'.format(createUser['login'], login)
-    assert createUser['admin'] == False, 'user is an admin'
+    assert createUser['admin'] == admin, 'user\'s admin property does not match'
     assert createUser['_modelType'] == 'user', 'model is not user'
     assert createUser['public'] == False, 'user is public!'
 
@@ -516,9 +517,13 @@ def tryExceptTester(func, args, message, nreturn = 1):
         print("\033[0;37;40m ")
         return output
     except Exception as e:
+        import sys, traceback
         print("\033[1;31;40m {}".format(message))
         print("\033[1;31;40m {}  \n".format(e))
         print("\033[0;37;40m ")
+        print(sys.exc_info())
+        print(traceback.print_tb(sys.exc_info()[2]))
+        raise(e)
         return [None] * nreturn
 
 
@@ -528,6 +533,10 @@ def fullTest(server, port, activitySetUrl, act1, act2, act1Item, act2Item):
 
     def step01():
         gc = createGirder(server, port)
+        existingUser = UserModel().findOne({})
+        if existingUser is None:
+            # First user will be admin on a new image
+            admin = testCreateUser(gc, admin=True)
         user = testCreateUser(gc)
         authenticate(gc, user)
         return gc, user
