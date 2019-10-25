@@ -1192,7 +1192,6 @@ class AccessControlledModel(Model):
             for perm in doc['roles'][role][entity]:
                 if perm['id'] == id:
                     doc['roles'][role][entity].remove(perm)
-        print(update)
         self._saveRole(doc, update)
 
         return(self.getFullRolesList(doc))
@@ -1232,7 +1231,6 @@ class AccessControlledModel(Model):
         else:
             update['$set'] = {k: v for k, v in six.viewitems(doc)
                               if k != 'roles'}
-        print(update)
         event = events.trigger('model.%s.save' % self.name, doc)
         if not event.defaultPrevented:
             doc = self.collection.find_one_and_update(

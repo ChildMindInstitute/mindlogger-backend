@@ -113,7 +113,7 @@ class Screen(Item):
         Gets a screen from a given URL, checks against the database, stores and
         returns that screen.
         """
-        print(url)
+        print("loading {}".format(url))
         return(self.getFromUrl(url, 'screen', user, refreshCache))
 
 
