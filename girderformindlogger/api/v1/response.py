@@ -114,7 +114,7 @@ class ResponseItem(Resource):
         # screen=[]
     ):
         assert applet,  'you need to specify an applet'
-        
+
         # grab the current user
         reviewer = self.getCurrentUser()
 
@@ -128,7 +128,7 @@ class ResponseItem(Resource):
 
         assert len(reviewerGroupOfApplet) == 1, 'there should be only 1 group for an applet, for now.'
         reviewerGroupOfApplet = reviewerGroupOfApplet[0]['id']
-        
+
 
         # check that the current user's userId is in the list of reveiwersOfApplet
         isAReviewer = list(filter(lambda x: x == reviewerGroupOfApplet, reviewer['groups']))
@@ -169,7 +169,7 @@ class ResponseItem(Resource):
 
         # if not(len(props["informant"][0])):
         #     props["informant"][0] = [reviewer.get('_id')] # TODO: allow getting all available
-    
+
         q = {
             props[prop][1]: {
                 "$in": props[prop][0]
@@ -185,41 +185,32 @@ class ResponseItem(Resource):
             sort=[("created", DESCENDING)]
         ))
 
-
-        # for each response in allResponses, we need to encode a userId
-        # if the currentUser is also a manager, then we can put an email address.
-        # if the currentUser is ONLY a reviewer, then give the subject a unique id.
-        # the unique id is a hash of the baseParentId
-
-        # HINT: in appletModel there is a userCipher function
-
-        # TODO: check to see if the user is also a manager.
         # TODO: for now, an applet only has one group
         # get the manager group and make sure there is just 1:
         managerGroupOfApplet = appletInfo['roles']['manager']['groups']
-        assert len(managerGroupOfApplet) == 1, 'there should be only 1 group for an applet, for now.'
+        assert len(managerGroupOfApplet) == 1, 'there should be only 1 group '
+        'for an applet, for now.'
         managerGroupOfApplet = managerGroupOfApplet[0]['id']
 
-        # check to see if the current user is a manager too.       
-        isAManager = len(list(filter(lambda x: x == managerGroupOfApplet, reviewer['groups'])))
+        # check to see if the current user is a manager too.
+        isAManager = len(list(filter(
+            lambda x: x == managerGroupOfApplet,
+            reviewer['groups']
+        )))
 
-        # Format the output response. If the user is a manager, then lookup an email and return it.
+        # Format the output response.
         # else, get the userCipher and use that for the userId.
         outputResponse = []
         for response in allResponses:
             userId = response['baseParentId']
-            
+
             # encode the userId below:
-            if isAManager:
-                user = UserModel().findOne({'_id': ObjectId(userId)})
-                encodedId = user['email']
-            else:
-                # TODO: create a user cipher, which is the hash of
-                # an appletid concatenated with the user id
-                appletIdUserId = applet + str(userId)
-                # hash it:
-                hash_object = hashlib.md5(appletIdUserId.encode())
-                encodedId = hash_object.hexdigest()
+            # TODO: create a user cipher, which is the hash of
+            # an appletid concatenated with the user id
+            appletIdUserId = applet + str(userId)
+            # hash it:
+            hash_object = hashlib.md5(appletIdUserId.encode())
+            encodedId = hash_object.hexdigest()
 
             # format the response and add the userId
             formattedResponse = formatResponse(response)['thisResponse']
@@ -442,4 +433,3 @@ class ResponseItem(Resource):
 
 def save():
     return(lambda x: x)
-

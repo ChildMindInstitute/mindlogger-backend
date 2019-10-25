@@ -30,8 +30,7 @@ describe('Test hierarchy widget non-standard options', function () {
                 login: 'mylogin',
                 password: 'mypassword',
                 email: 'email@email.com',
-                firstName: 'First',
-                lastName: 'Last'
+                firstName: 'First'
             }).on('g:saved', function () {
                 user = _user;
             });

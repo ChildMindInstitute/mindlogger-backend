@@ -175,7 +175,8 @@ class Description(object):
         return dataType, dataTypeFormat, paramType
 
     def param(self, name, description, paramType='query', dataType='string',
-              required=True, enum=None, default=None, strip=False, lower=False, upper=False):
+              required=True, enum=None, default=None, strip=False, lower=False,
+              upper=False, deprecated=False):
         """
         This helper will build a parameter declaration for you. It has the most
         common options as defaults, so you won't have to repeat yourself as much
@@ -206,6 +207,8 @@ class Description(object):
         :param upper: For string types, set this to True if the string should be
             converted to uppercase.
         :type upper: bool
+        :param deprecated: Is this parameter deprecated?
+        :type deprecated: bool
         """
         dataType, format, paramType = self._validateParamInfo(dataType, paramType, name)
 
@@ -213,7 +216,7 @@ class Description(object):
             'name': name,
             'description': description,
             'in': paramType,
-            'required': required
+            'required': required,
         }
 
         if dataType == 'string':
@@ -237,6 +240,7 @@ class Description(object):
         if default is not None:
             param['default'] = default
 
+        self._deprecated = deprecated
         self._params.append(param)
         return self
 

@@ -26,16 +26,15 @@ class User(AccessControlledModel):
         self.ensureIndices(['login', 'email', 'groupInvites.groupId', 'size',
                             'created'])
         self.prefixSearchFields = (
-            'login', ('firstName', 'i'), ('lastName', 'i'), 'email')
+            'login', ('firstName', 'i'), ('displayName', 'i'), 'email')
         self.ensureTextIndex({
             'login': 1,
-            'firstName': 1,
-            'lastName': 1,
+            'displayName': 1,
             'email': 1,
         }, language='none')
         self.exposeFields(level=AccessType.READ, fields=(
-            '_id', 'login', 'public', 'firstName', 'lastName', 'admin', 'email',
-            'created'))
+            '_id', 'login', 'public', 'displayName', 'firstName', 'lastName',
+            'admin', 'email', 'created')) # 🔥 delete firstName, lastName and email once fully deprecated
         self.exposeFields(level=AccessType.ADMIN, fields=(
             'size', 'status', 'emailVerified', 'creatorId'))
 
@@ -61,21 +60,20 @@ class User(AccessControlledModel):
         """
         doc['login'] = doc.get('login', '').lower().strip()
         doc['email'] = doc.get('email', '').lower().strip()
+        doc['displayName'] = doc.get(
+            'displayName',
+            doc.get('firstName', '')
+        ).strip()
         doc['firstName'] = doc.get('firstName', '').strip()
-        doc['lastName'] = doc.get('lastName', '').strip()
         doc['status'] = doc.get('status', 'enabled')
 
         if 'salt' not in doc:
             # Internal error, this should not happen
             raise Exception('Tried to save user document with no salt.')
 
-        if not doc['firstName']:
-            raise ValidationException('First name must not be empty.',
-                                      'firstName')
-
-        if not doc['lastName']:
-            raise ValidationException('Last name must not be empty.',
-                                      'lastName')
+        if not doc['displayName']:
+            raise ValidationException('Display name must not be empty.',
+                                      'displayName')
 
         if doc['status'] not in ('pending', 'enabled', 'disabled'):
             raise ValidationException(
@@ -87,7 +85,9 @@ class User(AccessControlledModel):
 
         self._validateLogin(doc['login'])
 
-        if not mail_utils.validateEmailAddress(doc['email']):
+        if len(doc['email']) and not mail_utils.validateEmailAddress(
+            doc['email']
+        ):
             raise ValidationException('Invalid email address.', 'email')
 
         # Ensure unique logins
@@ -100,15 +100,15 @@ class User(AccessControlledModel):
                                       'login')
 
         # Ensure unique emails
-        q = {'email': doc['email']}
-        if '_id' in doc:
-            q['_id'] = {'$ne': doc['_id']}
-        existing = self.findOne(q)
-        if existing is not None:
-            raise ValidationException(''.join([
-                                      'That email is already registered:',
-                                      str(existing["_id"])]),
-                                      'email')
+        # q = {'email': doc['email']}
+        # if '_id' in doc:
+        #     q['_id'] = {'$ne': doc['_id']}
+        # existing = self.findOne(q)
+        # if existing is not None:
+        #     raise ValidationException(''.join([
+        #                               'That email is already registered:',
+        #                               str(existing["_id"])]),
+        #                               'email')
 
         # If this is the first user being created, make it an admin
         existing = self.findOne({})
@@ -170,34 +170,48 @@ class User(AccessControlledModel):
         login = login.lower().strip()
         loginField = 'email' if '@' in login else 'login'
 
-        user = self.findOne({loginField: login})
-        if user is None:
+        if loginField=='login':
+            user = self.findOne({loginField: login})
+        else:
+            users = list(self.find({loginField: login}))
+        if user is None and users is None:
             raise AccessException('Login failed.')
 
-        # Handle users with no password
-        if not self.hasPassword(user):
-            e = events.trigger('no_password_login_attempt', {
-                'user': user,
-                'password': password
-            })
+        if user:
+            # Handle users with no password
+            if not self.hasPassword(user):
+                e = events.trigger('no_password_login_attempt', {
+                    'user': user,
+                    'password': password
+                })
 
-            if len(e.responses):
-                return e.responses[-1]
+                if len(e.responses):
+                    return e.responses[-1]
 
-            raise ValidationException(
-                'This user does not have a password. You must log in with an '
-                'external service, or reset your password.')
+                raise ValidationException(
+                    'This user does not have a password. You must log in with an '
+                    'external service, or reset your password.')
 
-        # Handle OTP token concatenation
-        if otpToken is True and self.hasOtpEnabled(user):
-            # Assume the last (typically 6) characters are the OTP, so split at that point
-            otpTokenLength = self._TotpFactory.digits
-            otpToken = password[-otpTokenLength:]
-            password = password[:-otpTokenLength]
+            # Handle OTP token concatenation
+            if otpToken is True and self.hasOtpEnabled(user):
+                # Assume the last (typically 6) characters are the OTP, so split at that point
+                otpTokenLength = self._TotpFactory.digits
+                otpToken = password[-otpTokenLength:]
+                password = password[:-otpTokenLength]
 
-        # Verify password
-        if not self._cryptContext.verify(password, user['salt']):
-            raise AccessException('Login failed.')
+            self._verify_password(password, user)
+
+        else:
+            user = {}
+            verified_password = False
+            for u in users:
+                try:
+                    verified_password = self._verify_password(password, u)
+                    user = u
+                except:
+                    verified_password = verified_password
+            if not verified_password:
+                raise AccessException('Login failed.')
 
         # Verify OTP
         if self.hasOtpEnabled(user):
@@ -383,8 +397,9 @@ class User(AccessControlledModel):
         # "totp.verify" security)
         rateLimitBuffer.set(lastCounterKey, totpMatch.counter)
 
-    def createUser(self, login, password, firstName, lastName, email,
-                   admin=False, public=False, currentUser=None):
+    def createUser(self, login, password, displayName="", email="",
+                   admin=False, public=False, currentUser=None,
+                   firstName="", lastName=""): # 🔥 delete firstName and lastName once fully deprecated
         """
         Create a new user with the given information.
 
@@ -396,14 +411,19 @@ class User(AccessControlledModel):
         """
         from .group import Group
         from .setting import Setting
-        requireApproval = Setting().get(SettingKey.REGISTRATION_POLICY) == 'approve'
+        requireApproval = Setting(
+        ).get(SettingKey.REGISTRATION_POLICY) == 'approve'
+        email = "" if not email else email
+        print("email: {}".format(email))
         if admin:
             requireApproval = False
         user = {
             'login': login,
             'email': email,
+            'displayName': displayName if len(
+                displayName
+            ) else firstName if firstName is not None else "",
             'firstName': firstName,
-            'lastName': lastName,
             'created': datetime.datetime.utcnow(),
             'emailVerified': False,
             'status': 'pending' if requireApproval else 'enabled',
@@ -415,8 +435,10 @@ class User(AccessControlledModel):
                     "groupId": gi.get('_id'),
                     "level": 0
                 } for gi in list(Group().find(query={"queue": email}))
-            ]
+            ] if len(email) else []
         }
+
+        print(user)
 
         self.setPassword(user, password, save=False)
         self.setPublic(user, public, save=False)
@@ -698,3 +720,10 @@ class User(AccessControlledModel):
         existing = ProtoUser().findOne(q)
         if existing is not None:
             ProtoUser().remove(existing)
+
+    def _verify_password(self, password, user):
+        # Verify password
+        if not self._cryptContext.verify(password, user['salt']):
+            raise AccessException('Login failed.')
+        else:
+            return(True)

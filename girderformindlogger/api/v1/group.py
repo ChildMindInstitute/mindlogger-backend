@@ -156,7 +156,7 @@ class Group(Resource):
         Description('Show outstanding invitations for a group.')
         .responseClass('Group')
         .modelParam('id', model=GroupModel, level=AccessType.READ)
-        .pagingParams(defaultSort='lastName')
+        .pagingParams(defaultSort='firstName') # 🚧 replace with customID once customID defined
         .errorResponse()
         .errorResponse('Read access was denied for the group.', 403)
     )
@@ -231,7 +231,7 @@ class Group(Resource):
     @autoDescribeRoute(
         Description('List members of a group.')
         .modelParam('id', model=GroupModel, level=AccessType.READ)
-        .pagingParams(defaultSort='lastName')
+        .pagingParams(defaultSort='firstName') # 🚧 replace with customID once customID defined
         .errorResponse('ID was invalid.')
         .errorResponse('Read access was denied for the group.', 403)
     )

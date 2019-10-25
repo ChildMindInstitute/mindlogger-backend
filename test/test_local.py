@@ -1,9 +1,6 @@
 import pytest
 from .testLib import fullTest
 
-server = 'localhost'
-port = '8080'
-
 activitySetUrl = 'https://raw.githubusercontent.com/\
 ReproNim/schema-standardization/master/activity-sets/\
 ema-hbn/ema-hbn_schema'
@@ -24,13 +21,13 @@ activities/EmaHBNMorning/items/sleeping_aids'
 
 @pytest.mark.parametrize(
     "args",
-    [(server, port, activitySetUrl, act1, act2, act1Item, act2Item)]
+    [(activitySetUrl, act1, act2, act1Item, act2Item)]
 )
 def test_1_HBN(args):
-    server, port, activitySetUrl, act1, act2, act1Item, act2Item = args
+    activitySetUrl, act1, act2, act1Item, act2Item = args
     try:
         print('\n\n TEST 1: HBN')
-        fullTest(server, port, activitySetUrl, act1, act2, act1Item, act2Item)
+        fullTest(activitySetUrl, act1, act2, act1Item, act2Item)
     except Exception as e:
         print('\n\n ERROR:', e)
         raise e
@@ -52,16 +49,14 @@ master/activities/PediatricScreener-SelfReport/items/having_less_fun'
 
 @pytest.mark.parametrize(
     "args",
-    [(server, port, nestedActivitySet, nact1, nact2, nact1Item, nact2Item)]
+    [(nestedActivitySet, nact1, nact2, nact1Item, nact2Item)]
 )
 def test_2_pediatric_screener(args):
-    server, port, nestedActivitySet, nact1, nact2, nact1Item, nact2Item = args
+    nestedActivitySet, nact1, nact2, nact1Item, nact2Item = args
 
     try:
         print('\n\n TEST 2: Pediatric Screener')
         fullTest(
-            server,
-            port,
             nestedActivitySet,
             nact1,
             nact2,

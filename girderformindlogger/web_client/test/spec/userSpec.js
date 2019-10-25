@@ -26,7 +26,6 @@ describe('Create an admin and non-admin user', function () {
             $('#g-login').val('user2');
             $('#g-email').val('user2@user2.com');
             $('#g-firstName').val('user');
-            $('#g-lastName').val('2');
             $('#g-password,#g-password2').val('password');
 
             $('#g-register-button').click();

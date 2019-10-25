@@ -325,7 +325,6 @@ before executing your test.  A typical example of this format is as follows
       - login: 'admin'
         password: 'password'
         firstName: 'First'
-        lastName: 'Last'
         email: 'admin@email.com'
         admin: true
         import: 'files/user'

@@ -30,8 +30,7 @@ var RegisterView = View.extend({
                 login: this.$('#g-login').val(),
                 password: this.$('#g-password').val(),
                 email: this.$('#g-email').val(),
-                firstName: this.$('#g-firstName').val(),
-                lastName: this.$('#g-lastName').val()
+                firstName: this.$('#g-firstName').val()
             });
             user.on('g:saved', function () {
                 if (getCurrentUser()) {

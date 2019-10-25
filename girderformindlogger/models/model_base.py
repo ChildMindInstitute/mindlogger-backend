@@ -1556,13 +1556,13 @@ class AccessControlledModel(Model):
         dirty = False
 
         for user in acList['users'][:]:
-            userDoc = User().load(user['id'], force=True, fields=['firstName', 'lastName', 'login', 'email'])
+            userDoc = User().load(user['id'], force=True, fields=['firstName', 'login', 'email'])
             if not userDoc:
                 dirty = True
                 acList['users'].remove(user)
                 continue
             user['login'] = userDoc['login']
-            user['name'] = ' '.join((userDoc['firstName'], userDoc['lastName']))
+            user['name'] = userDoc['firstName']
             user['email'] = userDoc['email']
 
         for grp in acList['groups'][:]:
@@ -1618,16 +1618,13 @@ class AccessControlledModel(Model):
                 userDoc = User().load(
                     decipherUser(user['id']),
                     force=True,
-                    fields=['firstName', 'lastName', 'login', 'email'])
+                    fields=['firstName', 'login', 'email'])
                 if not userDoc:
                     dirty = True
                     acList[role]['users'].remove(user)
                     continue
                 user['login'] = userDoc['login']
-                user['name'] = ' '.join([
-                    userDoc.get('firstName'),
-                    userDoc.get('lastName')
-                ]).strip()
+                user['name'] = userDoc.get('firstName').strip()
                 user['email'] = userDoc['email']
 
             for grp in acList[role]['groups']:

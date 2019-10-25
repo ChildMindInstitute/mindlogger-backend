@@ -237,7 +237,7 @@ class Applet(Folder):
             return([])
         # query users for groups by status
         print('\n\n\n', ProtoUserModel().findOne())
-        
+
         userList = {
             role: {
                 groupId: {
@@ -269,7 +269,7 @@ class Applet(Folder):
         return([
             {
                 "_id": user.get("_id"),
-                "email": user.get("email"),
+                "email": user.get("email", ""),
                 "groups": [{
                         "_id": groupId,
                         "name": appletGroups[role][groupId],
