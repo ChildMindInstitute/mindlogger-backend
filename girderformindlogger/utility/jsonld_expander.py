@@ -81,6 +81,18 @@ def _deeperContextualize(ldObj, context):
     return(context, newObj)
 
 
+def delanguageTag(obj):
+    """
+    Function to take a language-tagged list of dicts and return an untagged
+    string.
+
+    :param obj: list of language-tagged dict
+    :type obj: list
+    :returns: string
+    """
+    return((obj if len(obj) else [{}])[-1].get("@value", ""))
+
+
 def expand(obj, keepUndefined=False):
     """
     Function to take an unexpanded JSON-LD Object and return it expandedself.
@@ -111,6 +123,11 @@ def expand(obj, keepUndefined=False):
     ):
         if not isinstance(obj, dict):
             obj={}
+        if "http://schema.org/url" in newObj.keys(
+        ) and isinstance(newObj["http://schema.org/url"], list):
+            newObj["http://schema.org/url"] = delanguageTag(
+                newObj["http://schema.org/url"]
+            )
         for k, v in newObj.copy().items():
             if not bool(v):
                 newObj.pop(k)
