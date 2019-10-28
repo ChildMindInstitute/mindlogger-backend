@@ -8,6 +8,10 @@ Changes
 -------
 Unreleased
 ==========
+2019-10-28: v0.5.8
+^^^^^^^^^^^^^^^^^^
+* :sparkles: :building_construction: New route: `GET schedule`
+
 2019-10-25: v0.5.7
 ^^^^^^^^^^^^^^^^^^
 * :racehorse: Improve `GET user/applets` speed
