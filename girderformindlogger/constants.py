@@ -44,6 +44,7 @@ REPROLIB_PREFIXES = [
             "raw.githubusercontent.com/ReproNim/reprolib/master/"
         ]
     ],
+    "reproschema:",
     "reproterms:"
 ]
 SPECIAL_SUBJECTS = {"ALL", "NONE"}
