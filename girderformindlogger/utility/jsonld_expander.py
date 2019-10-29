@@ -1,11 +1,13 @@
 from bson import json_util
 from copy import deepcopy
 from datetime import datetime
-from girderformindlogger.constants import AccessType
-from girderformindlogger.exceptions import AccessException, ResourcePathNotFound, \
-    ValidationException
+from girderformindlogger.constants import AccessType, REPROLIB_CANONICAL,      \
+    REPROLIB_PREFIXES
+from girderformindlogger.exceptions import AccessException,                    \
+    ResourcePathNotFound, ValidationException
 from girderformindlogger.models.activity import Activity as ActivityModel
-from girderformindlogger.models.activitySet import ActivitySet as ActivitySetModel
+from girderformindlogger.models.activitySet import ActivitySet as              \
+    ActivitySetModel
 from girderformindlogger.models.applet import Applet as AppletModel
 from girderformindlogger.models.collection import Collection as CollectionModel
 from girderformindlogger.models.folder import Folder as FolderModel
@@ -21,7 +23,8 @@ KEYS_TO_EXPAND = [
     "responseOptions",
     "https://schema.repronim.org/valueconstraints",
     "reproterms:valueconstraints",
-    "valueconstraints"
+    "valueconstraints",
+    "reprolib:valueconstraints"
 ]
 
 MODELS = {
@@ -81,6 +84,33 @@ def _deeperContextualize(ldObj, context):
     return(context, newObj)
 
 
+def reprolibPrefix(s):
+    """
+    Function to check if a string is a reprolib URL, and, if so, compact it to
+    the prefix "reprolib:"
+
+    :type s: str
+    :returns: str
+    """
+    for prefix in REPROLIB_PREFIXES:
+        if s.startswith(prefix):
+            return(s.replace(prefix, 'reprolib:'))
+    return(s)
+
+
+def reprolibCanonize(s):
+    """
+    Function to check if a string is a prfixed reprolib URL, and, if so,
+    expand it to the current canonical prefix
+
+    :type s: str
+    :returns: str
+    """
+    if reprolibPrefix(s).startswith('reprolib:'):
+        return(s.replace('reprolib:', REPROLIB_CANONICAL))
+    return(s)
+
+
 def expand(obj, keepUndefined=False):
     """
     Function to take an unexpanded JSON-LD Object and return it expandedself.
@@ -114,6 +144,12 @@ def expand(obj, keepUndefined=False):
         for k, v in newObj.copy().items():
             if not bool(v):
                 newObj.pop(k)
+            prefix_key = reprolibPrefix(k)
+            if prefix_key != k:
+                print(prefix_key)
+                newObj[prefix_key] = newObj.pop(k)
+            if isinstance(v, str):
+                newObj[prefix_key] = reprolibCanonize(v)
         newObj.update({
             k: obj.get(k) for k in obj.keys() if (
                 bool(obj.get(k)) and k not in keyExpansion(
