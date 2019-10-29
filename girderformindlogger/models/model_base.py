@@ -208,12 +208,14 @@ class Model(object):
         :type modelType: str
         :returns: dict or None
         """
-        from girderformindlogger.utility.jsonld_expander import MODELS
+        from girderformindlogger.utility.jsonld_expander import MODELS, \
+        reprolibCanonize
         cached = list(MODELS[modelType].find(
             query={
                 'meta.{}.url'.format(modelType): url,
-                'meta.activitySet.@type': 'https://www.repronim.org/'
-                    'schema-standardization/schemas/ActivitySet.jsonld',
+                'meta.activitySet.@type': reprolibCanonize(
+                    'reprolib:schemas/ActivitySet.jsonld'
+                ),
             } if modelType=="activitySet" else {
                 'meta.{}.url'.format(modelType): url
             },

@@ -394,8 +394,7 @@ def componentImport(obj, activitySet, user=None, refreshCache=True):
     obj2 = obj.copy()
     try:
         for order in obj2.get(
-            "https://raw.githubusercontent.com/ReproNim/schema-standardization/"
-            "master/terms/order",
+            "reprolib:terms/order",
             {}
         ):
             for activity in order.get("@list", []):
