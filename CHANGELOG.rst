@@ -8,7 +8,7 @@ Changes
 -------
 Unreleased
 ==========
-2019-10-28: v0.5.8
+2019-10-29: v0.5.8
 ^^^^^^^^^^^^^^^^^^
 * :ambulance: :tractor: Delanguage tag `http://schema.org/url`s
 

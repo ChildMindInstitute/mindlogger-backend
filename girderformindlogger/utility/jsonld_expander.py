@@ -90,6 +90,8 @@ def delanguageTag(obj):
     :type obj: list
     :returns: string
     """
+    if not isinstance(obj, list):
+        return(obj)
     return((obj if len(obj) else [{}])[-1].get("@value", ""))
 
 
