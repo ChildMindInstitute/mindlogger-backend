@@ -97,11 +97,11 @@ Glossary
 
 Activity
 ^^^^^^^^
-An "individual assessment", as defined in `reprolib <https://github.com/ReproNim/schema-standardization/tree/0fb4abd67d209e76325e6f42d428d7c275252ec6#20-need-for-standardizing-assessments>`_: `Activity <https://raw.githubusercontent.com/ReproNim/schema-standardization/master/schemas/Activity>`_.
+An "individual assessment", as defined in `reprolib <https://github.com/ReproNim/schema-standardization/tree/0fb4abd67d209e76325e6f42d428d7c275252ec6#20-need-for-standardizing-assessments>`_:`Activity <https://raw.githubusercontent.com/ReproNim/schema-standardization/master/schemas/Activity>`_.
 
 Activity Set
 ^^^^^^^^^^^^
-A "collection[…] of `activities <#activity>`_ as defined in `reprolib <https://github.com/ReproNim/schema-standardization/tree/0fb4abd67d209e76325e6f42d428d7c275252ec6#20-need-for-standardizing-assessments>`_: `ActivitySet <https://raw.githubusercontent.com/ReproNim/schema-standardization/master/schemas/ActivitySet>`_.
+A "collection[…] of `activities <#activity>`_ as defined in `reprolib <https://github.com/ReproNim/schema-standardization/tree/0fb4abd67d209e76325e6f42d428d7c275252ec6#20-need-for-standardizing-assessments>`_:`ActivitySet <https://raw.githubusercontent.com/ReproNim/schema-standardization/master/schemas/ActivitySet>`_.
 
 Applet
 ^^^^^^
@@ -142,11 +142,11 @@ Data collected when a `user <#user>`_ responds to an `activity <#activity>`_.
 
 Reviewer
 ^^^^^^^^
-An individual authorized to review `user <#user>`_ `responses <#response>`_ to `activitis <#activity>`_ in an `applet <#applet>`_.
+An individual authorized to review `user <#user>`_ `responses <#response>`_ to `activities <#activity>`_ in an `applet <#applet>`_.
 
 Screen
 ^^^^^^
-One or more "elements of individual assessments" displayed in a single screen or page view, as defined in `reprolib <https://github.com/ReproNim/schema-standardization/tree/0fb4abd67d209e76325e6f42d428d7c275252ec6#20-need-for-standardizing-assessments>`_: `Item <https://raw.githubusercontent.com/ReproNim/schema-standardization/master/schemas/Field>`_ and `Issue #85 <https://github.com/ReproNim/schema-standardization/issues/85>`_.
+One or more "elements of individual assessments" displayed in a single screen or page view, as defined in `reprolib <https://github.com/ReproNim/schema-standardization/tree/0fb4abd67d209e76325e6f42d428d7c275252ec6#20-need-for-standardizing-assessments>`_:`Item <https://raw.githubusercontent.com/ReproNim/schema-standardization/master/schemas/Field>`_ and `Issue #85 <https://github.com/ReproNim/schema-standardization/issues/85>`_.
 
 Skin
 ^^^^
