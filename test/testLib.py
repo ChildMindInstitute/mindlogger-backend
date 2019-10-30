@@ -2,12 +2,14 @@ import girderformindlogger
 import itertools
 import numpy as np
 import pandas as pd
+import pytest
 import simplejson
 import time
 import tzlocal
 from bson.objectid import ObjectId
 from datetime import datetime
 from girderformindlogger.constants import AccessType
+from girderformindlogger.exceptions import ValidationException
 from girderformindlogger.models.activity import Activity as ActivityModel
 from girderformindlogger.models.activitySet import ActivitySet as \
     ActivitySetModel
@@ -171,6 +173,58 @@ def getAppletsUser(user, n=1):
     return appletList
 
 
+def checkForLanguageEncodedURL(obj):
+    """
+    Checks if URL is language-encoded (URLs should not be)
+
+    inputs
+    ------
+    obj: dict, list, string, or None
+
+    returns
+    -------
+    bool
+    """
+    LANGUAGE_KEYS = {"@language", "@en"}
+    if isinstance(obj, str):
+        return(False)
+    if isinstance(obj, list):
+        return(bool(set(itertools.chain.from_iterable(
+            [LANGUAGE_KEYS.intersection(d.keys()) for d in obj]
+        ))))
+    if isinstance(obj, dict):
+        return(bool(LANGUAGE_KEYS.intersection(obj.keys())))
+    return(False)
+
+
+def checkObjectForURLs(obj):
+    """
+    Recursively checks if a dict is keyed with 'url'. If so, it checks for
+    language encoding.
+
+    inputs
+    ------
+    obj: dict, list, string, or None
+
+    returns
+    -------
+    None
+    """
+    if isinstance(obj, list):
+        [checkObjectForURLs(o) for o in obj]
+    elif isinstance(obj, dict):
+        languageEncodedURLs = [
+            obj[k] for k in obj.keys(
+            ) if k.split('/')[-1].split(':')[-1].lower(
+            )=="url" and checkForLanguageEncodedURL(obj[k])
+        ]
+        if any(languageEncodedURLs):
+            raise ValidationException(
+                "Language-encoded URL: {}".format(str(languageEncodedURLs))
+            )
+        [checkObjectForURLs(obj[k]) for k in obj.keys()]
+    return(None)
+
 
 def getExpandedApplets(user):
     """
@@ -194,6 +248,7 @@ def getExpandedApplets(user):
     ]
     # TODO: add some checks to the structure of expandedApplets to make sure
     # the mobile app can parse it.
+    checkObjectForURLs(expandedApplets)
     return expandedApplets
 
 
@@ -365,11 +420,11 @@ def postResponse(user, actURI, itemURI, appletObject, password="password"):
         currentUser
     )
 
-    a = expandedApplet['activities'][actURI]
+    a = expandedApplet['activities'][jsonld_expander.reprolibPrefix(actURI)]
     activityId = a['_id'].split('/')[1]
 
     response = {}
-    response[itemURI] = np.random.randint(2)
+    response[jsonld_expander.reprolibPrefix(itemURI)] = np.random.randint(2)
     metadata = {
         'responses': response,
         'subject': {
@@ -377,6 +432,8 @@ def postResponse(user, actURI, itemURI, appletObject, password="password"):
         }
     }
     applet = appletObject
+    print(activityId)
+    print(applet.get('_id'))
     activity = ActivityModel().load(
         activityId,
         user=currentUser,
@@ -433,6 +490,7 @@ def getLast7Days(user, appletObject):
     currentUser = authenticate(user)
     appletId = appletObject['_id']
     appletInfo = AppletModel().findOne({'_id': ObjectId(appletId)})
+    print(last7Days(appletId, appletInfo, currentUser.get('_id'), currentUser))
     return(last7Days(appletId, appletInfo, currentUser.get('_id'), currentUser))
 
 
@@ -488,7 +546,7 @@ def getDataForApplet(user, appletObject):
             'userId': response['userId'],
         }
         for key, value in response['responses'].items():
-            tmp['itemURI'] = key
+            tmp['itemURI'] = jsonld_expander.reprolibPrefix(key)
             tmp['value'] = value
             formattedOutputResponse.append(tmp)
 
@@ -620,8 +678,21 @@ def tryExceptTester(func, args, message, nreturn = 1):
         raise(e)
         return [None] * nreturn
 
+def testElses():
+    assert jsonld_expander.delanguageTag({})=={}
+
+def testTests():
+    with pytest.raises(ValidationException) as excinfo:
+        checkObjectForURLs({"url": {
+            "@language": "en",
+            "@value": "https://mindlogger.org"
+        }})
+    assert 'language' in str(excinfo.value)
+
 
 def fullTest(activitySetUrl, act1, act2, act1Item, act2Item):
+    testElses()
+    testTests()
 
     # Create a new user
 
@@ -786,7 +857,7 @@ def fullTest(activitySetUrl, act1, act2, act1Item, act2Item):
 
     # post a response
     # each user posts a response for a single item in each activity.
-    def step13(user, userB, userC, act1, act1Item, act2, act2Item):
+    def step13(user, userB, userC, act1, act1Item, act2, act2Item, appletObject):
         for u in [user, userB]:
             for i in range(2):
                 postResponse(u, act1, act1Item, appletObject)
@@ -797,7 +868,7 @@ def fullTest(activitySetUrl, act1, act2, act1Item, act2Item):
 
     tryExceptTester(
         step13,
-        [user, userB, userC, act1, act1Item, act2, act2Item],
+        [user, userB, userC, act1, act1Item, act2, act2Item, appletObject],
         'posted responses for all 3 users'
     )
 

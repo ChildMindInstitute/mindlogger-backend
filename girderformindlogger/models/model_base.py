@@ -208,12 +208,14 @@ class Model(object):
         :type modelType: str
         :returns: dict or None
         """
-        from girderformindlogger.utility.jsonld_expander import MODELS
+        from girderformindlogger.utility.jsonld_expander import MODELS, \
+        reprolibCanonize
         cached = list(MODELS[modelType].find(
             query={
                 'meta.{}.url'.format(modelType): url,
-                'meta.activitySet.@type': 'https://www.repronim.org/'
-                    'schema-standardization/schemas/ActivitySet.jsonld',
+                'meta.activitySet.@type': reprolibCanonize(
+                    'reprolib:schemas/ActivitySet'
+                ),
             } if modelType=="activitySet" else {
                 'meta.{}.url'.format(modelType): url
             },
@@ -237,7 +239,7 @@ class Model(object):
         """
         from girderformindlogger.utility import firstLower, loadJSON
         from girderformindlogger.utility.jsonld_expander import camelCase, \
-            contextualize, snake_case
+            contextualize, reprolibCanonize, snake_case
         if user==None:
             raise AccessException(
                 "You must be logged in to load a{} by url".format(
@@ -248,6 +250,7 @@ class Model(object):
                     ] else " {}".format(modelType)
                 )
             )
+        url = reprolibCanonize(url)
         model = contextualize(loadJSON(url, modelType))
         atType = model.get('@type', '').split('/')[-1].split(':')[-1]
         modelType = firstLower(atType) if len(atType) else modelType
