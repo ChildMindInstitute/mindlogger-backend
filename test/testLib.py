@@ -3,24 +3,25 @@ import itertools
 import numpy as np
 import pandas as pd
 import pytest
-import simplejson
+import json
 import time
 import tzlocal
 from bson.objectid import ObjectId
 from datetime import datetime
-from girderformindlogger.constants import AccessType
+from girderformindlogger.constants import AccessType, REPROLIB_CANONICAL
 from girderformindlogger.exceptions import ValidationException
 from girderformindlogger.models.activity import Activity as ActivityModel
-from girderformindlogger.models.activitySet import ActivitySet as \
+from girderformindlogger.models.activitySet import ActivitySet as              \
     ActivitySetModel
 from girderformindlogger.models.applet import Applet as AppletModel
 from girderformindlogger.models.folder import Folder
 from girderformindlogger.models.group import Group
-from girderformindlogger.models.response_folder import ResponseFolder as \
+from girderformindlogger.models.response_folder import ResponseFolder as       \
     ResponseFolderModel, ResponseItem as ResponseItemModel
 from girderformindlogger.models.user import User as UserModel
 from girderformindlogger.utility import jsonld_expander
-from girderformindlogger.utility.response import formatResponse, last7Days
+from girderformindlogger.utility.response import formatResponse, getSchedule,  \
+    last7Days
 from girderformindlogger.utility.resource import listFromString
 from girder_client import HttpError
 from pymongo import DESCENDING
@@ -54,10 +55,15 @@ def testCreateUser(email=None, admin=False):
         displayName=displayName,
         email=email
     )
-    # assert 'authToken' in createUser.keys(), 'user has no token, {}'.format(createUser)
-    assert createUser['email'] == email, 'email does not match, {} {}'.format(createUser['email'], email)
+    assert createUser['email'] == email, 'email does not match, {} {}'.format(
+        createUser['email'],
+        email
+    )
     assert createUser['displayName'] == displayName, 'displayName does not match'
-    assert createUser['login'] == login, 'login does not match, {} {}'.format(createUser['login'], login)
+    assert createUser['login'] == login, 'login does not match, {} {}'.format(
+        createUser['login'],
+        login
+    )
     assert createUser['admin'] == admin, 'user\'s admin property does not match'
     assert createUser.get('public', False) == False, 'user is public!'
 
@@ -278,14 +284,52 @@ def addSchedule(user, appletObject):
     user: a user object
     appletObject: appletObject.
     """
-
-    scheduleString = """{"type":2,"size":1,"fill":true,"minimumSize":0,"repeatCovers":true,"listTimes":false,"eventsOutside":false,"updateRows":false,"updateColumns":false,"around":1567321200000,"events":[{"data":{"title":"EMA: Morning","description":"","location":"","color":"#673AB7","forecolor":"#ffffff","calendar":"","busy":true,"icon":"","URI":"http://repronim.org/schema-standardization/activity-sets/mindlogger-demo/mindlogger-demo_schema","notifications":[{"start":"09:00","end":null,"random":false,"notifyIfIncomplete":false}],"useNotifications":true},"schedule":{}}]}"""
-    schedule = simplejson.loads(scheduleString)
-    authenticate(user)
+    from girderformindlogger.api.v1.applet import _setConstraints
+    activityURL = "".join([
+        REPROLIB_CANONICAL,
+        "activities/MindLoggerDemo/MindLoggerDemo_schema"
+    ])
+    scheduleString = json.dumps({
+        "type":2,
+        "size":1,
+        "fill":True,
+        "minimumSize":0,
+        "repeatCovers":True,
+        "listTimes":False,
+        "eventsOutside":False,
+        "updateRows":False,
+        "updateColumns":False,
+        "around":1567321200000,
+        "events":[{
+            "data":{
+                "title":"MindLogger Demo activity",
+                "description":"",
+                "location":"",
+                "color":"#673AB7",
+                "forecolor":"#ffffff",
+                "calendar":"",
+                "busy":True,
+                "icon":"",
+                "URI":activityURL,
+                "notifications":[{
+                    "start":"09:00",
+                    "end":None,
+                    "random":False,
+                    "notifyIfIncomplete":False
+                }],
+                "useNotifications":True
+            },
+            "schedule":{}
+        }]
+    })
+    schedule = json.loads(scheduleString)
     appletId = appletObject['_id']
-    putResp = girder.put('applet/{}/constraints/'.format(appletId),
-        data=dict(schedule=simplejson.dumps(schedule)))
-    assert putResp['applet']['schedule'] == schedule
+    putResp = _setConstraints(appletObject, None, schedule, user).get(
+        'meta',
+        {'applet': {'schedule': None}}
+    )
+    print(putResp)
+    # assert putResp['applet']['schedule'] == schedule
 
 
 def inviteUserToApplet(user, appletObject, userB):
@@ -751,14 +795,14 @@ def fullTest(activitySetUrl, act1, act2, act1Item, act2Item):
     # add a schedule to the applet
     # print('add a schedule to the applet')
 
-    # def step05(user, appletObject):
-    #     addSchedule(user, appletObject)
-    #
-    # tryExceptTester(
-    #     step05,
-    #     [user, appletObject],
-    #     'add a schedule to the applet'
-    # )
+    def step05(user, appletObject):
+        addSchedule(user, appletObject)
+
+    tryExceptTester(
+        step05,
+        [user, appletObject],
+        'add a schedule to the applet'
+    )
 
     # create a new user and invite them to the applet
     # print('create a new user and invite them to the applet')

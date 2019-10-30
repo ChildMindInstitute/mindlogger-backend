@@ -50,28 +50,4 @@ class Schedule(Resource):
         Get a list of dictionaries keyed by activityID.
         """
         currentUser = self.getCurrentUser()
-        return ({
-            applet['applet'].get('_id', ''): {
-                applet['activities'][activity].get('_id', ''): {
-                    'lastResponse': response.getLatestResponseTime(
-                        currentUser['_id'],
-                        applet['applet']['_id'].split('applet/')[-1],
-                        activity,
-                        tz=timezone
-                    ) #,
-                    # 'nextScheduled': None,
-                    # 'lastScheduled': None
-                } for activity in list(
-                    applet.get('activities', {}).keys()
-                )
-            } for applet in [
-                jsonld_expander.formatLdObject(
-                    applet,
-                    'applet',
-                    currentUser
-                ) for applet in AppletModel().getAppletsForUser(
-                    user=currentUser,
-                    role='user'
-                )
-            ]
-        })
+        return(response.getSchedule(currentUser, timezone))

@@ -8,12 +8,42 @@ from backports.datetime_fromisoformat import MonkeyPatch
 from bson.codec_options import CodecOptions
 from bson.objectid import ObjectId
 from datetime import date, datetime, timedelta
+from girderformindlogger.models.applet import Applet as AppletModel
 from girderformindlogger.models.user import User as UserModel
 from girderformindlogger.models.response_folder import ResponseItem
 from girderformindlogger.utility import clean_empty
 from pandas.api.types import is_numeric_dtype
 from pymongo import ASCENDING, DESCENDING
 MonkeyPatch.patch_fromisoformat()
+
+
+def getSchedule(currentUser, timezone=None):
+    from .jsonld_expander import formatLdObject
+    return({
+        applet['applet'].get('_id', ''): {
+            applet['activities'][activity].get('_id', ''): {
+                'lastResponse': getLatestResponseTime(
+                    currentUser['_id'],
+                    applet['applet']['_id'].split('applet/')[-1],
+                    activity,
+                    tz=timezone
+                ) #,
+                # 'nextScheduled': None,
+                # 'lastScheduled': None
+            } for activity in list(
+                applet.get('activities', {}).keys()
+            )
+        } for applet in [
+            formatLdObject(
+                applet,
+                'applet',
+                currentUser
+            ) for applet in AppletModel().getAppletsForUser(
+                user=currentUser,
+                role='user'
+            )
+        ]
+    })
 
 
 def getLatestResponse(informantId, appletId, activityURL):
