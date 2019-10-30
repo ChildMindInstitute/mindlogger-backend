@@ -43,14 +43,16 @@ class Schedule(Resource):
         Get a list of dictionaries keyed by activityID.
         """
         currentUser = self.getCurrentUser()
-        return ([
-            {
-                activity: {
-                    'lastResponse': None,
-                    'nextScheduled': None,
-                    'lastScheduled': None
-                }
-            } for activity in list(set(k for applet in [
+        return ({
+            applet['applet'].get('_id', ''): {
+                applet['activities'][activity].get('_id', ''): {
+                    'lastResponse': None #,
+                    # 'nextScheduled': None,
+                    # 'lastScheduled': None
+                } for activity in list(
+                    applet.get('activities', {}).keys()
+                )
+            } for applet in [
                 jsonld_expander.formatLdObject(
                     applet,
                     'applet',
@@ -59,5 +61,5 @@ class Schedule(Resource):
                     user=currentUser,
                     role='user'
                 )
-            ] for k in list(applet.get('activities', {}).keys())))
-        ])
+            ]
+        })
