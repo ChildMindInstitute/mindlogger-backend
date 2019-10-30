@@ -1,4 +1,4 @@
-|logo| Girder for MindLogger |github-version| |build-status| |license-badge| |codecov-badge|
+|logo| Girder for MindLogger |github-version| |license-badge| |codecov-badge| |build-status|
 ============================================================================================
 
 **Data Management Platform**
@@ -84,7 +84,8 @@ If you're updating an existing Girder 2.x instance of Elastic Beanstalk, be sure
 
 Data Structure
 --------------
-Girder for MindLogger has the following underlying data structure:
+**Girder for MindLogger** uses `reprolib <https://github.com/ReproNim/schema-standardization>`_ and has the following underlying data structure:
+*Note: This project is still in version 0 and these descriptions and diagrams may sometimes diverge from the actual data structure as we develop.*
 
 Diagram
 #######
@@ -96,11 +97,11 @@ Glossary
 
 Activity
 ^^^^^^^^
-An "individual assessment", as defined in `ReproNim schema <https://github.com/ReproNim/schema-standardization/tree/0fb4abd67d209e76325e6f42d428d7c275252ec6#20-need-for-standardizing-assessments>`_: `Activity <https://raw.githubusercontent.com/ReproNim/schema-standardization/master/schemas/Activity>`_.
+An "individual assessment", as defined in `reprolib <https://github.com/ReproNim/schema-standardization/tree/0fb4abd67d209e76325e6f42d428d7c275252ec6#20-need-for-standardizing-assessments>`_: `Activity <https://raw.githubusercontent.com/ReproNim/schema-standardization/master/schemas/Activity>`_.
 
 Activity Set
 ^^^^^^^^^^^^
-A "collection[…] of `activities <#activity>`_ as defined in `ReproNim schema <https://github.com/ReproNim/schema-standardization/tree/0fb4abd67d209e76325e6f42d428d7c275252ec6#20-need-for-standardizing-assessments>`_: `ActivitySet <https://raw.githubusercontent.com/ReproNim/schema-standardization/master/schemas/ActivitySet>`_.
+A "collection[…] of `activities <#activity>`_ as defined in `reprolib <https://github.com/ReproNim/schema-standardization/tree/0fb4abd67d209e76325e6f42d428d7c275252ec6#20-need-for-standardizing-assessments>`_: `ActivitySet <https://raw.githubusercontent.com/ReproNim/schema-standardization/master/schemas/ActivitySet>`_.
 
 Applet
 ^^^^^^
@@ -115,6 +116,9 @@ Context
     A set of rules for interpreting a JSON-LD document [from this database] as specified in The Context of the JSON-LD Syntax specification."
 
 This definition comes from `JSON-LD 1.1 <https://json-ld.org/spec/latest/json-ld/>`_ `context <https://json-ld.org/spec/latest/json-ld/#dfn-contexts>`_.
+
+Coordinator
+^^^^^^^^^^^
 
 Icon
 ^^^^
@@ -142,7 +146,7 @@ An individual authorized to review `user <#user>`_ `responses <#response>`_ to `
 
 Screen
 ^^^^^^
-One or more "elements of individual assessments" displayed in a single screen or page view, as defined in `ReproNim schema <https://github.com/ReproNim/schema-standardization/tree/0fb4abd67d209e76325e6f42d428d7c275252ec6#20-need-for-standardizing-assessments>`_: `Item <https://raw.githubusercontent.com/ReproNim/schema-standardization/master/schemas/Field>`_ and `Issue #85 <https://github.com/ReproNim/schema-standardization/issues/85>`_.
+One or more "elements of individual assessments" displayed in a single screen or page view, as defined in `reprolib <https://github.com/ReproNim/schema-standardization/tree/0fb4abd67d209e76325e6f42d428d7c275252ec6#20-need-for-standardizing-assessments>`_: `Item <https://raw.githubusercontent.com/ReproNim/schema-standardization/master/schemas/Field>`_ and `Issue #85 <https://github.com/ReproNim/schema-standardization/issues/85>`_.
 
 Skin
 ^^^^
@@ -162,7 +166,7 @@ An individual using a MindLogger mobile application or MindLogger web applicatio
 
 Links
 -----
-- `ReproNim Schema specification <https://github.com/ReproNim/schema-standardization>`_
+- `reprolib specification <https://github.com/ReproNim/schema-standardization>`_
 - `Development instance <https://dev.mindlogger.org>`_
 - `Production instance <https://api.mindlogger.org>`_
 - `Run a local instance <#requirements>`_
