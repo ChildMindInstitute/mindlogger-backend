@@ -1,9 +1,7 @@
-Girder for MindLogger |build-status| |license-badge| |codecov-badge|
-===========================================================================
+|logo| Girder for MindLogger |github-version| |build-status| |license-badge| |codecov-badge|
+============================================================================================
 
 **Data Management Platform**
-
-|logo|
 
 Contents
 --------
@@ -189,14 +187,13 @@ We'd love for you to `contribute to Girder <CONTRIBUTING.rst>`_.
     :alt: MindLogger database entity-relationship diagram
     :target: ./docs/images/Mindlogger-DB-ER.dia
 
-.. |logo| image:: ./girderformindlogger/web_client/src/assets/ML-logo.png
-    :width: 25px
+.. |logo| image:: ./girderformindlogger/web_client/src/assets/ML-logo_25px.png
     :alt: Girder for MindLogger
+    :targetL: https://api.mindlogger.org
 
 .. |kitware-logo| image:: https://www.kitware.com/img/small_logo_over.png
     :target: https://kitware.com
     :alt: Kitware Logo
-
 
 .. |build-status| image:: https://circleci.com/gh/ChildMindInstitute/mindlogger-app-backend.svg?style=svg
     :target: https://circleci.com/gh/ChildMindInstitute/mindlogger-app-backend
@@ -209,3 +206,7 @@ We'd love for you to `contribute to Girder <CONTRIBUTING.rst>`_.
 .. |codecov-badge| image:: https://img.shields.io/codecov/c/github/ChildMindInstitute/mindlogger-app-backend.svg
     :target: https://codecov.io/gh/ChildMindInstitute/mindlogger-app-backend
     :alt: Coverage Status
+
+.. |github-version| image:: https://badge.fury.io/gh/ChildMindInstitute%2Fmindlogger-app-backend.png
+    :target: https://badge.fury.io/gh/ChildMindInstitute%2Fmindlogger-app-backend
+    :alt: GitHub version
