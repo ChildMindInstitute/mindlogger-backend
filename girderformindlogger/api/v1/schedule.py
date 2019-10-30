@@ -22,7 +22,7 @@ from ..rest import Resource
 from girderformindlogger.api import access
 from girderformindlogger.constants import TokenScope
 from girderformindlogger.models.applet import Applet as AppletModel
-from girderformindlogger.utility import jsonld_expander
+from girderformindlogger.utility import jsonld_expander, response
 
 
 class Schedule(Resource):
@@ -36,9 +36,16 @@ class Schedule(Resource):
     @access.public(scope=TokenScope.DATA_READ)
     @autoDescribeRoute(
         Description('Get schedule Array for the logged-in user.')
+        .param(
+            'timezone',
+            'The <a href="https://en.wikipedia.org/wiki/'
+            'List_of_tz_database_time_zones">TZ database name</a> of the '
+            'timezone to return times in. Times returned in UTC if omitted.',
+            required=False
+        )
         .errorResponse()
     )
-    def getSchedule(self):
+    def getSchedule(self, timezone=None):
         """
         Get a list of dictionaries keyed by activityID.
         """
@@ -46,7 +53,12 @@ class Schedule(Resource):
         return ({
             applet['applet'].get('_id', ''): {
                 applet['activities'][activity].get('_id', ''): {
-                    'lastResponse': None #,
+                    'lastResponse': response.getLatestResponseTime(
+                        currentUser['_id'],
+                        applet['applet']['_id'].split('applet/')[-1],
+                        activity,
+                        tz=timezone
+                    ) #,
                     # 'nextScheduled': None,
                     # 'lastScheduled': None
                 } for activity in list(
