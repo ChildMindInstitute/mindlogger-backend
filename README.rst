@@ -193,7 +193,7 @@ We'd love for you to `contribute to Girder <CONTRIBUTING.rst>`_.
 
 .. |logo| image:: ./girderformindlogger/web_client/src/assets/ML-logo_25px.png
     :alt: Girder for MindLogger
-    :targetL: https://api.mindlogger.org
+    :target: https://api.mindlogger.org
 
 .. |kitware-logo| image:: https://www.kitware.com/img/small_logo_over.png
     :target: https://kitware.com
