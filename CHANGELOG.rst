@@ -8,7 +8,7 @@ Changes
 -------
 Unreleased
 ==========
-2019-10-29: v0.5.9
+2019-10-30: v0.5.9
 ^^^^^^^^^^^^^^^^^^
 * :hammer: Prefix all [reprolib](https://github.com/ReproNim/schema-standardization) terms
 

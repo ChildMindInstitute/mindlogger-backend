@@ -305,6 +305,7 @@ def last7Days(
     referenceDate=None
 ):
     from bson import json_util
+    from .jsonld_expander import reprolibCanonize, reprolibPrefix
     referenceDate = delocalize(
         datetime.now(
             tzlocal.get_localzone()
@@ -316,7 +317,11 @@ def last7Days(
         appletInfo['cached'],
         dict
     ) else json_util.loads(appletInfo['cached'])
-    listOfActivities = list(cachedApplet['activities'].keys())
+    listOfActivities = [
+        reprolibPrefix(activity) for activity in list(
+            cachedApplet['activities'].keys()
+        )
+    ]
 
     getLatestResponsesByAct = lambda activityURI: list(ResponseItem().find(
         query={
@@ -334,7 +339,13 @@ def last7Days(
                     ObjectId(appletId)
                 ]
             },
-            "meta.activity.url": activityURI
+            "meta.activity.url": {
+                "$in": [
+                    activityURI,
+                    reprolibPrefix(activityURI),
+                    reprolibCanonize(activityURI)
+                ]
+            }
         },
         force=True,
         sort=[("updated", DESCENDING)]

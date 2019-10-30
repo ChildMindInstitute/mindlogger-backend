@@ -365,11 +365,11 @@ def postResponse(user, actURI, itemURI, appletObject, password="password"):
         currentUser
     )
 
-    a = expandedApplet['activities'][actURI]
+    a = expandedApplet['activities'][jsonld_expander.reprolibPrefix(actURI)]
     activityId = a['_id'].split('/')[1]
 
     response = {}
-    response[itemURI] = np.random.randint(2)
+    response[jsonld_expander.reprolibPrefix(itemURI)] = np.random.randint(2)
     metadata = {
         'responses': response,
         'subject': {
@@ -377,6 +377,8 @@ def postResponse(user, actURI, itemURI, appletObject, password="password"):
         }
     }
     applet = appletObject
+    print(activityId)
+    print(applet.get('_id'))
     activity = ActivityModel().load(
         activityId,
         user=currentUser,
@@ -433,6 +435,7 @@ def getLast7Days(user, appletObject):
     currentUser = authenticate(user)
     appletId = appletObject['_id']
     appletInfo = AppletModel().findOne({'_id': ObjectId(appletId)})
+    print(last7Days(appletId, appletInfo, currentUser.get('_id'), currentUser))
     return(last7Days(appletId, appletInfo, currentUser.get('_id'), currentUser))
 
 
@@ -488,7 +491,7 @@ def getDataForApplet(user, appletObject):
             'userId': response['userId'],
         }
         for key, value in response['responses'].items():
-            tmp['itemURI'] = key
+            tmp['itemURI'] = jsonld_expander.reprolibPrefix(key)
             tmp['value'] = value
             formattedOutputResponse.append(tmp)
 
@@ -786,7 +789,7 @@ def fullTest(activitySetUrl, act1, act2, act1Item, act2Item):
 
     # post a response
     # each user posts a response for a single item in each activity.
-    def step13(user, userB, userC, act1, act1Item, act2, act2Item):
+    def step13(user, userB, userC, act1, act1Item, act2, act2Item, appletObject):
         for u in [user, userB]:
             for i in range(2):
                 postResponse(u, act1, act1Item, appletObject)
@@ -797,7 +800,7 @@ def fullTest(activitySetUrl, act1, act2, act1Item, act2Item):
 
     tryExceptTester(
         step13,
-        [user, userB, userC, act1, act1Item, act2, act2Item],
+        [user, userB, userC, act1, act1Item, act2, act2Item, appletObject],
         'posted responses for all 3 users'
     )
 
