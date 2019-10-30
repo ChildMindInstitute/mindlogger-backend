@@ -121,11 +121,12 @@ def pluralize(modelType):
     ))
 
 
-def smartImport(IRI, user=None, refreshCache=False):
+def smartImport(IRI, user=None, refreshCache=False, modelType='activity'):
     from girderformindlogger.utility import firstLower, loadJSON
     from girderformindlogger.utility.jsonld_expander import MODELS, \
-        contextualize
-    model = contextualize(loadJSON(IRI))
+        contextualize, reprolibCanonize
+    print("loading {}".format(reprolibCanonize(IRI)))
+    model = contextualize(loadJSON(reprolibCanonize(IRI)))
     atType = model.get('@type', '').split('/')[-1].split(':')[-1]
     modelType = firstLower(atType) if len(atType) else modelType
     modelType = 'screen' if modelType=='field' else modelType

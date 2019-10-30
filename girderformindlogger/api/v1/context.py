@@ -21,7 +21,7 @@ from ..describe import Description, autoDescribeRoute
 from ..rest import Resource
 from ast import literal_eval
 from girderformindlogger.api import access, rest
-from girderformindlogger.constants import TokenScope
+from girderformindlogger.constants import REPROLIB_CANONICAL, TokenScope
 from girderformindlogger.exceptions import ValidationException
 from girderformindlogger.models.collection import Collection as CollectionModel
 from girderformindlogger.models.folder import Folder as FolderModel
@@ -83,7 +83,11 @@ class Context(Resource):
             metadata={
                 "@context": {
                     "@language": "en-US",
-                    "@base": rest.getApiUrl()
+                    "@base": rest.getApiUrl(),
+                    "reprolib": REPROLIB_CANONICAL,
+                    "http://schema.org/url": {
+                        "@type": "@id"
+                    }
                 }
             }
         )

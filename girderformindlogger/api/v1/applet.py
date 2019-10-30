@@ -365,7 +365,7 @@ class Applet(Resource):
         .param(
             'url',
             'URL of applet, eg, '
-            '`https://raw.githubusercontent.com/ReproNim/schema-standardization/master/activity-sets/example/nda-phq.jsonld`',
+            '`https://raw.githubusercontent.com/ReproNim/schema-standardization/master/activity-sets/example/nda-phq`',
             required=True
         )
         .param(

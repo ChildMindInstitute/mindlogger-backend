@@ -8,9 +8,14 @@ Changes
 -------
 Unreleased
 ==========
-2019-10-28: v0.5.8
+2019-10-30: v0.5.9
 ^^^^^^^^^^^^^^^^^^
 * :sparkles: :building_construction: New route: `GET schedule`
+
+2019-10-30: v0.5.8
+^^^^^^^^^^^^^^^^^^
+* :hammer: Prefix all [reprolib](https://github.com/ReproNim/schema-standardization) terms
+* :ambulance: :tractor: Delanguage tag `http://schema.org/url`s
 
 2019-10-25: v0.5.7
 ^^^^^^^^^^^^^^^^^^
