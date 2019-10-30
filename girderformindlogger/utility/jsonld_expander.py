@@ -128,6 +128,7 @@ def delanguageTag(obj):
     """
     Function to take a language-tagged list of dicts and return an untagged
     string.
+
     :param obj: list of language-tagged dict
     :type obj: list
     :returns: string
@@ -167,6 +168,11 @@ def expand(obj, keepUndefined=False):
     ):
         if not isinstance(obj, dict):
             obj={}
+        if "http://schema.org/url" in newObj.keys(
+        ) and isinstance(newObj["http://schema.org/url"], list):
+            newObj["http://schema.org/url"] = delanguageTag(
+                newObj["http://schema.org/url"]
+            )
         for k, v in deepcopy(newObj).items():
             if not bool(v):
                 newObj.pop(k)
