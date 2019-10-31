@@ -2,12 +2,14 @@ import girderformindlogger
 import itertools
 import numpy as np
 import pandas as pd
+import pytest
 import simplejson
 import time
 import tzlocal
 from bson.objectid import ObjectId
 from datetime import datetime
 from girderformindlogger.constants import AccessType
+from girderformindlogger.exceptions import AccessException
 from girderformindlogger.models.activity import Activity as ActivityModel
 from girderformindlogger.models.activitySet import ActivitySet as \
     ActivitySetModel
@@ -77,6 +79,24 @@ def authenticate(user, password="password"):
             password=password
         )
     )
+
+def authenticateWithEmailAddress(user, password="password"):
+    """
+    Try to log in with email address instead of username
+
+    inputs
+    ------
+    user: a user object
+    password: (optional) defaults to 'password'
+
+    """
+    return(
+        UserModel().authenticate(
+            login=user['email'] if isinstance(user, dict) else user,
+            password=password
+        )
+    )
+
 
 
 def getAppletById(user, ar):
@@ -631,6 +651,9 @@ def fullTest(activitySetUrl, act1, act2, act1Item, act2Item):
             # First user will be admin on a new image
             admin = testCreateUser(admin=True)
         user = testCreateUser()
+        with pytest.raises(AccessException) as excinfo:
+            authenticateWithEmailAddress(user)
+        assert "your username rather than your email" in str(excinfo.value)
         currentUser = authenticate(user)
         return user
 
