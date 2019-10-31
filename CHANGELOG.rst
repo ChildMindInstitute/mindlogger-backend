@@ -8,6 +8,14 @@ Changes
 -------
 Unreleased
 ==========
+2019-11-01: v0.5.10
+^^^^^^^^^^^^^^^^^^^
+* :sparkles: User profiles
+
+2019-10-25: v0.5.7
+^^^^^^^^^^^^^^^^^^
+* :racehorse: Improve `GET user/applets` speed
+
 2019-10-25: v0.5.6
 ^^^^^^^^^^^^^^^^^^
 * :tractor: Update user model
