@@ -80,7 +80,8 @@ def getLatestResponse(informantId, appletId, activityURL):
 def getLatestResponseTime(informantId, appletId, activityURL, tz=None):
     latestResponse = getLatestResponse(informantId, appletId, activityURL)
     try:
-        latestResponse['updated'].astimezone(pytz.timezone(
+        latestResponse['updated'].isoformat(
+        ) if tz is None else latestResponse['updated'].astimezone(pytz.timezone(
             tz
         )).isoformat()
     except TypeError:

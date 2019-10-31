@@ -9,6 +9,6 @@ coverage:
     project:
       default: false
       server:
-        target: 20%
+        target: 22%
         paths:
           - girderformindlogger
