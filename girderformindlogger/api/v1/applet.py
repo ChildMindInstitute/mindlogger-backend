@@ -774,20 +774,22 @@ def _setConstraints(applet, activity, schedule, user, refreshCache=False):
             'Invalid activity.',
             'activity'
         )
+    else:
+        activityKey = jsonld_expander.reprolibPrefix(activityKey)
     activitySetExpanded = jsonld_expander.formatLdObject(
         applet,
         'applet',
         user
-    ).get('activitySet', {})
+    ).get('applet', {})
     activitySetOrder = activitySetExpanded.get('ui', {}).get('order', [])
     framedActivityKeys = [
         activitySetOrder[i] for i, v in enumerate(
             activitySetExpanded.get(
-                "https://schema.repronim.org/order"
+                "reprolib:terms/order"
             )[0].get(
                 "@list"
             )
-        ) if v.get("@id")==activityKey
+        ) if jsonld_expander.reprolibPrefix(v.get("@id"))==activityKey
     ]
     if schedule is not None:
         appletMeta = applet.get('meta', {})

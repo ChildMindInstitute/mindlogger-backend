@@ -8,6 +8,10 @@ Changes
 -------
 Unreleased
 ==========
+2019-10-31 :jack_o_lantern:: v0.5.9
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+* :sparkles: :building_construction: New route: `GET schedule`
+
 2019-10-30: v0.5.8
 ^^^^^^^^^^^^^^^^^^
 * :hammer: Prefix all [reprolib](https://github.com/ReproNim/schema-standardization) terms
