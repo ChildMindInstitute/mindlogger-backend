@@ -409,7 +409,6 @@ class User(AccessControlledModel):
         requireApproval = Setting(
         ).get(SettingKey.REGISTRATION_POLICY) == 'approve'
         email = "" if not email else email
-        print("email: {}".format(email))
         if admin:
             requireApproval = False
         user = {
@@ -432,8 +431,6 @@ class User(AccessControlledModel):
                 } for gi in list(Group().find(query={"queue": email}))
             ] if len(email) else []
         }
-
-        print(user)
 
         self.setPassword(user, password, save=False)
         self.setPublic(user, public, save=False)

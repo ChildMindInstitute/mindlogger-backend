@@ -3,24 +3,25 @@ import itertools
 import numpy as np
 import pandas as pd
 import pytest
-import simplejson
+import json
 import time
 import tzlocal
 from bson.objectid import ObjectId
 from datetime import datetime
-from girderformindlogger.constants import AccessType
-from girderformindlogger.exceptions import AccessException
+from girderformindlogger.constants import AccessType, REPROLIB_CANONICAL
+from girderformindlogger.exceptions import ValidationException
 from girderformindlogger.models.activity import Activity as ActivityModel
-from girderformindlogger.models.activitySet import ActivitySet as \
+from girderformindlogger.models.activitySet import ActivitySet as              \
     ActivitySetModel
 from girderformindlogger.models.applet import Applet as AppletModel
 from girderformindlogger.models.folder import Folder
 from girderformindlogger.models.group import Group
-from girderformindlogger.models.response_folder import ResponseFolder as \
+from girderformindlogger.models.response_folder import ResponseFolder as       \
     ResponseFolderModel, ResponseItem as ResponseItemModel
 from girderformindlogger.models.user import User as UserModel
 from girderformindlogger.utility import jsonld_expander
-from girderformindlogger.utility.response import formatResponse, last7Days
+from girderformindlogger.utility.response import formatResponse,               \
+    getLatestResponseTime, getSchedule, last7Days
 from girderformindlogger.utility.resource import listFromString
 from girder_client import HttpError
 from pymongo import DESCENDING
@@ -54,10 +55,15 @@ def testCreateUser(email=None, admin=False):
         displayName=displayName,
         email=email
     )
-    # assert 'authToken' in createUser.keys(), 'user has no token, {}'.format(createUser)
-    assert createUser['email'] == email, 'email does not match, {} {}'.format(createUser['email'], email)
+    assert createUser['email'] == email, 'email does not match, {} {}'.format(
+        createUser['email'],
+        email
+    )
     assert createUser['displayName'] == displayName, 'displayName does not match'
-    assert createUser['login'] == login, 'login does not match, {} {}'.format(createUser['login'], login)
+    assert createUser['login'] == login, 'login does not match, {} {}'.format(
+        createUser['login'],
+        login
+    )
     assert createUser['admin'] == admin, 'user\'s admin property does not match'
     assert createUser.get('public', False) == False, 'user is public!'
 
@@ -79,24 +85,6 @@ def authenticate(user, password="password"):
             password=password
         )
     )
-
-def authenticateWithEmailAddress(user, password="password"):
-    """
-    Try to log in with email address instead of username
-
-    inputs
-    ------
-    user: a user object
-    password: (optional) defaults to 'password'
-
-    """
-    return(
-        UserModel().authenticate(
-            login=user['email'] if isinstance(user, dict) else user,
-            password=password
-        )
-    )
-
 
 
 def getAppletById(user, ar):
@@ -191,6 +179,58 @@ def getAppletsUser(user, n=1):
     return appletList
 
 
+def checkForLanguageEncodedURL(obj):
+    """
+    Checks if URL is language-encoded (URLs should not be)
+
+    inputs
+    ------
+    obj: dict, list, string, or None
+
+    returns
+    -------
+    bool
+    """
+    LANGUAGE_KEYS = {"@language", "@en"}
+    if isinstance(obj, str):
+        return(False)
+    if isinstance(obj, list):
+        return(bool(set(itertools.chain.from_iterable(
+            [LANGUAGE_KEYS.intersection(d.keys()) for d in obj]
+        ))))
+    if isinstance(obj, dict):
+        return(bool(LANGUAGE_KEYS.intersection(obj.keys())))
+    return(False)
+
+
+def checkObjectForURLs(obj):
+    """
+    Recursively checks if a dict is keyed with 'url'. If so, it checks for
+    language encoding.
+
+    inputs
+    ------
+    obj: dict, list, string, or None
+
+    returns
+    -------
+    None
+    """
+    if isinstance(obj, list):
+        [checkObjectForURLs(o) for o in obj]
+    elif isinstance(obj, dict):
+        languageEncodedURLs = [
+            obj[k] for k in obj.keys(
+            ) if k.split('/')[-1].split(':')[-1].lower(
+            )=="url" and checkForLanguageEncodedURL(obj[k])
+        ]
+        if any(languageEncodedURLs):
+            raise ValidationException(
+                "Language-encoded URL: {}".format(str(languageEncodedURLs))
+            )
+        [checkObjectForURLs(obj[k]) for k in obj.keys()]
+    return(None)
+
 
 def getExpandedApplets(user):
     """
@@ -214,6 +254,7 @@ def getExpandedApplets(user):
     ]
     # TODO: add some checks to the structure of expandedApplets to make sure
     # the mobile app can parse it.
+    checkObjectForURLs(expandedApplets)
     return expandedApplets
 
 
@@ -243,13 +284,50 @@ def addSchedule(user, appletObject):
     user: a user object
     appletObject: appletObject.
     """
-
-    scheduleString = """{"type":2,"size":1,"fill":true,"minimumSize":0,"repeatCovers":true,"listTimes":false,"eventsOutside":false,"updateRows":false,"updateColumns":false,"around":1567321200000,"events":[{"data":{"title":"EMA: Morning","description":"","location":"","color":"#673AB7","forecolor":"#ffffff","calendar":"","busy":true,"icon":"","URI":"http://repronim.org/schema-standardization/activity-sets/mindlogger-demo/mindlogger-demo_schema","notifications":[{"start":"09:00","end":null,"random":false,"notifyIfIncomplete":false}],"useNotifications":true},"schedule":{}}]}"""
-    schedule = simplejson.loads(scheduleString)
-    authenticate(user)
+    from girderformindlogger.api.v1.applet import _setConstraints
+    activityURL = "".join([
+        REPROLIB_CANONICAL,
+        "activities/MindLoggerDemo/MindLoggerDemo_schema"
+    ])
+    scheduleString = json.dumps({
+        "type":2,
+        "size":1,
+        "fill":True,
+        "minimumSize":0,
+        "repeatCovers":True,
+        "listTimes":False,
+        "eventsOutside":False,
+        "updateRows":False,
+        "updateColumns":False,
+        "around":1567321200000,
+        "events":[{
+            "data":{
+                "title":"MindLogger Demo activity",
+                "description":"",
+                "location":"",
+                "color":"#673AB7",
+                "forecolor":"#ffffff",
+                "calendar":"",
+                "busy":True,
+                "icon":"",
+                "URI":activityURL,
+                "notifications":[{
+                    "start":"09:00",
+                    "end":None,
+                    "random":False,
+                    "notifyIfIncomplete":False
+                }],
+                "useNotifications":True
+            },
+            "schedule":{}
+        }]
+    })
+    schedule = json.loads(scheduleString)
     appletId = appletObject['_id']
-    putResp = girder.put('applet/{}/constraints/'.format(appletId),
-        data=dict(schedule=simplejson.dumps(schedule)))
+    putResp = _setConstraints(appletObject, None, schedule, user).get(
+        'meta',
+        {'applet': {'schedule': None}}
+    )
     assert putResp['applet']['schedule'] == schedule
 
 
@@ -266,8 +344,8 @@ def inviteUserToApplet(user, appletObject, userB):
     """
     groupId = appletObject['roles']['user']['groups'][0]['id']
     currentUser = authenticate(user)
-    group = Group().load(id=ObjectId(groupID), force=True)
-    return Group().addUser(group, userB, level=AccessType.READ)
+    group = Group().load(id=ObjectId(groupId), force=True)
+    return Group().inviteUser(group, userB, level=AccessType.READ)
     # inviteResp = girder.post('group/{}/invitation'.format(groupId), {
     #     "email": userB['email']
     # })
@@ -309,15 +387,77 @@ def checkForInvite(user, appletObject):
     appletObject: appletObject
 
     """
-    currentUser = authenticate(user)
-    pendingInvitesForUser = girder.get('user/invites')
+    pending = user.get('groupInvites')
+    pendingInvitesForUser = []
+    userfields = [
+        'firstName',
+        '_id',
+        'email',
+        'gravatar_baseUrl',
+        'login'
+    ]
+    for p in pending:
+        groupId = p.get('groupId')
+        applets = list(AppletModel().find(
+            query={
+                "roles.user.groups.id": groupId
+            },
+            fields=[
+                'cached.applet.skos:prefLabel',
+                'cached.applet.schema:description',
+                'cached.applet.schema:image',
+                'roles'
+            ]
+        ))
+        for applet in applets:
+            for role in ['manager', 'reviewer']:
+                applet[''.join([role, 's'])] = [{
+                    (
+                        'image' if userKey=='gravatar_baseUrl' else userKey
+                    ): user.get(
+                        userKey
+                    ) for userKey in user.keys()
+                } for user in list(UserModel().find(
+                        query={
+                            "groups": {
+                                "$in": [
+                                    group.get('id') for group in applet.get(
+                                        'roles',
+                                        {}
+                                    ).get(role, {}).get('groups', [])
+                                ]
+                            }
+                        },
+                        fields=userfields
+                    ))
+                ]
+        pendingInvitesForUser.append({
+            '_id': groupId,
+            'applets': [{
+                'name': applet.get('cached', {}).get('applet', {}).get(
+                    'skos:prefLabel',
+                    ''
+                ),
+                'image': applet.get('cached', {}).get('applet', {}).get(
+                    'schema:image',
+                    ''
+                ),
+                'description': applet.get('cached', {}).get('applet', {
+                }).get(
+                    'schema:description',
+                    ''
+                ),
+                'managers': applet.get('managers'),
+                'reviewers': applet.get('reviewers')
+            } for applet in applets]
+        })
     groupId = appletObject['roles']['user']['groups'][0]['id']
     assert len(pendingInvitesForUser), "this user has no invites"
     assert pendingInvitesForUser[0]['_id'] == groupId, "this user doesn't have the invite you expect"
     return groupId
 
 
-def acceptAppletInvite(user, appletObject):
+def acceptAppletInvite(user, appletObject, role):
     """
     accept an applet invite
 
@@ -327,9 +467,10 @@ def acceptAppletInvite(user, appletObject):
     appletObject: appletObject
     """
     groupId = checkForInvite(user, appletObject)
-    currentUser = authenticate(user)
-    resp = girder.post('group/{}/member'.format(groupId))
-    assert resp['_modelType'] == 'group', "something weird about response, {}".format(resp)
+    resp = Group().joinGroup(Group().load(groupId, force=True), user)
+    assert role in resp[
+        'lowerName'
+    ], "group name does not include \"{}\"".format(role)
     return 1
 
 
@@ -385,11 +526,11 @@ def postResponse(user, actURI, itemURI, appletObject, password="password"):
         currentUser
     )
 
-    a = expandedApplet['activities'][actURI]
+    a = expandedApplet['activities'][jsonld_expander.reprolibPrefix(actURI)]
     activityId = a['_id'].split('/')[1]
 
     response = {}
-    response[itemURI] = np.random.randint(2)
+    response[jsonld_expander.reprolibPrefix(itemURI)] = np.random.randint(2)
     metadata = {
         'responses': response,
         'subject': {
@@ -508,7 +649,7 @@ def getDataForApplet(user, appletObject):
             'userId': response['userId'],
         }
         for key, value in response['responses'].items():
-            tmp['itemURI'] = key
+            tmp['itemURI'] = jsonld_expander.reprolibPrefix(key)
             tmp['value'] = value
             formattedOutputResponse.append(tmp)
 
@@ -640,8 +781,32 @@ def tryExceptTester(func, args, message, nreturn = 1):
         raise(e)
         return [None] * nreturn
 
+def updateUser(user):
+    return(UserModel().load(user['_id'], user=user))
+
+def testElses():
+    from bson.errors import InvalidId
+    assert jsonld_expander.delanguageTag({})=={}
+    with pytest.raises(TypeError) as excinfo:
+        getLatestResponseTime(1, 1, 1)
+    assert "not <class 'int'>" in str(excinfo.value)
+    with pytest.raises(InvalidId) as excinfo:
+        getLatestResponseTime('a', 'a', 'a')
+    assert "not a valid ObjectId" in str(excinfo.value)
+
+
+def testTests():
+    with pytest.raises(ValidationException) as excinfo:
+        checkObjectForURLs({"url": {
+            "@language": "en",
+            "@value": "https://mindlogger.org"
+        }})
+    assert 'language' in str(excinfo.value)
+
 
 def fullTest(activitySetUrl, act1, act2, act1Item, act2Item):
+    testElses()
+    testTests()
 
     # Create a new user
 
@@ -703,20 +868,20 @@ def fullTest(activitySetUrl, act1, act2, act1Item, act2Item):
     # add a schedule to the applet
     # print('add a schedule to the applet')
 
-    # def step05(user, appletObject):
-    #     addSchedule(user, appletObject)
-    #
-    # tryExceptTester(
-    #     step05,
-    #     [user, appletObject],
-    #     'add a schedule to the applet'
-    # )
+    def step05(user, appletObject):
+        addSchedule(user, appletObject)
+
+    tryExceptTester(
+        step05,
+        [user, appletObject],
+        'add a schedule to the applet'
+    )
 
     # create a new user and invite them to the applet
     # print('create a new user and invite them to the applet')
     def step06(user, appletObject):
         userB = testCreateUser()
-        userBInvite = {} #inviteUserToApplet(user, appletObject, userB)
+        userBInvite = inviteUserToApplet(user, appletObject, userB)
         return userB, userBInvite
 
     userB, userBInvite = tryExceptTester(
@@ -732,9 +897,9 @@ def fullTest(activitySetUrl, act1, act2, act1Item, act2Item):
         'create a new user and invite them to the applet',
         2
     )
-    #
-    # # check that the manager invited the user
-    # # print('check that the manager invited the user')
+
+    # check that the manager invited the user
+    # print('check that the manager invited the user')
     # def step07(user, appletObject, userB):
     #     checkInvitesForUser(user, appletObject, userB)
     #
@@ -743,16 +908,16 @@ def fullTest(activitySetUrl, act1, act2, act1Item, act2Item):
     #     [user, appletObject, userB],
     #     'check that the manager invited the user'
     # )
-    #
-    # # accept the applet invite
-    # # print('accept the applet invite')
-    # def step08(userB, appletObject):
-    #     acceptAppletInvite(userB, appletObject)
-    #
-    # tryExceptTester(step08, [userB, appletObject], 'accept the applet invite')
-    #
-    # # invite someone that doesn't have an account yet
-    # # print('\033[0;37;40m invite someone that doesn\'t have an account yet')
+
+    # accept the applet invite
+    # print('accept the applet invite')
+    def step08(userB, appletObject):
+        acceptAppletInvite(userB, appletObject, 'user')
+
+    tryExceptTester(step08, [userB, appletObject], 'accept the applet invite')
+
+    # invite someone that doesn't have an account yet
+    # print('\033[0;37;40m invite someone that doesn\'t have an account yet')
     #
     # def step09(user, appletObject):
     #     userCemail = 'randomuserc{}@test.com'.format(np.random.randint(1000000))
@@ -797,7 +962,7 @@ def fullTest(activitySetUrl, act1, act2, act1Item, act2Item):
     #
     # # accept user c's invitation
     # def step12(userC, appletObject):
-    #     acceptAppletInvite(userC, appletObject)
+    #     acceptAppletInvite(userC, appletObject, 'user')
     #     userCApplets = getAppletsUser(userC, 1)
     #     return userCApplets
     #
@@ -809,7 +974,7 @@ def fullTest(activitySetUrl, act1, act2, act1Item, act2Item):
 
     # post a response
     # each user posts a response for a single item in each activity.
-    def step13(user, userB, userC, act1, act1Item, act2, act2Item):
+    def step13(user, userB, userC, act1, act1Item, act2, act2Item, appletObject):
         for u in [user, userB]:
             for i in range(2):
                 postResponse(u, act1, act1Item, appletObject)
@@ -820,8 +985,55 @@ def fullTest(activitySetUrl, act1, act2, act1Item, act2Item):
 
     tryExceptTester(
         step13,
-        [user, userB, userC, act1, act1Item, act2, act2Item],
-        'posted responses for all 3 users'
+        [user, userB, userC, act1, act1Item, act2, act2Item, appletObject],
+        'posted responses for 2/3 users'
+    )
+
+
+    def checkLastResponse(user, activityURL, applet):
+        from backports.datetime_fromisoformat import MonkeyPatch
+        MonkeyPatch.patch_fromisoformat()
+
+        expandedApplet = jsonld_expander.formatLdObject(
+            applet,
+            'applet',
+            user
+        )
+
+        a = expandedApplet['activities'][
+            jsonld_expander.reprolibPrefix(activityURL)
+        ]
+        activityId = a['_id'].split('/')[1]
+
+        lastResponse = getSchedule(user)[
+            '/'.join(['applet', str(applet['_id'])])
+        ][
+            '/'.join(['activity', str(activityId)])
+        ]['lastResponse']
+
+        assert isinstance(lastResponse, str)
+        assert len(lastResponse)
+        dtLastResponse = datetime.fromisoformat(lastResponse)
+        assert isinstance(dtLastResponse, datetime)
+        assert dtLastResponse.tzinfo is None
+
+        tzLastResponse = getSchedule(user, "America/New_York")[
+            '/'.join(['applet', str(applet['_id'])])
+        ][
+            '/'.join(['activity', str(activityId)])
+        ]['lastResponse']
+
+        assert isinstance(tzLastResponse, str)
+        assert len(tzLastResponse)
+        tzdtLastResponse = datetime.fromisoformat(tzLastResponse)
+        assert isinstance(tzdtLastResponse, datetime)
+        assert tzdtLastResponse.tzinfo is not None
+
+    user = updateUser(user)
+    tryExceptTester(
+        checkLastResponse,
+        [user, act1, appletObject],
+        'got last response'
     )
 
 

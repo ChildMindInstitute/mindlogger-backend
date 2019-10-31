@@ -81,7 +81,6 @@ class Applet(Folder):
             "meta.actvitySet.url": activitySet.get('url'),
             "parentId": appletsCollection.get('_id')
         }))
-        print('\n\n APPLET MODEL line 79')
         # managed = [applet for applet in applets if applet.get('_id') in [
         #     a.get('_id') for a in list(itertools.chain.from_iterable([
         #         list(AppletModel().find(
@@ -222,21 +221,20 @@ class Applet(Folder):
         :type active: bool
         :returns: list of dicts
         """
-        return(list(itertools.chain.from_iterable([
-            self.getAppletsForGroup(
-                role,
-                groupId,
-                active
-            ) for groupId in user.get('groups', [])
-        ])))
+
+        applets = list(self.find(
+            {
+                'roles.' + role + '.groups.id': {'$in': user.get('groups', [])},
+                'meta.applet.deleted': {'$ne': active}
+            }
+        ))
+        return(applets if isinstance(applets, list) else [applets])
 
     def getAppletUsers(self, applet, user=None):
         # get groups for applet
         appletGroups = self.getAppletGroups(applet)
         if not self.isManager(applet.get('_id', applet), user):
             return([])
-        # query users for groups by status
-        print('\n\n\n', ProtoUserModel().findOne())
 
         userList = {
             role: {

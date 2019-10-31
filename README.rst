@@ -211,6 +211,6 @@ We'd love for you to `contribute to Girder <CONTRIBUTING.rst>`_.
     :target: https://codecov.io/gh/ChildMindInstitute/mindlogger-app-backend
     :alt: Coverage Status
 
-.. |github-version| image:: https://badge.fury.io/gh/ChildMindInstitute%2Fmindlogger-app-backend.svg
-    :target: https://badge.fury.io/gh/ChildMindInstitute%2Fmindlogger-app-backend
+.. |github-version| image:: https://img.shields.io/github/tag/ChildMindInstitute/mindlogger-app-backend.svg
+    :target: https://github.com/ChildMindInstitute/mindlogger-app-backend/releases
     :alt: GitHub version

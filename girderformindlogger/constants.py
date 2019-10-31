@@ -25,9 +25,28 @@ VERSION = {
 }
 
 #: The local directory containing the static content.
-STATIC_PREFIX = os.path.join(os.path.dirname(PACKAGE_DIR), 'girderformindlogger')
+STATIC_PREFIX = os.path.join(
+    os.path.dirname(PACKAGE_DIR),
+    'girderformindlogger'
+)
 STATIC_ROOT_DIR = os.path.join(STATIC_PREFIX, 'web_client', 'static')
 PREFERRED_NAMES = ["skos:prefLabel", "skos:altLabel", "name", "@id", "url"]
+REPROLIB_CANONICAL = "://".join([
+    "https",
+    "raw.githubusercontent.com/ReproNim/schema-standardization/master/"
+])
+REPROLIB_PREFIXES = [
+    *[
+        "://".join([p, u]) for p in ["http", "https"] for u in [
+            "schema.repronim.org/",
+            "purl.org/repro/s/dev/",
+            "raw.githubusercontent.com/ReproNim/schema-standardization/master/",
+            "raw.githubusercontent.com/ReproNim/reprolib/master/"
+        ]
+    ],
+    "reproschema:",
+    "reproterms:"
+]
 SPECIAL_SUBJECTS = {"ALL", "NONE"}
 USER_ROLES = {'user': dict, 'editor': list, 'manager': list, 'reviewer': dict}
 

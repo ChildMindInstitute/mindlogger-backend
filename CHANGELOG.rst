@@ -12,6 +12,15 @@ Unreleased
 ^^^^^^^^^^^^^^^^^^^
 * :sparkles: User profiles
 
+2019-10-31 :jack_o_lantern:: v0.5.9
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+* :sparkles: :building_construction: New route: `GET schedule`
+
+2019-10-30: v0.5.8
+^^^^^^^^^^^^^^^^^^
+* :hammer: Prefix all [reprolib](https://github.com/ReproNim/schema-standardization) terms
+* :ambulance: :tractor: Delanguage tag `http://schema.org/url`s
+
 2019-10-25: v0.5.7
 ^^^^^^^^^^^^^^^^^^
 * :racehorse: Improve `GET user/applets` speed

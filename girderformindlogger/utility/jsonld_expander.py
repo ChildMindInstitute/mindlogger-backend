@@ -1,11 +1,13 @@
 from bson import json_util
 from copy import deepcopy
 from datetime import datetime
-from girderformindlogger.constants import AccessType
-from girderformindlogger.exceptions import AccessException, ResourcePathNotFound, \
-    ValidationException
+from girderformindlogger.constants import AccessType, REPROLIB_CANONICAL,      \
+    REPROLIB_PREFIXES
+from girderformindlogger.exceptions import AccessException,                    \
+    ResourcePathNotFound, ValidationException
 from girderformindlogger.models.activity import Activity as ActivityModel
-from girderformindlogger.models.activitySet import ActivitySet as ActivitySetModel
+from girderformindlogger.models.activitySet import ActivitySet as              \
+    ActivitySetModel
 from girderformindlogger.models.applet import Applet as AppletModel
 from girderformindlogger.models.collection import Collection as CollectionModel
 from girderformindlogger.models.folder import Folder as FolderModel
@@ -21,7 +23,8 @@ KEYS_TO_EXPAND = [
     "responseOptions",
     "https://schema.repronim.org/valueconstraints",
     "reproterms:valueconstraints",
-    "valueconstraints"
+    "valueconstraints",
+    "reprolib:valueconstraints"
 ]
 
 MODELS = {
@@ -56,6 +59,11 @@ def _createContextForStr(s):
 def contextualize(ldObj):
     newObj = {}
     context = ldObj.get('@context', [])
+    context.append(
+        {
+            "reprolib": REPROLIB_CANONICAL
+        }
+    )
     for k in ldObj.keys():
         if isinstance(ldObj[k], dict):
             context, newObj[k] = _deeperContextualize(
@@ -77,8 +85,57 @@ def _deeperContextualize(ldObj, context):
                 if c not in context:
                     context.append(c)
         else:
-            newObj[k] = ldObj[k]
+            newObj[k] = reprolibPrefix(ldObj[k])
     return(context, newObj)
+
+
+def reprolibPrefix(s):
+    """
+    Function to check if a string is a reprolib URL, and, if so, compact it to
+    the prefix "reprolib:"
+
+    :type s: str
+    :returns: str
+    """
+    if isinstance(s, str):
+        for prefix in REPROLIB_PREFIXES:
+            if s.startswith(prefix) and s!=prefix:
+                return(s.replace(prefix, 'reprolib:'))
+    return(s)
+
+
+def reprolibCanonize(s):
+    """
+    Function to check if a string is a prfixed reprolib URL, and, if so,
+    expand it to the current canonical prefix
+
+    :type s: str
+    :returns: str
+    """
+    if isinstance(s, str):
+        if reprolibPrefix(s).startswith('reprolib:'):
+            return(s.replace('reprolib:', REPROLIB_CANONICAL))
+    elif isinstance(s, list):
+        return([reprolibCanonize(ls) for ls in s])
+    elif isinstance(s, dict):
+        return({
+            reprolibCanonize(k): reprolibCanonize(v) for k, v in s.items()
+        })
+    return(s)
+
+
+def delanguageTag(obj):
+    """
+    Function to take a language-tagged list of dicts and return an untagged
+    string.
+
+    :param obj: list of language-tagged dict
+    :type obj: list
+    :returns: string
+    """
+    if not isinstance(obj, list):
+        return(obj)
+    return((obj if len(obj) else [{}])[-1].get("@value", ""))
 
 
 def expand(obj, keepUndefined=False):
@@ -111,11 +168,21 @@ def expand(obj, keepUndefined=False):
     ):
         if not isinstance(obj, dict):
             obj={}
-        for k, v in newObj.copy().items():
+        if "http://schema.org/url" in newObj.keys(
+        ) and isinstance(newObj["http://schema.org/url"], list):
+            newObj["http://schema.org/url"] = delanguageTag(
+                newObj["http://schema.org/url"]
+            )
+        for k, v in deepcopy(newObj).items():
             if not bool(v):
                 newObj.pop(k)
+            else:
+                prefix_key = reprolibPrefix(k)
+                if prefix_key != k:
+                    newObj.pop(k)
+                newObj[prefix_key] = reprolibPrefix(v)
         newObj.update({
-            k: obj.get(k) for k in obj.keys() if (
+            k: reprolibPrefix(obj.get(k)) for k in obj.keys() if (
                 bool(obj.get(k)) and k not in keyExpansion(
                     list(newObj.keys())
                 )
@@ -131,11 +198,11 @@ def expand(obj, keepUndefined=False):
                 else:
                     v = expand(newObj[k])
                 if bool(v):
-                    newObj[k] = v
-        return(newObj if bool(newObj) else None)
+                    newObj[k] = reprolibPrefix(v)
+        return(_fixUpFormat(newObj) if bool(newObj) else None)
     else:
         expanded = [expand(n, keepUndefined) for n in newObj]
-        return(expanded if bool(expanded) else None)
+        return(_fixUpFormat(expanded) if bool(expanded) else None)
 
 
 def fileObjectToStr(obj):
@@ -154,6 +221,33 @@ def fileObjectToStr(obj):
         r = obj.get("@id") if isinstance(obj, dict) else ""
         print("Warning: Could not load {}".format(r))
     return(r.text)
+
+
+def _fixUpFormat(obj):
+    if isinstance(obj, dict):
+        newObj = {}
+        for k in obj.keys():
+            if isinstance(obj[k], str):
+                obj[k] = reprolibPrefix(obj[k])
+            if k in [
+                "http://schema.org/contentUrl",
+                "http://schema.org/encodingFormat",
+                "http://schema.org/url"
+            ]:
+                newObj[reprolibPrefix(k)] = _fixUpFormat(delanguageTag(obj[k]))
+            elif isinstance(obj[k], list):
+                newObj[reprolibPrefix(k)] = [_fixUpFormat(li) for li in obj[k]]
+            elif isinstance(obj[k], dict):
+                newObj[reprolibPrefix(k)] = _fixUpFormat(obj[k])
+            else:
+                newObj[reprolibPrefix(k)] = _fixUpFormat(reprolibPrefix(obj[k]))    
+        if "@context" in newObj:
+            newObj["@context"] = reprolibCanonize(newObj["@context"])
+    elif isinstance(obj, str):
+        return(reprolibPrefix(obj))
+    else:
+        newObj = deepcopy(obj)
+    return(newObj)
 
 
 def formatLdObject(
@@ -198,9 +292,9 @@ def formatLdObject(
         else:
             mesoPrefix = camelCase(mesoPrefix)
             if type(obj)==list:
-                return([
+                return(_fixUpFormat([
                     formatLdObject(o, mesoPrefix) for o in obj if o is not None
-                ])
+                ]))
             if not type(obj)==dict and not dropErrors:
                 raise TypeError("JSON-LD must be an Object or Array.")
             newObj = obj.get('meta', obj)
@@ -246,7 +340,7 @@ def formatLdObject(
                         '@type',
                         '_id',
                         'http://schema.org/url'
-                    ] if key in list(activitySet['activitySet'].keys())
+                    ] if key in list(activitySet.get('activitySet', {}).keys())
                 }
 
                 applet['applet'] = {
@@ -260,6 +354,7 @@ def formatLdObject(
                         )
                     ])
                 }
+                applet = _fixUpFormat(applet)
                 obj["cached"] = {
                     **applet,
                     "prov:generatedAtTime": xsdNow()
@@ -275,9 +370,10 @@ def formatLdObject(
                 activitiesNow = set()
                 itemsNow = set()
                 activitySet = componentImport(newObj, activitySet.copy(), user)
-                activitySet = {} if activitySet is None else activitySet
                 newActivities = list(
-                    set(activitySet.get('activities', {}).keys()) - activitiesNow
+                    set(
+                        activitySet.get('activities', {}).keys()
+                    ) - activitiesNow
                 )
                 newItems = list(
                     set(activitySet.get('items', {}).keys()) - itemsNow
@@ -292,21 +388,21 @@ def formatLdObject(
                             deepcopy(activitySet),
                             user
                         )
-                    activitiesNow = set(
-                        activitySet.get('activities', {}).keys()
-                    )
-                    for activityURL, activity in deepcopy(activitySet).get(
-                        'activities',
-                        {}
-                    ).items():
-                        activitySet = componentImport(
-                            deepcopy(activity),
-                            deepcopy(activitySet), user)
-                    newActivities = list(
-                        set(
+                        activitiesNow = set(
                             activitySet.get('activities', {}).keys()
-                        ) - activitiesNow
-                    )
+                        )
+                        for activityURL, activity in deepcopy(activitySet).get(
+                            'activities',
+                            {}
+                        ).items():
+                            activitySet = componentImport(
+                                deepcopy(activity),
+                                deepcopy(activitySet), user)
+                            newActivities = list(
+                                set(
+                                    activitySet.get('activities', {}).keys()
+                                ) - activitiesNow
+                            )
                 while(len(newItems)):
                     activitiesNow = set(activitySet.get('items', {}).keys())
                     for activityURL, activity in deepcopy(activitySet).get(
@@ -316,12 +412,14 @@ def formatLdObject(
                         activitySet = componentImport(
                             deepcopy(activity),
                             deepcopy(activitySet), user)
-                    newItems = list(
-                        set(activitySet.get('items', {}).keys()) - activitiesNow
-                    )
-                return(activitySet)
+                        newItems = list(
+                            set(
+                                activitySet.get('items', {}).keys()
+                            ) - activitiesNow
+                        )
+                return(_fixUpFormat(activitySet))
             else:
-                return(newObj)
+                return(_fixUpFormat(newObj))
         if responseDates and mesoPrefix=="applet":
             try:
                 returnObj["applet"]["responseDates"] = responseDateList(
@@ -330,11 +428,11 @@ def formatLdObject(
                     user
                 )
             except:
-                pass
-        return(returnObj)
+                returnObj["applet"]["responseDates"] = []
+        return(_fixUpFormat(returnObj))
     except:
         if refreshCache==False:
-            return(formatLdObject(
+            return(_fixUpFormat(formatLdObject(
                 obj,
                 mesoPrefix,
                 user,
@@ -342,7 +440,7 @@ def formatLdObject(
                 dropErrors,
                 refreshCache=True,
                 responseDates=responseDates
-            ))
+            )))
         import sys, traceback
         print(sys.exc_info())
         print(traceback.print_tb(sys.exc_info()[2]))
@@ -358,8 +456,7 @@ def componentImport(obj, activitySet, user=None, refreshCache=True):
     obj2 = obj.copy()
     try:
         for order in obj2.get(
-            "https://raw.githubusercontent.com/ReproNim/schema-standardization/"
-            "master/terms/order",
+            "reprolib:terms/order",
             {}
         ):
             for activity in order.get("@list", []):
@@ -404,9 +501,12 @@ def componentImport(obj, activitySet, user=None, refreshCache=True):
                     user,
                     refreshCache=refreshCache
                 ).copy()
-        return(updatedActivitySet.copy())
+        return(_fixUpFormat(deepcopy(updatedActivitySet)))
     except:
+        import sys, traceback
         print("error!")
+        print(sys.exc_info())
+        print(traceback.print_tb(sys.exc_info()[2]))
 
 
 def getByLanguage(object, tag=None):

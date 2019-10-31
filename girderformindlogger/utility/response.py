@@ -1,19 +1,109 @@
+import backports
 import isodate
 import itertools
 import pandas as pd
+import pytz
 import tzlocal
-import backports
 from backports.datetime_fromisoformat import MonkeyPatch
 from bson.codec_options import CodecOptions
 from bson.objectid import ObjectId
 from datetime import date, datetime, timedelta
+from girderformindlogger.models.applet import Applet as AppletModel
 from girderformindlogger.models.user import User as UserModel
 from girderformindlogger.models.response_folder import ResponseItem
 from girderformindlogger.utility import clean_empty
 from pandas.api.types import is_numeric_dtype
 from pymongo import ASCENDING, DESCENDING
-from pytz import utc
 MonkeyPatch.patch_fromisoformat()
+
+
+def getSchedule(currentUser, timezone=None):
+    from .jsonld_expander import formatLdObject
+    return({
+        applet['applet'].get('_id', ''): {
+            applet['activities'][activity].get('_id', ''): {
+                'lastResponse': getLatestResponseTime(
+                    currentUser['_id'],
+                    applet['applet']['_id'].split('applet/')[-1],
+                    activity,
+                    tz=timezone
+                ) #,
+                # 'nextScheduled': None,
+                # 'lastScheduled': None
+            } for activity in list(
+                applet.get('activities', {}).keys()
+            )
+        } for applet in [
+            formatLdObject(
+                applet,
+                'applet',
+                currentUser
+            ) for applet in AppletModel().getAppletsForUser(
+                user=currentUser,
+                role='user'
+            )
+        ]
+    })
+
+
+def getLatestResponse(informantId, appletId, activityURL):
+    from .jsonld_expander import reprolibCanonize, reprolibPrefix
+    responses = list(ResponseItem().find(
+        query={
+            "baseParentType": 'user',
+            "baseParentId": informantId if isinstance(
+                informantId,
+                ObjectId
+            ) else ObjectId(informantId),
+            "meta.applet.@id": {
+                "$in": [
+                    appletId,
+                    ObjectId(appletId)
+                ]
+            },
+            "meta.activity.url": {
+                "$in": [
+                    activityURL,
+                    reprolibPrefix(activityURL),
+                    reprolibCanonize(activityURL)
+                ]
+            }
+        },
+        force=True,
+        sort=[("updated", DESCENDING)]
+    ))
+    if len(responses):
+        return(responses[0])
+    return(None)
+
+
+def getLatestResponseTime(informantId, appletId, activityURL, tz=None):
+    latestResponse = getLatestResponse(informantId, appletId, activityURL)
+    try:
+        latestResponse['updated'].isoformat(
+        ) if tz is None else latestResponse['updated'].astimezone(pytz.timezone(
+            tz
+        )).isoformat()
+    except TypeError:
+        pass
+    except:
+        import sys, traceback
+        print(sys.exc_info())
+        print(traceback.print_tb(sys.exc_info()[2]))
+    return(
+        (
+            latestResponse['updated'].astimezone(pytz.timezone(
+                tz
+            )).isoformat() if (
+                isinstance(tz, str) and tz in pytz.all_timezones
+            ) else latestResponse['updated'].isoformat()
+        ) if (
+            isinstance(latestResponse, dict) and isinstance(
+                latestResponse.get('updated'),
+                datetime
+            )
+        ) else None
+    )
 
 
 def aggregate(metadata, informant, startDate=None, endDate=None, getAll=False):
@@ -25,11 +115,11 @@ def aggregate(metadata, informant, startDate=None, endDate=None, getAll=False):
     )
 
     startDate = datetime.fromisoformat(startDate.isoformat(
-    )).astimezone(utc).replace(tzinfo=None) if startDate is not None else None
+    )).astimezone(pytz.utc).replace(tzinfo=None) if startDate is not None else None
 
     endDate = datetime.fromisoformat((
         thisResponseTime if endDate is None else endDate
-    ).isoformat()).astimezone(utc).replace(tzinfo=None)
+    ).isoformat()).astimezone(pytz.utc).replace(tzinfo=None)
 
     query = {
             "baseParentType": 'user',
@@ -47,7 +137,6 @@ def aggregate(metadata, informant, startDate=None, endDate=None, getAll=False):
             "meta.activity.url": metadata.get("activity", {}).get("url"),
             "meta.subject.@id": metadata.get("subject", {}).get("@id")
         }
-    print('\n\n QUERY IS', query)
 
     definedRange = list(ResponseItem().find(
         query=query,
@@ -168,8 +257,8 @@ def string_or_ObjectID(s):
 
 def _responseIRIs(definedRange):
     return(list(set(itertools.chain.from_iterable([list(
-        response.get('meta', {}).get('responses').keys()
-    ) for response in definedRange]))))
+        response.get('meta', {}).get('responses', {}).keys()
+    ) for response in definedRange if isinstance(response, dict)]))))
 
 
 def _flattenDF(df, columnName):
@@ -217,7 +306,11 @@ def countResponseValues(definedRange, responseIRIs=None):
             df[responseIRI].astype(str) if not(is_numeric_dtype(
                 df[responseIRI]
             )) else df[responseIRI]
-        ).value_counts().to_dict() for responseIRI in responseIRIs
+        ).value_counts().to_dict(
+        ) for responseIRI in responseIRIs if isinstance(
+            df[responseIRI],
+            pd.Series
+        )
     }
     return(
         {
@@ -240,14 +333,14 @@ def delocalize(dt):
     if isinstance(dt, datetime):
         if dt.tzinfo is None:
             return(dt)
-        print(dt.astimezone(utc).replace(
+        print(dt.astimezone(pytz.utc).replace(
             tzinfo=None
         ))
-        return(dt.astimezone(utc).replace(
+        return(dt.astimezone(pytz.utc).replace(
             tzinfo=None
         ))
     elif isinstance(dt, str):
-        return(datetime.fromisoformat(dt).astimezone(utc).replace(
+        return(datetime.fromisoformat(dt).astimezone(pytz.utc).replace(
             tzinfo=None
         ))
     print("Here's the problem: {}".format(dt))
@@ -255,7 +348,7 @@ def delocalize(dt):
 
 
 def aggregateAndSave(item, informant):
-    if item == {}:
+    if item == {} or item is None:
         return({})
     metadata = item.get("meta", {})
     # Save 1 (of 3)
@@ -306,6 +399,7 @@ def last7Days(
     referenceDate=None
 ):
     from bson import json_util
+    from .jsonld_expander import reprolibCanonize, reprolibPrefix
     referenceDate = delocalize(
         datetime.now(
             tzlocal.get_localzone()
@@ -317,7 +411,11 @@ def last7Days(
         appletInfo['cached'],
         dict
     ) else json_util.loads(appletInfo['cached'])
-    listOfActivities = list(cachedApplet['activities'].keys())
+    listOfActivities = [
+        reprolibPrefix(activity) for activity in list(
+            cachedApplet['activities'].keys()
+        )
+    ]
 
     getLatestResponsesByAct = lambda activityURI: list(ResponseItem().find(
         query={
@@ -335,7 +433,13 @@ def last7Days(
                     ObjectId(appletId)
                 ]
             },
-            "meta.activity.url": activityURI
+            "meta.activity.url": {
+                "$in": [
+                    activityURI,
+                    reprolibPrefix(activityURI),
+                    reprolibCanonize(activityURI)
+                ]
+            }
         },
         force=True,
         sort=[("updated", DESCENDING)]
