@@ -53,7 +53,7 @@ class Profile(Folder):
             'baseParentId',
             'baseParentType',
             'parentId',
-            'parentCollection',
+            'userId'
         }
         loadFields = self._supplementFields(fields, extraFields)
 
@@ -326,6 +326,56 @@ class Profile(Folder):
 
         # Now validate and save the folder.
         return self.save(folder)
+
+    def createProfile(self, applet, user, role="user"):
+        """
+        Create a new profile to store information specific to a given (applet ∩
+            user)
+
+        :param applet: The applet for which this profile exists
+        :type parent: dict
+        :param user: The user for which this profile exists
+        :type user: dict
+        :returns: The profile document that was created.
+        """
+        from girderformindlogger.models.applet import Applet, getAppletsForUser
+
+        if applet['_id'] not in [
+            a.get('_id') for a in getAppletsForUser(role, user)
+        ]:
+            raise ValidationException(
+                "User does not have role \"{}\" in this \"{}\" applet "
+                "({})".format(
+                    role,
+                    Applet().preferredName(applet),
+                    str(applet['_id'])
+                )
+            )
+
+        existing = self.findOne({
+            'parentId': parent['_id'],
+            'userId': user['_id'],
+            'parentCollection': 'folder'
+        })
+
+        if existing:
+            return existing
+
+        now = datetime.datetime.utcnow()
+
+        profile = {
+            'parentId': ObjectId(applet['_id']),
+            'userId': ObjectId(user['_id']),
+            'created': now,
+            'updated': now,
+            'size': 0,
+            'meta': {}
+        }
+
+        self.setPublic(profile, False, save=False)
+
+        # Now validate and save the profile.
+        return self.save(profile)
 
     def countFolders(self, folder, user=None, level=None):
         """
