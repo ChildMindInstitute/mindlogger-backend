@@ -17,65 +17,48 @@
 #  limitations under the License.
 ###############################################################################
 
-import itertools
-import re
-import uuid
-import requests
 from ..describe import Description, autoDescribeRoute
-from ..rest import Resource
-from girderformindlogger.constants import AccessType, SortDir, TokenScope, SPECIAL_SUBJECTS
 from girderformindlogger.api import access
-from girderformindlogger.exceptions import AccessException, ValidationException
-from girderformindlogger.models.activitySet import ActivitySet as ActivitySetModel
-from girderformindlogger.models.applet import Applet as AppletModel
-from girderformindlogger.models.collection import Collection as CollectionModel
-from girderformindlogger.models.folder import Folder as FolderModel
-from girderformindlogger.models.item import Item as ItemModel
-from girderformindlogger.models.roles import getCanonicalUser, getUserCipher
-from girderformindlogger.models.user import User as UserModel
-from girderformindlogger.utility import config, jsonld_expander
+from girderformindlogger.api.v1.protocol import Protocol
+from girderformindlogger.constants import AccessType, TokenScope
+from girderformindlogger.models.protocol import Protocol as ProtocolModel
 
-
-class ActivitySet(Resource):
+class ActivitySet(Protocol):
 
     def __init__(self):
         super(ActivitySet, self).__init__()
         self.resourceName = 'activity_set'
-        self._model = ActivitySetModel()
+        self._model = ProtocolModel()
         self.route('GET', (), self.getActivitySetFromURL)
         self.route('GET', (':id',), self.getActivitySet)
 
 
     @access.user(scope=TokenScope.DATA_READ)
     @autoDescribeRoute(
-        Description('Get an activity set by ID.')
-        .modelParam('id', model=ActivitySetModel, level=AccessType.READ)
-        .errorResponse('Invalid activity set ID.')
-        .errorResponse('Read access was denied for this activity set.', 403)
+        Description(
+            '~~Get a protocol by ID.~~ Deprecated. Use '
+            '[`GET /protocol/{id}`](#!/protocol/protocol_getProtocol) instead.'
+        )
+        .modelParam('id', model=ProtocolModel, level=AccessType.READ)
+        .errorResponse('Invalid protocol ID.')
+        .errorResponse('Read access was denied for this protocol.', 403)
+        .deprecated()
     )
     def getActivitySet(self, folder):
-        activitySet = folder
-        user = ActivitySet().getCurrentUser()
-        return(
-            jsonld_expander.formatLdObject(
-                activitySet,
-                'activitySet',
-                user
-            )
-        )
+        return(Protocol().getProtocol(folder))
 
 
     @access.user(scope=TokenScope.DATA_READ)
     @autoDescribeRoute(
-        Description('Get an activity set by URL.')
-        .param('url', 'URL of activity set.', required=True)
-        .errorResponse('Invalid activity set URL.')
-        .errorResponse('Read access was denied for this activity set.', 403)
+        Description(
+            '~~Get a protocol by URL.~~ Deprecated. Use '
+            '[`GET /protocol`](#!/protocol/protocol_getProtocolFromURL) '
+            'instead.'
+        )
+        .param('url', 'URL of protocol.', required=True)
+        .errorResponse('Invalid protocol URL.')
+        .errorResponse('Read access was denied for this protocol.', 403)
+        .deprecated()
     )
     def getActivitySetFromURL(self, url):
-        thisUser=self.getCurrentUser()
-        return(jsonld_expander.formatLdObject(
-            ActivitySetModel().importUrl(url, thisUser),
-            'activitySet',
-            thisUser
-        ))
+        return(Protocol().getProtocolFromURL(url))

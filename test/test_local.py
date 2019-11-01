@@ -4,7 +4,7 @@ from girderformindlogger.constants import REPROLIB_CANONICAL
 
 activitySetUrl = ''.join([
     REPROLIB_CANONICAL,
-    'activity-sets/ema-hbn/ema-hbn_schema'
+    'protocols/ema-hbn/ema-hbn_schema'
 ])
 act1 = ''.join([
     REPROLIB_CANONICAL,
@@ -38,7 +38,7 @@ def test_1_HBN(args):
 
 nestedActivitySet = ''.join([
     REPROLIB_CANONICAL,
-    'activity-sets/pediatric-screener/pediatric-screener_schema'
+    'protocols/pediatric-screener/pediatric-screener_schema'
 ])
 nact1 = ''.join([
     REPROLIB_CANONICAL,
