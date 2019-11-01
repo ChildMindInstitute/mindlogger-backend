@@ -33,7 +33,7 @@ STATIC_ROOT_DIR = os.path.join(STATIC_PREFIX, 'web_client', 'static')
 PREFERRED_NAMES = ["skos:prefLabel", "skos:altLabel", "name", "@id", "url"]
 REPROLIB_CANONICAL = "://".join([
     "https",
-    "raw.githubusercontent.com/ReproNim/schema-standardization/master/"
+    "raw.githubusercontent.com/ReproNim/reproschema/master/"
 ])
 REPROLIB_PREFIXES = [
     *[
@@ -41,7 +41,8 @@ REPROLIB_PREFIXES = [
             "schema.repronim.org/",
             "purl.org/repro/s/dev/",
             "raw.githubusercontent.com/ReproNim/schema-standardization/master/",
-            "raw.githubusercontent.com/ReproNim/reprolib/master/"
+            "raw.githubusercontent.com/ReproNim/reprolib/master/",
+            "raw.githubusercontent.com/ReproNim/reproschema/master/"
         ]
     ],
     "reproschema:",
