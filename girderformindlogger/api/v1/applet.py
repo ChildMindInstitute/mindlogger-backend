@@ -24,17 +24,17 @@ import requests
 from ..describe import Description, autoDescribeRoute
 from ..rest import Resource
 from bson.objectid import ObjectId
-from girderformindlogger.constants import AccessType, SortDir, TokenScope, SPECIAL_SUBJECTS,\
-    USER_ROLES
+from girderformindlogger.constants import AccessType, SortDir, TokenScope,     \
+    REPROLIB_CANONICAL, SPECIAL_SUBJECTS, USER_ROLES
 from girderformindlogger.api import access
 from girderformindlogger.exceptions import AccessException, ValidationException
 from girderformindlogger.models.activity import Activity as ActivityModel
-from girderformindlogger.models.activitySet import ActivitySet as ActivitySetModel
 from girderformindlogger.models.applet import Applet as AppletModel
 from girderformindlogger.models.collection import Collection as CollectionModel
 from girderformindlogger.models.folder import Folder as FolderModel
 from girderformindlogger.models.group import Group as GroupModel
 from girderformindlogger.models.item import Item as ItemModel
+from girderformindlogger.models.protocol import Protocol as ProtocolModel
 from girderformindlogger.models.roles import getCanonicalUser, getUserCipher
 from girderformindlogger.models.user import User as UserModel
 from girderformindlogger.utility import config, jsonld_expander
@@ -139,7 +139,7 @@ class Applet(Resource):
     @autoDescribeRoute(
         Description('Create an applet.')
         .param(
-            'activitySetUrl',
+            'protocolUrl',
             'URL of Activity Set from which to create applet',
             required=False
         )
@@ -151,34 +151,34 @@ class Applet(Resource):
         )
         .errorResponse('Write access was denied for this applet.', 403)
     )
-    def createApplet(self, activitySetUrl=None, name=None, refreshCache=False):
-        activitySet = {}
+    def createApplet(self, protocolUrl=None, name=None, refreshCache=False):
+        protocol = {}
         thisUser = self.getCurrentUser()
         # get an activity set from a URL
-        if activitySetUrl:
-            activitySet.update(ActivitySetModel().getFromUrl(
-                activitySetUrl,
-                'activitySet',
+        if protocolUrl:
+            protocol.update(ProtocolModel().getFromUrl(
+                protocolUrl,
+                'protocol',
                 thisUser,
                 refreshCache=refreshCache
             ))
         # create an applet for it
         applet=AppletModel().createApplet(
-            name=name if name is not None and len(name) else ActivitySetModel(
+            name=name if name is not None and len(name) else ProtocolModel(
             ).preferredName(
-                activitySet
+                protocol
             ),
             # below is so it doesn't break on older applets that didn't have
             # activity set URLs
-            activitySet={
-                '_id': 'activitySet/{}'.format(activitySet.get('_id')),
-                'url': activitySet.get(
+            protocol={
+                '_id': 'protocol/{}'.format(protocol.get('_id')),
+                'url': protocol.get(
                     'meta',
                     {}
                 ).get(
-                    'activitySet',
+                    'protocol',
                     {}
-                ).get('url', activitySetUrl)
+                ).get('url', protocolUrl)
             },
             user=thisUser
         )
@@ -289,7 +289,7 @@ class Applet(Resource):
         Description('Get an applet by URL.')
         .param('url', 'URL of Applet.', required=True)
         .deprecated()
-        .notes('Use `GET /activity_set` or `GET /applet/{id}`.')
+        .notes('Use `GET /protocol` or `GET /applet/{id}`.')
         .errorResponse('Invalid applet URL.')
         .errorResponse('Read access was denied for this applet.', 403)
     )
@@ -365,7 +365,7 @@ class Applet(Resource):
         .param(
             'url',
             'URL of applet, eg, '
-            '`https://raw.githubusercontent.com/ReproNim/schema-standardization/master/activity-sets/example/nda-phq`',
+            '`{}protocols/example/nda-phq`'.format(REPROLIB_CANONICAL),
             required=True
         )
         .param(
@@ -776,15 +776,15 @@ def _setConstraints(applet, activity, schedule, user, refreshCache=False):
         )
     else:
         activityKey = jsonld_expander.reprolibPrefix(activityKey)
-    activitySetExpanded = jsonld_expander.formatLdObject(
+    protocolExpanded = jsonld_expander.formatLdObject(
         applet,
         'applet',
         user
     ).get('applet', {})
-    activitySetOrder = activitySetExpanded.get('ui', {}).get('order', [])
+    protocolOrder = protocolExpanded.get('ui', {}).get('order', [])
     framedActivityKeys = [
-        activitySetOrder[i] for i, v in enumerate(
-            activitySetExpanded.get(
+        protocolOrder[i] for i, v in enumerate(
+            protocolExpanded.get(
                 "reprolib:terms/order"
             )[0].get(
                 "@list"

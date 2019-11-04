@@ -42,12 +42,12 @@ from girderformindlogger.utility.progress import noProgress, setResponseTimeLimi
 class Applet(Folder):
     """
     Applets are access-controlled Folders, each of which links to an
-    ActivitySet and contains any relevant constraints.
+    Protocol and contains any relevant constraints.
     """
     def createApplet(
         self,
         name,
-        activitySet={},
+        protocol={},
         user=None,
         roles=None,
         constraints=None
@@ -57,9 +57,9 @@ class Applet(Folder):
 
         :param name: Name for the Applet
         :type name: str
-        :param activitySet: ActivitySet to link to this Applet, with one or both
+        :param protocol: Protocol to link to this Applet, with one or both
             keys: {`_id`, `url`}
-        :type activitySet: dict
+        :type protocol: dict
         :param user: User creating Applet
         :type user: dict
         :param roles: Roles to set to this Applet
@@ -78,7 +78,7 @@ class Applet(Folder):
 
         # # check if applet exists with creator as a manager
         applets = list(FolderModel().find({
-            "meta.actvitySet.url": activitySet.get('url'),
+            "meta.actvitySet.url": protocol.get('url'),
             "parentId": appletsCollection.get('_id')
         }))
         # managed = [applet for applet in applets if applet.get('_id') in [
@@ -109,7 +109,7 @@ class Applet(Folder):
                 allowRename=True
             ),
             metadata={
-                'activitySet': activitySet,
+                'protocol': protocol,
                 'applet': constraints if constraints is not None and isinstance(
                     constraints,
                     dict
@@ -196,7 +196,7 @@ class Applet(Folder):
         :param role: Role to find
         :type name: str
         :param groupId: _id of group
-        :type activitySet: str
+        :type protocol: str
         :param active: Only return active Applets?
         :type active: bool
         :returns: list of dicts
