@@ -179,11 +179,20 @@ class Applet(Folder):
             ] if arrayOfObjects else appletGroups
         )
 
+    def isCoordinator(self, appletId, user):
+        return(any(
+            self._hasRole(appletId, user, 'coordinator'),
+            self.isManager(appletId, user)
+        ))
+
     def isManager(self, appletId, user):
+        return(self._hasRole(appletId, user, 'manager'))
+
+    def _hasRole(self, appletId, user, role):
         return(bool(
             str(appletId) in [
                 str(applet.get('_id')) for applet in self.getAppletsForUser(
-                    'manager',
+                    role,
                     user
                 ) if applet.get('_id') is not None
             ]
@@ -221,7 +230,6 @@ class Applet(Folder):
         :type active: bool
         :returns: list of dicts
         """
-
         applets = list(self.find(
             {
                 'roles.' + role + '.groups.id': {'$in': user.get('groups', [])},
@@ -231,55 +239,49 @@ class Applet(Folder):
         return(applets if isinstance(applets, list) else [applets])
 
     def getAppletUsers(self, applet, user=None):
-        # get groups for applet
-        appletGroups = self.getAppletGroups(applet)
-        if not self.isManager(applet.get('_id', applet), user):
-            return([])
+        """
+        Function to return a list of Applet Users
 
-        userList = {
-            role: {
-                groupId: {
-                    "pending": [
-                        *list(UserModel().find(
-                            query={
-                                "groupInvites.groupId": {"$in": [
-                                    ObjectId(groupId)
-                                ]}
-                            },
-                            fields=['_id', 'email']
-                        )),
-                        *list(ProtoUserModel().find(
-                            query={
-                                "groupInvites.groupId": {"$in": [
-                                    ObjectId(groupId)
-                                ]}
-                            }
-                        ))
-                    ],
-                    "active": list(UserModel().find(
-                        query={"groups": {"$in": [ObjectId(groupId)]}},
-                        fields=['_id', 'email']
-                    ))
-                } for groupId in appletGroups[role]
-            } for role in appletGroups
-        }
-        # restructure dictionary & return
-        return([
-            {
-                "_id": user.get("_id"),
-                "email": user.get("email", ""),
-                "groups": [{
-                        "_id": groupId,
-                        "name": appletGroups[role][groupId],
-                        "status": status,
-                        "role": role
-                }]
-            } for role in userList for groupId in userList[
-                role
-            ] for status in userList[role][groupId] for user in userList[
-                role
-            ][groupId][status]
-        ])
+        :param applet: Applet to get users for.
+        :type applet: dict
+        :param user: User making request
+        :type user: dict
+        :returns: list of dicts
+        """
+        from .invitation import Invitation
+        from .profile import Profile
+
+        try:
+
+            if not isinstance(user, dict):
+                user = UserModel().load(
+                    id=user,
+                    level=AccessType.READ,
+                    force=True
+                ) if isinstance(user, str) else {}
+
+            if not self.isManager(applet.get('_id', applet), user):
+                return([])
+
+            userDict = {
+                'active': list(Profile().find(query={'folderId': applet['_id']})),
+                'pending': list(Invitation().find(query={'folderId': applet['_id']}))
+            }
+
+            if len(userDict['active']):
+                missing = threading.Thread(
+                    target=Profile().generateMissing,
+                    args=(applet)
+                )
+                missing.start()
+                return(userDict)
+
+            else:
+                return(Profile().generateMissing(applet))
+        except:
+            import sys, traceback
+            print(sys.exc_info())
+            return({traceback.print_tb(sys.exc_info()[2])})
 
 
     def importUrl(self, url, user=None, refreshCache=False):

@@ -24,7 +24,7 @@ class Invitation(Folder):
 
     def initialize(self):
         self.name = 'invitation'
-        self.ensureIndices(('parentId', ([('parentId', 1))))
+        self.ensureIndices(('parentId', ([('parentId', 1)], {})))
 
         self.exposeFields(level=AccessType.READ, fields=(
             '_id', 'created', 'updated', 'meta', 'parentId',

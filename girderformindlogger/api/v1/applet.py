@@ -70,8 +70,13 @@ class Applet(Resource):
         )
     )
     def getAppletUsers(self, applet):
-        thisUser=self.getCurrentUser()
-        return(AppletModel().getAppletUsers(applet, thisUser))
+        try:
+            thisUser=self.getCurrentUser()
+            return(AppletModel().getAppletUsers(applet, thisUser))
+        except:
+            import sys, traceback
+            print(sys.exc_info())
+            return({traceback.print_tb(sys.exc_info()[2])})
 
     @access.user(scope=TokenScope.DATA_WRITE)
     @autoDescribeRoute(

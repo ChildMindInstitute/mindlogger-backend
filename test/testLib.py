@@ -9,7 +9,7 @@ import tzlocal
 from bson.objectid import ObjectId
 from datetime import datetime
 from girderformindlogger.constants import AccessType, REPROLIB_CANONICAL
-from girderformindlogger.exceptions import ValidationException
+from girderformindlogger.exceptions import AccessException, ValidationException
 from girderformindlogger.models.activity import Activity as ActivityModel
 from girderformindlogger.models.applet import Applet as AppletModel
 from girderformindlogger.models.folder import Folder

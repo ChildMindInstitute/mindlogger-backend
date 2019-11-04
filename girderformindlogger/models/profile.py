@@ -24,7 +24,7 @@ class Profile(Folder):
 
     def initialize(self):
         self.name = 'profile'
-        self.ensureIndices(('parentId', ([('parentId', 1))))
+        self.ensureIndices(('parentId', ([('parentId', 1)], {})))
 
         self.exposeFields(level=AccessType.READ, fields=(
             '_id', 'created', 'updated', 'meta', 'parentId',
@@ -140,7 +140,8 @@ class Profile(Folder):
         :param profile: The profile document to delete.
         :type folder: dict
         :param progress: A progress context to record progress on.
-        :type progress: girderformindlogger.utility.progress.ProgressContext or None.
+        :type progress: girderformindlogger.utility.progress.ProgressContext or
+            None.
         """
         # Remove the contents underneath this folder recursively.
         from .upload import Upload
@@ -328,6 +329,69 @@ class Profile(Folder):
         # Now validate and save the folder.
         return self.save(folder)
 
+    def generateMissing(self, applet):
+        """
+        Helper function to generate profiles for users that predate this class.
+        To be threaded unless no users with profiles exist.
+
+        :param applet: Applet to get users for.
+        :type applet: dict
+        :returns: list of dicts
+        """
+        from .applet import Applet
+        from .user import User as UserModel
+
+        # get groups for applet
+        appletGroups = Applet().getAppletGroups(applet)
+
+        userList = {
+            role: {
+                groupId: {
+                    'active': list(UserModel().find(
+                        query={"groups": {
+                            "$in": [
+                                ObjectId(
+                                    groupId
+                                )
+                            ]
+                        }},
+                        fields=['_id']
+                    ))
+                } for groupId in appletGroups[role].keys()
+            } for role in appletGroups.keys()
+        }
+
+
+        # restructure dictionary & return
+        userList = {
+            str(ulu["user"]["_id"]): {k: v for k, v in {
+                "displayName": ulu["user"].get("displayName"),
+                "groups": ulu.get("groups")
+            }.items() if v is not None} for ulu in [{
+                "user": self.createProfile(
+                    applet,
+                    UserModel().load(user, AccessType.READ, force=True)
+                ),
+                "groups": [{
+                        "_id": groupId,
+                        "name": appletGroups[role][groupId],
+                        "status": status,
+                        "role": role
+                } for role in userList for groupId in userList[
+                    role
+                ] for status in userList[role][groupId]]
+            } for user in set([
+                ui.get('_id') for u in (
+                    userList[role][groupId][
+                        status
+                    ] for role in userList for groupId in userList[
+                        role
+                    ] for status in userList[role][groupId]
+                ) for ui in u
+            ])]
+        }
+        return(userList)
+
     def createProfile(self, applet, user, role="user"):
         """
         Create a new profile to store information specific to a given (applet ∩
@@ -339,10 +403,10 @@ class Profile(Folder):
         :type user: dict
         :returns: The profile document that was created.
         """
-        from girderformindlogger.models.applet import Applet, getAppletsForUser
+        from girderformindlogger.models.applet import Applet
 
         if applet['_id'] not in [
-            a.get('_id') for a in getAppletsForUser(role, user)
+            a.get('_id') for a in Applet().getAppletsForUser(role, user)
         ]:
             raise ValidationException(
                 "User does not have role \"{}\" in this \"{}\" applet "
@@ -352,12 +416,16 @@ class Profile(Folder):
                     str(applet['_id'])
                 )
             )
+        returnFields=["_id", "displayName"]
 
-        existing = self.findOne({
-            'parentId': parent['_id'],
-            'userId': user['_id'],
-            'parentCollection': 'folder'
-        })
+        existing = self.findOne(
+            {
+                'parentId': applet['_id'],
+                'userId': user['_id'],
+                'profile': True
+            },
+            fields=returnFields
+        )
 
         if existing:
             return existing
@@ -365,18 +433,24 @@ class Profile(Folder):
         now = datetime.datetime.utcnow()
 
         profile = {
-            'parentId': ObjectId(applet['_id']),
-            'userId': ObjectId(user['_id']),
-            'created': now,
-            'updated': now,
-            'size': 0,
-            'meta': {}
+            k: v for k, v in {
+                'parentId': ObjectId(applet['_id']),
+                'userId': ObjectId(user['_id']),
+                'profile': True,
+                'created': now,
+                'updated': now,
+                'size': 0,
+                'displayName': user.get('displayName', user.get('firstName'))
+            }.items() if v is not None
         }
 
         self.setPublic(profile, False, save=False)
 
-        # Now validate and save the profile.
-        return self.save(profile)
+        # Save the profile.
+        return({
+            k: v for k, v in self.save(profile, validate=False).items(
+            ) if k in returnFields
+        })
 
     def countFolders(self, folder, user=None, level=None):
         """
