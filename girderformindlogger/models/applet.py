@@ -23,6 +23,7 @@ import itertools
 import json
 import os
 import six
+import threading
 
 from bson.objectid import ObjectId
 from .folder import Folder
@@ -251,6 +252,8 @@ class Applet(Folder):
         from .invitation import Invitation
         from .profile import Profile
 
+        profileFields = ["_id", "coordinatorDefined", "userDefined"]
+
         try:
 
             if not isinstance(user, dict):
@@ -264,14 +267,18 @@ class Applet(Folder):
                 return([])
 
             userDict = {
-                'active': list(Profile().find(query={'folderId': applet['_id']})),
-                'pending': list(Invitation().find(query={'folderId': applet['_id']}))
+                'active': list(Profile().find(
+                    query={'parentId': applet['_id']},
+                    fields=profileFields)
+                ),
+                'pending': list(Invitation().find(query={'parentId': applet['_id']})) # TODO 
             }
 
             if len(userDict['active']):
+                print(userDict)
                 missing = threading.Thread(
                     target=Profile().generateMissing,
-                    args=(applet)
+                    args=(applet,)
                 )
                 missing.start()
                 return(userDict)

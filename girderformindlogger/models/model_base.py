@@ -491,7 +491,6 @@ class Model(object):
         cursor = self.collection.find(
             filter=query, skip=offset, limit=limit, projection=fields,
             no_cursor_timeout=timeout is None, sort=sort, **kwargs)
-
         if timeout:
             cursor.max_time_ms(timeout)
 

@@ -134,7 +134,8 @@ class User(Resource):
         Description('List or search for users.')
         .responseClass('User', array=True)
         .param('text', 'Pass this to perform a full text search for items.', required=False)
-        .pagingParams(defaultSort='firstName') # 🚧 replace with customID once customID defined
+        .pagingParams(defaultSort='firstName')
+        .deprecated()
     )
     def find(self, text, limit, offset, sort):
         return list(self._model.search(
@@ -628,16 +629,16 @@ class User(Resource):
             default="",
             required=False
         )
-        .param(
-            'email',
-            'The email of the user.',
-            required=False,
-            dataType='string'
-        )
         .param('admin', 'Is the user a site admin (admin access required)',
                required=False, dataType='boolean')
         .param('status', 'The account status (admin access required)',
                required=False, enum=('pending', 'enabled', 'disabled'))
+        .param(
+             'email',
+             'Deprecated. Do not use.',
+             required=False,
+             dataType='string'
+        )
         .param(
             'firstName',
             'Deprecated. Do not use.',

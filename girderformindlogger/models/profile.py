@@ -72,11 +72,12 @@ class Profile(Folder):
                     'baseParentId': doc['baseParentId'],
                     'baseParentType': doc['baseParentType']
                 }})
-            if 'meta' not in doc:
-                doc['meta'] = {}
-                self.update({'_id': doc['_id']}, {'$set': {
-                    'meta': {}
-                }})
+            for key in ["coordinatorDefined", "userDefined"]:
+                if key not in doc:
+                    doc[key] = {}
+                    self.update({'_id': doc['_id']}, {'$set': {
+                        key: {}
+                    }})
 
             self._removeSupplementalFields(doc, fields)
 
@@ -365,7 +366,13 @@ class Profile(Folder):
         # restructure dictionary & return
         userList = {
             str(ulu["user"]["_id"]): {k: v for k, v in {
-                "displayName": ulu["user"].get("displayName"),
+                "displayName": ulu["user"].get(
+                    "coordinatorDefined",
+                    {}
+                ).get("displayName", ulu["user"].get(
+                    "userDefined",
+                    {}
+                ).get("displayName", ulu["user"].get("displayName"))),
                 "groups": ulu.get("groups")
             }.items() if v is not None} for ulu in [{
                 "user": self.createProfile(
@@ -416,7 +423,7 @@ class Profile(Folder):
                     str(applet['_id'])
                 )
             )
-        returnFields=["_id", "displayName"]
+        returnFields=["_id", "coordinatorDefined", "userDefined"]
 
         existing = self.findOne(
             {
@@ -440,7 +447,13 @@ class Profile(Folder):
                 'created': now,
                 'updated': now,
                 'size': 0,
-                'displayName': user.get('displayName', user.get('firstName'))
+                'managerDefined': {},
+                'userDefined': {
+                    'displayName': user.get(
+                        'displayName',
+                        user.get('firstName')
+                    )
+                }
             }.items() if v is not None
         }
 
