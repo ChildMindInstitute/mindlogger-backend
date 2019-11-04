@@ -16,14 +16,14 @@ from girderformindlogger.utility.progress import noProgress, \
     setResponseTimeLimit
 
 
-class Profile(Folder):
+class Invitation(Folder):
     """
-    Profiles store customizable information specific to both users and applets.
-    These data can be sensitive and are access controlled.
+    Invitations store customizable information specific to both users and
+    applets. These data can be sensitive and are access controlled.
     """
 
     def initialize(self):
-        self.name = 'profile'
+        self.name = 'invitation'
         self.ensureIndices(('parentId', ([('parentId', 1))))
 
         self.exposeFields(level=AccessType.READ, fields=(
@@ -82,56 +82,6 @@ class Profile(Folder):
 
         return doc
 
-    def _updateDescendants(self, folderId, updateQuery):
-        """
-        This helper is used to update all items and folders underneath a
-        profile. This is expensive, so think carefully before using it.
-
-        :param folderId: The _id of the profile at the root of the subtree.
-        :param updateQuery: The mongo query to apply to all of the children of
-        the profile.
-        :type updateQuery: dict
-        """
-        from .item import Item
-
-        self.update(query={
-            'parentId': folderId,
-            'parentCollection': 'profile'
-        }, update=updateQuery, multi=True)
-        Item().update(query={
-            'folderId': folderId,
-        }, update=updateQuery, multi=True)
-
-        q = {
-            'parentId': folderId,
-            'parentCollection': 'profile'
-        }
-        for child in self.find(q):
-            self._updateDescendants(child['_id'], updateQuery)
-
-    def _isAncestor(self, ancestor, descendant):
-        """
-        Returns whether profile "ancestor" is an ancestor of profile "descendant",
-        or if they are the same profile.
-
-        :param ancestor: The profile to test as an ancestor.
-        :type ancestor: profile
-        :param descendant: The profile to test as a descendant.
-        :type descendant: profile
-        """
-        if ancestor['_id'] == descendant['_id']:
-            return True
-
-        if descendant['parentCollection'] != 'profile':
-            return False
-
-        descendant = self.load(descendant['parentId'], force=True)
-
-        if descendant is None:
-            return False
-
-        return self._isAncestor(ancestor, descendant)
-
 
     def remove(self, folder, progress=None, **kwargs):
         """
@@ -151,7 +101,7 @@ class Profile(Folder):
         uploadModel = Upload()
         uploads = uploadModel.find({
             'parentId': folder['_id'],
-            'parentType': 'profile'
+            'parentType': 'invitation'
         })
         for upload in uploads:
             uploadModel.remove(upload, progress=progress, **kwargs)
@@ -163,195 +113,26 @@ class Profile(Folder):
             progress.update(increment=1, message='Deleted profile %s' %
                             folder['name'])
 
-    def childItems(self, folder, limit=0, offset=0, sort=None, filters=None,
-                   **kwargs):
+    def createInvitation(self, applet, role="user", profile=None, idCode=None):
         """
-        Generator function that yields child items in a profile.  Passes any
-        kwargs to the find function.
-
-        :param folder: The parent profile.
-        :param limit: Result limit.
-        :param offset: Result offset.
-        :param sort: The sort structure to pass to pymongo.
-        :param filters: Additional query operators.
-        """
-        from .item import Item
-
-        q = {
-            'folderId': folder['_id']
-        }
-        q.update(filters or {})
-
-        return Item().find(q, limit=limit, offset=offset, sort=sort, **kwargs)
-
-    def childFolders(self, parent, parentType, user=None, limit=0, offset=0,
-                     sort=None, filters=None, force=False, **kwargs):
-        """
-        This generator will yield child folders of a user, collection, or
-        folder, with access policy filtering.  Passes any kwargs to the find
-        function.
-
-        :param parent: The parent object.
-        :type parentType: Type of the parent object.
-        :param parentType: The parent type.
-        :type parentType: 'user', 'folder', or 'collection'
-        :param user: The user running the query. Only returns folders that this
-                     user can see.
-        :param limit: Result limit.
-        :param offset: Result offset.
-        :param sort: The sort structure to pass to pymongo.
-        :param filters: Additional query operators.
-        :param force: Ignore permissions
-        :type force: bool
-        """
-        if not filters:
-            filters = {}
-
-        parentType = _verify_parentType(parentType)
-
-        q = {
-            'parentId': parent['_id'],
-            'parentCollection': parentType
-        }
-        q.update(filters)
-
-        cursor = self.findWithPermissions(
-            q,
-            sort=sort,
-            user=user,
-            level=None if force else AccessType.READ,
-            limit=limit,
-            offset=offset,
-            **kwargs
-        )
-
-        return iter(cursor)
-
-    def _verify_parentType(self, parentType):
-        parentType = parentType.lower()
-        if parentType not in ('folder', 'user', 'collection', 'profile'):
-            raise ValidationException(
-                'The parentType must be folder, collection, user, or profile.'
-            )
-        return(parentType)
-
-    def createFolder(self, parent, name, description='', parentType='profile',
-                     public=None, creator=None, allowRename=False,
-                     reuseExisting=False):
-        """
-        Create a new folder under the given parent.
-
-        :param parent: The parent document. Should be a folder, user, or
-                       collection.
-        :type parent: dict
-        :param name: The name of the folder.
-        :type name: str
-        :param description: Description for the folder.
-        :type description: str
-        :param parentType: What type the parent is:
-                           ('folder' | 'user' | 'collection')
-        :type parentType: str
-        :param public: Public read access flag.
-        :type public: bool or None to inherit from parent
-        :param creator: User document representing the creator of this folder.
-        :type creator: dict
-        :param allowRename: if True and a folder or item of this name exists,
-                            automatically rename the folder.
-        :type allowRename: bool
-        :param reuseExisting: If a folder with the given name already exists
-            under the given parent, return that folder rather than creating a
-            new one.
-        :type reuseExisting: bool
-        :returns: The folder document that was created.
-        """
-        if reuseExisting:
-            existing = self.findOne({
-                'parentId': parent['_id'],
-                'name': name,
-                'parentCollection': parentType
-            })
-
-            if existing:
-                return existing
-
-        parentType = _verify_parentType(parentType)
-
-        if parentType == 'folder':
-            if 'baseParentId' not in parent:
-                pathFromRoot = self.parentsToRoot(
-                    parent, user=creator, force=True)
-                parent['baseParentId'] = pathFromRoot[0]['object']['_id']
-                parent['baseParentType'] = pathFromRoot[0]['type']
-        else:
-            parent['baseParentId'] = parent['_id']
-            parent['baseParentType'] = parentType
-
-        now = datetime.datetime.utcnow()
-
-        if creator is None:
-            creatorId = None
-        else:
-            creatorId = creator.get('_id', None)
-
-        folder = {
-            'name': name,
-            'description': description,
-            'parentCollection': parentType,
-            'baseParentId': parent['baseParentId'],
-            'baseParentType': parent['baseParentType'],
-            'parentId': ObjectId(parent['_id']),
-            'creatorId': creatorId,
-            'created': now,
-            'updated': now,
-            'size': 0,
-            'meta': {}
-        }
-
-        if parentType in ('folder', 'collection') and (
-            parent.get('name') not in [
-                "Activities", "Volumes", "Activitysets", "Applets", "Screens"
-            ]
-        ):
-            self.copyAccessPolicies(src=parent, dest=folder, save=False)
-
-        if creator is not None:
-            self.setUserAccess(folder, user=creator, level=AccessType.ADMIN,
-                               save=False)
-
-        # Allow explicit public flag override if it's set.
-        if public is not None and isinstance(public, bool):
-            self.setPublic(folder, public, save=False)
-
-        if allowRename:
-            self.validate(folder, allowRename=True)
-
-        # Now validate and save the folder.
-        return self.save(folder)
-
-    def createProfile(self, applet, user, role="user"):
-        """
-        Create a new profile to store information specific to a given (applet ∩
-            user)
+        Create a new invitation to store information specific to a given (applet
+            ∩ (ID code ∪ profile))
 
         :param applet: The applet for which this profile exists
         :type parent: dict
         :param user: The user for which this profile exists
         :type user: dict
+        :param profile: Profile to apply to (applet ∩ user) if the inviation is
+            accepted
+        :type profile: dict or none
+        :param idCode: ID code to apply to (applet ∩ user) if invitation is
+            accepted
+        :type idCode: string or None
         :returns: The profile document that was created.
         """
-        from girderformindlogger.models.applet import Applet, getAppletsForUser
+        from girderformindlogger.models.applet import Applet
 
-        if applet['_id'] not in [
-            a.get('_id') for a in getAppletsForUser(role, user)
-        ]:
-            raise ValidationException(
-                "User does not have role \"{}\" in this \"{}\" applet "
-                "({})".format(
-                    role,
-                    Applet().preferredName(applet),
-                    str(applet['_id'])
-                )
-            )
+        #TODO
 
         existing = self.findOne({
             'parentId': parent['_id'],
