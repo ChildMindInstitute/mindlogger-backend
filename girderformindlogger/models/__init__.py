@@ -125,6 +125,17 @@ def smartImport(IRI, user=None, refreshCache=False, modelType='activity'):
     from girderformindlogger.utility import firstLower, loadJSON
     from girderformindlogger.utility.jsonld_expander import MODELS, \
         contextualize, reprolibCanonize
+    if not refreshCache:
+        cachedDoc = MODELS[modelType].findOne({
+            '{}.url'.format(modeltype): {
+                '$in': {
+                    IRI,
+                    reprolibCanonize(IRI)
+                }
+            }
+        })
+        if cachedDoc:
+            return((modelType, cachedDoc))
     print("loading {}".format(reprolibCanonize(IRI)))
     model = contextualize(loadJSON(reprolibCanonize(IRI)))
     atType = model.get('@type', '').split('/')[-1].split(':')[-1]

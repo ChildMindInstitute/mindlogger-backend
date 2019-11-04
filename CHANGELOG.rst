@@ -8,13 +8,18 @@ Changes
 -------
 Unreleased
 ==========
+2019-11-01: v0.5.10
+^^^^^^^^^^^^^^^^^^^
+* :arrow_up: :tractor: :art: `|schema-standardization→reproschema| <https://github.com/ReproNim/reproschema/pull/278>`_
+* :arrow_up: :tractor: :art: `|activitySet→protocol| <https://github.com/ReproNim/reproschema/pull/277>`_
+
 2019-10-31 :jack_o_lantern:: v0.5.9
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 * :sparkles: :building_construction: New route: `GET schedule`
 
 2019-10-30: v0.5.8
 ^^^^^^^^^^^^^^^^^^
-* :hammer: Prefix all [reprolib](https://github.com/ReproNim/schema-standardization) terms
+* :hammer: Prefix all `reprolib <https://github.com/ReproNim/schema-standardization>`_ terms
 * :ambulance: :tractor: Delanguage tag `http://schema.org/url`s
 
 2019-10-25: v0.5.7
@@ -32,7 +37,7 @@ Unreleased
 
 2019-10-11: v0.5.3; 2019-10-15: v0.5.4
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-* :ambulance: :green_heart: Handle change in the way schema are defined per [ReproNim/schema-standardization@`1c54072`](https://github.com/ReproNim/schema-standardization/commit/1c5407247817f2c8ec47f2f286683ad94065e2af)
+* :ambulance: :green_heart: Handle change in the way schema are defined per `|1c54072| <https://github.com/ReproNim/schema-standardization/commit/1c5407247817f2c8ec47f2f286683ad94065e2af>`_
 
 2019-10-01: v0.5.2
 ^^^^^^^^^^^^^^^^^^
@@ -441,3 +446,7 @@ Removals
 
 * Remove the unmaintained external web client
 * Remove the unmaintained jQuery "girderBrowser" client, and associated "jquery_widgets" plugin
+
+.. |schema-standardization→reproschema| replace:: ``schema-standardization`` → ``reproschema``
+.. |activitySet→protocol| replace:: ``activity-sets`` → ``protocols``
+.. |1c54072| replace:: ReproNim/schema-standardization@``1c54072``

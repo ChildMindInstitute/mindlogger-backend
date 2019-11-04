@@ -213,11 +213,16 @@ class Model(object):
         cached = list(MODELS[modelType].find(
             query={
                 'meta.{}.url'.format(modelType): url,
-                'meta.activitySet.@type': reprolibCanonize(
+                'meta.protocol.@type': reprolibCanonize(
                     'reprolib:schemas/ActivitySet'
                 ),
-            } if modelType=="activitySet" else {
-                'meta.{}.url'.format(modelType): url
+            } if modelType in {"activitySet", "protocol"} else {
+                'meta.{}.url'.format(modelType): {
+                    "$in": [
+                        url,
+                        reprolibCanonize(url)
+                    ]
+                }
             },
             sort=[('created', SortDir.DESCENDING)]
         ))
@@ -250,11 +255,14 @@ class Model(object):
                     ] else " {}".format(modelType)
                 )
             )
+        passedUrl = url
         url = reprolibCanonize(url)
         model = contextualize(loadJSON(url, modelType))
         atType = model.get('@type', '').split('/')[-1].split(':')[-1]
         modelType = firstLower(atType) if len(atType) else modelType
-        modelType = 'screen' if modelType.lower()=='field' else modelType
+        modelType = 'screen' if modelType.lower(
+        )=='field' else 'protocol' if modelType.lower(
+        )=='activityset' else modelType
         changedModel = atType != modelType and len(atType)
         prefName = self.preferredName(model)
         cachedDoc = self.getCached(url, modelType)

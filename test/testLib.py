@@ -11,11 +11,10 @@ from datetime import datetime
 from girderformindlogger.constants import AccessType, REPROLIB_CANONICAL
 from girderformindlogger.exceptions import ValidationException
 from girderformindlogger.models.activity import Activity as ActivityModel
-from girderformindlogger.models.activitySet import ActivitySet as              \
-    ActivitySetModel
 from girderformindlogger.models.applet import Applet as AppletModel
 from girderformindlogger.models.folder import Folder
 from girderformindlogger.models.group import Group
+from girderformindlogger.models.protocol import Protocol as ProtocolModel
 from girderformindlogger.models.response_folder import ResponseFolder as       \
     ResponseFolderModel, ResponseItem as ResponseItemModel
 from girderformindlogger.models.user import User as UserModel
@@ -102,7 +101,7 @@ def getAppletById(user, ar):
     return 1
 
 
-def addApplet(new_user, activitySetUrl):
+def addApplet(new_user, protocolUrl):
     """
     adds an applet for the user, where the user becomes a manager for it.
 
@@ -110,7 +109,7 @@ def addApplet(new_user, activitySetUrl):
     ------
 
     new_user: a user oject (from testCreateUser)
-    activitySetURL: String, a valid URL to an activity set.
+    protocolURL: String, a valid URL to an activity set.
 
     returns
     -------
@@ -124,33 +123,33 @@ def addApplet(new_user, activitySetUrl):
 
 
     # for now, lets do the mindlogger demo
-    activitySet = {}
-    activitySet.update(ActivitySetModel().getFromUrl(
-        activitySetUrl,
-        'activitySet',
+    protocol = {}
+    protocol.update(ProtocolModel().getFromUrl(
+        protocolUrl,
+        'protocol',
         currentUser
     ))
     randomAS = np.random.randint(1000000)
     ar = AppletModel().createApplet(
-        name="testActivitySet{}".format(randomAS),
-        activitySet={
-            '_id': 'activitySet/{}'.format(activitySet.get('_id')),
-            'url': activitySet.get(
+        name="testProtocol{}".format(randomAS),
+        protocol={
+            '_id': 'protocol/{}'.format(protocol.get('_id')),
+            'url': protocol.get(
                 'meta',
                 {}
             ).get(
-                'activitySet',
+                'protocol',
                 {}
-            ).get('url', activitySetUrl)
+            ).get('url', protocolUrl)
         },
         user=currentUser
     )
 
     assert ar['_id'], 'there is no ID!'
-    assert ar['meta']['activitySet']['url'] == activitySetUrl, \
+    assert ar['meta']['protocol']['url'] == protocolUrl, \
         'the URLS do not match! {} {}'.format(
-            ar['meta']['activitySet']['url'],
-            activitySetUrl
+            ar['meta']['protocol']['url'],
+            protocolUrl
         )
 
     assert getAppletById(
@@ -805,7 +804,7 @@ def testTests():
     assert 'language' in str(excinfo.value)
 
 
-def fullTest(activitySetUrl, act1, act2, act1Item, act2Item):
+def fullTest(protocolUrl, act1, act2, act1Item, act2Item):
     testElses()
     testTests()
 
@@ -835,15 +834,15 @@ def fullTest(activitySetUrl, act1, act2, act1Item, act2Item):
                                  'Make sure the user has 0 applets')
 
     # add an applet and make sure it was added
-    def step03(user, activitySetUrl):
-        appletObject = addApplet(user, activitySetUrl)
+    def step03(user, protocolUrl):
+        appletObject = addApplet(user, protocolUrl)
         appletList = getAppletsUser(user, 1)
         checkItWasAdded = getAppletById(user, appletObject)
         return appletObject, appletList, checkItWasAdded
 
     appletObject, appletList, checkItWasAdded = tryExceptTester(
         step03,
-        [user, activitySetUrl],
+        [user, protocolUrl],
         'add an applet and make sure it was added',
         3
     )

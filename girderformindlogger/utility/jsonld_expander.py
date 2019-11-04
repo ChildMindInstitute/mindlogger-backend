@@ -6,18 +6,17 @@ from girderformindlogger.constants import AccessType, REPROLIB_CANONICAL,      \
 from girderformindlogger.exceptions import AccessException,                    \
     ResourcePathNotFound, ValidationException
 from girderformindlogger.models.activity import Activity as ActivityModel
-from girderformindlogger.models.activitySet import ActivitySet as              \
-    ActivitySetModel
 from girderformindlogger.models.applet import Applet as AppletModel
 from girderformindlogger.models.collection import Collection as CollectionModel
 from girderformindlogger.models.folder import Folder as FolderModel
 from girderformindlogger.models.item import Item as ItemModel
+from girderformindlogger.models.protocol import Protocol as ProtocolModel
 from girderformindlogger.models.screen import Screen as ScreenModel
 from girderformindlogger.models.user import User as UserModel
 from girderformindlogger.utility.response import responseDateList
 from pyld import jsonld
 
-HIERARCHY = ['applet', 'activitySet', 'activity', 'screen', 'item']
+HIERARCHY = ['applet', 'protocol', 'activity', 'screen', 'item']
 
 KEYS_TO_EXPAND = [
     "responseOptions",
@@ -29,12 +28,13 @@ KEYS_TO_EXPAND = [
 
 MODELS = {
     'activity': ActivityModel(),
-    'activitySet': ActivitySetModel(),
+    'activitySet': ProtocolModel(),
     'applet': AppletModel(),
     'collection': CollectionModel(),
     'field': ScreenModel(),
     'folder': FolderModel(),
     'item': ItemModel(),
+    'protocol': ProtocolModel(),
     'screen': ScreenModel(),
     'user': UserModel()
 }
@@ -59,11 +59,14 @@ def _createContextForStr(s):
 def contextualize(ldObj):
     newObj = {}
     context = ldObj.get('@context', [])
-    context.append(
-        {
-            "reprolib": REPROLIB_CANONICAL
-        }
-    )
+    if isinstance(context, list):
+        context.append(
+            {
+                "reprolib": REPROLIB_CANONICAL
+            }
+        )
+    elif isinstance(context, dict):
+        context["reprolib"] = REPROLIB_CANONICAL
     for k in ldObj.keys():
         if isinstance(ldObj[k], dict):
             context, newObj[k] = _deeperContextualize(
@@ -72,7 +75,7 @@ def contextualize(ldObj):
             )
         else:
             newObj[k] = ldObj[k]
-    newObj['@context'] = context
+    newObj['@context'] = reprolibCanonize(context)
     return(newObj)
 
 
@@ -113,13 +116,26 @@ def reprolibCanonize(s):
     :returns: str
     """
     if isinstance(s, str):
-        if reprolibPrefix(s).startswith('reprolib:'):
-            return(s.replace('reprolib:', REPROLIB_CANONICAL))
+        s = reprolibPrefix(s).replace('reprolib:', REPROLIB_CANONICAL)
+        for oldProtocol in {'activity-set', 'activitySet'}:
+            if oldProtocol in s:
+                if checkURL(s):
+                    return(s)
+                else:
+                    s = s.replace(oldProtocol, 'protocol')
+        if checkURL(s):
+            return(s)
+        else:
+            return(None)
     elif isinstance(s, list):
         return([reprolibCanonize(ls) for ls in s])
     elif isinstance(s, dict):
         return({
-            reprolibCanonize(k): reprolibCanonize(v) for k, v in s.items()
+            reprolibCanonize(
+                k
+            ) if reprolibCanonize(
+                k
+            ) is not None else k: reprolibCanonize(v) for k, v in s.items()
         })
     return(s)
 
@@ -140,7 +156,7 @@ def delanguageTag(obj):
 
 def expand(obj, keepUndefined=False):
     """
-    Function to take an unexpanded JSON-LD Object and return it expandedself.
+    Function to take an unexpanded JSON-LD Object and return it expandeds.
 
     :param obj: unexpanded JSON-LD Object
     :type obj: dict
@@ -154,9 +170,25 @@ def expand(obj, keepUndefined=False):
         newObj = jsonld.expand(obj)
     except jsonld.JsonLdError as e: # 👮 Catch illegal JSON-LD
         if e.cause.type == "jsonld.ContextUrlError":
-            invalidContext = e.cause.details.get('url')
+            invalidContext = e.cause.details.get("url")
             print("Invalid context: {}".format(invalidContext))
-            obj["@context"] = obj.get('@context', []).remove(invalidContext)
+            if invalidContext in obj.get("@context", []):
+                obj["@context"] = obj["@context"].remove(invalidContext)
+                obj["@context"].append(reprolibCanonize(invalidContext))
+                if obj["@context"] is None:
+                    obj["@context"] = []
+            else:
+                if isinstance(obj, dict):
+                    for k in obj.keys():
+                        if invalidContext in obj[k].get("@context", []):
+                            obj[k]["@context"] = obj[k]["@context"].remove(
+                                invalidContext
+                            )
+                            if obj[k]["@context"] is None:
+                                obj[k]["@context"] = []
+                            obj[k]["@context"].append(reprolibCanonize(
+                                invalidContext
+                            ))
             return(expand(obj, keepUndefined))
         return(obj)
     newObj = newObj[0] if (
@@ -223,6 +255,24 @@ def fileObjectToStr(obj):
     return(r.text)
 
 
+def checkURL(s):
+    """
+    Function to check if a URL is dereferenceable
+
+    :param s: URL
+    :type s: string
+    :returns: bool
+    """
+    import requests
+    try:
+        if (requests.get(s).status_code==404):
+            return(False)
+        else:
+            return(True)
+    except:
+        return(False)
+
+
 def _fixUpFormat(obj):
     if isinstance(obj, dict):
         newObj = {}
@@ -240,7 +290,7 @@ def _fixUpFormat(obj):
             elif isinstance(obj[k], dict):
                 newObj[reprolibPrefix(k)] = _fixUpFormat(obj[k])
             else:
-                newObj[reprolibPrefix(k)] = _fixUpFormat(reprolibPrefix(obj[k]))    
+                newObj[reprolibPrefix(k)] = _fixUpFormat(reprolibPrefix(obj[k]))
         if "@context" in newObj:
             newObj["@context"] = reprolibCanonize(newObj["@context"])
     elif isinstance(obj, str):
@@ -312,43 +362,57 @@ def formatLdObject(
                 raise ResourcePathNotFound()
             newObj['_id'] = "/".join([snake_case(mesoPrefix), objID])
             if mesoPrefix=='applet':
-                activitySet = formatLdObject(
-                    ActivitySetModel().getFromUrl(
-                        obj.get('meta', {}).get('activitySet', obj).get(
+                protocol = formatLdObject(
+                    ProtocolModel().getFromUrl(
+                        obj.get('meta', {}).get('protocol', obj).get(
                             'url',
-                            ''
+                            obj.get('meta', {}).get('activitySet', obj).get(
+                                'url'
+                            )
                         ),
-                        'activitySet',
+                        'protocol',
                         user
                     ),
-                    'activitySet',
+                    'protocol',
                     user,
                     keepUndefined,
                     dropErrors,
                     refreshCache
                 )
                 applet = {}
-                applet['activities'] = activitySet.pop('activities', {})
-                applet['items'] = activitySet.pop('items', {})
-                applet['activitySet'] = {
-                    key: activitySet.get(
-                        'activitySet',
-                        {}
+                applet['activities'] = protocol.pop('activities', {})
+                applet['items'] = protocol.pop('items', {})
+                applet['activitySet'] = applet['protocol'] = {
+                    key: protocol.get(
+                        'protocol',
+                        protocol.get(
+                            'activitySet',
+                            {}
+                        )
                     ).pop(
                         key
                     ) for key in [
                         '@type',
                         '_id',
                         'http://schema.org/url'
-                    ] if key in list(activitySet.get('activitySet', {}).keys())
+                    ] if key in list(protocol.get('protocol', protocol.get(
+                        'activitySet',
+                        {}
+                    )).keys())
                 }
 
                 applet['applet'] = {
-                    **activitySet.pop('activitySet', {}),
+                    **protocol.pop('protocol', protocol.get(
+                        'activitySet',
+                        {}
+                    )),
                     **obj.get('meta', {}).get(mesoPrefix, {}),
                     '_id': "/".join([snake_case(mesoPrefix), objID]),
                     'url': "#".join([
-                        obj.get('meta', {}).get('activitySet', {}).get(
+                        obj.get('meta', {}).get('protocol', protocol.get(
+                            'activitySet',
+                            {}
+                        )).get(
                             "url",
                             ""
                         )
@@ -361,63 +425,64 @@ def formatLdObject(
                 }
                 AppletModel().save(obj)
                 returnObj = applet
-            elif mesoPrefix=='activitySet':
-                activitySet = {
-                    'activitySet': newObj,
+            elif mesoPrefix=='protocol':
+                protocol = {
+                    'protocol': newObj,
                     'activities': {},
                     "items": {}
                 }
                 activitiesNow = set()
                 itemsNow = set()
-                activitySet = componentImport(newObj, activitySet.copy(), user)
+                protocol = componentImport(newObj, protocol.copy(), user)
                 newActivities = list(
                     set(
-                        activitySet.get('activities', {}).keys()
+                        protocol.get('activities', {}).keys()
                     ) - activitiesNow
                 )
                 newItems = list(
-                    set(activitySet.get('items', {}).keys()) - itemsNow
+                    set(protocol.get('items', {}).keys()) - itemsNow
                 )
                 while(len(newActivities)):
-                    for activityURL, activity in deepcopy(activitySet).get(
+                    for activityURL, activity in deepcopy(protocol).get(
                         'activities',
                         {}
                     ).items():
-                        activitySet = componentImport(
+                        protocol = componentImport(
                             deepcopy(activity),
-                            deepcopy(activitySet),
+                            deepcopy(protocol),
                             user
                         )
                         activitiesNow = set(
-                            activitySet.get('activities', {}).keys()
+                            protocol.get('activities', {}).keys()
                         )
-                        for activityURL, activity in deepcopy(activitySet).get(
+                        for activityURL, activity in deepcopy(protocol).get(
                             'activities',
                             {}
                         ).items():
-                            activitySet = componentImport(
+                            protocol = componentImport(
                                 deepcopy(activity),
-                                deepcopy(activitySet), user)
+                                deepcopy(protocol), user)
                             newActivities = list(
                                 set(
-                                    activitySet.get('activities', {}).keys()
+                                    protocol.get('activities', {}).keys()
                                 ) - activitiesNow
                             )
                 while(len(newItems)):
-                    activitiesNow = set(activitySet.get('items', {}).keys())
-                    for activityURL, activity in deepcopy(activitySet).get(
+                    activitiesNow = set(protocol.get('items', {}).keys())
+                    for activityURL, activity in deepcopy(protocol).get(
                         'items',
                         {}
                     ).items():
-                        activitySet = componentImport(
+                        protocol = componentImport(
                             deepcopy(activity),
-                            deepcopy(activitySet), user)
+                            deepcopy(protocol), user)
                         newItems = list(
                             set(
-                                activitySet.get('items', {}).keys()
+                                protocol.get('items', {}).keys()
                             ) - activitiesNow
                         )
-                return(_fixUpFormat(activitySet))
+                protocol['activitySet'] = protocol.get('protocol')
+                return(_fixUpFormat(protocol))
             else:
                 return(_fixUpFormat(newObj))
         if responseDates and mesoPrefix=="applet":
@@ -446,13 +511,13 @@ def formatLdObject(
         print(traceback.print_tb(sys.exc_info()[2]))
 
 
-def componentImport(obj, activitySet, user=None, refreshCache=True):
+def componentImport(obj, protocol, user=None, refreshCache=True):
     """
-    :returns: activitySet (updated)
+    :returns: protocol (updated)
     """
     from girderformindlogger.models import pluralize, smartImport
     from girderformindlogger.utility import firstLower
-    updatedActivitySet = activitySet.copy()
+    updatedProtocol = protocol.copy()
     obj2 = obj.copy()
     try:
         for order in obj2.get(
@@ -478,7 +543,7 @@ def componentImport(obj, activitySet, user=None, refreshCache=True):
                         activityComponent
                     ) if activityComponent != 'screen' else 'items'
                 )
-                updatedActivitySet[activityComponents][
+                updatedProtocol[activityComponents][
                     activityContent.get(
                         'meta',
                         {}
@@ -501,7 +566,7 @@ def componentImport(obj, activitySet, user=None, refreshCache=True):
                     user,
                     refreshCache=refreshCache
                 ).copy()
-        return(_fixUpFormat(deepcopy(updatedActivitySet)))
+        return(_fixUpFormat(deepcopy(updatedProtocol)))
     except:
         import sys, traceback
         print("error!")

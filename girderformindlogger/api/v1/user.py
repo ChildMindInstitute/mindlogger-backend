@@ -197,7 +197,7 @@ class User(Resource):
             'ids_only',
             'If true, only returns an Array of the IDs of assigned applets. '
             'Otherwise, returns an Array of Objects keyed with "applet" '
-            '"activitySet", "activities" and "items" with expanded JSON-LD as '
+            '"protocol", "activities" and "items" with expanded JSON-LD as '
             'values.',
             required=False,
             default=False,
@@ -292,7 +292,7 @@ class User(Resource):
             'ids_only',
             'If true, only returns an Array of the IDs of assigned applets. '
             'Otherwise, returns an Array of Objects keyed with "applet" '
-            '"activitySet", "activities" and "items" with expanded JSON-LD as '
+            '"protocol", "activities" and "items" with expanded JSON-LD as '
             'values.',
             required=False,
             default=False,
