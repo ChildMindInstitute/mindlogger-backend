@@ -354,7 +354,6 @@ class Model(object):
                     )
         return(cachedDoc)
 
-
     def getModelCollection(self, modelType):
         """
         Returns the Collection named for the given modelType, creating if not

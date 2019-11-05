@@ -113,51 +113,73 @@ class Invitation(Folder):
             progress.update(increment=1, message='Deleted profile %s' %
                             folder['name'])
 
-    def createInvitation(self, applet, role="user", profile=None, idCode=None):
+    def createInvitation(
+        self,
+        applet,
+        coordinator,
+        role="user",
+        profile=None,
+        idCode=None
+    ):
         """
         Create a new invitation to store information specific to a given (applet
             ∩ (ID code ∪ profile))
 
-        :param applet: The applet for which this profile exists
+        :param applet: The applet for which this invitation exists
         :type parent: dict
-        :param user: The user for which this profile exists
-        :type user: dict
+        :param coordinator: user who is doing the inviting
+        :type coordinator: dict
         :param profile: Profile to apply to (applet ∩ user) if the inviation is
             accepted
         :type profile: dict or none
         :param idCode: ID code to apply to (applet ∩ user) if invitation is
             accepted
         :type idCode: string or None
-        :returns: The profile document that was created.
+        :returns: The invitation document that was created.
         """
-        from girderformindlogger.models.applet import Applet
+        from .applet import Applet
+        from .profile import Profile
 
-        #TODO
+        if not(Applet().isCoordinator(applet['_id'], coordinator)):
+            raise AccessException(
+                'You do not have adequate permissions to invite users to this '
+                'applet ({}).'.format(Applet().preferredName(applet))
+            )
+
+        codified = (isinstance(idCode, str) and len(idCode))
 
         existing = self.findOne({
-            'parentId': parent['_id'],
-            'userId': user['_id'],
-            'parentCollection': 'folder'
-        })
+            'appletId': applet['_id'],
+            'idCode': idCode
+        }) if codified else None
 
         if existing:
             return existing
 
         now = datetime.datetime.utcnow()
 
-        profile = {
-            'parentId': ObjectId(applet['_id']),
-            'userId': ObjectId(user['_id']),
+        invitation = {
+            'appletId': applet['_id'],
             'created': now,
             'updated': now,
             'size': 0,
-            'meta': {}
+            'invitedBy': Profile().coordinatorProfile(applet, coordinator)
         }
 
-        self.setPublic(profile, False, save=False)
+        if codified:
+            invitation["idCode"] = idCode
+
+        if isinstance(profile, dict):
+            invitation["coordinatorDefined"] = profile
+
+        self.setPublic(invitation, False, save=False)
 
         # Now validate and save the profile.
-        return self.save(profile)
+        return ({
+            k: v for k, v in self.save(invitation, validate=False).items() if (
+                k!="idCode" and v is not None
+            )
+        })
 
     def countFolders(self, folder, user=None, level=None):
         """

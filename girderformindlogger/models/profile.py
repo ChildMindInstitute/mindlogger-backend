@@ -83,6 +83,16 @@ class Profile(Folder):
 
         return doc
 
+    def coordinatorProfile(self, applet, coordinator):
+        from .applet import Applet
+        
+        return({
+            k: v for k, v in coordinator.items() if Applet().isCoordinator(
+                applet['_id'],
+                coordinator
+            ) and k in ["displayName", "email", "_id"] and v is not None
+        })
+
     def _updateDescendants(self, folderId, updateQuery):
         """
         This helper is used to update all items and folders underneath a
@@ -410,7 +420,7 @@ class Profile(Folder):
         :type user: dict
         :returns: The profile document that was created.
         """
-        from girderformindlogger.models.applet import Applet
+        from .applet import Applet
 
         if applet['_id'] not in [
             a.get('_id') for a in Applet().getAppletsForUser(role, user)

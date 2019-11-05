@@ -149,6 +149,7 @@ class User(Resource):
         .modelParam('id', model=UserModel, level=AccessType.READ)
         .errorResponse('ID was invalid.')
         .errorResponse('You do not have permission to see this user.', 403)
+        .deprecated()
     )
     def getUser(self, user):
         return user
@@ -160,6 +161,7 @@ class User(Resource):
         .modelParam('id', model=UserModel, level=AccessType.READ)
         .errorResponse('ID was invalid.')
         .errorResponse('You do not have permission to see this user.', 403)
+        .deprecated()
     )
     def getUserAccess(self, user):
         return self._model.getFullAccessList(user)
@@ -176,6 +178,7 @@ class User(Resource):
         )
         .errorResponse('ID was invalid.')
         .errorResponse('Admin access was denied for the user.', 403)
+        .deprecated()
     )
     def updateUserAccess(self, user, access):
         return self._model.setAccessList(
@@ -802,6 +805,7 @@ class User(Resource):
         .modelParam('id', model=UserModel, level=AccessType.READ)
         .errorResponse()
         .errorResponse('Read access was denied on the user.', 403)
+        .deprecated()
     )
     def getUserDetails(self, user):
         return {

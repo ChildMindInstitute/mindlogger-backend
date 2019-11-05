@@ -181,10 +181,10 @@ class Applet(Folder):
         )
 
     def isCoordinator(self, appletId, user):
-        return(any(
+        return(any([
             self._hasRole(appletId, user, 'coordinator'),
             self.isManager(appletId, user)
-        ))
+        ]))
 
     def isManager(self, appletId, user):
         return(self._hasRole(appletId, user, 'manager'))
@@ -271,7 +271,7 @@ class Applet(Folder):
                     query={'parentId': applet['_id']},
                     fields=profileFields)
                 ),
-                'pending': list(Invitation().find(query={'parentId': applet['_id']})) # TODO 
+                'pending': list(Invitation().find(query={'parentId': applet['_id']})) # TODO
             }
 
             if len(userDict['active']):
