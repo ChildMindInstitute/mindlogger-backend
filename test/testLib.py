@@ -77,6 +77,9 @@ def authenticate(user, password="password"):
     user: a user object
     password: (optional) defaults to 'password'
 
+    returns
+    -------
+    user
     """
     return(
         UserModel().authenticate(
@@ -85,6 +88,25 @@ def authenticate(user, password="password"):
         )
     )
 
+def authenticateWithEmailAddress(email, password="password"):
+    """
+    authenticate a user by email address
+
+    inputs
+    ------
+    email: string
+    password: (optional) defaults to 'password'
+
+    returns
+    -------
+    user
+    """
+    return(
+        UserModel().authenticate(
+            login=email,
+            password=password
+        )
+    )
 
 def getAppletById(user, ar):
     """
@@ -816,7 +838,9 @@ def fullTest(protocolUrl, act1, act2, act1Item, act2Item):
             admin = testCreateUser(admin=True)
         user = testCreateUser()
         with pytest.raises(AccessException) as excinfo:
-            authenticateWithEmailAddress(user)
+            authenticateWithEmailAddress(
+                user.get('email', 'test@mindlogger.org')
+            )
         assert "your username rather than your email" in str(excinfo.value)
         currentUser = authenticate(user)
         return user
