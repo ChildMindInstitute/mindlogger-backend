@@ -231,7 +231,25 @@ class Applet(Folder):
         :type active: bool
         :returns: list of dicts
         """
-        applets = list(self.find(
+        if "userId" in user:
+            user = UserModel().load(id=ObjectId(user["userId"]), force=True)
+        applets = [
+            *list(self.find(
+                {
+                    'roles.' + role + '.groups.id': {'$in': user.get(
+                        'groups',
+                        []
+                    )},
+                    'meta.applet.deleted': {'$ne': active}
+                }
+            )),
+            *list(self.find(
+                {
+                    'roles.manager.groups.id': {'$in': user.get('groups', [])},
+                    'meta.applet.deleted': {'$ne': active}
+                }
+            ))
+        ] if role=="coordinator" else list(self.find(
             {
                 'roles.' + role + '.groups.id': {'$in': user.get('groups', [])},
                 'meta.applet.deleted': {'$ne': active}

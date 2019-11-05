@@ -49,6 +49,7 @@ installReqs = [
     'pyOpenSSL',
     'python-dateutil',
     'pytz',
+    'qrcode[pil]',
     'requests',
     "shutilwhich ; python_version < '3'",
     'simplejson',

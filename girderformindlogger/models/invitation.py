@@ -6,7 +6,6 @@ import os
 import six
 
 from bson.objectid import ObjectId
-from .folder import Folder
 from .model_base import AccessControlledModel
 from girderformindlogger import events
 from girderformindlogger.constants import AccessType
@@ -16,7 +15,7 @@ from girderformindlogger.utility.progress import noProgress, \
     setResponseTimeLimit
 
 
-class Invitation(Folder):
+class Invitation(AccessControlledModel):
     """
     Invitations store customizable information specific to both users and
     applets. These data can be sensitive and are access controlled.
@@ -24,10 +23,10 @@ class Invitation(Folder):
 
     def initialize(self):
         self.name = 'invitation'
-        self.ensureIndices(('parentId', ([('parentId', 1)], {})))
+        self.ensureIndices(('appletId', ([('appletId', 1)], {})))
 
         self.exposeFields(level=AccessType.READ, fields=(
-            '_id', 'created', 'updated', 'meta', 'parentId',
+            '_id', 'created', 'updated', 'meta', 'appletId',
             'parentCollection', 'creatorId', 'baseParentType', 'baseParentId'
         ))
 
@@ -50,33 +49,17 @@ class Invitation(Folder):
         """
         # Ensure we include extra fields to do the migration below
         extraFields = {
-            'baseParentId',
-            'baseParentType',
-            'parentId',
+            'appletId',
             'userId'
         }
         loadFields = self._supplementFields(fields, extraFields)
 
-        doc = super(Profile, self).load(
+        doc = super(Invitation, self).load(
             id=id, level=level, user=user, objectId=objectId, force=force,
             fields=loadFields, exc=exc
         )
 
         if doc is not None:
-            if 'baseParentType' not in doc:
-                pathFromRoot = self.parentsToRoot(doc, user=user, force=True)
-                baseParent = pathFromRoot[0]
-                doc['baseParentId'] = baseParent['object']['_id']
-                doc['baseParentType'] = baseParent['type']
-                self.update({'_id': doc['_id']}, {'$set': {
-                    'baseParentId': doc['baseParentId'],
-                    'baseParentType': doc['baseParentType']
-                }})
-            if 'meta' not in doc:
-                doc['meta'] = {}
-                self.update({'_id': doc['_id']}, {'$set': {
-                    'meta': {}
-                }})
 
             self._removeSupplementalFields(doc, fields)
 
@@ -100,7 +83,7 @@ class Invitation(Folder):
         # Delete pending uploads into this folder
         uploadModel = Upload()
         uploads = uploadModel.find({
-            'parentId': folder['_id'],
+            'appletId': folder['_id'],
             'parentType': 'invitation'
         })
         for upload in uploads:
@@ -181,6 +164,72 @@ class Invitation(Folder):
             )
         })
 
+    def htmlInvitation(self, invitation, invitee=None, fullDoc=False):
+        """
+        Returns an HTML document rendering the invitation.
+
+        :param invitation: Invitation to render
+        :type invitation: dict
+        :param invitee: Invited user
+        :type invitee: dict or None
+
+        :returns: html document
+        """
+        from .applet import Applet
+        from .profile import Profile
+        from .user import User
+        from girderformindlogger.utility import context as contextUtil
+
+        applet = Applet().load(ObjectId(invitation['appletId']), force=True)
+        appletName = Applet().preferredName(applet)
+        try:
+            skin = contextUtil.getSkin()
+        except:
+            skin = {}
+        instanceName = skin.get("name", "MindLogger")
+        print(invitation["invitedBy"])
+        try:
+            coordinator = Profile().coordinatorProfile(
+                applet,
+                invitation["invitedBy"]
+            )
+        except:
+            import sys, traceback
+            print(sys.exc_info())
+            coordinator = None
+        print(coordinator)
+        body = """
+<body>
+You have been invited {byCoordinator}to <b>{appletName}</b> on {instanceName}.
+</body>
+        """.format(
+            appletName=appletName,
+            byCoordinator="by {} ({}) ".format(
+                coordinator.get("name", "an anonymous entity"),
+                "<a href=\"mailto:{email}\">{email}</a>".format(
+                    email=coordinator["email"]
+                ) if "email" in coordinator else "email address unavailable"
+            ) if isinstance(coordinator, dict) else "",
+            instanceName=instanceName
+        ).strip()
+
+        return(body if not fullDoc else """
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>Invitation to {appletName} on {instanceName}</title>
+</head>
+
+{body}
+
+</html>
+        """.format(
+            appletName=appletName,
+            instanceName=instanceName,
+            body=body
+        ).strip())
+
     def countFolders(self, folder, user=None, level=None):
         """
         Returns the number of subfolders within the given profile. Access
@@ -196,7 +245,7 @@ class Invitation(Folder):
         fields = () if level is None else ('access', 'public')
 
         folders = self.findWithPermissions({
-            'parentId': folder['_id'],
+            'appletId': folder['_id'],
             'parentCollection': 'profile'
         }, fields=fields, user=user, level=level)
 
@@ -222,7 +271,7 @@ class Invitation(Folder):
             count += self.countItems(folder)
 
         folders = self.findWithPermissions({
-            'parentId': folder['_id'],
+            'appletId': folder['_id'],
             'parentCollection': 'profile'
         }, fields='access', user=user, level=level)
 
@@ -344,7 +393,7 @@ class Invitation(Folder):
 
         if recurse:
             subfolders = self.findWithPermissions({
-                'parentId': doc['_id'],
+                'appletId': doc['_id'],
                 'parentCollection': 'profile'
             }, user=user, level=AccessType.ADMIN)
 

@@ -251,7 +251,7 @@ def fileObjectToStr(obj):
         r = requests.get(obj.get('@id'))
     except (AttributeError, ConnectionError, MissingSchema):
         r = obj.get("@id") if isinstance(obj, dict) else ""
-        print("Warning: Could not load {}".format(r))
+        raise ResourcePathNotFound("Could not load {}".format(r))
     return(r.text)
 
 

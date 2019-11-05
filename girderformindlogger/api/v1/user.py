@@ -13,6 +13,7 @@ from girderformindlogger.models.applet import Applet as AppletModel
 from girderformindlogger.models.collection import Collection as CollectionModel
 from girderformindlogger.models.folder import Folder as FolderModel
 from girderformindlogger.models.group import Group as GroupModel
+from girderformindlogger.models.profile import Profile as ProfileModel
 from girderformindlogger.models.setting import Setting
 from girderformindlogger.models.token import Token
 from girderformindlogger.models.user import User as UserModel
@@ -53,6 +54,7 @@ class User(Resource):
         self.route('POST', (':id', 'otp'), self.initializeOtp)
         self.route('PUT', (':id', 'otp'), self.finalizeOtp)
         self.route('DELETE', (':id', 'otp'), self.removeOtp)
+        self.route('PUT', ('profile',), self.updateProfile)
         self.route('PUT', (':id', 'verification'), self.verifyEmail)
         self.route('POST', ('verification',), self.sendVerificationEmail)
 
@@ -866,6 +868,40 @@ class User(Resource):
 
         del user['otp']
         self._model.save(user)
+
+    @access.public
+    @autoDescribeRoute(
+        Description(
+            'Update a user profile. Requires either profile ID __OR__ applet '
+            'ID and ID code.'
+        )
+        .jsonParam(
+            'update',
+            'A JSON Object with values to update, overriding existing values.',
+            required=True
+        )
+        .param('id', 'Profile ID.', required=False)
+        .param('applet', 'Applet ID.', required=False)
+        .param('idCode', 'ID code.', required=False)
+    )
+    def updateProfile(self, update={}, id=None, applet=None, idCode=None):
+        if (id is not None) and (applet is not None or idCode is not None):
+            raise RestException(
+                'Pass __either__ profile ID __OR__ (applet ID and ID code), '
+                'not both.'
+            )
+        elif (id is None) and (applet is None or idCode is None):
+            raise RestException(
+                'Either profile ID __OR__ (applet ID and ID code) required.'
+            )
+        else:
+            currentUser = self.getCurrentUser()
+            id = id if id is not None else Profile().getProfile(
+                applet=AppletModel().load(applet, force=True),
+                idCode=idCode,
+                user=currentUser
+            )
+        return(ProfileModel().updateProfile(id, currentUser, update))
 
     @access.public
     @autoDescribeRoute(

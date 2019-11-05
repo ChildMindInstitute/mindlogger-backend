@@ -16,7 +16,7 @@ from girderformindlogger.utility.progress import noProgress, \
     setResponseTimeLimit
 
 
-class Profile(Folder):
+class Profile(AccessControlledModel, dict):
     """
     Profiles store customizable information specific to both users and applets.
     These data can be sensitive and are access controlled.
@@ -24,10 +24,10 @@ class Profile(Folder):
 
     def initialize(self):
         self.name = 'profile'
-        self.ensureIndices(('parentId', ([('parentId', 1)], {})))
+        self.ensureIndices(('appletId', ([('appletId', 1)], {})))
 
         self.exposeFields(level=AccessType.READ, fields=(
-            '_id', 'created', 'updated', 'meta', 'parentId',
+            '_id', 'created', 'updated', 'meta', 'appletId',
             'parentCollection', 'creatorId', 'baseParentType', 'baseParentId'
         ))
 
@@ -50,9 +50,7 @@ class Profile(Folder):
         """
         # Ensure we include extra fields to do the migration below
         extraFields = {
-            'baseParentId',
-            'baseParentType',
-            'parentId',
+            'appletId',
             'userId'
         }
         loadFields = self._supplementFields(fields, extraFields)
@@ -63,15 +61,6 @@ class Profile(Folder):
         )
 
         if doc is not None:
-            if 'baseParentType' not in doc:
-                pathFromRoot = self.parentsToRoot(doc, user=user, force=True)
-                baseParent = pathFromRoot[0]
-                doc['baseParentId'] = baseParent['object']['_id']
-                doc['baseParentType'] = baseParent['type']
-                self.update({'_id': doc['_id']}, {'$set': {
-                    'baseParentId': doc['baseParentId'],
-                    'baseParentType': doc['baseParentType']
-                }})
             for key in ["coordinatorDefined", "userDefined"]:
                 if key not in doc:
                     doc[key] = {}
@@ -84,14 +73,67 @@ class Profile(Folder):
         return doc
 
     def coordinatorProfile(self, applet, coordinator):
+        import inspect
         from .applet import Applet
-        
+        if isinstance(coordinator, dict) and "userId" not in coordinator:
+            coordinator = self.createProfile(applet, coordinator, "coordinator")
+        print(coordinator)
+        print(isinstance(coordinator, dict))
+        # print(type(coordinator))
+        # print(coordinator.__dict__())
+        # print(inspect.getmembers(self))
+        print(Applet().isCoordinator(
+            applet['_id'],
+            coordinator
+        ))
+        print(self.cycleDefinitions(coordinator, showEmail=True))
+        print(Applet().isCoordinator(
+            applet['_id'],
+            coordinator
+        ))
+        return(self.cycleDefinitions(
+            coordinator,
+            showEmail=True
+        ) if Applet().isCoordinator(
+            applet['_id'],
+            coordinator
+        ) else {})
+
+    def cycleDefinitions(userProfile, showEmail=False):
+        print(userProfile)
+        displayProfile = {'_id': userProfile['_id']}
+        displayProfile.update(profile.get("coordinatorDefined", {}))
+        displayProfile.update(profile.get("userDefined", {}))
+        print(displayProfile)
         return({
-            k: v for k, v in coordinator.items() if Applet().isCoordinator(
-                applet['_id'],
-                coordinator
-            ) and k in ["displayName", "email", "_id"] and v is not None
+            k: v for k, v in displayProfile.items() if (k in ([
+                "displayName",
+                "email"
+            ] if showEmail else ["displayName"])) and v is not None
         })
+
+    def getProfile(self, applet, idCode, user):
+        return({})
+
+    def updateProfile(self, profileId, user, profileUpdate):
+        from copy import deepcopy
+        profile = self.load(profileId, force=True)
+        if str(user["_id"]==profile["userId"]):
+            update = deepcopy(profile.get("userDefined", {}))
+            update.update(profileUpdate)
+            profile["userDefined"] = update
+        elif Applet().isCoordinator(
+            profile["appletId"],
+            user
+        ):
+            update = deepcopy(profile.get("coordinatorDefined", {}))
+            update.update(profileUpdate)
+            profile["coordinatorDefined"] = update
+        else:
+            raise AccessException(
+                "You do not have adequate permissions to update this profile."
+            )
+        return self.save(profile, validate=False)
 
     def _updateDescendants(self, folderId, updateQuery):
         """
@@ -106,7 +148,7 @@ class Profile(Folder):
         from .item import Item
 
         self.update(query={
-            'parentId': folderId,
+            'appletId': folderId,
             'parentCollection': 'profile'
         }, update=updateQuery, multi=True)
         Item().update(query={
@@ -114,7 +156,7 @@ class Profile(Folder):
         }, update=updateQuery, multi=True)
 
         q = {
-            'parentId': folderId,
+            'appletId': folderId,
             'parentCollection': 'profile'
         }
         for child in self.find(q):
@@ -136,7 +178,7 @@ class Profile(Folder):
         if descendant['parentCollection'] != 'profile':
             return False
 
-        descendant = self.load(descendant['parentId'], force=True)
+        descendant = self.load(descendant['appletId'], force=True)
 
         if descendant is None:
             return False
@@ -162,7 +204,7 @@ class Profile(Folder):
         # Delete pending uploads into this folder
         uploadModel = Upload()
         uploads = uploadModel.find({
-            'parentId': folder['_id'],
+            'appletId': folder['_id'],
             'parentType': 'profile'
         })
         for upload in uploads:
@@ -222,7 +264,7 @@ class Profile(Folder):
         parentType = _verify_parentType(parentType)
 
         q = {
-            'parentId': parent['_id'],
+            'appletId': parent['_id'],
             'parentCollection': parentType
         }
         q.update(filters)
@@ -278,7 +320,7 @@ class Profile(Folder):
         """
         if reuseExisting:
             existing = self.findOne({
-                'parentId': parent['_id'],
+                'appletId': parent['_id'],
                 'name': name,
                 'parentCollection': parentType
             })
@@ -311,7 +353,7 @@ class Profile(Folder):
             'parentCollection': parentType,
             'baseParentId': parent['baseParentId'],
             'baseParentType': parent['baseParentType'],
-            'parentId': ObjectId(parent['_id']),
+            'appletId': ObjectId(parent['_id']),
             'creatorId': creatorId,
             'created': now,
             'updated': now,
@@ -437,7 +479,7 @@ class Profile(Folder):
 
         existing = self.findOne(
             {
-                'parentId': applet['_id'],
+                'appletId': applet['_id'],
                 'userId': user['_id'],
                 'profile': True
             },
@@ -451,7 +493,7 @@ class Profile(Folder):
 
         profile = {
             k: v for k, v in {
-                'parentId': ObjectId(applet['_id']),
+                'appletId': ObjectId(applet['_id']),
                 'userId': ObjectId(user['_id']),
                 'profile': True,
                 'created': now,
@@ -490,7 +532,7 @@ class Profile(Folder):
         fields = () if level is None else ('access', 'public')
 
         folders = self.findWithPermissions({
-            'parentId': folder['_id'],
+            'appletId': folder['_id'],
             'parentCollection': 'profile'
         }, fields=fields, user=user, level=level)
 
@@ -516,7 +558,7 @@ class Profile(Folder):
             count += self.countItems(folder)
 
         folders = self.findWithPermissions({
-            'parentId': folder['_id'],
+            'appletId': folder['_id'],
             'parentCollection': 'profile'
         }, fields='access', user=user, level=level)
 
@@ -638,7 +680,7 @@ class Profile(Folder):
 
         if recurse:
             subfolders = self.findWithPermissions({
-                'parentId': doc['_id'],
+                'appletId': doc['_id'],
                 'parentCollection': 'profile'
             }, user=user, level=AccessType.ADMIN)
 
