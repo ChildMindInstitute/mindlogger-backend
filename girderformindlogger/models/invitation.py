@@ -187,25 +187,22 @@ class Invitation(AccessControlledModel):
         except:
             skin = {}
         instanceName = skin.get("name", "MindLogger")
-        print(invitation["invitedBy"])
         try:
             coordinator = Profile().coordinatorProfile(
                 applet,
                 invitation["invitedBy"]
             )
         except:
-            import sys, traceback
-            print(sys.exc_info())
             coordinator = None
-        print(coordinator)
         body = """
 <body>
 You have been invited {byCoordinator}to <b>{appletName}</b> on {instanceName}.
+<br/>
 </body>
         """.format(
             appletName=appletName,
             byCoordinator="by {} ({}) ".format(
-                coordinator.get("name", "an anonymous entity"),
+                coordinator.get("displayName", "an anonymous entity"),
                 "<a href=\"mailto:{email}\">{email}</a>".format(
                     email=coordinator["email"]
                 ) if "email" in coordinator else "email address unavailable"
@@ -220,9 +217,7 @@ You have been invited {byCoordinator}to <b>{appletName}</b> on {instanceName}.
 <meta charset="UTF-8">
 <title>Invitation to {appletName} on {instanceName}</title>
 </head>
-
 {body}
-
 </html>
         """.format(
             appletName=appletName,

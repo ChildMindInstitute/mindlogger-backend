@@ -181,6 +181,9 @@ class Applet(Folder):
         )
 
     def isCoordinator(self, appletId, user):
+        from .profile import Profile
+
+        user = Profile()._canonicalUser(appletId, user)
         return(any([
             self._hasRole(appletId, user, 'coordinator'),
             self.isManager(appletId, user)
@@ -190,6 +193,9 @@ class Applet(Folder):
         return(self._hasRole(appletId, user, 'manager'))
 
     def _hasRole(self, appletId, user, role):
+        from .profile import Profile
+
+        user = Profile()._canonicalUser(appletId, user)
         return(bool(
             str(appletId) in [
                 str(applet.get('_id')) for applet in self.getAppletsForUser(
@@ -293,7 +299,6 @@ class Applet(Folder):
             }
 
             if len(userDict['active']):
-                print(userDict)
                 missing = threading.Thread(
                     target=Profile().generateMissing,
                     args=(applet,)

@@ -31,7 +31,6 @@ class Profile(AccessControlledModel, dict):
             'parentCollection', 'creatorId', 'baseParentType', 'baseParentId'
         ))
 
-
     def load(self, id, level=AccessType.ADMIN, user=None, objectId=True,
              force=False, fields=None, exc=False):
         """
@@ -77,20 +76,6 @@ class Profile(AccessControlledModel, dict):
         from .applet import Applet
         if isinstance(coordinator, dict) and "userId" not in coordinator:
             coordinator = self.createProfile(applet, coordinator, "coordinator")
-        print(coordinator)
-        print(isinstance(coordinator, dict))
-        # print(type(coordinator))
-        # print(coordinator.__dict__())
-        # print(inspect.getmembers(self))
-        print(Applet().isCoordinator(
-            applet['_id'],
-            coordinator
-        ))
-        print(self.cycleDefinitions(coordinator, showEmail=True))
-        print(Applet().isCoordinator(
-            applet['_id'],
-            coordinator
-        ))
         return(self.cycleDefinitions(
             coordinator,
             showEmail=True
@@ -99,17 +84,45 @@ class Profile(AccessControlledModel, dict):
             coordinator
         ) else {})
 
-    def cycleDefinitions(userProfile, showEmail=False):
-        print(userProfile)
+    def _canonicalUser(self, appletId, user):
+        from .user import User
+
+        if isinstance(user, dict):
+            userId = str(user['_id'])
+            user = User().load(userId, force=True)
+            profile = self.load(userId, force=True)
+            return(user if user is not None else (
+                User().load(
+                    str(profile['userId']),
+                    force=True
+                ) if (isinstance(profile, dict) and 'userId' in profile) else {}
+            ))
+        if isinstance(user, str):
+            try:
+                return(
+                    self._canonicalUser(
+                        appletId,
+                        User().load(user, force=True)
+                    )
+                )
+            except:
+                return(
+                    self._canonicalUser(
+                        appletId,
+                        self.load(user, force=True)
+                    )
+                )
+
+    def cycleDefinitions(self, userProfile, showEmail=False):
+        displayFields = ["_id", "displayName"]
         displayProfile = {'_id': userProfile['_id']}
-        displayProfile.update(profile.get("coordinatorDefined", {}))
-        displayProfile.update(profile.get("userDefined", {}))
-        print(displayProfile)
+        displayProfile.update(userProfile.get("coordinatorDefined", {}))
+        displayProfile.update(userProfile.get("userDefined", {}))
         return({
             k: v for k, v in displayProfile.items() if (k in ([
-                "displayName",
+                *displayFields,
                 "email"
-            ] if showEmail else ["displayName"])) and v is not None
+            ] if showEmail else displayFields)) and v is not None
         })
 
     def getProfile(self, applet, idCode, user):
@@ -464,19 +477,8 @@ class Profile(AccessControlledModel, dict):
         """
         from .applet import Applet
 
-        if applet['_id'] not in [
-            a.get('_id') for a in Applet().getAppletsForUser(role, user)
-        ]:
-            raise ValidationException(
-                "User does not have role \"{}\" in this \"{}\" applet "
-                "({})".format(
-                    role,
-                    Applet().preferredName(applet),
-                    str(applet['_id'])
-                )
-            )
+        user = self._canonicalUser(applet["_id"], user)
         returnFields=["_id", "coordinatorDefined", "userDefined"]
-
         existing = self.findOne(
             {
                 'appletId': applet['_id'],
@@ -488,6 +490,18 @@ class Profile(AccessControlledModel, dict):
 
         if existing:
             return existing
+
+        if applet['_id'] not in [
+            a.get('_id') for a in Applet().getAppletsForUser(role, user)
+        ]:
+            raise ValidationException(
+                "User does not have role \"{}\" in this \"{}\" applet "
+                "({})".format(
+                    role,
+                    Applet().preferredName(applet),
+                    str(applet['_id'])
+                )
+            )
 
         now = datetime.datetime.utcnow()
 

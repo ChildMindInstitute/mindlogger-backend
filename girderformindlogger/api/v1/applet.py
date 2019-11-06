@@ -342,21 +342,27 @@ class Applet(Resource):
     )
     def invite(self, applet, role="user", idCode=None, profile=None):
         from girderformindlogger.models.invitation import Invitation
-        if role not in USER_ROLE_KEYS:
-            raise ValidationException(
-                'Invalid role.',
-                'role'
+
+        try:
+            if role not in USER_ROLE_KEYS:
+                raise ValidationException(
+                    'Invalid role.',
+                    'role'
+                )
+
+            invitation = Invitation().createInvitation(
+                applet=applet,
+                coordinator=self.getCurrentUser(),
+                role="user",
+                profile=profile,
+                idCode=idCode
             )
 
-        invitation = Invitation().createInvitation(
-            applet=applet,
-            coordinator=self.getCurrentUser(),
-            role="user",
-            profile=profile,
-            idCode=idCode
-        )
-        
-        return(invitation)
+            return(invitation)
+        except:
+            import sys, traceback
+            print(sys.exc_info())
+
 
     @access.user(scope=TokenScope.DATA_WRITE)
     @autoDescribeRoute(
