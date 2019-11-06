@@ -263,6 +263,23 @@ class Applet(Folder):
         ))
         return(applets if isinstance(applets, list) else [applets])
 
+    def listUsers(self, applet, role, user=None, force=False):
+        if not force:
+            if not any([
+                self.isCoordinator(applet['_id'], user),
+                self._hasRole(applet['_id'], user, 'reviewer')
+            ]):
+                return([])
+        print(self.getAppletGroups(
+            applet
+        ).get(role, {}).keys())
+        canonicalUserlist = [
+            GroupModel().listMembers(str(group)) for group in self.getAppletGroups(
+                applet
+            ).get(role, {}).keys()
+        ]
+        return(canonicalUserlist)
+
     def getAppletUsers(self, applet, user=None):
         """
         Function to return a list of Applet Users

@@ -434,6 +434,8 @@ def formatLdObject(
                 activitiesNow = set()
                 itemsNow = set()
                 protocol = componentImport(newObj, protocol.copy(), user)
+                print(newObj)
+                print(protocol)
                 newActivities = list(
                     set(
                         protocol.get('activities', {}).keys()

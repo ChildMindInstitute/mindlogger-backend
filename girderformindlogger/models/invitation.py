@@ -208,6 +208,8 @@ class Invitation(AccessControlledModel):
                 {}
             ) else {}
         ).get("schema:description", "")
+        print(Applet(
+        ).listUsers(applet, 'reviewer', force=True))
         managers = coordinators = reviewers = ""
         body = """
 <body>

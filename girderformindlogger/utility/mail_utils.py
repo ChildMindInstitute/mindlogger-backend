@@ -12,6 +12,10 @@ from girderformindlogger.constants import PACKAGE_DIR
 from girderformindlogger.settings import SettingKey
 
 
+def htmlUserList(userlist, showEmail=False):
+    return(userlist)
+
+
 def validateEmailAddress(address):
     """
     Determines whether a string is a valid email address.
