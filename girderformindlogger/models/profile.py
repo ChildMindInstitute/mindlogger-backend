@@ -72,7 +72,6 @@ class Profile(AccessControlledModel, dict):
         return doc
 
     def coordinatorProfile(self, applet, coordinator):
-        import inspect
         from .applet import Applet
         if isinstance(coordinator, dict) and "userId" not in coordinator:
             coordinator = self.createProfile(applet, coordinator, "coordinator")
@@ -518,7 +517,8 @@ class Profile(AccessControlledModel, dict):
                     'displayName': user.get(
                         'displayName',
                         user.get('firstName')
-                    )
+                    ),
+                    'email': user.get('email')
                 }
             }.items() if v is not None
         }

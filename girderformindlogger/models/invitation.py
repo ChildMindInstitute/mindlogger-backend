@@ -177,6 +177,7 @@ class Invitation(AccessControlledModel):
         """
         from .applet import Applet
         from .profile import Profile
+        from .protocol import Protocol
         from .user import User
         from girderformindlogger.utility import context as contextUtil
 
@@ -194,10 +195,28 @@ class Invitation(AccessControlledModel):
             )
         except:
             coordinator = None
+        description = applet.get('meta', {}).get(
+            'applet',
+            {}
+        ).get(
+            "schema:desciription",
+            Protocol().load(
+                applet['meta']['protocol']['_id'].split('protocol/')[-1],
+                force=True
+            ).get('meta', {}).get('protocol') if 'protocol' in applet.get(
+                'meta',
+                {}
+            ) else {}
+        ).get("schema:description", "")
+        managers = coordinators = reviewers = ""
         body = """
 <body>
 You have been invited {byCoordinator}to <b>{appletName}</b> on {instanceName}.
 <br/>
+{description}
+{reviewers}
+{managers}
+{coordinators}
 </body>
         """.format(
             appletName=appletName,
@@ -207,7 +226,25 @@ You have been invited {byCoordinator}to <b>{appletName}</b> on {instanceName}.
                     email=coordinator["email"]
                 ) if "email" in coordinator else "email address unavailable"
             ) if isinstance(coordinator, dict) else "",
-            instanceName=instanceName
+            coordinators="<h3>The following users can change settings for this "
+                "applet, but not who can access your data</h3>\n<ul>{}</ul>"
+                "".format(
+                    coordinators if len(coordinators) else "<li>None</li>"
+                ),
+            description="<h2>Description</h2>\n<p>{}</p>".format(
+                description
+            ) if len(description) else "",
+            instanceName=instanceName,
+            managers="<h3>The following users can change settings for this "
+                "applet, including who can access your data</h3>\n<ul>{}</ul>"
+                "".format(
+                    managers if len(managers) else "<li>None</li>"
+                ),
+            reviewers="<h3>The following users can see your data for this "
+                "applet</h3>\n<ul>{}</ul>"
+                "".format(
+                    reviewers if len(reviewers) else "<li>None</li>"
+                )
         ).strip()
 
         return(body if not fullDoc else """
