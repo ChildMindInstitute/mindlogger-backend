@@ -125,23 +125,32 @@ def smartImport(IRI, user=None, refreshCache=False, modelType='activity'):
     from girderformindlogger.utility import firstLower, loadJSON
     from girderformindlogger.utility.jsonld_expander import MODELS, \
         contextualize, reprolibCanonize
+
+    canonical_IRI = reprolibCanonize(IRI)
+    if bool({IRI, canonical_IRI}.intersection({None, "None"})):
+        return((None, None))
     if not refreshCache:
         cachedDoc = MODELS[modelType].findOne({
             '{}.url'.format(modeltype): {
                 '$in': {
                     IRI,
-                    reprolibCanonize(IRI)
+                    canonical_IRI
                 }
             }
         })
         if cachedDoc:
             return((modelType, cachedDoc))
-    print("loading {}".format(reprolibCanonize(IRI)))
-    model = contextualize(loadJSON(reprolibCanonize(IRI)))
+    print("loading {}".format(canonical_IRI))
+    model = contextualize(loadJSON(canonical_IRI))
     atType = model.get('@type', '').split('/')[-1].split(':')[-1]
     modelType = firstLower(atType) if len(atType) else modelType
     modelType = 'screen' if modelType=='field' else modelType
     return((
         modelType,
-        MODELS[modelType].getFromUrl(IRI, modelType, user, refreshCache)
+        MODELS[modelType].getFromUrl(
+            canonical_IRI,
+            modelType,
+            user,
+            refreshCache
+        )
     ))

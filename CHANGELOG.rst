@@ -8,7 +8,11 @@ Changes
 -------
 Unreleased
 ==========
-2019-11-01: v0.5.10
+2019-11-06: v0.5.11
+^^^^^^^^^^^^^^^^^^^
+* :ambulance: :speaker: Handle additional JSON-LD errors.
+
+2019-11-04: v0.5.10
 ^^^^^^^^^^^^^^^^^^^
 * :arrow_up: :tractor: :art: `|schema-standardization→reproschema| <https://github.com/ReproNim/reproschema/pull/278>`_
 * :arrow_up: :tractor: :art: `|activitySet→protocol| <https://github.com/ReproNim/reproschema/pull/277>`_
