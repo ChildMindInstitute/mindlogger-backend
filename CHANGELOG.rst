@@ -9,9 +9,13 @@ Changes
 Unreleased
 ==========
 2019-11-06: v0.6.1
-^^^^^^^^^^^^^^^^^^^
+^^^^^^^^^^^^^^^^^^
 * :sparkles: User profiles
 * :tractor: :art: :hammer: Invitations
+
+2019-11-06: v0.5.11
+^^^^^^^^^^^^^^^^^^^
+* :ambulance: :speaker: Handle additional JSON-LD errors.
 
 2019-11-04: v0.5.10
 ^^^^^^^^^^^^^^^^^^^

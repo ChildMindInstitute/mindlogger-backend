@@ -169,7 +169,13 @@ def expand(obj, keepUndefined=False):
     try:
         newObj = jsonld.expand(obj)
     except jsonld.JsonLdError as e: # 👮 Catch illegal JSON-LD
-        if e.cause.type == "jsonld.ContextUrlError":
+        if e.type == "jsonld.InvalidUrl":
+            try:
+                newObj = jsonld.expand(reprolibCanonize(obj))
+            except:
+                print("Invalid URL: {}".format(e.details.get("url")))
+                print(obj)
+        elif e.cause.type == "jsonld.ContextUrlError":
             invalidContext = e.cause.details.get("url")
             print("Invalid context: {}".format(invalidContext))
             if invalidContext in obj.get("@context", []):
@@ -538,36 +544,40 @@ def componentImport(obj, protocol, user=None, refreshCache=True):
                     'url' in activity or '@id' in activity
                 ) else (None, None)
                 activityComponent = pluralize(firstLower(
-                    activityComponent.get('@type', [''])[0].split('/')[-1]
-                )) if activityComponent is None else activityComponent
-                activityComponents = (
-                    pluralize(
-                        activityComponent
-                    ) if activityComponent != 'screen' else 'items'
-                )
-                updatedProtocol[activityComponents][
-                    activityContent.get(
-                        'meta',
-                        {}
-                    ).get(
-                        activityComponent,
-                        {}
-                    ).get(
-                        'url',
+                    activityContent.get('@type', [''])[0].split('/')[-1]
+                )) if (activityComponent is None and isinstance(
+                    activityContent,
+                    dict
+                )) else activityComponent
+                if activityComponent is not None:
+                    activityComponents = (
+                        pluralize(
+                            activityComponent
+                        ) if activityComponent != 'screen' else 'items'
+                    )
+                    updatedProtocol[activityComponents][
                         activityContent.get(
                             'meta',
                             {}
                         ).get(
                             activityComponent,
                             {}
-                        ).get('item', '')
-                    )
-                ] = formatLdObject(
-                    activityContent,
-                    activityComponent,
-                    user,
-                    refreshCache=refreshCache
-                ).copy()
+                        ).get(
+                            'url',
+                            activityContent.get(
+                                'meta',
+                                {}
+                            ).get(
+                                activityComponent,
+                                {}
+                            ).get('item', '')
+                        )
+                    ] = formatLdObject(
+                        activityContent,
+                        activityComponent,
+                        user,
+                        refreshCache=refreshCache
+                    ).copy()
         return(_fixUpFormat(deepcopy(updatedProtocol)))
     except:
         import sys, traceback
