@@ -13,8 +13,26 @@ from girderformindlogger.settings import SettingKey
 
 
 def htmlUserList(userlist, showEmail=False):
-    return(userlist)
+    htmlList = "</li><li>".join([
+        formatUserString(userlist[u]) for u in userlist
+    ])
+    return("<ul><li>{}</li></ul>".format(htmlList) if len(htmlList) else "")
 
+def formatUserString(u):
+    """
+    :param u: user display profile
+    :type u: dict
+    :returns: str
+    """
+    print(u)
+    if not isinstance(u, dict):
+        return("")
+    return(
+        "{name} {email}".format(
+            name=u.get("displayName", ""),
+            email="<{}>".format(u["email"]) if "email" in u else ""
+        ).strip()
+    )
 
 def validateEmailAddress(address):
     """

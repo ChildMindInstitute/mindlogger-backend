@@ -179,7 +179,8 @@ class Invitation(AccessControlledModel):
         from .profile import Profile
         from .protocol import Protocol
         from .user import User
-        from girderformindlogger.utility import context as contextUtil
+        from girderformindlogger.utility import context as contextUtil,        \
+            mail_utils
 
         applet = Applet().load(ObjectId(invitation['appletId']), force=True)
         appletName = Applet().preferredName(applet)
@@ -208,18 +209,22 @@ class Invitation(AccessControlledModel):
                 {}
             ) else {}
         ).get("schema:description", "")
-        print(Applet(
-        ).listUsers(applet, 'reviewer', force=True))
-        managers = coordinators = reviewers = ""
+        managers = mail_utils.htmlUserList(
+            Applet().listUsers(applet, 'manager', force=True)
+        )
+        coordinators = mail_utils.htmlUserList(
+            Applet().listUsers(applet, 'coordinator', force=True)
+        )
+        reviewers = mail_utils.htmlUserList(
+            Applet().listUsers(applet, 'reviewer', force=True)
+        )
         body = """
-<body>
 You have been invited {byCoordinator}to <b>{appletName}</b> on {instanceName}.
 <br/>
 {description}
 {reviewers}
 {managers}
 {coordinators}
-</body>
         """.format(
             appletName=appletName,
             byCoordinator="by {} ({}) ".format(
@@ -229,23 +234,25 @@ You have been invited {byCoordinator}to <b>{appletName}</b> on {instanceName}.
                 ) if "email" in coordinator else "email address unavailable"
             ) if isinstance(coordinator, dict) else "",
             coordinators="<h3>The following users can change settings for this "
-                "applet, but not who can access your data</h3>\n<ul>{}</ul>"
+                "applet, but not who can access your data</h3>\n{}"
                 "".format(
-                    coordinators if len(coordinators) else "<li>None</li>"
+                    coordinators if len(
+                        coordinators
+                    ) else "<ul><li>None</li></ul>"
                 ),
             description="<h2>Description</h2>\n<p>{}</p>".format(
                 description
             ) if len(description) else "",
             instanceName=instanceName,
             managers="<h3>The following users can change settings for this "
-                "applet, including who can access your data</h3>\n<ul>{}</ul>"
+                "applet, including who can access your data</h3>\n{}"
                 "".format(
-                    managers if len(managers) else "<li>None</li>"
+                    managers if len(managers) else "<ul><li>None</li></ul>"
                 ),
             reviewers="<h3>The following users can see your data for this "
-                "applet</h3>\n<ul>{}</ul>"
+                "applet</h3>\n{}"
                 "".format(
-                    reviewers if len(reviewers) else "<li>None</li>"
+                    reviewers if len(reviewers) else "<ul><li>None</li></ul>"
                 )
         ).strip()
 
@@ -256,7 +263,9 @@ You have been invited {byCoordinator}to <b>{appletName}</b> on {instanceName}.
 <meta charset="UTF-8">
 <title>Invitation to {appletName} on {instanceName}</title>
 </head>
+<body>
 {body}
+</body>
 </html>
         """.format(
             appletName=appletName,

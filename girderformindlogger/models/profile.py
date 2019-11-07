@@ -31,6 +31,31 @@ class Profile(AccessControlledModel, dict):
             'parentCollection', 'creatorId', 'baseParentType', 'baseParentId'
         ))
 
+    def display(self, p, role):
+        """
+        :param p: Profile
+        :type p: dict
+        :param role: role
+        :type role: string
+        :returns: dict
+        """
+        prof = {
+            k: v for k, v in p.get("coordinatorDefined", {}).items() if (
+                v is not None and (
+                    role is not 'user' or k is not 'email'
+                )
+            )
+        }
+        prof.update({
+            k: v for k, v in p.get("userDefined", {}).items() if (
+                v is not None and (
+                    role is not 'user' or k is not 'email'
+                )
+            )
+        })
+        return(prof)
+
+
     def load(self, id, level=AccessType.ADMIN, user=None, objectId=True,
              force=False, fields=None, exc=False):
         """
