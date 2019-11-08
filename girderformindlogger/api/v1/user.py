@@ -293,9 +293,17 @@ class User(Resource):
             'If true, only returns an Array of the IDs of assigned applets. '
             'Otherwise, returns an Array of Objects keyed with "applet" '
             '"protocol", "activities" and "items" with expanded JSON-LD as '
-            'values.',
+            'values. This parameter takes precedence over `unexpanded`.',
             required=False,
-            default=False,
+            dataType='boolean'
+        )
+        .param(
+            'unexpanded',
+            'If true, only returns an Array of assigned applets, but only the '
+            'applet-level information. Otherwise, returns an Array of Objects '
+            'keyed with "applet", "protocol", "activities" and "items" with '
+            'expanded JSON-LD as values.',
+            required=False,
             dataType='boolean'
         )
         .errorResponse('ID was invalid.')
@@ -304,7 +312,7 @@ class User(Resource):
             403
         )
     )
-    def getOwnApplets(self, role, ids_only):
+    def getOwnApplets(self, role, ids_only=False, unexpanded=False):
         from bson.objectid import ObjectId
         reviewer = self.getCurrentUser()
         if reviewer is None:
@@ -325,6 +333,25 @@ class User(Resource):
                 return([])
             if ids_only==True:
                 return([applet.get('_id') for applet in applets])
+            elif unexpanded==True:
+                return([{
+                    'applet': {
+                        **(
+                            applet.get(
+                                'cached',
+                                {}
+                            ).get('applet') if isinstance(
+                                applet,
+                                dict
+                            ) and 'cached' in applet else {
+                                '_id': "applet/{}".format(
+                                    str(applet.get('_id'))
+                                ),
+                                **applet.get('meta', {}).get('applet', {})
+                            }
+                        )
+                    }
+                } for applet in applets])
             return(
                 [
                     {
