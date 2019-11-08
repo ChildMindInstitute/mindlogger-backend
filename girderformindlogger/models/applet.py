@@ -23,6 +23,7 @@ import itertools
 import json
 import os
 import six
+import threading
 
 from bson.objectid import ObjectId
 from .folder import Folder
@@ -67,6 +68,8 @@ class Applet(Folder):
         :param constraints: Constraints to set to this Applet
         :type constraints: dict or None
         """
+        from girderformindlogger.utility import jsonld_expander
+
         if user==None:
             raise AccessException("You must be logged in to create an applet.")
         appletsCollection = CollectionModel().findOne({"name": "Applets"})
@@ -76,31 +79,10 @@ class Applet(Folder):
             CollectionModel().createCollection('Applets')
             appletsCollection = CollectionModel().findOne({"name": "Applets"})
 
-        # # check if applet exists with creator as a manager
-        applets = list(FolderModel().find({
-            "meta.actvitySet.url": protocol.get('url'),
-            "parentId": appletsCollection.get('_id')
-        }))
-        # managed = [applet for applet in applets if applet.get('_id') in [
-        #     a.get('_id') for a in list(itertools.chain.from_iterable([
-        #         list(AppletModel().find(
-        #             {
-        #                 'roles.' + role + '.groups.id': groupId,
-        #                 'meta.applet.deleted': {'$ne': True}
-        #             }
-        #         )) for groupId in user.get('groups', [])
-        #     ]))
-        # ]]
-        #
-        # if len(managed):
-        #     return(managed)
-
-        # check if applet needs updated
-
         # create new applet
 
-        applet = FolderModel().setMetadata(
-            folder=FolderModel().createFolder(
+        applet = self.setMetadata(
+            folder=self.createFolder(
                 parent=appletsCollection,
                 name=name,
                 parentType='collection',
@@ -120,6 +102,7 @@ class Applet(Folder):
             name,
             str(applet.get('_id', ''))
         )
+
         # Create user groups
         for role in USER_ROLES.keys():
             try:
@@ -150,7 +133,39 @@ class Applet(Folder):
                 currentUser=user,
                 force=False
             )
-        return(applet)
+        thread = threading.Thread(
+            target=jsonld_expander.formatLdObject,
+            args=(
+                applet,
+                'applet',
+                user
+            ),
+            kwargs={'refreshCache': True}
+        )
+        thread.start()
+        return({
+            **self.unexpanded(applet),
+            "note - loading": "Your applet is being expanded on the server. Check back "
+                "in a few minutes to see the full content."
+        })
+
+    def unexpanded(self, applet):
+        return({
+            **(
+                applet.get(
+                    'cached',
+                    {}
+                ).get('applet') if isinstance(
+                    applet,
+                    dict
+                ) and 'cached' in applet else {
+                    '_id': "applet/{}".format(
+                        str(applet.get('_id'))
+                    ),
+                    **applet.get('meta', {}).get('applet', {})
+                }
+            )
+        })
 
     def getAppletGroups(self, applet, arrayOfObjects=False):
         # get role list for applet

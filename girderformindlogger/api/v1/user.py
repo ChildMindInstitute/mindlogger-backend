@@ -335,22 +335,7 @@ class User(Resource):
                 return([applet.get('_id') for applet in applets])
             elif unexpanded==True:
                 return([{
-                    'applet': {
-                        **(
-                            applet.get(
-                                'cached',
-                                {}
-                            ).get('applet') if isinstance(
-                                applet,
-                                dict
-                            ) and 'cached' in applet else {
-                                '_id': "applet/{}".format(
-                                    str(applet.get('_id'))
-                                ),
-                                **applet.get('meta', {}).get('applet', {})
-                            }
-                        )
-                    }
+                    'applet': AppletModel().unexpanded(applet)
                 } for applet in applets])
             return(
                 [

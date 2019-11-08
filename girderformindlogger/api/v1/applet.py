@@ -224,7 +224,7 @@ class Applet(Resource):
     )
     def getApplet(self, folder, refreshCache=False):
         applet = folder
-        user = Applet().getCurrentUser()
+        user = self.getCurrentUser()
         return(
             jsonld_expander.formatLdObject(
                 applet,
