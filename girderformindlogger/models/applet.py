@@ -134,13 +134,11 @@ class Applet(Folder):
                 force=False
             )
         thread = threading.Thread(
-            target=jsonld_expander.formatLdObject,
+            target=self.formatThenUpdate,
             args=(
                 applet,
-                'applet',
                 user
-            ),
-            kwargs={'refreshCache': True}
+            )
         )
         thread.start()
         print(jsonld_expander.expandOneLevel(applet))
@@ -150,6 +148,16 @@ class Applet(Folder):
             "note - loading": "Your applet is being expanded on the server. Check back "
                 "in a few minutes to see the full content."
         })
+
+    def formatThenUpdate(self, applet, user):
+        from girderformindlogger.utiltiy import jsonld_expander
+        jsonld_expander.formatLdObject(
+            applet,
+            'applet',
+            user,
+            refreshCache=True
+        )
+        self.updateUserCacheAllRoles(user)
 
     def unexpanded(self, applet):
         return({
@@ -226,6 +234,71 @@ class Applet(Folder):
         ))
         return(applets if isinstance(applets, list) else [applets])
 
+    def updateUserCacheAllRoles(self, user):
+        [self.updateUserCache(role, user) for role in list(USER_ROLES.keys())]
+
+    def updateUserCache(self, role, user, active=True):
+        import threading
+        from girderformindlogger.utility import jsonld_expander
+
+        applets=self.getAppletsForUser(role, user, active)
+        user['cached'] = user.get('cached', {})
+        user['cached']['applets'] = user['cached'].get('applets', {})
+        formatted = [
+            {
+                **jsonld_expander.formatLdObject(
+                    applet,
+                    'applet',
+                    user,
+                    refreshCache=False,
+                    responseDates=False
+                ),
+                "users": self.getAppletUsers(applet, user),
+                "groups": self.getAppletGroups(
+                    applet,
+                    arrayOfObjects=True
+                )
+            } if role in ["coordinator", "manager"] else {
+                **jsonld_expander.formatLdObject(
+                    applet,
+                    'applet',
+                    user,
+                    dropErrors=True,
+                    responseDates=True if role=="user" else False
+                ),
+                "groups": [
+                    group for group in self.getAppletGroups(applet).get(
+                        role
+                    ) if ObjectId(
+                        group
+                    ) in [
+                        *user.get('groups', []),
+                        *user.get('formerGroups', []),
+                        *[invite['groupId'] for invite in [
+                            *user.get('groupInvites', []),
+                            *user.get('declinedInvites', [])
+                        ]]
+                    ]
+                ]
+            } for applet in applets if (
+                applet is not None and not applet.get(
+                    'meta',
+                    {}
+                ).get(
+                    'applet',
+                    {}
+                ).get('deleted')
+            )
+        ]
+        user['cached']['applets'].update({role: formatted})
+        thread = threading.Thread(
+            target=UserModel().save,
+            args=(user,),
+            kwargs={"validate": False}
+        )
+        thread.start()
+        return(formatted)
+
     def getAppletsForUser(self, role, user, active=True):
         """
         Method get Applets for a User.
@@ -238,7 +311,6 @@ class Applet(Folder):
         :type active: bool
         :returns: list of dicts
         """
-
         applets = list(self.find(
             {
                 'roles.' + role + '.groups.id': {'$in': user.get('groups', [])},

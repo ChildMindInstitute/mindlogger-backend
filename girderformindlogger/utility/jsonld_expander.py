@@ -355,8 +355,10 @@ def formatLdObject(
     :type responseDates: bool
     :returns: Expanded JSON-LD Object (dict or list)
     """
+    import threading
     from copy import deepcopy
-    from girderformindlogger.models import pluralize, smartImport
+    from girderformindlogger.models import pluralize
+
     try:
         if obj is None or (
             isinstance(obj, dict) and 'meta' not in obj.keys()
@@ -456,7 +458,11 @@ def formatLdObject(
                     **applet,
                     "prov:generatedAtTime": xsdNow()
                 }
-                AppletModel().save(obj)
+                thread = threading.Thread(
+                    target=AppletModel().save,
+                    args=(obj),
+                    kwargs={"validate": False}
+                )
                 returnObj = applet
             elif mesoPrefix=='protocol':
                 protocol = {
@@ -466,7 +472,20 @@ def formatLdObject(
                 }
                 activitiesNow = set()
                 itemsNow = set()
-                protocol = componentImport(newObj, protocol.copy(), user)
+                try:
+                    protocol = componentImport(
+                        newObj,
+                        protocol.copy(),
+                        user,
+                        refreshCache=refreshCache
+                    )
+                except:
+                    protocol = componentImport(
+                        newObj,
+                        protocol.copy(),
+                        user,
+                        refreshCache=True
+                    )
                 newActivities = list(
                     set(
                         protocol.get('activities', {}).keys()
@@ -480,11 +499,20 @@ def formatLdObject(
                         'activities',
                         {}
                     ).items():
-                        protocol = componentImport(
-                            deepcopy(activity),
-                            deepcopy(protocol),
-                            user
-                        )
+                        try:
+                            protocol = componentImport(
+                                deepcopy(activity),
+                                deepcopy(protocol),
+                                user,
+                                refreshCache=refreshCache
+                            )
+                        except:
+                            protocol = componentImport(
+                                deepcopy(activity),
+                                deepcopy(protocol),
+                                user,
+                                refreshCache=True
+                            )
                         activitiesNow = set(
                             protocol.get('activities', {}).keys()
                         )
@@ -492,9 +520,20 @@ def formatLdObject(
                             'activities',
                             {}
                         ).items():
-                            protocol = componentImport(
-                                deepcopy(activity),
-                                deepcopy(protocol), user)
+                            try:
+                                protocol = componentImport(
+                                    deepcopy(activity),
+                                    deepcopy(protocol),
+                                    user,
+                                    refreshCache=refreshCache
+                                )
+                            except:
+                                protocol = componentImport(
+                                    deepcopy(activity),
+                                    deepcopy(protocol),
+                                    user,
+                                    refreshCache=True
+                                )
                             newActivities = list(
                                 set(
                                     protocol.get('activities', {}).keys()
@@ -506,9 +545,22 @@ def formatLdObject(
                         'items',
                         {}
                     ).items():
-                        protocol = componentImport(
-                            deepcopy(activity),
-                            deepcopy(protocol), user)
+                        try:
+                            protocol = componentImport(
+                                deepcopy(activity),
+                                deepcopy(protocol),
+                                user,
+                                modelType='item',
+                                refreshCache=refreshCache
+                            )
+                        except:
+                            protocol = componentImport(
+                                deepcopy(activity),
+                                deepcopy(protocol),
+                                user,
+                                modelType='item',
+                                refreshCache=True
+                            )
                         newItems = list(
                             set(
                                 protocol.get('items', {}).keys()
@@ -544,7 +596,13 @@ def formatLdObject(
         print(traceback.print_tb(sys.exc_info()[2]))
 
 
-def componentImport(obj, protocol, user=None, refreshCache=True):
+def componentImport(
+    obj,
+    protocol,
+    user=None,
+    refreshCache=False,
+    modelType='activity'
+):
     """
     :returns: protocol (updated)
     """
@@ -567,7 +625,8 @@ def componentImport(obj, protocol, user=None, refreshCache=True):
                 activityComponent, activityContent, canonicalIRI = smartImport(
                     IRI,
                     user=user,
-                    refreshCache=refreshCache
+                    refreshCache=refreshCache,
+                    modelType=modelType
                 ) if IRI is not None else (None, None, None)
                 if IRI != canonicalIRI:
                     activity["url"] = canonicalIRI

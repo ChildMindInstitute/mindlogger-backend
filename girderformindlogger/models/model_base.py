@@ -262,7 +262,11 @@ class Model(object):
             raise ResourcePathNotFound("Document not found: {}".format(str(
                 passedUrl
             )))
-        model = contextualize(loadJSON(url, modelType))
+        cachedDoc = self.getCached(passedUrl, modelType)
+        model = cachedDoc if cachedDoc is not None else contextualize(loadJSON(
+            url,
+            modelType
+        ))
         atType = model.get('@type', '').split('/')[-1].split(':')[-1]
         modelType = firstLower(atType) if len(atType) else modelType
         modelType = 'screen' if modelType.lower(
@@ -270,7 +274,6 @@ class Model(object):
         )=='activityset' else modelType
         changedModel = atType != modelType and len(atType)
         prefName = self.preferredName(model)
-        cachedDoc = self.getCached(passedUrl, modelType)
         if cachedDoc and not changedModel:
             if not refreshCache:
                 return(cachedDoc)

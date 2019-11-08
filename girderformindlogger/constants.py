@@ -49,7 +49,13 @@ REPROLIB_PREFIXES = [
     "reproterms:"
 ]
 SPECIAL_SUBJECTS = {"ALL", "NONE"}
-USER_ROLES = {'user': dict, 'editor': list, 'manager': list, 'reviewer': dict}
+USER_ROLES = {
+    'user': dict,
+    'coordinator': list,
+    'editor': list,
+    'manager': list,
+    'reviewer': dict
+}
 
 def registerAccessFlag(key, name, description=None, admin=False):
     """

@@ -313,7 +313,9 @@ class User(Resource):
         )
     )
     def getOwnApplets(self, role, ids_only=False, unexpanded=False):
+        import threading
         from bson.objectid import ObjectId
+
         reviewer = self.getCurrentUser()
         if reviewer is None:
             raise AccessException("You must be logged in to get user applets.")
@@ -323,7 +325,7 @@ class User(Resource):
                 'Invalid user role.',
                 'role'
             )
-        try:
+        if ids_only or unexpanded:
             applets = AppletModel().getAppletsForUser(
                 role,
                 reviewer,
@@ -337,116 +339,27 @@ class User(Resource):
                 return([{
                     'applet': AppletModel().unexpanded(applet)
                 } for applet in applets])
-            return(
-                [
-                    {
-                        **jsonld_expander.formatLdObject(
-                            applet,
-                            'applet',
-                            reviewer,
-                            refreshCache=False,
-                            responseDates=False
-                        ),
-                        "users": AppletModel().getAppletUsers(applet, reviewer),
-                        "groups": AppletModel().getAppletGroups(
-                            applet,
-                            arrayOfObjects=True
-                        )
-                    } if role=="manager" else {
-                        **jsonld_expander.formatLdObject(
-                            applet,
-                            'applet',
-                            reviewer,
-                            dropErrors=True,
-                            responseDates=True if role=="user" else False
-                        ),
-                        "groups": [
-                            group for group in AppletModel(
-                            ).getAppletGroups(applet).get(role) if ObjectId(
-                                group
-                            ) in [
-                                *reviewer.get('groups', []),
-                                *reviewer.get('formerGroups', []),
-                                *[invite['groupId'] for invite in [
-                                    *reviewer.get('groupInvites', []),
-                                    *reviewer.get('declinedInvites', [])
-                                ]]
-                            ]
-                        ]
-                    } for applet in applets if (
-                        applet is not None and not applet.get(
-                            'meta',
-                            {}
-                        ).get(
-                            'applet',
-                            {}
-                        ).get('deleted')
-                    )
-                ]
-            )
-        except:
-            try:
-                applets = AppletModel().getAppletsForUser(
-                    role,
-                    reviewer,
-                    active=True
+        try:
+            if 'cached' in reviewer and 'applets' in reviewer[
+                'cached'
+            ] and role in reviewer['cached']['applets']:
+                applets=reviewer['cached']['applets'][role]
+                thread = threading.Thread(
+                    target=AppletModel().updateUserCache,
+                    args=(role, reviewer),
+                    kwargs={"active": True}
                 )
-                if len(applets)==0:
-                    return([])
-                if ids_only==True:
-                    return([applet.get('_id') for applet in applets])
-                return(
-                    [
-                        {
-                            **jsonld_expander.formatLdObject(
-                                applet,
-                                'applet',
-                                reviewer,
-                                refreshCache=True,
-                                responseDates=False
-                            ),
-                            "users": AppletModel().getAppletUsers(
-                                applet,
-                                reviewer
-                            ),
-                            "groups": AppletModel().getAppletGroups(
-                                applet,
-                                arrayOfObjects=True
-                            )
-                        } if role=="manager" else {
-                            **jsonld_expander.formatLdObject(
-                                applet,
-                                'applet',
-                                reviewer,
-                                dropErrors=True,
-                                responseDates=True if role=="user" else False
-                            ),
-                            "groups": [
-                                group for group in AppletModel(
-                                ).getAppletGroups(applet).get(role) if ObjectId(
-                                    group
-                                ) in [
-                                    *reviewer.get('groups', []),
-                                    *reviewer.get('formerGroups', []),
-                                    *[invite['groupId'] for invite in [
-                                        *reviewer.get('groupInvites', []),
-                                        *reviewer.get('declinedInvites', [])
-                                    ]]
-                                ]
-                            ]
-                        } for applet in applets if (
-                            applet is not None and not applet.get(
-                                'meta',
-                                {}
-                            ).get(
-                                'applet',
-                                {}
-                            ).get('deleted')
-                        )
-                    ]
-                )
-            except Exception as e:
-                return(e)
+                thread.start()
+                return(applets)
+            else:
+                print(reviewer['cached'])
+            return(AppletModel().updateUserCache(
+                role,
+                reviewer,
+                active=True
+            ))
+        except Exception as e:
+            return(e)
 
 
     @access.public(scope=TokenScope.USER_INFO_READ)
@@ -469,6 +382,8 @@ class User(Resource):
         .errorResponse('Invalid login or password.', 403)
     )
     def login(self):
+        import threading
+
         if not Setting().get(SettingKey.ENABLE_PASSWORD_LOGIN):
             raise RestException('Password login is disabled on this instance.')
 
@@ -494,6 +409,11 @@ class User(Resource):
             login, password = credentials.split(':', 1)
             otpToken = cherrypy.request.headers.get('Girder-OTP')
             user = self._model.authenticate(login, password, otpToken)
+
+            thread = threading.Thread(
+                target=AppletModel().updateUserCacheAllRoles,
+                args=(user,)
+            )
 
             setCurrentUser(user)
             token = self.sendAuthTokenCookie(user)
