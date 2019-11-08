@@ -164,6 +164,15 @@ def expand(obj, keepUndefined=False):
     :param keepUndefined: bool
     :returns: list, expanded JSON-LD Array or Object
     """
+    keysToDelanguageTag = [
+        "http://schema.org/url",
+        "url",
+        "schema:url",
+        "http://schema.org/image",
+        "image",
+        "schema:image"
+    ]
+
     if obj==None:
         return(obj)
     try:
@@ -206,11 +215,10 @@ def expand(obj, keepUndefined=False):
     ):
         if not isinstance(obj, dict):
             obj={}
-        if "http://schema.org/url" in newObj.keys(
-        ) and isinstance(newObj["http://schema.org/url"], list):
-            newObj["http://schema.org/url"] = delanguageTag(
-                newObj["http://schema.org/url"]
-            )
+        for k in keysToDelanguageTag:
+            if k in newObj.keys(
+            ) and isinstance(newObj[k], list):
+                newObj[k] = delanguageTag(newObj[k])
         for k, v in deepcopy(newObj).items():
             if not bool(v):
                 newObj.pop(k)
@@ -236,7 +244,9 @@ def expand(obj, keepUndefined=False):
                 else:
                     v = expand(newObj[k])
                 if bool(v):
-                    newObj[k] = reprolibPrefix(v)
+                    newObj[k] = delanguageTag(
+                        v
+                    ) if k in keysToDelanguageTag else reprolibPrefix(v)
         return(_fixUpFormat(newObj) if bool(newObj) else None)
     else:
         expanded = [expand(n, keepUndefined) for n in newObj]
@@ -288,7 +298,8 @@ def _fixUpFormat(obj):
             if k in [
                 "http://schema.org/contentUrl",
                 "http://schema.org/encodingFormat",
-                "http://schema.org/url"
+                "http://schema.org/url",
+                "http://schema.org/image"
             ]:
                 newObj[reprolibPrefix(k)] = _fixUpFormat(delanguageTag(obj[k]))
             elif isinstance(obj[k], list):
@@ -368,14 +379,22 @@ def formatLdObject(
                 raise ResourcePathNotFound()
             newObj['_id'] = "/".join([snake_case(mesoPrefix), objID])
             if mesoPrefix=='applet':
+                protocolUrl = obj.get('meta', {}).get('protocol', obj).get(
+                    'http://schema.org/url',
+                    obj.get('meta', {}).get('protocol', obj).get(
+                        'url',
+                        obj.get('meta', {}).get('activitySet', obj).get(
+                            'http://schema.org/url',
+                            obj.get('meta', {}).get(
+                                'activitySet',
+                                obj
+                            ).get('url')
+                        )
+                    )
+                )
                 protocol = formatLdObject(
                     ProtocolModel().getFromUrl(
-                        obj.get('meta', {}).get('protocol', obj).get(
-                            'url',
-                            obj.get('meta', {}).get('activitySet', obj).get(
-                                'url'
-                            )
-                        ),
+                        protocolUrl,
                         'protocol',
                         user
                     ),
@@ -384,7 +403,7 @@ def formatLdObject(
                     keepUndefined,
                     dropErrors,
                     refreshCache
-                )
+                ) if protocolUrl is not None else {}
                 applet = {}
                 applet['activities'] = protocol.pop('activities', {})
                 applet['items'] = protocol.pop('items', {})
