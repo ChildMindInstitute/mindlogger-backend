@@ -351,8 +351,6 @@ class User(Resource):
                 )
                 thread.start()
                 return(applets)
-            else:
-                print(reviewer['cached'])
             return(AppletModel().updateUserCache(
                 role,
                 reviewer,

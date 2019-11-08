@@ -141,21 +141,23 @@ class Applet(Folder):
             )
         )
         thread.start()
-        print(jsonld_expander.expandOneLevel(applet))
         return({
-            **self.unexpanded(applet),
-            "name": self.preferredName(applet),
-            "note - loading": "Your applet is being expanded on the server. Check back "
-                "in a few minutes to see the full content."
+            "_id": applet.get("_id"),
+            "applet": {
+                **self.unexpanded(applet),
+                "name": self.preferredName(applet),
+                "note - loading": "Your applet is being expanded on the "
+                "server. Check back in a few minutes to see the full content."
+                },
+            "protocol": protocol
         })
 
     def formatThenUpdate(self, applet, user):
-        from girderformindlogger.utiltiy import jsonld_expander
+        from girderformindlogger.utility import jsonld_expander
         jsonld_expander.formatLdObject(
             applet,
             'applet',
-            user,
-            refreshCache=True
+            user
         )
         self.updateUserCacheAllRoles(user)
 
@@ -244,6 +246,10 @@ class Applet(Folder):
         applets=self.getAppletsForUser(role, user, active)
         user['cached'] = user.get('cached', {})
         user['cached']['applets'] = user['cached'].get('applets', {})
+        user['cached']['applets'][role] = user['cached']['applets'].get(
+            role,
+            {}
+        )
         formatted = [
             {
                 **jsonld_expander.formatLdObject(
@@ -290,7 +296,7 @@ class Applet(Folder):
                 ).get('deleted')
             )
         ]
-        user['cached']['applets'].update({role: formatted})
+        user['cached']['applets'][role].update(formatted)
         thread = threading.Thread(
             target=UserModel().save,
             args=(user,),

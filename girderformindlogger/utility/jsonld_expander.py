@@ -588,7 +588,7 @@ def formatLdObject(
                 user,
                 keepUndefined,
                 dropErrors,
-                refreshCache=True,
+                refreshCache=False,
                 responseDates=responseDates
             )))
         import sys, traceback
