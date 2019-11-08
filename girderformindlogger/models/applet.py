@@ -143,8 +143,10 @@ class Applet(Folder):
             kwargs={'refreshCache': True}
         )
         thread.start()
+        print(jsonld_expander.expandOneLevel(applet))
         return({
             **self.unexpanded(applet),
+            "name": self.preferredName(applet),
             "note - loading": "Your applet is being expanded on the server. Check back "
                 "in a few minutes to see the full content."
         })
