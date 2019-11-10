@@ -460,7 +460,7 @@ def formatLdObject(
                 }
                 thread = threading.Thread(
                     target=AppletModel().save,
-                    args=(obj),
+                    args=(obj,),
                     kwargs={"validate": False}
                 )
                 returnObj = applet

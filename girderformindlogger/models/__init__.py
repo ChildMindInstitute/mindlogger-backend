@@ -165,7 +165,7 @@ def smartImport(IRI, user=None, refreshCache=False, modelType='activity'):
                     kwargs={"validate": False}
                 )
                 thread.start()
-            return((modelType, cachedDoc, canonical_IRI))
+            return(modelType, cachedDoc, canonical_IRI)
     print("loading {}".format(canonical_IRI))
     model = contextualize(loadJSON(canonical_IRI))
     atType = model.get('@type', '').split('/')[-1].split(':')[-1]
