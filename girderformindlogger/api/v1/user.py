@@ -7,7 +7,8 @@ import itertools
 from ..describe import Description, autoDescribeRoute
 from girderformindlogger.api import access
 from girderformindlogger.api.rest import Resource, filtermodel, setCurrentUser
-from girderformindlogger.constants import AccessType, SortDir, TokenScope, USER_ROLES
+from girderformindlogger.constants import AccessType, SortDir, TokenScope,     \
+    USER_ROLES
 from girderformindlogger.exceptions import RestException, AccessException
 from girderformindlogger.models.applet import Applet as AppletModel
 from girderformindlogger.models.collection import Collection as CollectionModel
@@ -377,25 +378,30 @@ class User(Resource):
         Description('Log in to the system.')
         .notes('Pass your username and password using HTTP Basic Auth. Sends'
                ' a cookie that should be passed back in future requests.')
-        .param('Girder-OTP', 'A one-time password for this user', paramType='header',
-               required=False)
+        .param('Girder-OTP', 'A one-time password for this user',
+               paramType='header', required=False)
         .errorResponse('Missing Authorization header.', 401)
         .errorResponse('Invalid login or password.', 403)
     )
     def login(self):
         import threading
+        from girderformindlogger.utility.mail_utils import validateEmailAddress
 
         if not Setting().get(SettingKey.ENABLE_PASSWORD_LOGIN):
             raise RestException('Password login is disabled on this instance.')
 
         user, token = self.getCurrentUser(returnToken=True)
 
-        # Only create and send new cookie if user isn't already sending a valid one.
+
+        # Only create and send new cookie if user isn't already sending a valid
+        # one.
         if not user:
             authHeader = cherrypy.request.headers.get('Authorization')
 
             if not authHeader:
-                authHeader = cherrypy.request.headers.get('Girder-Authorization')
+                authHeader = cherrypy.request.headers.get(
+                    'Girder-Authorization'
+                )
 
             if not authHeader or not authHeader[0:6] == 'Basic ':
                 raise RestException('Use HTTP Basic Authentication', 401)
@@ -408,8 +414,19 @@ class User(Resource):
                 raise RestException('Invalid HTTP Authorization header', 401)
 
             login, password = credentials.split(':', 1)
+            if validateEmailAddress(login):
+                raise AccessException(
+                    "Please log in with a username, not an email address."
+                )
             otpToken = cherrypy.request.headers.get('Girder-OTP')
-            user = self._model.authenticate(login, password, otpToken)
+            try:
+                user = self._model.authenticate(login, password, otpToken)
+            except:
+                raise AccessException(
+                    "Incorrect password for {} if that user exists".format(
+                        login
+                    )
+                )
 
             thread = threading.Thread(
                 target=AppletModel().updateUserCacheAllRoles,
