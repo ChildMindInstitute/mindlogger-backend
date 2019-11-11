@@ -250,8 +250,8 @@ class Applet(Folder):
             role,
             {}
         )
-        formatted = {
-            role: {
+        formatted = [
+            {
                 **jsonld_expander.formatLdObject(
                     applet,
                     'applet',
@@ -295,15 +295,15 @@ class Applet(Folder):
                     {}
                 ).get('deleted')
             )
-        }
-        user['cached']['applets'][role].update(formatted[role])
+        ]
+        user['cached']['applets'].update({role: formatted})
         thread = threading.Thread(
             target=UserModel().save,
             args=(user,),
             kwargs={"validate": False}
         )
         thread.start()
-        return(formatted[role])
+        return(formatted)
 
     def getAppletsForUser(self, role, user, active=True):
         """

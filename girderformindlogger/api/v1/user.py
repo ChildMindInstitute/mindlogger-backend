@@ -342,7 +342,10 @@ class User(Resource):
         try:
             if 'cached' in reviewer and 'applets' in reviewer[
                 'cached'
-            ] and role in reviewer['cached']['applets']:
+            ] and role in reviewer['cached']['applets'] and isinstance(
+                reviewer['cached']['applets'][role],
+                list
+            ):
                 applets=reviewer['cached']['applets'][role]
                 thread = threading.Thread(
                     target=AppletModel().updateUserCache,
