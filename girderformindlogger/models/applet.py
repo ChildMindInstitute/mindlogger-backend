@@ -299,8 +299,7 @@ class Applet(Folder):
         user['cached']['applets'].update({role: formatted})
         thread = threading.Thread(
             target=UserModel().save,
-            args=(user,),
-            kwargs={"validate": False}
+            args=(user,)
         )
         thread.start()
         return(formatted)
