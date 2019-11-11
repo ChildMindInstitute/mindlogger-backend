@@ -99,17 +99,6 @@ class User(AccessControlledModel):
             raise ValidationException('That login is already registered.',
                                       'login')
 
-        # Ensure unique emails
-        # q = {'email': doc['email']}
-        # if '_id' in doc:
-        #     q['_id'] = {'$ne': doc['_id']}
-        # existing = self.findOne(q)
-        # if existing is not None:
-        #     raise ValidationException(''.join([
-        #                               'That email is already registered:',
-        #                               str(existing["_id"])]),
-        #                               'email')
-
         # If this is the first user being created, make it an admin
         existing = self.findOne({})
         if existing is None:

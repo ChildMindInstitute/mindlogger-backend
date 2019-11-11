@@ -345,7 +345,7 @@ class User(Resource):
             ] and role in reviewer['cached']['applets'] and isinstance(
                 reviewer['cached']['applets'][role],
                 list
-            ):
+            ) and len(reviewer['cached']['applets'][role]):
                 applets=reviewer['cached']['applets'][role]
                 thread = threading.Thread(
                     target=AppletModel().updateUserCache,
