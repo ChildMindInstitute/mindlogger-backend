@@ -444,6 +444,7 @@ class Applet(Resource):
     )
     def setConstraints(self, folder, activity, schedule, **kwargs):
         thisUser = Applet().getCurrentUser()
+        print(schedule)
         return(
             jsonld_expander.formatLdObject(
                 _setConstraints(folder, activity, schedule, thisUser),
