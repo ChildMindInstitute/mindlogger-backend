@@ -8,9 +8,10 @@ Changes
 -------
 Unreleased
 ==========
-2019-11-07: v0.5.12
+2019-11-11: v0.5.12
 ^^^^^^^^^^^^^^^^^^^
 * :hammer: :racehorse: Stability and performance fixes
+* :lipstick: Clearer authentication error messages
 
 2019-11-06: v0.5.11
 ^^^^^^^^^^^^^^^^^^^
