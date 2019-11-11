@@ -11,11 +11,12 @@ from bson.errors import InvalidId
 from pymongo.errors import WriteError
 from dictdiffer import diff
 from girderformindlogger import events, logprint, logger, auditLogger
-from girderformindlogger.constants import AccessType, CoreEventHandler, SortDir, \
-    ACCESS_FLAGS, PREFERRED_NAMES, TEXT_SCORE_SORT_MAX, USER_ROLES
+from girderformindlogger.constants import AccessType, CoreEventHandler,        \
+    SortDir, ACCESS_FLAGS, PREFERRED_NAMES, TEXT_SCORE_SORT_MAX, USER_ROLES
 from girderformindlogger.external.mongodb_proxy import MongoProxy
 from girderformindlogger.models import getDbConnection
-from girderformindlogger.exceptions import AccessException, ValidationException
+from girderformindlogger.exceptions import AccessException,                    \
+    ResourcePathNotFound, ValidationException
 
 USER_ROLE_KEYS = USER_ROLES.keys()
 
@@ -257,7 +258,15 @@ class Model(object):
             )
         passedUrl = url
         url = reprolibCanonize(url)
-        model = contextualize(loadJSON(url, modelType))
+        if url is None:
+            raise ResourcePathNotFound("Document not found: {}".format(str(
+                passedUrl
+            )))
+        cachedDoc = self.getCached(passedUrl, modelType)
+        model = cachedDoc if cachedDoc is not None else contextualize(loadJSON(
+            url,
+            modelType
+        ))
         atType = model.get('@type', '').split('/')[-1].split(':')[-1]
         modelType = firstLower(atType) if len(atType) else modelType
         modelType = 'screen' if modelType.lower(
@@ -265,7 +274,6 @@ class Model(object):
         )=='activityset' else modelType
         changedModel = atType != modelType and len(atType)
         prefName = self.preferredName(model)
-        cachedDoc = self.getCached(url, modelType)
         if cachedDoc and not changedModel:
             if not refreshCache:
                 return(cachedDoc)

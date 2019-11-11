@@ -122,24 +122,50 @@ def pluralize(modelType):
 
 
 def smartImport(IRI, user=None, refreshCache=False, modelType='activity'):
+    import threading
     from girderformindlogger.utility import firstLower, loadJSON
     from girderformindlogger.utility.jsonld_expander import MODELS, \
         contextualize, reprolibCanonize
 
     canonical_IRI = reprolibCanonize(IRI)
+    IRIlist = list({IRI, canonical_IRI})
     if bool({IRI, canonical_IRI}.intersection({None, "None"})):
-        return((None, None))
+        return((None, None, None))
     if not refreshCache:
         cachedDoc = MODELS[modelType].findOne({
-            '{}.url'.format(modeltype): {
-                '$in': {
-                    IRI,
-                    canonical_IRI
-                }
+            'meta.{}.url'.format(modelType): {
+                '$in': IRIlist
             }
-        })
+        }) if modelType not in ['activity', 'item', 'screen'] else [
+            *[
+                doc for doc in [
+                    MODELS[mt].findOne({
+                        'meta.{}.url'.format(mt): {
+                            '$in': IRIlist
+                        }
+                    }) for mt in ['activity', 'screen']
+                ] if doc is not None
+            ],
+            None
+        ][0]
         if cachedDoc:
-            return((modelType, cachedDoc))
+            modelType = modelType if modelType in list(cachedDoc.get(
+                'meta',
+                {}
+            ).keys()) else [
+                k for k in list(cachedDoc['meta'].keys()) if k in list(
+                    MODELS.keys()
+                )
+            ][0]
+            if canonical_IRI != IRI:
+                cachedDoc['meta'][modelType]['url'] = canonical_IRI
+                thread = threading.Thread(
+                    target=MODELS[modelType].save,
+                    args=(cachedDoc,),
+                    kwargs={"validate": False}
+                )
+                thread.start()
+            return(modelType, cachedDoc, canonical_IRI)
     print("loading {}".format(canonical_IRI))
     model = contextualize(loadJSON(canonical_IRI))
     atType = model.get('@type', '').split('/')[-1].split(':')[-1]
@@ -152,5 +178,6 @@ def smartImport(IRI, user=None, refreshCache=False, modelType='activity'):
             modelType,
             user,
             refreshCache
-        )
+        ),
+        canonical_IRI
     ))
