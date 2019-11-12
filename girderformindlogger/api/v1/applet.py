@@ -145,7 +145,7 @@ class Applet(Resource):
         )
         .param(
             'name',
-            'Name to give the applet. The Activity Set\'s name will be used if '
+            'Name to give the applet. The Protocol\'s name will be used if '
             'this parameter is not provided.',
             required=False
         )

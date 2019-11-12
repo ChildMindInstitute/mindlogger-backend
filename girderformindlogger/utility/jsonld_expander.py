@@ -67,6 +67,7 @@ def _createContextForStr(s):
 
 def contextualize(ldObj):
     newObj = {}
+    print(ldObj)
     context = ldObj.get('@context', [])
     if isinstance(context, list):
         context.append(

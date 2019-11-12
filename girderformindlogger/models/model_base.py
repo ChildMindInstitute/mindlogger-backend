@@ -211,20 +211,33 @@ class Model(object):
         """
         from girderformindlogger.utility.jsonld_expander import MODELS, \
         reprolibCanonize
+        query = {
+            'meta.{}.url'.format(modelType): url,
+            'meta.protocol.@type': {
+                "$in": [t for t in [
+                    reprolibCanonize(
+                        'reprolib:schemas/ActivitySet'
+                    ),
+                    'reproschema:ActivitySet',
+                    'ActivitySet',
+                    reprolibCanonize(
+                        'reprolib:schemas/Protocol'
+                    ),
+                    'reproschema:Protocol',
+                    'Protocol'
+                ] if t is not None]
+            }
+        } if modelType in {"activitySet", "protocol"} else {
+            'meta.{}.url'.format(modelType): {
+                "$in": [
+                    url,
+                    reprolibCanonize(url)
+                ]
+            }
+        }
+        print("Looking for cached {}".format(str(query)))
         cached = list(MODELS[modelType].find(
-            query={
-                'meta.{}.url'.format(modelType): url,
-                'meta.protocol.@type': reprolibCanonize(
-                    'reprolib:schemas/ActivitySet'
-                ),
-            } if modelType in {"activitySet", "protocol"} else {
-                'meta.{}.url'.format(modelType): {
-                    "$in": [
-                        url,
-                        reprolibCanonize(url)
-                    ]
-                }
-            },
+            query=query,
             sort=[('created', SortDir.DESCENDING)]
         ))
         return(
