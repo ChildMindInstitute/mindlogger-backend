@@ -86,6 +86,7 @@ def contextualize(ldObj):
         else:
             newObj[k] = ldObj[k]
     newObj['@context'] = reprolibCanonize(context)
+    print(newObj)
     return(newObj)
 
 
