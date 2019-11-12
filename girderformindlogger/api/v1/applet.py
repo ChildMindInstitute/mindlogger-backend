@@ -443,16 +443,20 @@ class Applet(Resource):
         .errorResponse('Read access was denied for this applet.', 403)
     )
     def setConstraints(self, folder, activity, schedule, **kwargs):
+        import threading
         thisUser = Applet().getCurrentUser()
-        print(schedule)
-        return(
-            jsonld_expander.formatLdObject(
-                _setConstraints(folder, activity, schedule, thisUser),
-                'applet',
-                thisUser,
-                refreshCache=True
-            )
+        applet = jsonld_expander.formatLdObject(
+            _setConstraints(folder, activity, schedule, thisUser),
+            'applet',
+            thisUser,
+            refreshCache=True
         )
+        thread = threading.Thread(
+            target=AppletModel().updateUserCacheAllUsersAllRoles,
+            args=(applet, thisUser)
+        )
+        thread.start()
+        return(applet)
 
 
 
