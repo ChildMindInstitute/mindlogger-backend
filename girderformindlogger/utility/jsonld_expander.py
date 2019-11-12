@@ -368,11 +368,11 @@ def formatLdObject(
     from girderformindlogger.models import pluralize
 
     try:
-        if obj is None or (
-            isinstance(obj, dict) and 'meta' not in obj.keys()
-        ):
+        if obj is None:
             return(None)
-        if "cached" in obj and not refreshCache:
+        elif isinstance(obj, dict) and 'meta' not in obj.keys():
+            return(obj)
+        elif isinstance(obj, dict) and "cached" in obj and not refreshCache:
             returnObj = obj["cached"]
         else:
             mesoPrefix = camelCase(mesoPrefix)
@@ -648,7 +648,9 @@ def componentImport(
                 if IRI != canonicalIRI:
                     activity["url"] = canonicalIRI
                 activityComponent = pluralize(firstLower(
-                    activityContent.get('@type', [''])[0].split('/')[-1]
+                    activityContent.get('@type', [''])[0].split('/')[-1].split(
+                        ':'
+                    )[-1]
                 )) if (activityComponent is None and isinstance(
                     activityContent,
                     dict
@@ -660,7 +662,7 @@ def componentImport(
                         ) if activityComponent != 'screen' else 'items'
                     )
                     updatedProtocol[activityComponents][
-                        activityContent.get(
+                        reprolibPrefix(activityContent.get(
                             'meta',
                             {}
                         ).get(
@@ -672,17 +674,20 @@ def componentImport(
                                 'meta',
                                 {}
                             ).get(
-                                activityComponent,
+                                'item',
                                 {}
-                            ).get('item', '')
-                        )
+                            ).get('url', '')
+                        ))
                     ] = formatLdObject(
                         activityContent,
                         activityComponent,
                         user,
                         refreshCache=refreshCache
                     ).copy()
-        return(_fixUpFormat(deepcopy(updatedProtocol)))
+        return(_fixUpFormat(deepcopy(updatedProtocol.get(
+            'meta',
+            updatedProtocol
+        ).get(modelType, updatedProtocol))))
     except:
         import sys, traceback
         print("error!")

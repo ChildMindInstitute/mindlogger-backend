@@ -236,6 +236,12 @@ class Applet(Folder):
         ))
         return(applets if isinstance(applets, list) else [applets])
 
+    def updateUserCacheAllUsersAllRoles(self, applet, coordinator):
+        [self.updateUserCacheAllRoles(user) for user in self.getAppletUsers(
+            applet,
+            coordinator
+        )]
+
     def updateUserCacheAllRoles(self, user):
         [self.updateUserCache(role, user) for role in list(USER_ROLES.keys())]
 
