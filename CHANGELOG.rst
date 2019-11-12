@@ -8,6 +8,10 @@ Changes
 -------
 Unreleased
 ==========
+2019-11-12: v0.5.13
+^^^^^^^^^^^^^^^^^^^
+* :ambulance: restore `schedule` object to `GET /user/applets`
+
 2019-11-11: v0.5.12
 ^^^^^^^^^^^^^^^^^^^
 * :hammer: :racehorse: Stability and performance fixes
