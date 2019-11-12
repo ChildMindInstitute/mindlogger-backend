@@ -47,7 +47,7 @@ installReqs = [
     'psutil',
     'pyld>=1.0.4',
     'pyOpenSSL',
-    'python-dateutil',
+    'python-dateutil==2.6.1',
     'pytz',
     'requests',
     "shutilwhich ; python_version < '3'",
