@@ -125,7 +125,7 @@ def smartImport(IRI, user=None, refreshCache=False, modelType='activity'):
     import threading
     from girderformindlogger.utility import firstLower, loadJSON
     from girderformindlogger.utility.jsonld_expander import MODELS, \
-        contextualize, reprolibCanonize
+        contextualize, reprolibCanonize, reprolibPrefix
 
     canonical_IRI = reprolibCanonize(IRI)
     IRIlist = list({IRI, canonical_IRI})
@@ -157,7 +157,7 @@ def smartImport(IRI, user=None, refreshCache=False, modelType='activity'):
                     MODELS.keys()
                 )
             ][0]
-            if canonical_IRI != IRI:
+            if IRI not in [canonical_IRI, reprolibPrefix(canonical_IRI)]:
                 cachedDoc['meta'][modelType]['url'] = canonical_IRI
                 thread = threading.Thread(
                     target=MODELS[modelType].save,

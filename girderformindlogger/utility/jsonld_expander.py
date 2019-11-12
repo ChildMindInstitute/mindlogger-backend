@@ -302,18 +302,26 @@ def _fixUpFormat(obj):
         newObj = {}
         for k in obj.keys():
             if isinstance(obj[k], str):
-                obj[k] = reprolibPrefix(obj[k])
+                c = reprolibCanonize(obj[k])
+                obj[k] = c if c is not None else reprolibPrefix(obj[k])
             if k in [
                 "http://schema.org/contentUrl",
                 "http://schema.org/encodingFormat",
                 "http://schema.org/url",
                 "http://schema.org/image"
             ]:
-                newObj[reprolibPrefix(k)] = _fixUpFormat(delanguageTag(obj[k]))
+                newObj[reprolibPrefix(k)] = reprolibCanonize(
+                    delanguageTag(obj[k])
+                )
             elif isinstance(obj[k], list):
                 newObj[reprolibPrefix(k)] = [_fixUpFormat(li) for li in obj[k]]
             elif isinstance(obj[k], dict):
-                newObj[reprolibPrefix(k)] = _fixUpFormat(obj[k])
+                c = reprolibCanonize(
+                    obj[k]
+                ) if isinstance(obj[k], str) else obj[k]
+                newObj[
+                    reprolibPrefix(k)
+                ] = c if c is not None else _fixUpFormat(obj[k])
             else:
                 newObj[reprolibPrefix(k)] = _fixUpFormat(reprolibPrefix(obj[k]))
         if "@context" in newObj:
@@ -437,10 +445,7 @@ def formatLdObject(
                 }
 
                 applet['applet'] = {
-                    **protocol.pop('protocol', protocol.get(
-                        'activitySet',
-                        {}
-                    )),
+                    **protocol.pop('protocol', {}),
                     **obj.get('meta', {}).get(mesoPrefix, {}),
                     '_id': "/".join([snake_case(mesoPrefix), objID]),
                     'url': "#".join([
@@ -499,6 +504,10 @@ def formatLdObject(
                         'activities',
                         {}
                     ).items():
+                        activity = activity.get(
+                            'meta',
+                            {}
+                        ).get('activity', activity)
                         try:
                             protocol = componentImport(
                                 deepcopy(activity),
@@ -545,6 +554,14 @@ def formatLdObject(
                         'items',
                         {}
                     ).items():
+                        activity = activity.get(
+                            'meta',
+                            {}
+                        ).get('activity', activity)
+                        activity = activity.get(
+                            'meta',
+                            {}
+                        ).get('item', activity)
                         try:
                             protocol = componentImport(
                                 deepcopy(activity),
