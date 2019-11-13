@@ -198,7 +198,7 @@ class Model(object):
 
         return self.filterDocument(doc, allow=keys)
 
-    def getCached(self, url, modelType):
+    def getCached(self, url, modelType=['activity', 'item']):
         """
         Returns the latest cached version of model `modelType` with URL `url`,
         if any.
@@ -206,43 +206,90 @@ class Model(object):
         :param url: URL
         :type url: str
         :param modelType: 'activity', 'screen', etc.
-        :type modelType: str
+        :type modelType: str or iterable
         :returns: dict or None
         """
-        from girderformindlogger.utility.jsonld_expander import MODELS, \
-        reprolibCanonize
-        query = {
-            'meta.{}.url'.format(modelType): url,
-            'meta.protocol.@type': {
-                "$in": [t for t in [
-                    reprolibCanonize(
-                        'reprolib:schemas/ActivitySet'
-                    ),
-                    'reproschema:ActivitySet',
-                    'ActivitySet',
-                    reprolibCanonize(
-                        'reprolib:schemas/Protocol'
-                    ),
-                    'reproschema:Protocol',
-                    'Protocol'
-                ] if t is not None]
+        from girderformindlogger.constants import MODELS
+        from girderformindlogger.utility.jsonld_expander import reprolibCanonize
+
+        MODELS = MODELS()
+
+        if not isinstance(modelType, str):
+            for i in modelType:
+                query = {
+                    'meta.{}.url'.format(i): url,
+                    'meta.protocol.@type': {
+                        "$in": [t for t in [
+                            reprolibCanonize(
+                                'reprolib:schemas/ActivitySet'
+                            ),
+                            'reproschema:ActivitySet',
+                            'ActivitySet',
+                            reprolibCanonize(
+                                'reprolib:schemas/Protocol'
+                            ),
+                            'reproschema:Protocol',
+                            'Protocol'
+                        ] if t is not None]
+                    }
+                } if i in {"activitySet", "protocol"} else {
+                    'meta.{}.url'.format(i): {
+                        "$in": list({
+                            url,
+                            reprolibCanonize(url)
+                        })
+                    }
+                }
+                print("Looking for cached {}".format(str(query)))
+                cached = list(MODELS[i]().find(
+                    query=query,
+                    sort=[('created', SortDir.DESCENDING)]
+                ))
+                if len(cached):
+                    print("Found {}/{}".format(
+                        i,
+                        str(cached[0].get('_id'))
+                    ))
+                    return(cached[0])
+                print("None found")
+        else:
+            query = {
+                'meta.{}.url'.format(modelType): url,
+                'meta.protocol.@type': {
+                    "$in": [t for t in [
+                        reprolibCanonize(
+                            'reprolib:schemas/ActivitySet'
+                        ),
+                        'reproschema:ActivitySet',
+                        'ActivitySet',
+                        reprolibCanonize(
+                            'reprolib:schemas/Protocol'
+                        ),
+                        'reproschema:Protocol',
+                        'Protocol'
+                    ] if t is not None]
+                }
+            } if modelType in {"activitySet", "protocol"} else {
+                'meta.{}.url'.format(modelType): {
+                    "$in": list({
+                        url,
+                        reprolibCanonize(url)
+                    })
+                }
             }
-        } if modelType in {"activitySet", "protocol"} else {
-            'meta.{}.url'.format(modelType): {
-                "$in": [
-                    url,
-                    reprolibCanonize(url)
-                ]
-            }
-        }
-        print("Looking for cached {}".format(str(query)))
-        cached = list(MODELS[modelType].find(
-            query=query,
-            sort=[('created', SortDir.DESCENDING)]
-        ))
-        return(
-            cached[0] if len(cached) else None
-        )
+            print("Looking for cached {}".format(str(query)))
+            cached = list(MODELS[modelType]().find(
+                query=query,
+                sort=[('created', SortDir.DESCENDING)]
+            ))
+            if len(cached):
+                print("Found {}/{}".format(
+                    modelType,
+                    str(cached[0].get('_id'))
+                ))
+                return(cached[0])
+            print("None found")
+        return(None)
 
     def getFromUrl(self, url, modelType, user=None, refreshCache=False):
         """
@@ -342,6 +389,7 @@ class Model(object):
                             {
                                 modelType: {
                                     **model,
+                                    'schema:url': url,
                                     'url': url
                                 }
                             }

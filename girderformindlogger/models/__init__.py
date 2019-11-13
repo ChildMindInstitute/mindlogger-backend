@@ -121,34 +121,55 @@ def pluralize(modelType):
     ))
 
 
-def smartImport(IRI, user=None, refreshCache=False, modelType='activity'):
-    import threading
+def cycleModels(modelTypes, IRIset):
+    from girderformindlogger.constants import MODELS
+
+    MODELS = MODELS()
+    modelType = modelTypes[0]
+    for i in modelTypes:
+        query = {
+            'meta.{}.url'.format(i): {
+                '$in': list(IRIset)
+            }
+        }
+        print("Looking for cached {}".format(str(query)))
+        cachedDoc = MODELS[i]().findOne(query)
+        if cachedDoc is not None:
+            modelType = i
+            break
+    return(modelType, cachedDoc)
+
+
+def smartImport(IRI, user=None, refreshCache=False, modelType=[
+    'activity', 'item'
+]):
+    from girderformindlogger.constants import MODELS, NONES
     from girderformindlogger.utility import firstLower, loadJSON
-    from girderformindlogger.utility.jsonld_expander import MODELS, \
-        contextualize, reprolibCanonize, reprolibPrefix
+    from girderformindlogger.utility.jsonld_expander import contextualize,     \
+        reprolibCanonize, reprolibPrefix
+
+    MODELS = MODELS()
 
     canonical_IRI = reprolibCanonize(IRI)
-    IRIlist = list({IRI, canonical_IRI})
-    if bool({IRI, canonical_IRI}.intersection({None, "None"})):
+    IRIset = {IRI, canonical_IRI}
+    [IRIset.discard(n) for n in NONES]
+    if bool(IRIset.intersection(NONES)):
         return((None, None, None))
     if not refreshCache:
-        cachedDoc = MODELS[modelType].findOne({
-            'meta.{}.url'.format(modelType): {
-                '$in': IRIlist
+        if not isinstance(modelType, str):
+            modelType, cachedDoc = cycleModels(modelType, IRIset)
+        else:
+            query = {
+                'meta.{}.url'.format(modelType): {
+                    '$in': list(IRIset)
+                }
             }
-        }) if modelType not in ['activity', 'item', 'screen'] else [
-            *[
-                doc for doc in [
-                    MODELS[mt].findOne({
-                        'meta.{}.url'.format(mt): {
-                            '$in': IRIlist
-                        }
-                    }) for mt in ['activity', 'screen']
-                ] if doc is not None
-            ],
-            None
-        ][0]
-        if cachedDoc:
+            print("Looking for cached {}".format(str(query)))
+            cachedDoc = MODELS[modelType]().findOne(query)
+        if cachedDoc is not None:
+            if isinstance(cachedDoc, list) and len(cachedDoc):
+                cachedDoc = cachedDoc[0]
+            print("Found {}/{}".format(modelType, str(cachedDoc['_id'])))
             modelType = modelType if modelType in list(cachedDoc.get(
                 'meta',
                 {}
@@ -158,22 +179,16 @@ def smartImport(IRI, user=None, refreshCache=False, modelType='activity'):
                 )
             ][0]
             if IRI not in [canonical_IRI, reprolibPrefix(canonical_IRI)]:
-                cachedDoc['meta'][modelType]['url'] = canonical_IRI
-                thread = threading.Thread(
-                    target=MODELS[modelType].save,
-                    args=(cachedDoc,),
-                    kwargs={"validate": False}
-                )
-                thread.start()
+                cachedDoc['meta'][modelType]['url'] = cachedDoc['meta'][
+                    modelType
+                ]['schema:url'] = canonical_IRI
+                MODELS[modelType]().save(cachedDoc, validate=False)
             return(modelType, cachedDoc, canonical_IRI)
-    print("loading {}".format(canonical_IRI))
-    model = contextualize(loadJSON(canonical_IRI))
-    atType = model.get('@type', '').split('/')[-1].split(':')[-1]
-    modelType = firstLower(atType) if len(atType) else modelType
+    print("loading {} {}".format(modelType, canonical_IRI))
     modelType = 'screen' if modelType=='field' else modelType
     return((
         modelType,
-        MODELS[modelType].getFromUrl(
+        MODELS[modelType]().getFromUrl(
             canonical_IRI,
             modelType,
             user,
