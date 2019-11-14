@@ -212,8 +212,9 @@ class Model(object):
         """
         from . import cycleModels
         from girderformindlogger.utility import firstLower, loadJSON
-        from girderformindlogger.utility.jsonld_expander import camelCase, \
-            contextualize, formatLdObject, reprolibCanonize, snake_case
+        from girderformindlogger.utility.jsonld_expander import camelCase,     \
+            contextualize, formatLdObject, reprolibCanonize, snake_case,       \
+            _fixUpFormat
 
         primary = [modelType] if isinstance(modelType, str) else [
         ] if modelType is None else modelType
@@ -250,6 +251,7 @@ class Model(object):
             atType = model.get('@type', '').split('/')[-1].split(':')[-1]
         else:
             model = cachedDoc
+        model = _fixUpFormat(model)
         modelType = firstLower(atType) if len(atType) else modelType
         modelType = 'screen' if modelType.lower(
         )=='field' else 'protocol' if modelType.lower(

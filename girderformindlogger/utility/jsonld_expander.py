@@ -290,8 +290,8 @@ def _fixUpFormat(obj):
                 newObj[reprolibPrefix(k)] = _fixUpFormat(obj[k])
             else: # bool, int, float
                 newObj[reprolibPrefix(k)] = obj[k]
-            if isinstance(obj[k], str):
-                c = reprolibCanonize(obj[k])
+            if isinstance(obj[k], str) and k not in KEYS_TO_DELANGUAGETAG:
+                c = reprolibPrefix(obj[k])
                 newObj[
                     reprolibPrefix(k)
                 ] = c if c is not None else obj[k]
