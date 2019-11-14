@@ -132,7 +132,7 @@ def addApplet(new_user, protocolUrl):
         protocolUrl,
         'protocol',
         currentUser
-    ))
+    )[0])
     randomAS = np.random.randint(1000000)
     ar = AppletModel().createApplet(
         name="testProtocol{}".format(randomAS),

@@ -292,6 +292,9 @@ def _fixUpFormat(obj):
                 newObj[reprolibPrefix(k)] = obj[k]
         if "@context" in newObj:
             newObj["@context"] = reprolibCanonize(newObj["@context"])
+        for k in ["schema:url", "http://schema.org/url"]:
+            if k in newObj:
+                newObj["url"] = newObj[k]
         return(newObj)
     elif isinstance(obj, str):
         return(reprolibPrefix(obj))
@@ -342,7 +345,11 @@ def formatLdObject(
             mesoPrefix = camelCase(mesoPrefix)
             if type(obj)==list:
                 return(_fixUpFormat([
-                    formatLdObject(o, mesoPrefix) for o in obj if o is not None
+                    formatLdObject(
+                        o,
+                        mesoPrefix,
+                        user=user
+                    ) for o in obj if o is not None
                 ]))
             if not type(obj)==dict and not dropErrors:
                 raise TypeError("JSON-LD must be an Object or Array.")
@@ -370,13 +377,29 @@ def formatLdObject(
                         protocolUrl,
                         'protocol',
                         user
-                    ),
-                    'protocol'
+                    )[0],
+                    'protocol',
+                    user
                 )) if protocolUrl is not None else {}
                 applet = {}
                 applet['activities'] = protocol.pop('activities', {})
                 applet['items'] = protocol.pop('items', {})
-
+                applet['protocol'] = {
+                    key: protocol.get(
+                        'protocol',
+                        protocol.get(
+                            'activitySet',
+                            {}
+                        )
+                    ).pop(
+                        key
+                    ) for key in [
+                        '@type',
+                        '_id',
+                        'http://schema.org/url',
+                        'url'
+                    ] if key in list(protocol.get('protocol', {}).keys())
+                }
                 applet['applet'] = {
                     **protocol.pop('protocol', {}),
                     **obj.get('meta', {}).get(mesoPrefix, {}),
@@ -403,14 +426,14 @@ def formatLdObject(
                 try:
                     protocol = componentImport(
                         newObj,
-                        protocol.copy(),
+                        deepcopy(protocol),
                         user,
                         refreshCache=refreshCache
                     )
                 except:
                     protocol = componentImport(
                         newObj,
-                        protocol.copy(),
+                        deepcopy(protocol),
                         user,
                         refreshCache=True
                     )
@@ -420,13 +443,15 @@ def formatLdObject(
                 ]
                 newItems = [
                     i for i in protocol.get('items', {}).keys(
-                    ) if i not in  itemsNow
+                    ) if i not in itemsNow
                 ]
                 while(any([len(newActivities), len(newItems)])):
-                    for activityURL, activity in deepcopy(protocol).get(
-                        'activities',
-                        {}
-                    ).items():
+                    activitiesNow = set(
+                        protocol.get('activities', {}).keys()
+                    )
+                    itemsNow = set(protocol.get('items', {}).keys())
+                    for activityURL in newActivities:
+                        activity = protocol['activities'][activityURL]
                         activity = activity.get(
                             'meta',
                             {}
@@ -445,38 +470,36 @@ def formatLdObject(
                                 user,
                                 refreshCache=True
                             )
-                        activitiesNow = set(
-                            protocol.get('activities', {}).keys()
-                        )
-                        itemsNow = set(protocol.get('items', {}).keys())
-                        for activityURL, activity in deepcopy(protocol).get(
-                            'activities',
+                    for itemURL in newItems:
+                        activity = protocol['items'][itemURL]
+                        activity = activity.get(
+                            'meta',
                             {}
-                        ).items():
-                            try:
-                                protocol = componentImport(
-                                    deepcopy(activity),
-                                    deepcopy(protocol),
-                                    user,
-                                    refreshCache=refreshCache
-                                )
-                            except:
-                                protocol = componentImport(
-                                    deepcopy(activity),
-                                    deepcopy(protocol),
-                                    user,
-                                    refreshCache=True
-                                )
-                            newActivities = list(
-                                set(
-                                    protocol.get('activities', {}).keys()
-                                ) - activitiesNow
+                        ).get('screen', activity)
+                        try:
+                            protocol = componentImport(
+                                deepcopy(activity),
+                                deepcopy(protocol),
+                                user,
+                                refreshCache=refreshCache
                             )
-                            newItems = list(
-                                set(
-                                    protocol.get('items', {}).keys()
-                                ) - itemsNow
+                        except:
+                            protocol = componentImport(
+                                deepcopy(activity),
+                                deepcopy(protocol),
+                                user,
+                                refreshCache=True
                             )
+                    newActivities = list(
+                        set(
+                            protocol.get('activities', {}).keys()
+                        ) - activitiesNow
+                    )
+                    newItems = list(
+                        set(
+                            protocol.get('items', {}).keys()
+                        ) - itemsNow
+                    )
                 return(_fixUpFormat(protocol))
             else:
                 return(_fixUpFormat(newObj))
@@ -546,8 +569,7 @@ def componentImport(
                         smartImport(
                             IRI,
                             user=user,
-                            refreshCache=refreshCache,
-                            modelType=modelType
+                            refreshCache=refreshCache
                         ) if IRI is not None else (None, None, None)
                     if IRI != canonicalIRI:
                         activity["url"] = activity["schema:url"] = canonicalIRI

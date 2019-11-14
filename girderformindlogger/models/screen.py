@@ -114,7 +114,7 @@ class Screen(Item):
         returns that screen.
         """
         print("loading {}".format(url))
-        return(self.getFromUrl(url, 'screen', user, refreshCache))
+        return(self.getFromUrl(url, 'screen', user, refreshCache)[0])
 
 
     def load(self, id, level=AccessType.ADMIN, user=None, refreshCache=False):
@@ -124,6 +124,6 @@ class Screen(Item):
         except AttributeError:
             url = None
         if url:
-            return(self.getFromUrl(url, 'screen', user, refreshCache))
+            return(self.getFromUrl(url, 'screen', user, refreshCache)[0])
         else:
             return(doc)

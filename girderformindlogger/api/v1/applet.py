@@ -161,7 +161,7 @@ class Applet(Resource):
                 'protocol',
                 thisUser,
                 refreshCache=refreshCache
-            ))
+            )[0])
         # create an applet for it
         applet=AppletModel().createApplet(
             name=name if name is not None and len(name) else ProtocolModel(
@@ -409,7 +409,7 @@ class Applet(Resource):
             'applet',
             user=thisUser,
             refreshCache=refreshCache
-        )
+        )[0]
         return(
             _invite(
                 applet=thisApplet,
@@ -749,7 +749,7 @@ def _setConstraints(applet, activity, schedule, user, refreshCache=False):
             'activity',
             thisUser,
             refreshCache
-        )
+        )[0]
     except:
         activityLoaded = ActivityModel().load(
             activity,

@@ -141,6 +141,7 @@ def cycleModels(IRIset, modelType=None):
                 break
     if cachedDoc is None:
         return(None, None)
+    print("Found {}/{}".format(modelType, str(cachedDoc['_id'])))
     return(modelType, cachedDoc)
 
 
@@ -171,40 +172,18 @@ def lookForCached(modelType, IRIset):
 
 
 def smartImport(IRI, user=None, refreshCache=False, modelType=None):
-    from girderformindlogger.constants import HIERARCHY, MODELS, NONES
-    from girderformindlogger.utility import firstLower, loadJSON
-    from girderformindlogger.utility.jsonld_expander import contextualize,     \
-        reprolibCanonize, reprolibPrefix
+    from girderformindlogger.constants import MODELS
+    from girderformindlogger.utility.jsonld_expander import reprolibCanonize
 
     MODELS = MODELS()
-    canonical_IRI = reprolibCanonize(IRI)
-    IRIset = {IRI, canonical_IRI}
-    [IRIset.discard(n) for n in NONES]
-    if bool(IRIset.intersection(NONES)):
-        return((None, None, None))
-    if not refreshCache:
-        modelType, cachedDoc = cycleModels(IRIset, modelType)
-        if cachedDoc is not None:
-            if isinstance(cachedDoc, list) and len(cachedDoc):
-                cachedDoc = cachedDoc[0]
-            print("Found {}/{}".format(modelType, str(cachedDoc['_id'])))
-            return(
-                modelType,
-                cachedDoc.get(
-                    "cached",
-                    cachedDoc["meta"][modelType]
-                ),
-                canonical_IRI
-            )
-    print("loading {} {}".format(modelType, canonical_IRI))
-    modelType = 'screen' if modelType=='field' else modelType
+
+    model, modelType = MODELS['screen']().getFromUrl(
+        IRI,
+        user=user,
+        refreshCache=refreshCache
+    )
     return((
         modelType,
-        MODELS[modelType]().getFromUrl(
-            canonical_IRI,
-            modelType,
-            user,
-            refreshCache
-        ),
-        canonical_IRI
+        model,
+        reprolibCanonize(IRI)
     ))

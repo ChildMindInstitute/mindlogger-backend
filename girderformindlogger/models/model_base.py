@@ -198,7 +198,7 @@ class Model(object):
 
         return self.filterDocument(doc, allow=keys)
 
-    def getFromUrl(self, url, modelType, user=None, refreshCache=False):
+    def getFromUrl(self, url, modelType=None, user=None, refreshCache=False):
         """
         Loads from a URL and saves to the DB, returning the loaded model.
 
@@ -208,35 +208,45 @@ class Model(object):
         :type modelType: str
         :param refreshCache: Refresh from Dereferencing URLs?
         :type refreshCache: bool
-        :returns: dict or None
+        :returns: (dict, str) or (None, None)
         """
         from . import cycleModels
         from girderformindlogger.utility import firstLower, loadJSON
         from girderformindlogger.utility.jsonld_expander import camelCase, \
             contextualize, formatLdObject, reprolibCanonize, snake_case
 
-        if user==None:
-            raise AccessException(
-                "You must be logged in to load a{} by url".format(
-                    "n {}".format(
-                        modelType
-                    ) if modelType[0] in [
-                        'a', 'e', 'h', 'i', 'o'
-                    ] else " {}".format(modelType)
-                )
-            )
+        primary = [modelType] if isinstance(modelType, str) else [
+        ] if modelType is None else modelType
+        modelType = modelType if isinstance(
+            modelType,
+            str
+        ) else "external JSON-LD document" if modelType is None else modelType[
+            0
+        ]
         passedUrl = url
         url = reprolibCanonize(url)
         if url is None:
             raise ResourcePathNotFound("Document not found: {}".format(str(
                 passedUrl
             )))
-        atType, cachedDoc = cycleModels({url, passedUrl})
+        atType, cachedDoc = cycleModels({url, passedUrl}, modelType=primary)
         if cachedDoc is None:
+            if user==None:
+                raise AccessException(
+                    "You must be logged in to load a{} by url".format(
+                        "n {}".format(
+                            modelType
+                        ) if modelType[0] in [
+                            'a', 'e', 'h', 'i', 'o'
+                        ] else " {}".format(modelType)
+                    )
+                )
             model = contextualize(loadJSON(
                 url,
                 modelType
             ))
+            if model is None:
+                return(None, None)
             atType = model.get('@type', '').split('/')[-1].split(':')[-1]
         else:
             model = cachedDoc
@@ -248,7 +258,7 @@ class Model(object):
         prefName = self.preferredName(model)
         if cachedDoc and not changedModel:
             if not refreshCache:
-                return(cachedDoc)
+                return(cachedDoc, modelType)
             provenenceProps = [
                 'schema:isBasedOn',
                 'prov:wasRevisionOf'
@@ -309,7 +319,8 @@ class Model(object):
                             ),
                             modelType,
                             user
-                        )
+                        ),
+                        modelType
                     )
                 elif self.name=='item':
                     return(
@@ -339,9 +350,10 @@ class Model(object):
                             ),
                             modelType,
                             user
-                        )
+                        ),
+                        modelType
                     )
-        return(cachedDoc)
+        return(cachedDoc, modelType)
 
 
     def getModelCollection(self, modelType):

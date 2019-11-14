@@ -101,7 +101,7 @@ class Applet(Folder):
             str(applet.get('_id', ''))
         )
 
-        print(appletGroupName)
+        print("Name: {}".format(appletGroupName))
         # Create user groups
         for role in USER_ROLES.keys():
             try:
@@ -385,7 +385,7 @@ class Applet(Folder):
 
         Deprecated.
         """
-        return(self.getFromUrl(url, 'applet', user, refreshCache))
+        return(self.getFromUrl(url, 'applet', user, refreshCache)[0])
 
     def load(self, id, level=AccessType.ADMIN, user=None, objectId=True,
              force=False, fields=None, exc=False):
