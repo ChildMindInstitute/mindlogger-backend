@@ -224,6 +224,11 @@ def expand(obj, keepUndefined=False):
                     newObj[k] = delanguageTag(
                         v
                     ) if k in KEYS_TO_DELANGUAGETAG else reprolibPrefix(v)
+        if k in KEYS_TO_DELANGUAGETAG:
+            if k in newObj:
+                newObj[k] = reprolibCanonize(
+                    delanguageTag(newObj[k])
+                )
         return(_fixUpFormat(newObj) if bool(newObj) else None)
     else:
         expanded = [expand(n, keepUndefined) for n in newObj]
@@ -327,7 +332,6 @@ def formatLdObject(
     from girderformindlogger.models import pluralize
 
     try:
-        print(mesoPrefix)
         if obj is None:
             return(None)
         elif isinstance(obj, dict) and 'meta' not in obj.keys():

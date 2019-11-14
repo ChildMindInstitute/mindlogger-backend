@@ -42,7 +42,7 @@ KEYS_TO_DELANGUAGETAG = list(itertools.chain.from_iterable([[
     k
 ] for k in [
     "contentUrl",
-    "encodingFormat"
+    "encodingFormat",
     "image",
     "url"
 ]]))
