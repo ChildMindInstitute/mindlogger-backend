@@ -210,9 +210,11 @@ class Model(object):
         :type refreshCache: bool
         :returns: dict or None
         """
+        from . import cycleModels
         from girderformindlogger.utility import firstLower, loadJSON
         from girderformindlogger.utility.jsonld_expander import camelCase, \
             contextualize, formatLdObject, reprolibCanonize, snake_case
+
         if user==None:
             raise AccessException(
                 "You must be logged in to load a{} by url".format(
@@ -229,12 +231,15 @@ class Model(object):
             raise ResourcePathNotFound("Document not found: {}".format(str(
                 passedUrl
             )))
-        cachedDoc = None
-        model = cachedDoc if cachedDoc is not None else contextualize(loadJSON(
-            url,
-            modelType
-        ))
-        atType = model.get('@type', '').split('/')[-1].split(':')[-1]
+        atType, cachedDoc = cycleModels({url, passedUrl})
+        if cachedDoc is None:
+            model = contextualize(loadJSON(
+                url,
+                modelType
+            ))
+            atType = model.get('@type', '').split('/')[-1].split(':')[-1]
+        else:
+            model = cachedDoc
         modelType = firstLower(atType) if len(atType) else modelType
         modelType = 'screen' if modelType.lower(
         )=='field' else 'protocol' if modelType.lower(

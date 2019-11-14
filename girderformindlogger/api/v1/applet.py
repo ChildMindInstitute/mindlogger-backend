@@ -168,8 +168,6 @@ class Applet(Resource):
             ).preferredName(
                 protocol
             ),
-            # below is so it doesn't break on older applets that didn't have
-            # activity set URLs
             protocol={
                 '_id': 'protocol/{}'.format(protocol.get('_id')),
                 'url': protocol.get(
@@ -182,7 +180,7 @@ class Applet(Resource):
             },
             user=thisUser
         )
-        return(applet) # TODO: update formatLdObject to reflect new structure
+        return(applet)
 
     @access.user(scope=TokenScope.DATA_WRITE)
     @autoDescribeRoute(

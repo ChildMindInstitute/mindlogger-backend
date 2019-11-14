@@ -121,7 +121,7 @@ def pluralize(modelType):
     ))
 
 
-def cycleModels(IRIset, modelType):
+def cycleModels(IRIset, modelType=None):
     from girderformindlogger.constants import HIERARCHY
 
     cachedDoc = None
@@ -191,7 +191,7 @@ def smartImport(IRI, user=None, refreshCache=False, modelType=None):
             return(
                 modelType,
                 cachedDoc.get(
-                    "cachedR",
+                    "cached",
                     cachedDoc["meta"][modelType]
                 ),
                 canonical_IRI

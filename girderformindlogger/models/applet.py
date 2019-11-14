@@ -95,11 +95,13 @@ class Applet(Folder):
                 ) else {}
             }
         )
+
         appletGroupName = "Default {} ({})".format(
             name,
             str(applet.get('_id', ''))
         )
 
+        print(appletGroupName)
         # Create user groups
         for role in USER_ROLES.keys():
             try:
@@ -130,6 +132,12 @@ class Applet(Folder):
                 currentUser=user,
                 force=False
             )
+
+        return(jsonld_expander.formatLdObject(
+            applet,
+            'applet',
+            user
+        ))
         return(self.formatThenUpdate(
             applet,
             user
