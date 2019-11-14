@@ -82,6 +82,11 @@ def reprolibPrefix(s):
         for prefix in REPROLIB_PREFIXES:
             if s.startswith(prefix) and s!=prefix:
                 return(s.replace(prefix, 'reprolib:'))
+    elif isinstance(s, dict):
+        for k in s.keys():
+            s[k] = reprolibPrefix(s[k])
+    elif isinstance(s, list):
+        s = [reprolibPrefix(li) for li in s]
     return(s)
 
 
