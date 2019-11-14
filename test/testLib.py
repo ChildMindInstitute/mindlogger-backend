@@ -575,6 +575,8 @@ def postResponse(user, actURI, itemURI, appletObject, password="password"):
         user=currentUser,
         level=AccessType.READ
     )
+    if activity is None:
+        activity = ActivityModel().getFromUrl(actURI, modelType='activity', user=currentUser)
     metadata['applet'] = {
         "@id": applet.get('_id'),
         "name": AppletModel().preferredName(applet),
