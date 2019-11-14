@@ -279,17 +279,17 @@ def _fixUpFormat(obj):
                 newObj[reprolibPrefix(k)] = reprolibCanonize(
                     delanguageTag(obj[k])
                 )
-            if isinstance(obj[k], str):
-                c = reprolibCanonize(obj[k])
-                newObj[
-                    reprolibPrefix(k)
-                ] = c if c is not None else obj[k]
             elif isinstance(obj[k], list):
                 newObj[reprolibPrefix(k)] = [_fixUpFormat(li) for li in obj[k]]
             elif isinstance(obj[k], dict):
                 newObj[reprolibPrefix(k)] = _fixUpFormat(obj[k])
             else: # bool, int, float
                 newObj[reprolibPrefix(k)] = obj[k]
+            if isinstance(obj[k], str):
+                c = reprolibCanonize(obj[k])
+                newObj[
+                    reprolibPrefix(k)
+                ] = c if c is not None else obj[k]
         if "@context" in newObj:
             newObj["@context"] = reprolibCanonize(newObj["@context"])
         for k in ["schema:url", "http://schema.org/url"]:
