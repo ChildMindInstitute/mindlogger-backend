@@ -99,6 +99,12 @@ REPROLIB_PREFIXES = [
     "reproterms:"
 ]
 
+REPROLIB_TYPES = {
+    'activity': 'reprolib:schemas/Activity',
+    'protocol': 'reprolib:schemas/ActivitySet',
+    'screen': 'reprolib:schemas/Field'
+}
+
 SPECIAL_SUBJECTS = {"ALL", "NONE"}
 
 USER_ROLES = {

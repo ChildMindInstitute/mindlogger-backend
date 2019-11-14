@@ -121,69 +121,81 @@ def pluralize(modelType):
     ))
 
 
-def cycleModels(modelTypes, IRIset):
-    from girderformindlogger.constants import MODELS
+def cycleModels(IRIset, modelType):
+    from girderformindlogger.constants import HIERARCHY
 
-    MODELS = MODELS()
-    modelType = modelTypes[0]
-    for i in modelTypes:
-        query = {
-            'meta.{}.url'.format(i): {
-                '$in': list(IRIset)
-            }
-        }
-        print("Looking for cached {}".format(str(query)))
-        cachedDoc = MODELS[i]().findOne(query)
+    cachedDoc = None
+    primary = [modelType] if isinstance(modelType, str) else [
+    ] if modelType is None else modelType
+    secondary = [m for m in HIERARCHY if m not in primary]
+    for i in primary:
+        cachedDoc = lookForCached(i, IRIset)
         if cachedDoc is not None:
             modelType = i
             break
+    if cachedDoc is None:
+        for i in secondary:
+            cachedDoc = lookForCached(i, IRIset)
+            if cachedDoc is not None:
+                modelType = i
+                break
+    if cachedDoc is None:
+        return(None, None)
     return(modelType, cachedDoc)
 
 
-def smartImport(IRI, user=None, refreshCache=False, modelType=[
-    'activity', 'item'
-]):
-    from girderformindlogger.constants import MODELS, NONES
+def lookForCached(modelType, IRIset):
+    from girderformindlogger.constants import MODELS, REPROLIB_TYPES
+    from girderformindlogger.utility.jsonld_expander import reprolibCanonize
+
+    MODELS = MODELS()
+    query = {
+        'meta.{}.url'.format(modelType): {
+            '$in': list(IRIset)
+        }
+    }
+    if modelType in REPROLIB_TYPES.keys():
+        suffix = REPROLIB_TYPES[modelType].split('/')[-1]
+        query['meta.{}.@type'.format(modelType)] = {
+            "$in": [t for t in [
+                reprolibCanonize(
+                    REPROLIB_TYPES[modelType]
+                ),
+                'reproschema:{}'.format(suffix),
+                suffix
+            ] if t is not None]
+        }
+    print("Looking for cached {} {}".format(modelType, str(IRIset)))
+    cachedDoc = MODELS[modelType]().findOne(query)
+    return(cachedDoc)
+
+
+def smartImport(IRI, user=None, refreshCache=False, modelType=None):
+    from girderformindlogger.constants import HIERARCHY, MODELS, NONES
     from girderformindlogger.utility import firstLower, loadJSON
     from girderformindlogger.utility.jsonld_expander import contextualize,     \
         reprolibCanonize, reprolibPrefix
 
     MODELS = MODELS()
-
     canonical_IRI = reprolibCanonize(IRI)
     IRIset = {IRI, canonical_IRI}
     [IRIset.discard(n) for n in NONES]
     if bool(IRIset.intersection(NONES)):
         return((None, None, None))
     if not refreshCache:
-        if not isinstance(modelType, str):
-            modelType, cachedDoc = cycleModels(modelType, IRIset)
-        else:
-            query = {
-                'meta.{}.url'.format(modelType): {
-                    '$in': list(IRIset)
-                }
-            }
-            print("Looking for cached {}".format(str(query)))
-            cachedDoc = MODELS[modelType]().findOne(query)
+        modelType, cachedDoc = cycleModels(IRIset, modelType)
         if cachedDoc is not None:
             if isinstance(cachedDoc, list) and len(cachedDoc):
                 cachedDoc = cachedDoc[0]
             print("Found {}/{}".format(modelType, str(cachedDoc['_id'])))
-            modelType = modelType if modelType in list(cachedDoc.get(
-                'meta',
-                {}
-            ).keys()) else [
-                k for k in list(cachedDoc['meta'].keys()) if k in list(
-                    MODELS.keys()
-                )
-            ][0]
-            if IRI not in [canonical_IRI, reprolibPrefix(canonical_IRI)]:
-                cachedDoc['meta'][modelType]['url'] = cachedDoc['meta'][
-                    modelType
-                ]['schema:url'] = canonical_IRI
-                MODELS[modelType]().save(cachedDoc, validate=False)
-            return(modelType, cachedDoc, canonical_IRI)
+            return(
+                modelType,
+                cachedDoc.get(
+                    "cachedR",
+                    cachedDoc["meta"][modelType]
+                ),
+                canonical_IRI
+            )
     print("loading {} {}".format(modelType, canonical_IRI))
     modelType = 'screen' if modelType=='field' else modelType
     return((

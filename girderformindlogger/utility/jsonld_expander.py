@@ -369,18 +369,12 @@ def formatLdObject(
                         )
                     )
                 )
-                protocol = formatLdObject(
-                    ProtocolModel().getFromUrl(
-                        protocolUrl,
-                        'protocol',
-                        user
-                    ),
+                protocol = ProtocolModel().getFromUrl(
+                    protocolUrl,
                     'protocol',
-                    user,
-                    keepUndefined,
-                    dropErrors,
-                    refreshCache
+                    user
                 ) if protocolUrl is not None else {}
+                print(protocol)
                 applet = {}
                 applet['activities'] = protocol.pop('activities', {})
                 applet['items'] = protocol.pop('items', {})
@@ -446,14 +440,14 @@ def formatLdObject(
                         user,
                         refreshCache=True
                     )
-                newActivities = list(
-                    set(
-                        protocol.get('activities', {}).keys()
-                    ) - activitiesNow
-                )
-                newItems = list(
-                    set(protocol.get('items', {}).keys()) - itemsNow
-                )
+                newActivities = [
+                    a for a in protocol.get('activities', {}).keys(
+                    ) if a not in activitiesNow
+                ]
+                newItems = [
+                    i for i in protocol.get('items', {}).keys(
+                    ) if i not in  itemsNow
+                ]
                 while(len(newActivities)):
                     for activityURL, activity in deepcopy(protocol).get(
                         'activities',
@@ -594,27 +588,12 @@ def componentImport(
                     'url',
                     activity.get('@id')
                 )
-                if not isinstance(modelType, str):
-                    for i in modelType:
-                        activityComponent, activityContent, canonicalIRI = \
-                            smartImport(
-                                IRI,
-                                user=user,
-                                refreshCache=refreshCache,
-                                modelType=i
-                            ) if IRI is not None else (None, None, None)
-                        if activityContent is not None:
-                            modelType = i
-                            break
-                    modelType='activity'
-                else:
-                    activityComponent, activityContent, canonicalIRI = \
-                        smartImport(
-                            IRI,
-                            user=user,
-                            refreshCache=refreshCache,
-                            modelType=modelType
-                        ) if IRI is not None else (None, None, None)
+                activityComponent, activityContent, canonicalIRI = smartImport(
+                    IRI,
+                    user=user,
+                    refreshCache=refreshCache,
+                    modelType=modelType
+                ) if IRI is not None else (None, None, None)
                 if IRI != canonicalIRI:
                     activity["url"] = activity["schema:url"] = canonicalIRI
                 activityComponent = pluralize(firstLower(

@@ -198,99 +198,6 @@ class Model(object):
 
         return self.filterDocument(doc, allow=keys)
 
-    def getCached(self, url, modelType=['activity', 'item']):
-        """
-        Returns the latest cached version of model `modelType` with URL `url`,
-        if any.
-
-        :param url: URL
-        :type url: str
-        :param modelType: 'activity', 'screen', etc.
-        :type modelType: str or iterable
-        :returns: dict or None
-        """
-        from girderformindlogger.constants import MODELS
-        from girderformindlogger.utility.jsonld_expander import reprolibCanonize
-
-        MODELS = MODELS()
-
-        if not isinstance(modelType, str):
-            for i in modelType:
-                query = {
-                    'meta.{}.url'.format(i): url,
-                    'meta.protocol.@type': {
-                        "$in": [t for t in [
-                            reprolibCanonize(
-                                'reprolib:schemas/ActivitySet'
-                            ),
-                            'reproschema:ActivitySet',
-                            'ActivitySet',
-                            reprolibCanonize(
-                                'reprolib:schemas/Protocol'
-                            ),
-                            'reproschema:Protocol',
-                            'Protocol'
-                        ] if t is not None]
-                    }
-                } if i in {"activitySet", "protocol"} else {
-                    'meta.{}.url'.format(i): {
-                        "$in": list({
-                            url,
-                            reprolibCanonize(url)
-                        })
-                    }
-                }
-                print("Looking for cached {}".format(str(query)))
-                cached = list(MODELS[i]().find(
-                    query=query,
-                    sort=[('created', SortDir.DESCENDING)]
-                ))
-                if len(cached):
-                    print("Found {}/{}".format(
-                        i,
-                        str(cached[0].get('_id'))
-                    ))
-                    return(cached[0])
-                print("None found")
-        else:
-            query = {
-                'meta.{}.url'.format(modelType): url,
-                'meta.protocol.@type': {
-                    "$in": [t for t in [
-                        reprolibCanonize(
-                            'reprolib:schemas/ActivitySet'
-                        ),
-                        'reproschema:ActivitySet',
-                        'ActivitySet',
-                        reprolibCanonize(
-                            'reprolib:schemas/Protocol'
-                        ),
-                        'reproschema:Protocol',
-                        'Protocol'
-                    ] if t is not None]
-                }
-            } if modelType in {"activitySet", "protocol"} else {
-                'meta.{}.url'.format(modelType): {
-                    "$in": list({
-                        url,
-                        reprolibCanonize(url)
-                    })
-                }
-            }
-            print("Looking for cached {}".format(str(query)))
-            cached = list(MODELS[modelType]().find(
-                query=query,
-                sort=[('created', SortDir.DESCENDING)]
-            ))
-            if len(cached):
-                print("Found {}/{}".format(
-                    modelType,
-                    str(cached[0].get('_id'))
-                ))
-                return(cached[0])
-            print("None found")
-        return(None)
-
     def getFromUrl(self, url, modelType, user=None, refreshCache=False):
         """
         Loads from a URL and saves to the DB, returning the loaded model.
@@ -305,7 +212,7 @@ class Model(object):
         """
         from girderformindlogger.utility import firstLower, loadJSON
         from girderformindlogger.utility.jsonld_expander import camelCase, \
-            contextualize, reprolibCanonize, snake_case
+            contextualize, formatLdObject, reprolibCanonize, snake_case
         if user==None:
             raise AccessException(
                 "You must be logged in to load a{} by url".format(
@@ -322,7 +229,7 @@ class Model(object):
             raise ResourcePathNotFound("Document not found: {}".format(str(
                 passedUrl
             )))
-        cachedDoc = self.getCached(passedUrl, modelType)
+        cachedDoc = None
         model = cachedDoc if cachedDoc is not None else contextualize(loadJSON(
             url,
             modelType
@@ -332,7 +239,7 @@ class Model(object):
         modelType = 'screen' if modelType.lower(
         )=='field' else 'protocol' if modelType.lower(
         )=='activityset' else modelType
-        changedModel = atType != modelType and len(atType)
+        changedModel = (atType != modelType and len(atType))
         prefName = self.preferredName(model)
         if cachedDoc and not changedModel:
             if not refreshCache:
@@ -384,41 +291,49 @@ class Model(object):
                 )
                 if self.name=='folder':
                     return(
-                        self.setMetadata(
-                            docFolder,
-                            {
-                                modelType: {
-                                    **model,
-                                    'schema:url': url,
-                                    'url': url
+                        formatLdObject(
+                            self.setMetadata(
+                                docFolder,
+                                {
+                                    modelType: {
+                                        **model,
+                                        'schema:url': url,
+                                        'url': url
+                                    }
                                 }
-                            }
+                            ),
+                            modelType,
+                            user
                         )
                     )
                 elif self.name=='item':
                     return(
-                        self.setMetadata(
-                            self.createItem(
-                                name=prefName if prefName else str(len(list(
-                                    FolderModel().childItems(
-                                        FolderModel().load(
-                                            docFolder,
-                                            level=None,
-                                            user=user,
-                                            force=True
+                        formatLdObject(
+                            self.setMetadata(
+                                self.createItem(
+                                    name=prefName if prefName else str(len(list(
+                                        FolderModel().childItems(
+                                            FolderModel().load(
+                                                docFolder,
+                                                level=None,
+                                                user=user,
+                                                force=True
+                                            )
                                         )
-                                    )
-                                )) + 1),
-                                creator=user,
-                                folder=docFolder,
-                                reuseExisting=False
-                            ),
-                            {
-                                modelType: {
-                                    **model,
-                                    'url': url
+                                    )) + 1),
+                                    creator=user,
+                                    folder=docFolder,
+                                    reuseExisting=False
+                                ),
+                                {
+                                    modelType: {
+                                        **model,
+                                        'url': url
+                                    }
                                 }
-                            }
+                            ),
+                            modelType,
+                            user
                         )
                     )
         return(cachedDoc)
