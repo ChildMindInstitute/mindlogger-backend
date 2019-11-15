@@ -14,6 +14,8 @@ from girderformindlogger.models.activity import Activity as ActivityModel
 from girderformindlogger.models.applet import Applet as AppletModel
 from girderformindlogger.models.folder import Folder
 from girderformindlogger.models.group import Group
+from girderformindlogger.models.invitation import Invitation
+from girderformindlogger.models.profile import Profile
 from girderformindlogger.models.protocol import Protocol as ProtocolModel
 from girderformindlogger.models.response_folder import ResponseFolder as       \
     ResponseFolderModel, ResponseItem as ResponseItemModel
@@ -396,9 +398,19 @@ def inviteUserToApplet(user, appletObject, userB):
     userB: a user object of a user you want to invite. If they aren't
     defined yet, it should be a dict(email="emailaddress")
     """
+
     groupId = appletObject['roles']['user']['groups'][0]['id']
     currentUser = authenticate(user)
     group = Group().load(id=ObjectId(groupId), force=True)
+
+    invitation = Invitation().createInvitation(
+        appletObject,
+        currentUser,
+        role="user",
+        profile=Profile().createProfile(appletObject, userB),
+        idCode=None
+    )
+    print(invitation)
     return Group().inviteUser(group, userB, level=AccessType.READ)
     # inviteResp = girder.post('group/{}/invitation'.format(groupId), {
     #     "email": userB['email']

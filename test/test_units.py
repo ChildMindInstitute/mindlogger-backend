@@ -1,7 +1,6 @@
 # unit tests
 import pytest
 from girderformindlogger.constants import REPROLIB_CANONICAL
-from girderformindlogger.utility.jsonld_expander import dereference
 
 testInput = {
     "http://schema.org/about": [
@@ -28,4 +27,5 @@ testOutput = {
     [(testInput, testOutput)]
 )
 def testDereference(args):
+    from girderformindlogger.utility.jsonld_expander import dereference
     assert dereference(testInput)==testOutput, 'Dereferencing failed.'
