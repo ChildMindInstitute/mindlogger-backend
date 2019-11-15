@@ -325,7 +325,9 @@ class Applet(Folder):
                     query={'parentId': applet['_id']},
                     fields=profileFields)
                 ),
-                'pending': list(Invitation().find(query={'parentId': applet['_id']})) # TODO
+                'pending': list(
+                    Invitation().find(query={'appletId': applet['_id']})
+                )
             }
 
             if len(userDict['active']):
