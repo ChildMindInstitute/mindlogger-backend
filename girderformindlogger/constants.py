@@ -47,6 +47,12 @@ KEYS_TO_DELANGUAGETAG = list(itertools.chain.from_iterable([[
     "url"
 ]]))
 
+KEYS_TO_DEREFERENCE = [
+    'schema:about',
+    'http://schema.org/about',
+    *KEYS_TO_DELANGUAGETAG
+]
+
 KEYS_TO_EXPAND = [
     "responseOptions",
     "https://schema.repronim.org/valueconstraints",

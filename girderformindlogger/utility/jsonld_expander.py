@@ -2,8 +2,8 @@ from bson import json_util
 from copy import deepcopy
 from datetime import datetime
 from girderformindlogger.constants import AccessType, HIERARCHY,               \
-    KEYS_TO_DELANGUAGETAG, KEYS_TO_EXPAND, MODELS, REPROLIB_CANONICAL,         \
-    REPROLIB_PREFIXES
+    KEYS_TO_DELANGUAGETAG, KEYS_TO_DEREFERENCE, KEYS_TO_EXPAND, MODELS,        \
+    REPROLIB_CANONICAL, REPROLIB_PREFIXES
 from girderformindlogger.exceptions import AccessException,                    \
     ResourcePathNotFound, ValidationException
 from girderformindlogger.models.activity import Activity as ActivityModel
@@ -84,7 +84,9 @@ def reprolibPrefix(s):
                 return(s.replace(prefix, 'reprolib:'))
     elif isinstance(s, dict):
         for k in s.keys():
-            s[k] = reprolibPrefix(s[k])
+            s[k] = reprolibPrefix(
+                s[k]
+            ) if k not in KEYS_TO_DEREFERENCE else dereference(s[k])
     elif isinstance(s, list):
         s = [reprolibPrefix(li) for li in s]
     return(s)
@@ -187,7 +189,9 @@ def expandOneLevel(obj):
                 prefix_key = reprolibPrefix(k)
                 if prefix_key != k:
                     newObj.pop(k)
-                newObj[prefix_key] = reprolibPrefix(v)
+                newObj[prefix_key] = reprolibPrefix(
+                    v
+                ) if prefix_key not in KEYS_TO_DEREFERENCE else dereference(v)
         for k in KEYS_TO_DELANGUAGETAG:
             if k in newObj.keys(
             ) and isinstance(newObj[k], list):
@@ -199,7 +203,32 @@ def expandOneLevel(obj):
                 )
             )
         })
+        newObj.update({
+            k: dereference(newObj[k]) for k in newObj.keys(
+            ) if k in KEYS_TO_DEREFERENCE
+        })
     return(newObj)
+
+
+def dereference(prefixed):
+    """
+    Function to dereference values in given JSON.
+
+    :param prefixed: JSON to dereference
+    :type prefixed: dict, list, str, or None
+    :returns: dereferenced same-type
+    """
+    if isinstance(prefixed, str):
+        d = reprolibCanonize(prefixed)
+        return(d if d is not None else prefixed)
+    elif isinstance(prefixed, dict):
+        return({
+            k: dereference(v) for k, v in prefixed.items()
+        })
+    elif isinstance(prefixed, list):
+        return([dereference(li) for li in prefixed])
+    else: # bool, int, float, None
+        return(prefixed)
 
 
 def expand(obj, keepUndefined=False):
@@ -228,12 +257,17 @@ def expand(obj, keepUndefined=False):
                 if bool(v):
                     newObj[k] = delanguageTag(
                         v
-                    ) if k in KEYS_TO_DELANGUAGETAG else reprolibPrefix(v)
+                    ) if k in KEYS_TO_DELANGUAGETAG else dereference(
+                        v
+                    ) if k in KEYS_TO_DEREFERENCE else reprolibPrefix(v)
         if k in KEYS_TO_DELANGUAGETAG:
             if k in newObj:
                 newObj[k] = reprolibCanonize(
                     delanguageTag(newObj[k])
                 )
+        if k in KEYS_TO_DEREFERENCE:
+            if k in newObj:
+                newObj[k] = dereference(newObj[k])
         return(_fixUpFormat(newObj) if bool(newObj) else None)
     else:
         expanded = [expand(n, keepUndefined) for n in newObj]
@@ -284,13 +318,15 @@ def _fixUpFormat(obj):
                 newObj[reprolibPrefix(k)] = reprolibCanonize(
                     delanguageTag(obj[k])
                 )
+            elif k in KEYS_TO_DEREFERENCE:
+                newObj[reprolibPrefix(k)] = dereference(obj[k])
             elif isinstance(obj[k], list):
                 newObj[reprolibPrefix(k)] = [_fixUpFormat(li) for li in obj[k]]
             elif isinstance(obj[k], dict):
                 newObj[reprolibPrefix(k)] = _fixUpFormat(obj[k])
             else: # bool, int, float
                 newObj[reprolibPrefix(k)] = obj[k]
-            if isinstance(obj[k], str) and k not in KEYS_TO_DELANGUAGETAG:
+            if isinstance(obj[k], str) and k not in KEYS_TO_DEREFERENCE:
                 c = reprolibPrefix(obj[k])
                 newObj[
                     reprolibPrefix(k)
