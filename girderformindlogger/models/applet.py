@@ -68,6 +68,8 @@ class Applet(Folder):
         :param constraints: Constraints to set to this Applet
         :type constraints: dict or None
         """
+        from girderformindlogger.utility import jsonld_expander
+
         if user==None:
             raise AccessException("You must be logged in to create an applet.")
         appletsCollection = CollectionModel().findOne({"name": "Applets"})
@@ -77,31 +79,10 @@ class Applet(Folder):
             CollectionModel().createCollection('Applets')
             appletsCollection = CollectionModel().findOne({"name": "Applets"})
 
-        # # check if applet exists with creator as a manager
-        applets = list(FolderModel().find({
-            "meta.actvitySet.url": protocol.get('url'),
-            "parentId": appletsCollection.get('_id')
-        }))
-        # managed = [applet for applet in applets if applet.get('_id') in [
-        #     a.get('_id') for a in list(itertools.chain.from_iterable([
-        #         list(AppletModel().find(
-        #             {
-        #                 'roles.' + role + '.groups.id': groupId,
-        #                 'meta.applet.deleted': {'$ne': True}
-        #             }
-        #         )) for groupId in user.get('groups', [])
-        #     ]))
-        # ]]
-        #
-        # if len(managed):
-        #     return(managed)
-
-        # check if applet needs updated
-
         # create new applet
 
-        applet = FolderModel().setMetadata(
-            folder=FolderModel().createFolder(
+        applet = self.setMetadata(
+            folder=self.createFolder(
                 parent=appletsCollection,
                 name=name,
                 parentType='collection',
@@ -121,6 +102,7 @@ class Applet(Folder):
             name,
             str(applet.get('_id', ''))
         )
+
         # Create user groups
         for role in USER_ROLES.keys():
             try:
@@ -151,7 +133,51 @@ class Applet(Folder):
                 currentUser=user,
                 force=False
             )
-        return(applet)
+        thread = threading.Thread(
+            target=self.formatThenUpdate,
+            args=(
+                applet,
+                user
+            )
+        )
+        thread.start()
+        return({
+            "_id": applet.get("_id"),
+            "applet": {
+                **self.unexpanded(applet),
+                "name": self.preferredName(applet),
+                "note - loading": "Your applet is being expanded on the "
+                "server. Check back in a few minutes to see the full content."
+                },
+            "protocol": protocol
+        })
+
+    def formatThenUpdate(self, applet, user):
+        from girderformindlogger.utility import jsonld_expander
+        jsonld_expander.formatLdObject(
+            applet,
+            'applet',
+            user
+        )
+        self.updateUserCacheAllRoles(user)
+
+    def unexpanded(self, applet):
+        return({
+            **(
+                applet.get(
+                    'cached',
+                    {}
+                ).get('applet') if isinstance(
+                    applet,
+                    dict
+                ) and 'cached' in applet else {
+                    '_id': "applet/{}".format(
+                        str(applet.get('_id'))
+                    ),
+                    **applet.get('meta', {}).get('applet', {})
+                }
+            )
+        })
 
     def getAppletGroups(self, applet, arrayOfObjects=False):
         # get role list for applet
@@ -224,6 +250,81 @@ class Applet(Folder):
             }
         ))
         return(applets if isinstance(applets, list) else [applets])
+
+    def updateUserCacheAllUsersAllRoles(self, applet, coordinator):
+        [self.updateUserCacheAllRoles(user) for user in self.getAppletUsers(
+            applet,
+            coordinator
+        )]
+
+    def updateUserCacheAllRoles(self, user):
+        [self.updateUserCache(role, user) for role in list(USER_ROLES.keys())]
+
+    def updateUserCache(self, role, user, active=True, refreshCache=False):
+        import threading
+        from girderformindlogger.utility import jsonld_expander
+
+        applets=self.getAppletsForUser(role, user, active)
+        user['cached'] = user.get('cached', {})
+        user['cached']['applets'] = user['cached'].get('applets', {})
+        user['cached']['applets'][role] = user['cached']['applets'].get(
+            role,
+            {}
+        )
+        formatted = [
+            {
+                **jsonld_expander.formatLdObject(
+                    applet,
+                    'applet',
+                    user,
+                    refreshCache=refreshCache,
+                    responseDates=False
+                ),
+                "users": self.getAppletUsers(applet, user),
+                "groups": self.getAppletGroups(
+                    applet,
+                    arrayOfObjects=True
+                )
+            } if role in ["coordinator", "manager"] else {
+                **jsonld_expander.formatLdObject(
+                    applet,
+                    'applet',
+                    user,
+                    dropErrors=True,
+                    responseDates=True if role=="user" else False,
+                    refreshCache=refreshCache
+                ),
+                "groups": [
+                    group for group in self.getAppletGroups(applet).get(
+                        role
+                    ) if ObjectId(
+                        group
+                    ) in [
+                        *user.get('groups', []),
+                        *user.get('formerGroups', []),
+                        *[invite['groupId'] for invite in [
+                            *user.get('groupInvites', []),
+                            *user.get('declinedInvites', [])
+                        ]]
+                    ]
+                ]
+            } for applet in applets if (
+                applet is not None and not applet.get(
+                    'meta',
+                    {}
+                ).get(
+                    'applet',
+                    {}
+                ).get('deleted')
+            )
+        ]
+        user['cached']['applets'].update({role: formatted})
+        thread = threading.Thread(
+            target=UserModel().save,
+            args=(user,)
+        )
+        thread.start()
+        return(formatted)
 
     def getAppletsForUser(self, role, user, active=True):
         """

@@ -18,6 +18,15 @@ from pyld import jsonld
 
 HIERARCHY = ['applet', 'protocol', 'activity', 'screen', 'item']
 
+KEYS_TO_DELANUGAGETAG = [
+    "http://schema.org/url",
+    "url",
+    "schema:url",
+    "http://schema.org/image",
+    "image",
+    "schema:image"
+]
+
 KEYS_TO_EXPAND = [
     "responseOptions",
     "https://schema.repronim.org/valueconstraints",
@@ -154,16 +163,7 @@ def delanguageTag(obj):
     return((obj if len(obj) else [{}])[-1].get("@value", ""))
 
 
-def expand(obj, keepUndefined=False):
-    """
-    Function to take an unexpanded JSON-LD Object and return it expandeds.
-
-    :param obj: unexpanded JSON-LD Object
-    :type obj: dict
-    :param keepUndefined: keep undefined-in-context terms?
-    :param keepUndefined: bool
-    :returns: list, expanded JSON-LD Array or Object
-    """
+def expandOneLevel(obj):
     if obj==None:
         return(obj)
     try:
@@ -195,7 +195,7 @@ def expand(obj, keepUndefined=False):
                             obj[k]["@context"].append(reprolibCanonize(
                                 invalidContext
                             ))
-            return(expand(obj, keepUndefined))
+            return(expandOneLevel(obj, keepUndefined))
         return(obj)
     newObj = newObj[0] if (
         isinstance(newObj, list) and len(newObj)==1
@@ -206,11 +206,10 @@ def expand(obj, keepUndefined=False):
     ):
         if not isinstance(obj, dict):
             obj={}
-        if "http://schema.org/url" in newObj.keys(
-        ) and isinstance(newObj["http://schema.org/url"], list):
-            newObj["http://schema.org/url"] = delanguageTag(
-                newObj["http://schema.org/url"]
-            )
+        for k in KEYS_TO_DELANUGAGETAG:
+            if k in newObj.keys(
+            ) and isinstance(newObj[k], list):
+                newObj[k] = delanguageTag(newObj[k])
         for k, v in deepcopy(newObj).items():
             if not bool(v):
                 newObj.pop(k)
@@ -226,6 +225,23 @@ def expand(obj, keepUndefined=False):
                 )
             )
         })
+    return(newObj)
+
+
+def expand(obj, keepUndefined=False):
+    """
+    Function to take an unexpanded JSON-LD Object and return it expandeds.
+
+    :param obj: unexpanded JSON-LD Object
+    :type obj: dict
+    :param keepUndefined: keep undefined-in-context terms?
+    :param keepUndefined: bool
+    :returns: list, expanded JSON-LD Array or Object
+    """
+    if obj==None:
+        return(obj)
+    newObj = expandOneLevel(obj)
+    if isinstance(newObj, dict):
         for k in KEYS_TO_EXPAND:
             if k in newObj.keys():
                 if isinstance(newObj.get(k), list):
@@ -236,7 +252,17 @@ def expand(obj, keepUndefined=False):
                 else:
                     v = expand(newObj[k])
                 if bool(v):
-                    newObj[k] = reprolibPrefix(v)
+                    newObj[k] = delanguageTag(
+                        v
+                    ) if k in KEYS_TO_DELANUGAGETAG else reprolibPrefix(v)
+        for k, v in deepcopy(newObj).items():
+            if not bool(v):
+                newObj.pop(k)
+            else:
+                prefix_key = reprolibPrefix(k)
+                if prefix_key != k:
+                    newObj.pop(k)
+                newObj[prefix_key] = reprolibPrefix(v)
         return(_fixUpFormat(newObj) if bool(newObj) else None)
     else:
         expanded = [expand(n, keepUndefined) for n in newObj]
@@ -284,17 +310,26 @@ def _fixUpFormat(obj):
         newObj = {}
         for k in obj.keys():
             if isinstance(obj[k], str):
-                obj[k] = reprolibPrefix(obj[k])
+                c = reprolibCanonize(obj[k])
+                obj[k] = c if c is not None else reprolibPrefix(obj[k])
             if k in [
                 "http://schema.org/contentUrl",
                 "http://schema.org/encodingFormat",
-                "http://schema.org/url"
+                "http://schema.org/url",
+                "http://schema.org/image"
             ]:
-                newObj[reprolibPrefix(k)] = _fixUpFormat(delanguageTag(obj[k]))
+                newObj[reprolibPrefix(k)] = reprolibCanonize(
+                    delanguageTag(obj[k])
+                )
             elif isinstance(obj[k], list):
                 newObj[reprolibPrefix(k)] = [_fixUpFormat(li) for li in obj[k]]
             elif isinstance(obj[k], dict):
-                newObj[reprolibPrefix(k)] = _fixUpFormat(obj[k])
+                c = reprolibCanonize(
+                    obj[k]
+                ) if isinstance(obj[k], str) else obj[k]
+                newObj[
+                    reprolibPrefix(k)
+                ] = c if c is not None else _fixUpFormat(obj[k])
             else:
                 newObj[reprolibPrefix(k)] = _fixUpFormat(reprolibPrefix(obj[k]))
         if "@context" in newObj:
@@ -336,14 +371,17 @@ def formatLdObject(
     :type responseDates: bool
     :returns: Expanded JSON-LD Object (dict or list)
     """
+    import threading
     from copy import deepcopy
-    from girderformindlogger.models import pluralize, smartImport
+    from girderformindlogger.models import pluralize
+
     try:
-        if obj is None or (
-            isinstance(obj, dict) and 'meta' not in obj.keys()
-        ):
+        if obj is None:
             return(None)
-        if "cached" in obj and not refreshCache:
+        elif isinstance(obj, dict) and 'meta' not in obj.keys():
+            print(obj.keys())
+            return(obj)
+        elif isinstance(obj, dict) and "cached" in obj and not refreshCache:
             returnObj = obj["cached"]
         else:
             mesoPrefix = camelCase(mesoPrefix)
@@ -368,14 +406,22 @@ def formatLdObject(
                 raise ResourcePathNotFound()
             newObj['_id'] = "/".join([snake_case(mesoPrefix), objID])
             if mesoPrefix=='applet':
+                protocolUrl = obj.get('meta', {}).get('protocol', obj).get(
+                    'http://schema.org/url',
+                    obj.get('meta', {}).get('protocol', obj).get(
+                        'url',
+                        obj.get('meta', {}).get('activitySet', obj).get(
+                            'http://schema.org/url',
+                            obj.get('meta', {}).get(
+                                'activitySet',
+                                obj
+                            ).get('url')
+                        )
+                    )
+                )
                 protocol = formatLdObject(
                     ProtocolModel().getFromUrl(
-                        obj.get('meta', {}).get('protocol', obj).get(
-                            'url',
-                            obj.get('meta', {}).get('activitySet', obj).get(
-                                'url'
-                            )
-                        ),
+                        protocolUrl,
                         'protocol',
                         user
                     ),
@@ -384,7 +430,7 @@ def formatLdObject(
                     keepUndefined,
                     dropErrors,
                     refreshCache
-                )
+                ) if protocolUrl is not None else {}
                 applet = {}
                 applet['activities'] = protocol.pop('activities', {})
                 applet['items'] = protocol.pop('items', {})
@@ -408,10 +454,7 @@ def formatLdObject(
                 }
 
                 applet['applet'] = {
-                    **protocol.pop('protocol', protocol.get(
-                        'activitySet',
-                        {}
-                    )),
+                    **protocol.pop('protocol', {}),
                     **obj.get('meta', {}).get(mesoPrefix, {}),
                     '_id': "/".join([snake_case(mesoPrefix), objID]),
                     'url': "#".join([
@@ -429,7 +472,11 @@ def formatLdObject(
                     **applet,
                     "prov:generatedAtTime": xsdNow()
                 }
-                AppletModel().save(obj)
+                thread = threading.Thread(
+                    target=AppletModel().save,
+                    args=(obj,),
+                    kwargs={"validate": False}
+                )
                 returnObj = applet
             elif mesoPrefix=='protocol':
                 protocol = {
@@ -439,9 +486,20 @@ def formatLdObject(
                 }
                 activitiesNow = set()
                 itemsNow = set()
-                protocol = componentImport(newObj, protocol.copy(), user)
-                print(newObj)
-                print(protocol)
+                try:
+                    protocol = componentImport(
+                        newObj,
+                        protocol.copy(),
+                        user,
+                        refreshCache=refreshCache
+                    )
+                except:
+                    protocol = componentImport(
+                        newObj,
+                        protocol.copy(),
+                        user,
+                        refreshCache=True
+                    )
                 newActivities = list(
                     set(
                         protocol.get('activities', {}).keys()
@@ -455,11 +513,24 @@ def formatLdObject(
                         'activities',
                         {}
                     ).items():
-                        protocol = componentImport(
-                            deepcopy(activity),
-                            deepcopy(protocol),
-                            user
-                        )
+                        activity = activity.get(
+                            'meta',
+                            {}
+                        ).get('activity', activity)
+                        try:
+                            protocol = componentImport(
+                                deepcopy(activity),
+                                deepcopy(protocol),
+                                user,
+                                refreshCache=refreshCache
+                            )
+                        except:
+                            protocol = componentImport(
+                                deepcopy(activity),
+                                deepcopy(protocol),
+                                user,
+                                refreshCache=True
+                            )
                         activitiesNow = set(
                             protocol.get('activities', {}).keys()
                         )
@@ -467,9 +538,20 @@ def formatLdObject(
                             'activities',
                             {}
                         ).items():
-                            protocol = componentImport(
-                                deepcopy(activity),
-                                deepcopy(protocol), user)
+                            try:
+                                protocol = componentImport(
+                                    deepcopy(activity),
+                                    deepcopy(protocol),
+                                    user,
+                                    refreshCache=refreshCache
+                                )
+                            except:
+                                protocol = componentImport(
+                                    deepcopy(activity),
+                                    deepcopy(protocol),
+                                    user,
+                                    refreshCache=True
+                                )
                             newActivities = list(
                                 set(
                                     protocol.get('activities', {}).keys()
@@ -481,9 +563,30 @@ def formatLdObject(
                         'items',
                         {}
                     ).items():
-                        protocol = componentImport(
-                            deepcopy(activity),
-                            deepcopy(protocol), user)
+                        activity = activity.get(
+                            'meta',
+                            {}
+                        ).get('activity', activity)
+                        activity = activity.get(
+                            'meta',
+                            {}
+                        ).get('item', activity)
+                        try:
+                            protocol = componentImport(
+                                deepcopy(activity),
+                                deepcopy(protocol),
+                                user,
+                                modelType='item',
+                                refreshCache=refreshCache
+                            )
+                        except:
+                            protocol = componentImport(
+                                deepcopy(activity),
+                                deepcopy(protocol),
+                                user,
+                                modelType='item',
+                                refreshCache=True
+                            )
                         newItems = list(
                             set(
                                 protocol.get('items', {}).keys()
@@ -511,7 +614,7 @@ def formatLdObject(
                 user,
                 keepUndefined,
                 dropErrors,
-                refreshCache=True,
+                refreshCache=False,
                 responseDates=responseDates
             )))
         import sys, traceback
@@ -519,12 +622,20 @@ def formatLdObject(
         print(traceback.print_tb(sys.exc_info()[2]))
 
 
-def componentImport(obj, protocol, user=None, refreshCache=True):
+def componentImport(
+    obj,
+    protocol,
+    user=None,
+    refreshCache=False,
+    modelType='activity'
+):
     """
     :returns: protocol (updated)
     """
+    import threading
     from girderformindlogger.models import pluralize, smartImport
     from girderformindlogger.utility import firstLower
+
     updatedProtocol = protocol.copy()
     obj2 = obj.copy()
     try:
@@ -533,18 +644,22 @@ def componentImport(obj, protocol, user=None, refreshCache=True):
             {}
         ):
             for activity in order.get("@list", []):
-                activityComponent, activityContent = smartImport(
-                    activity.get(
-                        'url',
-                        activity.get('@id')
-                    ),
+                IRI = activity.get(
+                    'url',
+                    activity.get('@id')
+                )
+                activityComponent, activityContent, canonicalIRI = smartImport(
+                    IRI,
                     user=user,
-                    refreshCache=refreshCache
-                ) if (
-                    'url' in activity or '@id' in activity
-                ) else (None, None)
+                    refreshCache=refreshCache,
+                    modelType=modelType
+                ) if IRI is not None else (None, None, None)
+                if IRI != canonicalIRI:
+                    activity["url"] = canonicalIRI
                 activityComponent = pluralize(firstLower(
-                    activityContent.get('@type', [''])[0].split('/')[-1]
+                    activityContent.get('@type', [''])[0].split('/')[-1].split(
+                        ':'
+                    )[-1]
                 )) if (activityComponent is None and isinstance(
                     activityContent,
                     dict
@@ -555,30 +670,35 @@ def componentImport(obj, protocol, user=None, refreshCache=True):
                             activityComponent
                         ) if activityComponent != 'screen' else 'items'
                     )
-                    updatedProtocol[activityComponents][
-                        activityContent.get(
-                            'meta',
-                            {}
-                        ).get(
-                            activityComponent,
-                            {}
-                        ).get(
+                    componentTag = activityContent.get(
+                        'meta',
+                        {}
+                    ).get(
+                        activityComponent,
+                        {}
+                    )
+                    print(componentTag)
+                    print(componentTag.keys())
+                    componentTag = componentTag.get(
+                        'http://schema.org/url',
+                        componentTag.get(
                             'url',
-                            activityContent.get(
-                                'meta',
-                                {}
-                            ).get(
-                                activityComponent,
-                                {}
-                            ).get('item', '')
+                            ''
                         )
+                    )
+                    print(componentTag)
+                    updatedProtocol[activityComponents][
+                        componentTag
                     ] = formatLdObject(
                         activityContent,
                         activityComponent,
                         user,
                         refreshCache=refreshCache
                     ).copy()
-        return(_fixUpFormat(deepcopy(updatedProtocol)))
+        return(_fixUpFormat(deepcopy(updatedProtocol.get(
+            'meta',
+            updatedProtocol
+        ).get(modelType, updatedProtocol))))
     except:
         import sys, traceback
         print("error!")

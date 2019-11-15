@@ -71,13 +71,8 @@ class Applet(Resource):
         )
     )
     def getAppletUsers(self, applet):
-        try:
-            thisUser=self.getCurrentUser()
-            return(AppletModel().getAppletUsers(applet, thisUser))
-        except:
-            import sys, traceback
-            print(sys.exc_info())
-            return({traceback.print_tb(sys.exc_info()[2])})
+        thisUser=self.getCurrentUser()
+        return(AppletModel().getAppletUsers(applet, thisUser))
 
     @access.user(scope=TokenScope.DATA_WRITE)
     @autoDescribeRoute(
@@ -198,6 +193,8 @@ class Applet(Resource):
         .errorResponse('Write access was denied for this applet.', 403)
     )
     def deactivateApplet(self, folder):
+        import threading
+
         applet = folder
         user = Applet().getCurrentUser()
         applet['meta']['applet']['deleted'] = True
@@ -206,6 +203,9 @@ class Applet(Resource):
             message = 'Successfully deactivated applet {} ({}).'.format(
                 AppletModel().preferredName(applet),
                 applet.get('_id')
+            )
+            thread = threading.Thread(
+                target=AppletModel().updateAllUserCaches(applet, user)
             )
         else:
             message = 'Could not deactivate applet {} ({}).'.format(
@@ -230,7 +230,8 @@ class Applet(Resource):
     )
     def getApplet(self, folder, refreshCache=False):
         applet = folder
-        user = Applet().getCurrentUser()
+        user = self.getCurrentUser()
+        return(applet)
         return(
             jsonld_expander.formatLdObject(
                 applet,

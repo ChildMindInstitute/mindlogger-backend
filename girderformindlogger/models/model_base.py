@@ -1512,7 +1512,10 @@ class AccessControlledModel(Model):
                 return(AccessType.READ)
             else:
                 return(AccessType.NONE)
-        elif user['admin']:
+        elif user.get('admin', False):
+            if 'admin' not in user:
+                user['admin']=True
+                self.save(user, validate=False)
             return(AccessType.ADMIN)
         else:
             access = doc.get('access', {})
