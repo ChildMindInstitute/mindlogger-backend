@@ -61,6 +61,11 @@ KEYS_TO_EXPAND = [
     "reprolib:valueconstraints"
 ]
 
+PROFILE_FIELDS = [
+    '_id',
+    'displayName'
+]
+
 def MODELS():
     from girderformindlogger.models.activity import Activity as ActivityModel
     from girderformindlogger.models.applet import Applet as AppletModel

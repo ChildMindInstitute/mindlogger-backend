@@ -410,7 +410,6 @@ def inviteUserToApplet(user, appletObject, userB):
         profile=Profile().createProfile(appletObject, userB),
         idCode=None
     )
-    print(invitation)
     return Group().inviteUser(group, userB, level=AccessType.READ)
     # inviteResp = girder.post('group/{}/invitation'.format(groupId), {
     #     "email": userB['email']

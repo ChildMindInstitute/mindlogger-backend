@@ -340,7 +340,9 @@ class Applet(Resource):
     )
     def invite(self, applet, role="user", idCode=None, profile=None):
         from girderformindlogger.models.invitation import Invitation
+        from girderformindlogger.models.profile import Profile
 
+        user = self.getCurrentUser()
         try:
             if role not in USER_ROLE_KEYS:
                 raise ValidationException(
@@ -350,13 +352,13 @@ class Applet(Resource):
 
             invitation = Invitation().createInvitation(
                 applet=applet,
-                coordinator=self.getCurrentUser(),
+                coordinator=user,
                 role="user",
                 profile=profile,
                 idCode=idCode
             )
 
-            return(invitation)
+            return(Profile().displayProfileFields(invitation, user))
         except:
             import sys, traceback
             print(sys.exc_info())

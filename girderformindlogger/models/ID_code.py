@@ -11,7 +11,7 @@ from girderformindlogger import events
 from girderformindlogger import logger
 from girderformindlogger.constants import AccessType
 from girderformindlogger.exceptions import ValidationException, GirderException
-from girderformindlogger.models.Item import Item
+from girderformindlogger.models.item import Item
 from girderformindlogger.utility import acl_mixin
 from girderformindlogger.utility.model_importer import ModelImporter
 
@@ -139,7 +139,9 @@ class IDCode(acl_mixin.AccessControlMixin, Model):
             folder['baseParentId'] = pathFromRoot[0]['object']['_id']
 
         return self.save({
-            'code': idCode if idCode not None else self.generateCode(profile),
+            'code': idCode if idCode is not None else self.generateCode(
+                profile
+            ),
             'folderId': ObjectId(folder['_id']),
             'baseParentType': folder['baseParentType'],
             'baseParentId': folder['baseParentId'],

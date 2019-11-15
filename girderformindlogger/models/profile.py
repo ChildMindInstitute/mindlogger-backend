@@ -9,7 +9,7 @@ from bson.objectid import ObjectId
 from .folder import Folder
 from .model_base import AccessControlledModel
 from girderformindlogger import events
-from girderformindlogger.constants import AccessType
+from girderformindlogger.constants import AccessType, PROFILE_FIELDS
 from girderformindlogger.exceptions import ValidationException, GirderException
 from girderformindlogger.utility.model_importer import ModelImporter
 from girderformindlogger.utility.progress import noProgress, \
@@ -54,7 +54,6 @@ class Profile(AccessControlledModel, dict):
             )
         })
         return(prof)
-
 
     def load(self, id, level=AccessType.ADMIN, user=None, objectId=True,
              force=False, fields=None, exc=False):
@@ -138,19 +137,55 @@ class Profile(AccessControlledModel, dict):
                 )
 
     def cycleDefinitions(self, userProfile, showEmail=False):
-        displayFields = ["_id", "displayName"]
-        displayProfile = {'_id': userProfile['_id']}
+        """
+        :param userProfile: Profile or Invitation
+        :type userProfile: dict
+        :param showEmail: Show email in profile?
+        :type showEmail: bool
+        :returns dict: display profile
+        """
+        profileFields = PROFILE_FIELDS
+
+        if showEmail:
+            profileFields.append('email')
+
+        displayProfile = {
+            k: v for k, v in userProfile.items() if k in profileFields
+        }
         displayProfile.update(userProfile.get("coordinatorDefined", {}))
         displayProfile.update(userProfile.get("userDefined", {}))
+
         return({
-            k: v for k, v in displayProfile.items() if (k in ([
-                *displayFields,
-                "email"
-            ] if showEmail else displayFields)) and v is not None
+            k: v for k, v in displayProfile.items(
+            ) if k in profileFields and v is not None
         })
 
+    def displayProfileFields(self, profile, user):
+        """
+        :param profile: Profile or Invitation
+        :type profile: dict
+        :param user: user requesting profile
+        :type user: dict
+        :returns dict: display profile
+        """
+        from .applet import Applet
+
+        profileDefinitions = self.cycleDefinitions(
+            profile,
+            showEmail=Applet().isCoordinator(profile['appletId'], user)
+        )
+
+        if 'invitedBy' in profile:
+            print(profile['invitedBy'])
+            profileDefinitions['invitedBy'] = self.cycleDefinitions(
+                profile['invitedBy'],
+                showEmail=True
+            )
+
+        return(profileDefinitions)
+
     def getProfile(self, applet, idCode, user):
-        return({})
+        return({}) # TODO
 
     def updateProfile(self, profileId, user, profileUpdate):
         from copy import deepcopy
@@ -221,7 +256,6 @@ class Profile(AccessControlledModel, dict):
             return False
 
         return self._isAncestor(ancestor, descendant)
-
 
     def remove(self, folder, progress=None, **kwargs):
         """
@@ -494,12 +528,13 @@ class Profile(AccessControlledModel, dict):
             user)
 
         :param applet: The applet for which this profile exists
-        :type parent: dict
+        :type applet: dict
         :param user: The user for which this profile exists
         :type user: dict
         :returns: The profile document that was created.
         """
         from .applet import Applet
+        from .group import Group
 
         user = self._canonicalUser(applet["_id"], user)
         returnFields=["_id", "coordinatorDefined", "userDefined"]
@@ -518,14 +553,25 @@ class Profile(AccessControlledModel, dict):
         if applet['_id'] not in [
             a.get('_id') for a in Applet().getAppletsForUser(role, user)
         ]:
-            raise ValidationException(
-                "User does not have role \"{}\" in this \"{}\" applet "
-                "({})".format(
-                    role,
-                    Applet().preferredName(applet),
-                    str(applet['_id'])
+            groups=Applet().getAppletGroups(applet).get(role)
+            if bool(groups):
+                print(groups)
+                group = Group().load(
+                    ObjectId(list(groups.keys())[0]),
+                    force=True
                 )
-            )
+                print(group)
+                Group().inviteUser(group, user, level=AccessType.READ)
+                Group().joinGroup(group, user)
+            else:
+                raise ValidationException(
+                    "User does not have role \"{}\" in this \"{}\" applet "
+                    "({})".format(
+                        role,
+                        Applet().preferredName(applet),
+                        str(applet['_id'])
+                    )
+                )
 
         now = datetime.datetime.utcnow()
 
@@ -551,8 +597,9 @@ class Profile(AccessControlledModel, dict):
         self.setPublic(profile, False, save=False)
 
         # Save the profile.
+        self.save(profile, validate=False)
         return({
-            k: v for k, v in self.save(profile, validate=False).items(
+            k: v for k, v in profile.items(
             ) if k in returnFields
         })
 

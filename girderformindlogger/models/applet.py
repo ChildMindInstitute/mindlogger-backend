@@ -212,11 +212,14 @@ class Applet(Folder):
     def isCoordinator(self, appletId, user):
         from .profile import Profile
 
-        user = Profile()._canonicalUser(appletId, user)
-        return(any([
-            self._hasRole(appletId, user, 'coordinator'),
-            self.isManager(appletId, user)
-        ]))
+        try:
+            user = Profile()._canonicalUser(appletId, user)
+            return(any([
+                self._hasRole(appletId, user, 'coordinator'),
+                self.isManager(appletId, user)
+            ]))
+        except:
+            return(False)
 
     def isManager(self, appletId, user):
         return(self._hasRole(appletId, user, 'manager'))
@@ -425,14 +428,20 @@ class Applet(Folder):
                 return([])
 
             userDict = {
-                'active': list(Profile().find(
-                    query={'parentId': applet['_id']},
-                    fields=profileFields)
-                ),
-                'pending': list(
-                    Invitation().find(query={'appletId': applet['_id']})
-                )
+                'active': [
+                    Profile().displayProfileFields(p, user) for p in list(
+                        Profile().find(
+                            query={'appletId': applet['_id']}
+                        )
+                    )
+                ],
+                'pending': [
+                    Profile().displayProfileFields(p, user) for p in list(
+                        Invitation().find(query={'appletId': applet['_id']})
+                    )
+                ]
             }
+            print(userDict)
 
             if len(userDict['active']):
                 missing = threading.Thread(

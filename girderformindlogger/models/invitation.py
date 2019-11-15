@@ -66,35 +66,22 @@ class Invitation(AccessControlledModel):
         return doc
 
 
-    def remove(self, folder, progress=None, **kwargs):
+    def remove(self, invitation, progress=None, **kwargs):
         """
-        Delete a profile recursively.
+        Delete an invitation.
 
-        :param profile: The profile document to delete.
-        :type folder: dict
-        :param progress: A progress context to record progress on.
-        :type progress: girderformindlogger.utility.progress.ProgressContext or None.
+        :param invitation: The invitation document to delete.
+        :type invitation: dict
         """
-        # Remove the contents underneath this folder recursively.
-        from .upload import Upload
-
-        self.clean(folder, progress, **kwargs)
-
-        # Delete pending uploads into this folder
-        uploadModel = Upload()
-        uploads = uploadModel.find({
-            'appletId': folder['_id'],
-            'parentType': 'invitation'
-        })
-        for upload in uploads:
-            uploadModel.remove(upload, progress=progress, **kwargs)
-        uploads.close()
-
-        # Delete this folder
-        AccessControlledModel.remove(self, folder, progress=progress, **kwargs)
+        # Delete this invitation
+        AccessControlledModel.remove(
+            self,
+            invitation,
+            progress=progress,
+            **kwargs
+        )
         if progress:
-            progress.update(increment=1, message='Deleted profile %s' %
-                            folder['name'])
+            progress.update(increment=1, message='Deleted invitation')
 
     def createInvitation(
         self,
@@ -112,7 +99,7 @@ class Invitation(AccessControlledModel):
         :type parent: dict
         :param coordinator: user who is doing the inviting
         :type coordinator: dict
-        :param profile: Profile to apply to (applet ∩ user) if the inviation is
+        :param profile: Profile to apply to (applet ∩ user) if the invitation is
             accepted
         :type profile: dict or none
         :param idCode: ID code to apply to (applet ∩ user) if invitation is
@@ -164,6 +151,19 @@ class Invitation(AccessControlledModel):
             )
         })
 
+    def acceptInvitation(self, invitation, user):
+        from .applet import Applet
+        from .profile import Profile
+
+        applet = Applet().load(invitation['appletId'], force=True)
+        profile = Profile().createProfile(
+            applet,
+            user,
+            role=invitation.get('role', 'user')
+        )
+        self.remove(invitation)
+        return(profile)
+
     def htmlInvitation(self, invitation, invitee=None, fullDoc=False):
         """
         Returns an HTML document rendering the invitation.
@@ -178,10 +178,35 @@ class Invitation(AccessControlledModel):
         from .applet import Applet
         from .profile import Profile
         from .protocol import Protocol
+        from .token import Token
         from .user import User
+        from girderformindlogger.exceptions import GirderException
+        from girderformindlogger.api.rest import getApiUrl
         from girderformindlogger.utility import context as contextUtil,        \
             mail_utils
 
+        if invitee is not None:
+            try:
+                acceptURL = getApiUrl()
+            except GirderException:
+                import cherrypy
+                from girderformindlogger.utiltiy import config
+
+                acceptURL = "/".join([
+                    cherrypy.url(),
+                    config.getConfig()['server']['api_root']
+                ])
+            acceptURL = "/".join([
+                acceptURL,
+                "invitation",
+                str(invitation['_id']),
+                "accept?token={}".format(str(Token(
+                ).createToken(invitee)['_id']))
+            ])
+            accept = "To accept, click {}".format(acceptURL)
+        else:
+            accept = "To accept, first create an accout or log in, then "      \
+                "reload this invitation."
         applet = Applet().load(ObjectId(invitation['appletId']), force=True)
         appletName = Applet().preferredName(applet)
         try:
@@ -196,6 +221,7 @@ class Invitation(AccessControlledModel):
             )
         except:
             coordinator = None
+        displayProfile = Profile().displayProfileFields(invitation, invitee)
         description = applet.get('meta', {}).get(
             'applet',
             {}
@@ -219,13 +245,17 @@ class Invitation(AccessControlledModel):
             Applet().listUsers(applet, 'reviewer', force=True)
         )
         body = """
-You have been invited {byCoordinator}to <b>{appletName}</b> on {instanceName}.
+{greeting}ou have been invited {byCoordinator}to <b>{appletName}</b> on
+{instanceName}.
 <br/>
 {description}
 {reviewers}
 {managers}
 {coordinators}
+<br/>
+{accept}.
         """.format(
+            accept=accept,
             appletName=appletName,
             byCoordinator="by {} ({}) ".format(
                 coordinator.get("displayName", "an anonymous entity"),
@@ -243,6 +273,9 @@ You have been invited {byCoordinator}to <b>{appletName}</b> on {instanceName}.
             description="<h2>Description</h2>\n<p>{}</p>".format(
                 description
             ) if len(description) else "",
+            greeting="{}, y".format(
+                displayProfile['displayName']
+            ) if 'displayName' in displayProfile else "Y",
             instanceName=instanceName,
             managers="<h3>The following users can change settings for this "
                 "applet, including who can access your data</h3>\n{}"
