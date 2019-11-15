@@ -8,10 +8,20 @@ Changes
 -------
 Unreleased
 ==========
-2019-11-06: v0.6.1
+2019-11-15: v0.6.1
 ^^^^^^^^^^^^^^^^^^
 * :sparkles: User profiles
 * :tractor: :art: :hammer: Invitations
+
+2019-11-15: v0.5.13
+^^^^^^^^^^^^^^^^^^^
+* :ambulance: restore `schedule` object to `GET /user/applets`
+* :tractor: :art: Make URL values dereferenceable
+
+2019-11-11: v0.5.12
+^^^^^^^^^^^^^^^^^^^
+* :hammer: :racehorse: Stability and performance fixes
+* :lipstick: Clearer authentication error messages
 
 2019-11-06: v0.5.11
 ^^^^^^^^^^^^^^^^^^^
@@ -44,8 +54,8 @@ Unreleased
 ^^^^^^^^^^^^^^^^^^
 * :books: :microscope: Coverage reports
 
-2019-10-11: v0.5.3; 2019-10-15: v0.5.4
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+2019-10-11 ‒ 15: v0.5.3 ‒ v0.5.4
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 * :ambulance: :green_heart: Handle change in the way schema are defined per `|1c54072| <https://github.com/ReproNim/schema-standardization/commit/1c5407247817f2c8ec47f2f286683ad94065e2af>`_
 
 2019-10-01: v0.5.2

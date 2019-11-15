@@ -146,7 +146,7 @@ class Applet(Resource):
         )
         .param(
             'name',
-            'Name to give the applet. The Activity Set\'s name will be used if '
+            'Name to give the applet. The Protocol\'s name will be used if '
             'this parameter is not provided.',
             required=False
         )
@@ -162,15 +162,13 @@ class Applet(Resource):
                 'protocol',
                 thisUser,
                 refreshCache=refreshCache
-            ))
+            )[0])
         # create an applet for it
         applet=AppletModel().createApplet(
             name=name if name is not None and len(name) else ProtocolModel(
             ).preferredName(
                 protocol
             ),
-            # below is so it doesn't break on older applets that didn't have
-            # activity set URLs
             protocol={
                 '_id': 'protocol/{}'.format(protocol.get('_id')),
                 'url': protocol.get(
@@ -183,7 +181,7 @@ class Applet(Resource):
             },
             user=thisUser
         )
-        return(applet) # TODO: update formatLdObject to reflect new structure
+        return(applet)
 
     @access.user(scope=TokenScope.DATA_WRITE)
     @autoDescribeRoute(
@@ -231,7 +229,6 @@ class Applet(Resource):
     def getApplet(self, folder, refreshCache=False):
         applet = folder
         user = self.getCurrentUser()
-        return(applet)
         return(
             jsonld_expander.formatLdObject(
                 applet,
@@ -419,7 +416,7 @@ class Applet(Resource):
             'applet',
             user=thisUser,
             refreshCache=refreshCache
-        )
+        )[0]
         return(
             _invite(
                 applet=thisApplet,
@@ -451,15 +448,20 @@ class Applet(Resource):
         .errorResponse('Read access was denied for this applet.', 403)
     )
     def setConstraints(self, folder, activity, schedule, **kwargs):
+        import threading
         thisUser = Applet().getCurrentUser()
-        return(
-            jsonld_expander.formatLdObject(
-                _setConstraints(folder, activity, schedule, thisUser),
-                'applet',
-                thisUser,
-                refreshCache=True
-            )
+        applet = jsonld_expander.formatLdObject(
+            _setConstraints(folder, activity, schedule, thisUser),
+            'applet',
+            thisUser,
+            refreshCache=True
         )
+        thread = threading.Thread(
+            target=AppletModel().updateUserCacheAllUsersAllRoles,
+            args=(applet, thisUser)
+        )
+        thread.start()
+        return(applet)
 
 
 
@@ -754,7 +756,7 @@ def _setConstraints(applet, activity, schedule, user, refreshCache=False):
             'activity',
             thisUser,
             refreshCache
-        )
+        )[0]
     except:
         activityLoaded = ActivityModel().load(
             activity,

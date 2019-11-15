@@ -80,7 +80,6 @@ class Applet(Folder):
             appletsCollection = CollectionModel().findOne({"name": "Applets"})
 
         # create new applet
-
         applet = self.setMetadata(
             folder=self.createFolder(
                 parent=appletsCollection,
@@ -98,11 +97,13 @@ class Applet(Folder):
                 ) else {}
             }
         )
+
         appletGroupName = "Default {} ({})".format(
             name,
             str(applet.get('_id', ''))
         )
 
+        print("Name: {}".format(appletGroupName))
         # Create user groups
         for role in USER_ROLES.keys():
             try:
@@ -133,14 +134,16 @@ class Applet(Folder):
                 currentUser=user,
                 force=False
             )
-        thread = threading.Thread(
-            target=self.formatThenUpdate,
-            args=(
-                applet,
-                user
-            )
-        )
-        thread.start()
+
+        return(jsonld_expander.formatLdObject(
+            applet,
+            'applet',
+            user
+        ))
+        return(self.formatThenUpdate(
+            applet,
+            user
+        ))
         return({
             "_id": applet.get("_id"),
             "applet": {
@@ -454,7 +457,7 @@ class Applet(Folder):
 
         Deprecated.
         """
-        return(self.getFromUrl(url, 'applet', user, refreshCache))
+        return(self.getFromUrl(url, 'applet', user, refreshCache)[0])
 
     def load(self, id, level=AccessType.ADMIN, user=None, objectId=True,
              force=False, fields=None, exc=False):

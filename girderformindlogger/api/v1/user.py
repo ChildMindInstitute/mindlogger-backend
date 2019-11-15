@@ -359,23 +359,6 @@ class User(Resource):
                     'applet': AppletModel().unexpanded(applet)
                 } for applet in applets])
         try:
-            if refreshCache:
-                return(
-                    AppletModel().updateUserCache(
-                        role,
-                        reviewer,
-                        active=True,
-                        refreshCache=refreshCache
-                    )
-                ]
-            )
-        except:
-            try:
-                applets = AppletModel().getAppletsForUser(
-                    role,
-                    reviewer,
-                    active=True
-                )
             if 'cached' in reviewer and 'applets' in reviewer[
                 'cached'
             ] and role in reviewer['cached']['applets'] and isinstance(

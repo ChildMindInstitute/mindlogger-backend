@@ -2,7 +2,7 @@ import pytest
 from .testLib import fullTest
 from girderformindlogger.constants import REPROLIB_CANONICAL
 
-activitySetUrl = ''.join([
+protocolUrl = ''.join([
     REPROLIB_CANONICAL,
     'protocols/ema-hbn/ema-hbn_schema'
 ])
@@ -25,18 +25,18 @@ act2Item = ''.join([
 
 @pytest.mark.parametrize(
     "args",
-    [(activitySetUrl, act1, act2, act1Item, act2Item)]
+    [(protocolUrl, act1, act2, act1Item, act2Item)]
 )
 def test_1_HBN(args):
-    activitySetUrl, act1, act2, act1Item, act2Item = args
+    protocolUrl, act1, act2, act1Item, act2Item = args
     try:
         print('\n\n TEST 1: HBN')
-        fullTest(activitySetUrl, act1, act2, act1Item, act2Item)
+        fullTest(protocolUrl, act1, act2, act1Item, act2Item)
     except Exception as e:
         print('\n\n ERROR:', e)
         raise e
 
-nestedActivitySet = ''.join([
+nestedProtocol = ''.join([
     REPROLIB_CANONICAL,
     'protocols/pediatric-screener/pediatric-screener_schema'
 ])
@@ -60,15 +60,15 @@ nact2Item = ''.join([
 
 @pytest.mark.parametrize(
     "args",
-    [(nestedActivitySet, nact1, nact2, nact1Item, nact2Item)]
+    [(nestedProtocol, nact1, nact2, nact1Item, nact2Item)]
 )
 def test_2_pediatric_screener(args):
-    nestedActivitySet, nact1, nact2, nact1Item, nact2Item = args
+    nestedProtocol, nact1, nact2, nact1Item, nact2Item = args
 
     try:
         print('\n\n TEST 2: Pediatric Screener')
         fullTest(
-            nestedActivitySet,
+            nestedProtocol,
             nact1,
             nact2,
             nact1Item,

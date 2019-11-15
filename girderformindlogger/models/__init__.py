@@ -121,36 +121,69 @@ def pluralize(modelType):
     ))
 
 
-def smartImport(IRI, user=None, refreshCache=False, modelType='activity'):
-    from girderformindlogger.utility import firstLower, loadJSON
-    from girderformindlogger.utility.jsonld_expander import MODELS, \
-        contextualize, reprolibCanonize
+def cycleModels(IRIset, modelType=None):
+    from girderformindlogger.constants import HIERARCHY
 
-    canonical_IRI = reprolibCanonize(IRI)
-    if bool({IRI, canonical_IRI}.intersection({None, "None"})):
-        return((None, None))
-    if not refreshCache:
-        cachedDoc = MODELS[modelType].findOne({
-            '{}.url'.format(modeltype): {
-                '$in': {
-                    IRI,
-                    canonical_IRI
-                }
-            }
-        })
-        if cachedDoc:
-            return((modelType, cachedDoc))
-    print("loading {}".format(canonical_IRI))
-    model = contextualize(loadJSON(canonical_IRI))
-    atType = model.get('@type', '').split('/')[-1].split(':')[-1]
-    modelType = firstLower(atType) if len(atType) else modelType
-    modelType = 'screen' if modelType=='field' else modelType
+    cachedDoc = None
+    primary = [modelType] if isinstance(modelType, str) else [
+    ] if modelType is None else modelType
+    secondary = [m for m in HIERARCHY if m not in primary]
+    for i in primary:
+        cachedDoc = lookForCached(i, IRIset)
+        if cachedDoc is not None:
+            modelType = i
+            break
+    if cachedDoc is None:
+        for i in secondary:
+            cachedDoc = lookForCached(i, IRIset)
+            if cachedDoc is not None:
+                modelType = i
+                break
+    if cachedDoc is None:
+        return(None, None)
+    print("Found {}/{}".format(modelType, str(cachedDoc['_id'])))
+    return(modelType, cachedDoc)
+
+
+def lookForCached(modelType, IRIset):
+    from girderformindlogger.constants import MODELS, REPROLIB_TYPES
+    from girderformindlogger.utility.jsonld_expander import reprolibCanonize
+
+    MODELS = MODELS()
+    query = {
+        'meta.{}.url'.format(modelType): {
+            '$in': list(IRIset)
+        }
+    }
+    if modelType in REPROLIB_TYPES.keys():
+        suffix = REPROLIB_TYPES[modelType].split('/')[-1]
+        query['meta.{}.@type'.format(modelType)] = {
+            "$in": [t for t in [
+                reprolibCanonize(
+                    REPROLIB_TYPES[modelType]
+                ),
+                'reproschema:{}'.format(suffix),
+                suffix
+            ] if t is not None]
+        }
+    print("Looking for cached {} {}".format(modelType, str(IRIset)))
+    cachedDoc = MODELS[modelType]().findOne(query)
+    return(cachedDoc)
+
+
+def smartImport(IRI, user=None, refreshCache=False, modelType=None):
+    from girderformindlogger.constants import MODELS
+    from girderformindlogger.utility.jsonld_expander import reprolibCanonize
+
+    MODELS = MODELS()
+
+    model, modelType = MODELS['screen']().getFromUrl(
+        IRI,
+        user=user,
+        refreshCache=refreshCache
+    )
     return((
         modelType,
-        MODELS[modelType].getFromUrl(
-            canonical_IRI,
-            modelType,
-            user,
-            refreshCache
-        )
+        model,
+        reprolibCanonize(IRI)
     ))
