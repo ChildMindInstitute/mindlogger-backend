@@ -441,7 +441,6 @@ class Applet(Folder):
                     )
                 ]
             }
-            print(userDict)
 
             if len(userDict['active']):
                 missing = threading.Thread(

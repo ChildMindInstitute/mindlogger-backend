@@ -24,7 +24,6 @@ def formatUserString(u):
     :type u: dict
     :returns: str
     """
-    print(u)
     if not isinstance(u, dict):
         return("")
     return(

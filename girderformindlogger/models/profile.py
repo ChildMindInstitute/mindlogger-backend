@@ -176,7 +176,6 @@ class Profile(AccessControlledModel, dict):
         )
 
         if 'invitedBy' in profile:
-            print(profile['invitedBy'])
             profileDefinitions['invitedBy'] = self.cycleDefinitions(
                 profile['invitedBy'],
                 showEmail=True
@@ -555,12 +554,10 @@ class Profile(AccessControlledModel, dict):
         ]:
             groups=Applet().getAppletGroups(applet).get(role)
             if bool(groups):
-                print(groups)
                 group = Group().load(
                     ObjectId(list(groups.keys())[0]),
                     force=True
                 )
-                print(group)
                 Group().inviteUser(group, user, level=AccessType.READ)
                 Group().joinGroup(group, user)
             else:
