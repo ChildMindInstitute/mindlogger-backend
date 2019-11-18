@@ -150,13 +150,14 @@ class Profile(AccessControlledModel, dict):
             profileFields.append('email')
 
         displayProfile = {
-            k: v for k, v in userProfile.items() if k in profileFields
+            k: v for k, v in userProfile.items(
+            ) if k in profileFields
         }
         displayProfile.update(userProfile.get("coordinatorDefined", {}))
         displayProfile.update(userProfile.get("userDefined", {}))
 
         return({
-            k: v for k, v in displayProfile.items(
+            k: v if v!="" else None for k, v in displayProfile.items(
             ) if k in profileFields and v is not None
         })
 

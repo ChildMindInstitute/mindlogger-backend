@@ -8,6 +8,11 @@ Changes
 -------
 Unreleased
 ==========
+2019-11-18: v0.6.2
+^^^^^^^^^^^^^^^^^^
+* :sparkles: ID codes
+* :sparkles: User relationships
+
 2019-11-18: v0.6.1
 ^^^^^^^^^^^^^^^^^^
 * :sparkles: User profiles
