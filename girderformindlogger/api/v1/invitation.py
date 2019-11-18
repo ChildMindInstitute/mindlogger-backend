@@ -54,7 +54,7 @@ class Invitation(Resource):
             'fullHTML',
             'Return a full HTML document rather than just the body?',
             required=False,
-            dataType=bool
+            dataType='boolean'
         )
         .errorResponse()
     )
