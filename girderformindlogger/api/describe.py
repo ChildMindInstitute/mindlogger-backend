@@ -633,8 +633,6 @@ class autoDescribeRoute(describeRoute):  # noqa: class name
             params = {k: v for k, v in six.viewitems(kwargs) if k != 'params'}
             params.update(kwargs.get('params', {}))
 
-            print(params)
-
             kwargs['params'] = kwargs.get('params', {})
 
             for descParam in self.description.params:
