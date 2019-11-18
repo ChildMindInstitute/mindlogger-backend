@@ -30,7 +30,7 @@ def formatUserString(u):
     return(
         "{name} {email}".format(
             name=u.get("displayName", ""),
-            email="<{}>".format(u["email"]) if "email" in u else ""
+            email="&lt;{}&gt;".format(u["email"]) if "email" in u else ""
         ).strip()
     )
 

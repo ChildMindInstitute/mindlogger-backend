@@ -18,7 +18,7 @@
 ###############################################################################
 
 from ..describe import Description, autoDescribeRoute
-from ..rest import Resource
+from ..rest import Resource, rawResponse
 from girderformindlogger.api import access
 from girderformindlogger.constants import AccessType, TokenScope
 from girderformindlogger.exceptions import AccessException
@@ -38,6 +38,7 @@ class Invitation(Resource):
         self.route('GET', (':id',), self.getInvitation)
         self.route('GET', (':id', 'accept'), self.acceptInvitationByToken)
         self.route('POST', (':id', 'accept'), self.acceptInvitation)
+        self.route('GET', (':id', 'qr'), self.getQR)
         self.route('DELETE', (':id', 'remove'), self.declineInvitation)
 
     @access.public(scope=TokenScope.USER_INFO_READ)
@@ -49,14 +50,74 @@ class Invitation(Resource):
             force=True,
             destName='invitation'
         )
+        .param(
+            'fullHTML',
+            'Return a full HTML document rather than just the body?',
+            required=False,
+            dataType=bool
+        )
         .errorResponse()
     )
-    def getInvitation(self, invitation):
+    @rawResponse
+    def getInvitation(self, invitation, fullHTML=False):
+        """
+        Get an invitation as a string.
+        """
+        currentUser = self.getCurrentUser()
+        if fullHTML:
+            return(InvitationModel().htmlInvitation(
+                invitation,
+                currentUser,
+                fullDoc=fullHTML
+            ))
+        else:
+            return(
+                InvitationModel().htmlInvitation(
+                    invitation,
+                    currentUser
+                )
+            )
+
+    @access.public(scope=TokenScope.USER_INFO_READ)
+    @autoDescribeRoute(
+        Description('Get a link to an invitation by QR code.')
+        .modelParam(
+            'id',
+            model=InvitationModel,
+            force=True,
+            destName='invitation'
+        )
+        .errorResponse()
+    )
+    def getQR(self, invitation):
         """
         Get a link to an invitation, either as a url string or as a QR code.
         """
-        currentUser = self.getCurrentUser()
-        return(InvitationModel().htmlInvitation(invitation, currentUser))
+        import qrcode
+        from girderformindlogger.api.rest import getApiUrl
+
+        try:
+            apiUrl = getApiUrl()
+        except GirderException:
+            import cherrypy
+            from girderformindlogger.utiltiy import config
+
+            apiUrl = "/".join([
+                cherrypy.url(),
+                config.getConfig()['server']['api_root']
+            ])
+
+        apiUrl = "?".join([
+            "/".join([
+                apiUrl,
+                'invitation',
+                str(invitation['_id'])
+            ]),
+            'fullHTML=true'
+        ])
+
+        img = qrcode.make(apiUrl)
+        return(img.show(title=apiUrl))
 
     @access.public(scope=TokenScope.USER_INFO_READ)
     @autoDescribeRoute(

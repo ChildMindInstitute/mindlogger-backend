@@ -8,7 +8,7 @@ Changes
 -------
 Unreleased
 ==========
-2019-11-15: v0.6.1
+2019-11-18: v0.6.1
 ^^^^^^^^^^^^^^^^^^
 * :sparkles: User profiles
 * :tractor: :art: :hammer: Invitations
