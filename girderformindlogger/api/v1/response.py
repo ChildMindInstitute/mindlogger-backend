@@ -325,7 +325,6 @@ class ResponseItem(Resource):
     )
     def createResponseItem(self, applet, activity, metadata, subject_id, pending, params):
         try:
-            import threading
             from girderformindlogger.utility.response import aggregateAndSave
             # TODO: pending
             metadata['applet'] = {

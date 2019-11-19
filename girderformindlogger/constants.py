@@ -2,6 +2,7 @@
 """
 Constants should be defined here.
 """
+import itertools
 import os
 import sys
 import girderformindlogger
@@ -30,11 +31,66 @@ STATIC_PREFIX = os.path.join(
     'girderformindlogger'
 )
 STATIC_ROOT_DIR = os.path.join(STATIC_PREFIX, 'web_client', 'static')
+
 PREFERRED_NAMES = ["skos:prefLabel", "skos:altLabel", "name", "@id", "url"]
+
+HIERARCHY = ['applet', 'protocol', 'activity', 'screen', 'item']
+
+KEYS_TO_DELANGUAGETAG = list(itertools.chain.from_iterable([[
+    "http://schema.org/{}".format(k),
+    "schema:{}".format(k),
+    k
+] for k in [
+    "contentUrl",
+    "encodingFormat",
+    "image",
+    "url"
+]]))
+
+KEYS_TO_DEREFERENCE = [
+    'schema:about',
+    'http://schema.org/about',
+    *KEYS_TO_DELANGUAGETAG
+]
+
+KEYS_TO_EXPAND = [
+    "responseOptions",
+    "https://schema.repronim.org/valueconstraints",
+    "reproterms:valueconstraints",
+    "valueconstraints",
+    "reprolib:valueconstraints"
+]
+
+def MODELS():
+    from girderformindlogger.models.activity import Activity as ActivityModel
+    from girderformindlogger.models.applet import Applet as AppletModel
+    from girderformindlogger.models.collection import Collection as \
+        CollectionModel
+    from girderformindlogger.models.folder import Folder as FolderModel
+    from girderformindlogger.models.item import Item as ItemModel
+    from girderformindlogger.models.protocol import Protocol as ProtocolModel
+    from girderformindlogger.models.screen import Screen as ScreenModel
+    from girderformindlogger.models.user import User as UserModel
+    return({
+        'activity': ActivityModel,
+        'activitySet': ProtocolModel,
+        'applet': AppletModel,
+        'collection': CollectionModel,
+        'field': ScreenModel,
+        'folder': FolderModel,
+        'item': ItemModel,
+        'protocol': ProtocolModel,
+        'screen': ScreenModel,
+        'user': UserModel
+    })
+
+NONES = {"None", None, "none"}
+
 REPROLIB_CANONICAL = "://".join([
     "https",
     "raw.githubusercontent.com/ReproNim/reproschema/master/"
 ])
+
 REPROLIB_PREFIXES = [
     *[
         "://".join([p, u]) for p in ["http", "https"] for u in [
@@ -48,7 +104,15 @@ REPROLIB_PREFIXES = [
     "reproschema:",
     "reproterms:"
 ]
+
+REPROLIB_TYPES = {
+    'activity': 'reprolib:schemas/Activity',
+    'protocol': 'reprolib:schemas/ActivitySet',
+    'screen': 'reprolib:schemas/Field'
+}
+
 SPECIAL_SUBJECTS = {"ALL", "NONE"}
+
 USER_ROLES = {
     'user': dict,
     'coordinator': list,

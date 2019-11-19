@@ -11,6 +11,7 @@ Unreleased
 2019-11-12: v0.5.13
 ^^^^^^^^^^^^^^^^^^^
 * :ambulance: restore `schedule` object to `GET /user/applets`
+* :tractor: :art: Make URL values dereferenceable
 
 2019-11-11: v0.5.12
 ^^^^^^^^^^^^^^^^^^^

@@ -132,7 +132,7 @@ def addApplet(new_user, protocolUrl):
         protocolUrl,
         'protocol',
         currentUser
-    ))
+    )[0])
     randomAS = np.random.randint(1000000)
     ar = AppletModel().createApplet(
         name="testProtocol{}".format(randomAS),
@@ -575,6 +575,12 @@ def postResponse(user, actURI, itemURI, appletObject, password="password"):
         user=currentUser,
         level=AccessType.READ
     )
+    if activity is None:
+        activity = ActivityModel().getFromUrl(
+            actURI,
+            modelType='activity',
+            user=currentUser
+        )[0]
     metadata['applet'] = {
         "@id": applet.get('_id'),
         "name": AppletModel().preferredName(applet),
