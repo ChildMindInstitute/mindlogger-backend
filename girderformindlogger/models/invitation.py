@@ -162,7 +162,9 @@ class Invitation(AccessControlledModel):
             profiles = IDCode().findProfile(invitation['idCode'])
         if profiles and len(profiles):
             profile = [
-                pro for pro in profiles if str(pro['userId'])==str(user['_id'])
+                pro for pro in profiles if str(
+                    pro.get('userId')
+                )==str(user['_id'])
             ]
             profile = profile[0] if len(profile) else None
         else:
@@ -175,7 +177,10 @@ class Invitation(AccessControlledModel):
             )
             IDCode().createIdCode(profile, invitation.get('idCode'))
         self.remove(invitation)
-        return(Profile().displayProfileFields(profile, user))
+        return(Profile().displayProfileFields(
+            Profile().load(profile['_id'], force=True),
+            user
+        ))
 
     def htmlInvitation(self, invitation, invitee=None, fullDoc=False):
         """

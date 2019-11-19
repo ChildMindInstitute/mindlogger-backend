@@ -9,7 +9,8 @@ from bson.objectid import ObjectId
 from .folder import Folder
 from .model_base import AccessControlledModel
 from girderformindlogger import events
-from girderformindlogger.constants import AccessType, PROFILE_FIELDS
+from girderformindlogger.constants import AccessType, DEFINED_RELATIONS,       \
+    PROFILE_FIELDS
 from girderformindlogger.exceptions import ValidationException, GirderException
 from girderformindlogger.utility.model_importer import ModelImporter
 from girderformindlogger.utility.progress import noProgress, \
@@ -220,8 +221,65 @@ class Profile(AccessControlledModel, dict):
 
         return(profileDefinitions)
 
-    def getProfile(self, applet, idCode, user):
-        return({}) # TODO
+    def getProfile(self, id, user):
+        from .applet import Applet as AppletModel
+        from .ID_code import IDCode
+
+        try:
+            p = self.findOne({'_id': ObjectId(id)})
+        except:
+            p = None
+        if p is None:
+            appletList = AppletModel().getAppletsForUser(
+                'coordinator',
+                user,
+                active=False
+            )
+            ps = IDCode().findProfile(id)
+            if ps is not None:
+                ps = [
+                    self.profileAsUser(p, user) for p in ps if p is not None
+                ]
+                return(ps[0] if len(ps)==1 and ps[0] is not None else ps)
+            else:
+                return(None)
+        return(self.profileAsUser(self.load(p['_id'], force=True), user))
+
+    def getSubjectProfile(self, id, displayName, user):
+        from .applet import Applet as AppletModel
+        from .ID_code import IDCode
+
+        try:
+            p = self.profileAsUser(
+                self.findOne({
+                    '_id': ObjectId(id),
+                    '$or': [
+                        {'coordinatorDefined.displayName': displayName},
+                        {'userDefined.displayName': displayName}
+                    ]
+                }),
+                user
+            )
+        except:
+            p = None
+        if p is None:
+            appletList = AppletModel().getAppletsForUser(
+                'coordinator',
+                user,
+                active=False
+            )
+            ps = IDCode().findProfile(id)
+            if ps is not None:
+                print(ps)
+                ps = [self.profileAsUser(p, user) for p in ps if p is not None]
+                ps = [p for p in ps if p is not None and p.get(
+                    'displayName'
+                )==displayName]
+                if len(ps):
+                    p = ps[0]
+                else:
+                    return(None)
+        return(p)
 
     def updateProfile(self, profileId, user, profileUpdate):
         from copy import deepcopy
@@ -242,6 +300,13 @@ class Profile(AccessControlledModel, dict):
                 "You do not have adequate permissions to update this profile."
             )
         return self.save(profile, validate=False)
+
+    def updateRelations(self, profileId):
+        relations = list(self.find({
+            '$or': [{
+                'schema:knows.{}._id'.format(rel): profileId
+            } for rel in DEFINED_RELATIONS.keys()]
+        }))
 
     def _updateDescendants(self, folderId, updateQuery):
         """
@@ -617,7 +682,7 @@ class Profile(AccessControlledModel, dict):
                 'created': now,
                 'updated': now,
                 'size': 0,
-                'managerDefined': {},
+                'coordinatorDefined': {},
                 'userDefined': {
                     'displayName': user.get(
                         'displayName',
@@ -634,6 +699,50 @@ class Profile(AccessControlledModel, dict):
         self.save(profile, validate=False)
         return({
             k: v for k, v in profile.items(
+            ) if k in returnFields
+        })
+
+    def createPassiveProfile(self, appletId, code, displayName, coordinator):
+        """
+        Create a new profile to store information specific to a given (applet ∩
+            passive individual)
+
+        :param applet: The applet for which this profile exists
+        :type applet: dict
+        :param code: A data ID code for the passive individual
+        :type code: str
+        :param displaName: The display name for the passive individual
+        :type displayName: str
+        :returns: The profile document that was created.
+        """
+        from .ID_code import IDCode
+
+        now = datetime.datetime.utcnow()
+
+        profile = {
+            k: v for k, v in {
+                'appletId': ObjectId(applet['_id']),
+                'userId': now,
+                'profile': True,
+                'created': now,
+                'updated': now,
+                'size': 0,
+                'coordinatorDefined': {
+                    'displayName': displayName
+                },
+                'createdBy': coordinator
+            }.items() if v is not None
+        }
+
+        self.setPublic(profile, False, save=False)
+
+        # Save the profile.
+        self.save(profile, validate=False)
+
+        IDCode().createIdCode(profile, code)
+
+        return({
+            k: v for k, v in self.load(profile, force=True).items(
             ) if k in returnFields
         })
 

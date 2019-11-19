@@ -46,6 +46,7 @@ class User(Resource):
         self.route('GET', ('applets',), self.getOwnApplets)
         self.route('GET', (':id', 'details'), self.getUserDetails)
         self.route('GET', ('invites',), self.getGroupInvites)
+        self.route('PUT', (':id', 'knows'), self.setUserRelationship)
         self.route('GET', ('details',), self.getUsersDetails)
         self.route('POST', (), self.createUser)
         self.route('PUT', (':id',), self.updateUser)
@@ -157,24 +158,68 @@ class User(Resource):
     def getUserByID(self, id):
         from bson.objectid import ObjectId
         user = self.getCurrentUser()
-        try:
-            p = ProfileModel().findOne({'_id': ObjectId(id)})
-        except:
-            p = None
-        if p is None:
-            appletList = AppletModel().getAppletsForUser(
-                'coordinator',
-                user,
-                active=False
+        return(ProfileModel().getProfile(id, user))
+
+    @access.public(scope=TokenScope.USER_INFO_READ)
+    @autoDescribeRoute(
+        Description('Add a relationship between users.')
+        .param(
+            'id',
+            'ID or ID code of user to add relationship to',
+            required=True
+        )
+        .param('rel', 'Relationship to add', required=True)
+        .param('otherId', 'ID or ID code of related individual.', required=True)
+        .param(
+            'otherName',
+            'Name to display for related individual',
+            required=True
+        )
+        .errorResponse('ID was invalid.')
+        .errorResponse('You do not have permission to see this user.', 403)
+    )
+    def setUserRelationship(self, id, rel, otherId, otherName):
+        from girderformindlogger.utility.jsonld_expander import                \
+            inferRelationships
+        user = self.getCurrentUser()
+        grammaticalSubject = ProfileModel().getProfile(id, user)
+        if grammaticalSubject is None:
+            raise AccessException(
+                'You do not have permission to update this user.'
             )
-            ps = [
-                ProfileModel().profileAsUser(
-                    p,
+        else:
+            grammaticalSubject = ProfileModel().load(id, force=True)
+        appletId = grammaticalSubject['appletId']
+        grammaticalObject = ProfileModel().getSubjectProfile(
+            otherId,
+            otherName,
+            user
+        )
+        if grammaticalObject is None:
+            grammaticalObject = ProfileModel().getProfile(
+                ProfileModel().createPassiveProfile(
+                    appletId,
+                    otherId,
+                    otherName,
                     user
-                ) for p in IDCode().findProfile(id)
-            ]
-            return(ps[0] if len(ps)==1 else ps)
-        return(ProfileModel().profileAsUser(p, user))
+                )['_id'],
+                grammaticalSubject
+            )
+        if 'schema:knows' in grammaticalSubject:
+            if rel in grammaticalSubject['schema:knows']:
+                grammaticalSubject['schema:knows'][rel].append(
+                    grammaticalObject
+                )
+            else:
+                grammaticalSubject['schema:knows'][rel] = [grammaticalObject]
+        else:
+            grammaticalSubject['schema:knows'] = {
+                rel: [grammaticalObject]
+            }
+        ProfileModel().save(grammaticalSubject, validate=False)
+        inferRelationships(grammaticalSubject)
+        return(ProfileModel().getProfile(id, user))
+
 
     @access.public(scope=TokenScope.USER_INFO_READ)
     @autoDescribeRoute(

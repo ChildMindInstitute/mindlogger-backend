@@ -1,9 +1,9 @@
 from bson import json_util
 from copy import deepcopy
 from datetime import datetime
-from girderformindlogger.constants import AccessType, HIERARCHY,               \
-    KEYS_TO_DELANGUAGETAG, KEYS_TO_DEREFERENCE, KEYS_TO_EXPAND, MODELS,        \
-    REPROLIB_CANONICAL, REPROLIB_PREFIXES
+from girderformindlogger.constants import AccessType, DEFINED_RELATIONS,       \
+    HIERARCHY, KEYS_TO_DELANGUAGETAG, KEYS_TO_DEREFERENCE, KEYS_TO_EXPAND,     \
+    MODELS, REPROLIB_CANONICAL, REPROLIB_PREFIXES
 from girderformindlogger.exceptions import AccessException,                    \
     ResourcePathNotFound, ValidationException
 from girderformindlogger.models.activity import Activity as ActivityModel
@@ -68,6 +68,60 @@ def _deeperContextualize(ldObj, context):
         else:
             newObj[k] = reprolibPrefix(ldObj[k])
     return(context, newObj)
+
+
+def inferRelationships(person):
+    import threading
+    from girderformindlogger.models.profile import Profile
+
+    if "schema:knows" not in person:
+        return(person)
+    start = deepcopy(person)
+    for rel in list(person['schema:knows'].keys()):
+        if rel in DEFINED_RELATIONS.keys():
+            if "owl:equivalentProperty" in DEFINED_RELATIONS[rel]:
+                for ep in DEFINED_RELATIONS[rel]["owl:equivalentProperty"]:
+                    if ep not in person['schema:knows']:
+                        person['schema:knows'][ep] = []
+                    for related in person['schema:knows'][rel]:
+                        if related.get('_id') not in [
+                            epr.get('_id') for epr in person['schema:knows'][ep]
+                        ]:
+                            person['schema:knows'][ep].append(related)
+            if "owl:inverseOf" in DEFINED_RELATIONS[rel]:
+                for related in [
+                    Profile().load(
+                        p['_id'],
+                        force=True
+                    ) for p in person['schema:knows'][rel]
+                ]:
+                    if 'schema:knows' not in related:
+                        related['schema:knows'] = {}
+                    for io in DEFINED_RELATIONS[rel]["owl:inverseOf"]:
+                        if io not in related['schema:knows']:
+                            related['schema:knows'][io] = []
+                        if person['_id'] not in [
+                            r.get('_id') for r in related['schema:knows'][io]
+                        ]:
+                            related['schema:knows'][io].append(
+                                Profile().profileAsUser(person, related)
+                            )
+                            thread = threading.Thread(
+                                inferRelationships(related)
+                            )
+                            thread.start()
+    if any([
+        bool(rp not in [
+            p['_id'] for p in start.get('schema:knows', {}).get(rel)
+        ]) for rp in [
+            p['_id'] for p in person['schema:knows'][rel]
+        ] for rel in list(person['schema:knows'].keys())
+    ]):
+        person = inferRelationships(person)
+        newPerson = Profile().load(person['_id'], force=True)
+        newPerson['schema:knows'].update(person['schema:knows'])
+        Profile().save(newPerson, validate=False)
+    return(person)
 
 
 def reprolibPrefix(s):

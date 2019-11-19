@@ -8,6 +8,10 @@ Changes
 -------
 Unreleased
 ==========
+2019-11-19: v0.6.3
+^^^^^^^^^^^^^^^^^^
+* :sparkles: Informant-subject relationships
+
 2019-11-19: v0.6.2
 ^^^^^^^^^^^^^^^^^^
 * :sparkles: ID codes
