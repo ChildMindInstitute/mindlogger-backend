@@ -41,6 +41,7 @@ class User(Resource):
         self.route('GET', (':id', 'access'), self.getUserAccess)
         self.route('PUT', (':id', 'access'), self.updateUserAccess)
         self.route('GET', (':id', 'applets'), self.getUserApplets)
+        self.route('PUT', (':id', 'code'), self.updateIDCode)
         self.route('GET', ('applets',), self.getOwnApplets)
         self.route('GET', (':id', 'details'), self.getUserDetails)
         self.route('GET', ('invites',), self.getGroupInvites)
@@ -173,6 +174,34 @@ class User(Resource):
             ]
             return(ps[0] if len(ps)==1 else ps)
         return(ProfileModel().profileAsUser(p, user))
+
+    @access.public(scope=TokenScope.USER_INFO_READ)
+    @autoDescribeRoute(
+        Description('Update a user\'s ID Code.')
+        .param('id', 'Profile ID', required=True)
+        .param('code', 'ID code to add to profile', required=True)
+        .errorResponse('ID was invalid.')
+        .errorResponse('You do not have permission to see this user.', 403)
+    )
+    def updateIDCode(self, id, code):
+        from bson.objectid import ObjectId
+        user = self.getCurrentUser()
+        try:
+            p = ProfileModel().findOne({'_id': ObjectId(id)})
+        except:
+            p = None
+        if p is None or not AppletModel().isCoordinator(p['appletId'], user):
+            raise AccessException(
+                'You do not have permission to update this user\'s ID code.'
+            )
+        else:
+            IDCode().createIdCode(p, code)
+        return(
+            ProfileModel().profileAsUser(
+                ProfileModel().load(p['_id'], force=True),
+                user
+            )
+        )
 
     @access.user(scope=TokenScope.USER_INFO_READ)
     @autoDescribeRoute(
