@@ -9,11 +9,13 @@ import tzlocal
 from bson.objectid import ObjectId
 from datetime import datetime
 from girderformindlogger.constants import AccessType, REPROLIB_CANONICAL
-from girderformindlogger.exceptions import ValidationException
+from girderformindlogger.exceptions import AccessException, ValidationException
 from girderformindlogger.models.activity import Activity as ActivityModel
 from girderformindlogger.models.applet import Applet as AppletModel
 from girderformindlogger.models.folder import Folder
 from girderformindlogger.models.group import Group
+from girderformindlogger.models.invitation import Invitation
+from girderformindlogger.models.profile import Profile
 from girderformindlogger.models.protocol import Protocol as ProtocolModel
 from girderformindlogger.models.response_folder import ResponseFolder as       \
     ResponseFolderModel, ResponseItem as ResponseItemModel
@@ -78,6 +80,9 @@ def authenticate(user, password="password"):
     user: a user object
     password: (optional) defaults to 'password'
 
+    returns
+    -------
+    user
     """
     return(
         UserModel().authenticate(
@@ -86,6 +91,25 @@ def authenticate(user, password="password"):
         )
     )
 
+def authenticateWithEmailAddress(email, password="password"):
+    """
+    authenticate a user by email address
+
+    inputs
+    ------
+    email: string
+    password: (optional) defaults to 'password'
+
+    returns
+    -------
+    user
+    """
+    return(
+        UserModel().authenticate(
+            login=email,
+            password=password
+        )
+    )
 
 def getAppletById(user, ar):
     """
@@ -374,9 +398,18 @@ def inviteUserToApplet(user, appletObject, userB):
     userB: a user object of a user you want to invite. If they aren't
     defined yet, it should be a dict(email="emailaddress")
     """
+
     groupId = appletObject['roles']['user']['groups'][0]['id']
     currentUser = authenticate(user)
     group = Group().load(id=ObjectId(groupId), force=True)
+
+    invitation = Invitation().createInvitation(
+        appletObject,
+        currentUser,
+        role="user",
+        profile=Profile().createProfile(appletObject, userB),
+        idCode=None
+    )
     return Group().inviteUser(group, userB, level=AccessType.READ)
     # inviteResp = girder.post('group/{}/invitation'.format(groupId), {
     #     "email": userB['email']
@@ -632,7 +665,6 @@ def getLast7Days(user, appletObject):
     currentUser = authenticate(user)
     appletId = appletObject['_id']
     appletInfo = AppletModel().findOne({'_id': ObjectId(appletId)})
-    print(last7Days(appletId, appletInfo, currentUser.get('_id'), currentUser))
     return(last7Days(appletId, appletInfo, currentUser.get('_id'), currentUser))
 
 
@@ -855,6 +887,11 @@ def fullTest(protocolUrl, act1, act2, act1Item, act2Item):
             # First user will be admin on a new image
             admin = testCreateUser(admin=True)
         user = testCreateUser()
+        with pytest.raises(AccessException) as excinfo:
+            authenticateWithEmailAddress(
+                user.get('email', 'test@mindlogger.org')
+            )
+        assert "your username rather than your email" in str(excinfo.value)
         currentUser = authenticate(user)
         return user
 

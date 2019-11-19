@@ -102,12 +102,6 @@ def reprolibCanonize(s):
     """
     if isinstance(s, str):
         s = reprolibPrefix(s).replace('reprolib:', REPROLIB_CANONICAL)
-        # for oldProtocol in {'activity-set', 'activitySet'}:
-        #     if oldProtocol in s:
-        #         if checkURL(s):
-        #             return(s)
-        #         else:
-        #             s = s.replace(oldProtocol, 'protocol')
         if checkURL(s):
             return(s)
         else:
@@ -288,7 +282,7 @@ def fileObjectToStr(obj):
         r = requests.get(obj.get('@id'))
     except (AttributeError, ConnectionError, MissingSchema):
         r = obj.get("@id") if isinstance(obj, dict) else ""
-        print("Warning: Could not load {}".format(r))
+        raise ResourcePathNotFound("Could not load {}".format(r))
     return(r.text)
 
 
@@ -441,6 +435,7 @@ def formatLdObject(
                         'url'
                     ] if key in list(protocol.get('protocol', {}).keys())
                 }
+
                 applet['applet'] = {
                     **protocol.pop('protocol', {}),
                     **obj.get('meta', {}).get(mesoPrefix, {}),

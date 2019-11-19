@@ -14,6 +14,7 @@ from girderformindlogger.models.applet import Applet as AppletModel
 from girderformindlogger.models.collection import Collection as CollectionModel
 from girderformindlogger.models.folder import Folder as FolderModel
 from girderformindlogger.models.group import Group as GroupModel
+from girderformindlogger.models.profile import Profile as ProfileModel
 from girderformindlogger.models.setting import Setting
 from girderformindlogger.models.token import Token
 from girderformindlogger.models.user import User as UserModel
@@ -54,6 +55,7 @@ class User(Resource):
         self.route('POST', (':id', 'otp'), self.initializeOtp)
         self.route('PUT', (':id', 'otp'), self.finalizeOtp)
         self.route('DELETE', (':id', 'otp'), self.removeOtp)
+        self.route('PUT', ('profile',), self.updateProfile)
         self.route('PUT', (':id', 'verification'), self.verifyEmail)
         self.route('POST', ('verification',), self.sendVerificationEmail)
 
@@ -135,7 +137,8 @@ class User(Resource):
         Description('List or search for users.')
         .responseClass('User', array=True)
         .param('text', 'Pass this to perform a full text search for items.', required=False)
-        .pagingParams(defaultSort='firstName') # 🚧 replace with customID once customID defined
+        .pagingParams(defaultSort='firstName')
+        .deprecated()
     )
     def find(self, text, limit, offset, sort):
         return list(self._model.search(
@@ -149,6 +152,7 @@ class User(Resource):
         .modelParam('id', model=UserModel, level=AccessType.READ)
         .errorResponse('ID was invalid.')
         .errorResponse('You do not have permission to see this user.', 403)
+        .deprecated()
     )
     def getUser(self, user):
         return user
@@ -160,6 +164,7 @@ class User(Resource):
         .modelParam('id', model=UserModel, level=AccessType.READ)
         .errorResponse('ID was invalid.')
         .errorResponse('You do not have permission to see this user.', 403)
+        .deprecated()
     )
     def getUserAccess(self, user):
         return self._model.getFullAccessList(user)
@@ -176,6 +181,7 @@ class User(Resource):
         )
         .errorResponse('ID was invalid.')
         .errorResponse('Admin access was denied for the user.', 403)
+        .deprecated()
     )
     def updateUserAccess(self, user, access):
         return self._model.setAccessList(
@@ -307,13 +313,25 @@ class User(Resource):
             required=False,
             dataType='boolean'
         )
+        .param(
+            'refreshCache',
+            'If true, refresh user cache.',
+            required=False,
+            dataType='boolean'
+        )
         .errorResponse('ID was invalid.')
         .errorResponse(
             'You do not have permission to see any of this user\'s applets.',
             403
         )
     )
-    def getOwnApplets(self, role, ids_only=False, unexpanded=False):
+    def getOwnApplets(
+        self,
+        role,
+        ids_only=False,
+        unexpanded=False,
+        refreshCache=False
+    ):
         import threading
         from bson.objectid import ObjectId
 
@@ -340,6 +358,15 @@ class User(Resource):
                 return([{
                     'applet': AppletModel().unexpanded(applet)
                 } for applet in applets])
+        if refreshCache:
+            return(
+                AppletModel().updateUserCache(
+                    role,
+                    reviewer,
+                    active=True,
+                    refreshCache=refreshCache
+                )
+            )
         try:
             if 'cached' in reviewer and 'applets' in reviewer[
                 'cached'
@@ -347,18 +374,19 @@ class User(Resource):
                 reviewer['cached']['applets'][role],
                 list
             ) and len(reviewer['cached']['applets'][role]):
-                applets=reviewer['cached']['applets'][role]
+                applets = reviewer['cached']['applets'][role]
                 thread = threading.Thread(
                     target=AppletModel().updateUserCache,
                     args=(role, reviewer),
-                    kwargs={"active": True}
+                    kwargs={"active": True, "refreshCache": refreshCache}
                 )
                 thread.start()
                 return(applets)
             return(AppletModel().updateUserCache(
                 role,
                 reviewer,
-                active=True
+                active=True,
+                refreshCache=refreshCache
             ))
         except Exception as e:
             return(e)
@@ -578,16 +606,16 @@ class User(Resource):
             default="",
             required=False
         )
-        .param(
-            'email',
-            'The email of the user.',
-            required=False,
-            dataType='string'
-        )
         .param('admin', 'Is the user a site admin (admin access required)',
                required=False, dataType='boolean')
         .param('status', 'The account status (admin access required)',
                required=False, enum=('pending', 'enabled', 'disabled'))
+        .param(
+             'email',
+             'Deprecated. Do not use.',
+             required=False,
+             dataType='string'
+        )
         .param(
             'firstName',
             'Deprecated. Do not use.',
@@ -751,6 +779,7 @@ class User(Resource):
         .modelParam('id', model=UserModel, level=AccessType.READ)
         .errorResponse()
         .errorResponse('Read access was denied on the user.', 403)
+        .deprecated()
     )
     def getUserDetails(self, user):
         return {
@@ -811,6 +840,40 @@ class User(Resource):
 
         del user['otp']
         self._model.save(user)
+
+    @access.public
+    @autoDescribeRoute(
+        Description(
+            'Update a user profile. Requires either profile ID __OR__ applet '
+            'ID and ID code.'
+        )
+        .jsonParam(
+            'update',
+            'A JSON Object with values to update, overriding existing values.',
+            required=True
+        )
+        .param('id', 'Profile ID.', required=False)
+        .param('applet', 'Applet ID.', required=False)
+        .param('idCode', 'ID code.', required=False)
+    )
+    def updateProfile(self, update={}, id=None, applet=None, idCode=None):
+        if (id is not None) and (applet is not None or idCode is not None):
+            raise RestException(
+                'Pass __either__ profile ID __OR__ (applet ID and ID code), '
+                'not both.'
+            )
+        elif (id is None) and (applet is None or idCode is None):
+            raise RestException(
+                'Either profile ID __OR__ (applet ID and ID code) required.'
+            )
+        else:
+            currentUser = self.getCurrentUser()
+            id = id if id is not None else Profile().getProfile(
+                applet=AppletModel().load(applet, force=True),
+                idCode=idCode,
+                user=currentUser
+            )
+        return(ProfileModel().updateProfile(id, currentUser, update))
 
     @access.public
     @autoDescribeRoute(

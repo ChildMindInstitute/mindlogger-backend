@@ -357,7 +357,6 @@ class Model(object):
                     )
         return(cachedDoc, modelType)
 
-
     def getModelCollection(self, modelType):
         """
         Returns the Collection named for the given modelType, creating if not
@@ -494,7 +493,6 @@ class Model(object):
         cursor = self.collection.find(
             filter=query, skip=offset, limit=limit, projection=fields,
             no_cursor_timeout=timeout is None, sort=sort, **kwargs)
-
         if timeout:
             cursor.max_time_ms(timeout)
 
@@ -1517,7 +1515,10 @@ class AccessControlledModel(Model):
                 return(AccessType.READ)
             else:
                 return(AccessType.NONE)
-        elif user['admin']:
+        elif user.get('admin', False):
+            if 'admin' not in user:
+                user['admin']=True
+                self.save(user, validate=False)
             return(AccessType.ADMIN)
         else:
             access = doc.get('access', {})

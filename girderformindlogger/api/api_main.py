@@ -2,9 +2,9 @@
 import cherrypy
 
 from . import describe
-from .v1 import activity, api_key, applet, assetstore, file, collection,       \
-    context, folder, group, item, protocol, resource, response, schedule,      \
-    screen, system, token, user, notification
+from .v1 import activity, api_key, applet, assetstore, file,     \
+    collection, context, folder, group, invitation, item, protocol, resource,  \
+    response, schedule, screen, system, token, user, notification
 
 
 class ApiDocs(object):
@@ -35,6 +35,7 @@ def _addV1ToNode(node):
     node.v1.file = file.File()
     node.v1.folder = folder.Folder()
     node.v1.group = group.Group()
+    node.v1.invitation = invitation.Invitation()
     node.v1.item = item.Item()
     node.v1.notification = notification.Notification()
     node.v1.protocol = protocol.Protocol()

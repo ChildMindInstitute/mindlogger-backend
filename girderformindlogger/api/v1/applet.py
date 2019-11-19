@@ -54,6 +54,7 @@ class Applet(Resource):
         self.route('POST', (), self.createApplet)
         self.route('PUT', (':id', 'assign'), self.assignGroup)
         self.route('PUT', (':id', 'constraints'), self.setConstraints)
+        self.route('POST', (':id', 'invite'), self.invite)
         self.route('POST', ('invite',), self.inviteFromURL)
         self.route('GET', (':id', 'roles'), self.getAppletRoles)
         self.route('GET', (':id', 'users'), self.getAppletUsers)
@@ -190,6 +191,8 @@ class Applet(Resource):
         .errorResponse('Write access was denied for this applet.', 403)
     )
     def deactivateApplet(self, folder):
+        import threading
+
         applet = folder
         user = Applet().getCurrentUser()
         applet['meta']['applet']['deleted'] = True
@@ -198,6 +201,9 @@ class Applet(Resource):
             message = 'Successfully deactivated applet {} ({}).'.format(
                 AppletModel().preferredName(applet),
                 applet.get('_id')
+            )
+            thread = threading.Thread(
+                target=AppletModel().updateAllUserCaches(applet, user)
             )
         else:
             message = 'Could not deactivate applet {} ({}).'.format(
@@ -302,15 +308,11 @@ class Applet(Resource):
     @access.user(scope=TokenScope.DATA_WRITE)
     @autoDescribeRoute(
         Description('Invite a user to a role in an applet.')
-        .deprecated()
-        .responseClass('Folder')
-        .modelParam('id', model=FolderModel, level=AccessType.READ)
-        .param(
-            'user',
-            'Applet-specific or canonical ID or email address of the user to '
-            'invite. The current user is assumed if this parameter is omitted.',
-            required=False,
-            strip=True
+        .modelParam(
+            'id',
+            model=AppletModel,
+            level=AccessType.READ,
+            destName='applet'
         )
         .param(
             'role',
@@ -320,46 +322,52 @@ class Applet(Resource):
             strip=True
         )
         .param(
-            'rsvp',
-            'Can the invited user decline the invitation?',
-            default=True,
-            required=False
+            'idCode',
+            'ID code for data reporting. One will be generated if none is '
+            'provided.',
+            required=False,
+            strip=True
         )
-        .param(
-            'subject',
-            'For \'user\' or \'reviewer\' roles, an applet-specific or '
-            'cannonical ID of the subject of that informant or reviewer, an '
-            'iterable thereof, or \'ALL\' or \'NONE\'. The current user is '
-            'assumed if this parameter is omitted.',
-            required=False
+        .jsonParam(
+            'profile',
+            'Optional, coordinator-defined user profile information, eg, '
+            '`displayName`, `email`',
+            required=False,
+            paramType='form'
         )
         .errorResponse('ID was invalid.')
         .errorResponse('Write access was denied for the folder or its new parent object.', 403)
     )
-    def invite(self, folder, user, role, rsvp, subject):
-        if role not in USER_ROLE_KEYS:
-            raise ValidationException(
-                'Invalid role.',
-                'role'
+    def invite(self, applet, role="user", idCode=None, profile=None):
+        from girderformindlogger.models.invitation import Invitation
+        from girderformindlogger.models.profile import Profile
+
+        user = self.getCurrentUser()
+        try:
+            if role not in USER_ROLE_KEYS:
+                raise ValidationException(
+                    'Invalid role.',
+                    'role'
+                )
+
+            invitation = Invitation().createInvitation(
+                applet=applet,
+                coordinator=user,
+                role="user",
+                profile=profile,
+                idCode=idCode
             )
-        applets = CollectionModel().createCollection(
-            name="Applets",
-            public=True,
-            reuseExisting=True
-        )
-        if not str(folder['baseParentId'])==str(applets['_id']):
-            raise ValidationException(
-                'Invalid applet ID.',
-                'applet'
-            )
-        jsonld_expander.formatLdObject(folder, 'applet', user)
-        return(_invite(folder, user, role, rsvp, subject))
+
+            return(Profile().displayProfileFields(invitation, user))
+        except:
+            import sys, traceback
+            print(sys.exc_info())
+
 
     @access.user(scope=TokenScope.DATA_WRITE)
     @autoDescribeRoute(
         Description('Invite a user to a role in an applet by applet URL.')
         #.responseClass('Folder')
-        .deprecated()
         .param(
             'url',
             'URL of applet, eg, '
@@ -396,6 +404,7 @@ class Applet(Resource):
         )
         .errorResponse('ID was invalid.')
         .errorResponse('Write access was denied for the folder or its new parent object.', 403)
+        .deprecated()
     )
     def inviteFromURL(self, url, user, role, rsvp, subject, refreshCache=False):
         if role not in USER_ROLE_KEYS:

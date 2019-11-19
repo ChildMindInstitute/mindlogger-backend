@@ -12,6 +12,27 @@ from girderformindlogger.constants import PACKAGE_DIR
 from girderformindlogger.settings import SettingKey
 
 
+def htmlUserList(userlist, showEmail=False):
+    htmlList = "</li><li>".join([
+        formatUserString(userlist[u]) for u in userlist
+    ])
+    return("<ul><li>{}</li></ul>".format(htmlList) if len(htmlList) else "")
+
+def formatUserString(u):
+    """
+    :param u: user display profile
+    :type u: dict
+    :returns: str
+    """
+    if not isinstance(u, dict):
+        return("")
+    return(
+        "{name} {email}".format(
+            name=u.get("displayName", ""),
+            email="&lt;{}&gt;".format(u["email"]) if "email" in u else ""
+        ).strip()
+    )
+
 def validateEmailAddress(address):
     """
     Determines whether a string is a valid email address.
