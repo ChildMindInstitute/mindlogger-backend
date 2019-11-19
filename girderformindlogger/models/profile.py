@@ -136,7 +136,7 @@ class Profile(AccessControlledModel, dict):
                     )
                 )
 
-    def cycleDefinitions(self, userProfile, showEmail=False):
+    def cycleDefinitions(self, userProfile, showEmail=False, showIDCode=False):
         """
         :param userProfile: Profile or Invitation
         :type userProfile: dict
@@ -156,10 +156,45 @@ class Profile(AccessControlledModel, dict):
         displayProfile.update(userProfile.get("coordinatorDefined", {}))
         displayProfile.update(userProfile.get("userDefined", {}))
 
+        if showIDCode:
+            from .ID_code import IDCode
+
+            profileFields.append('idCodes')
+            profileFields.append('idCode')
+            if userProfile.get('profile', False):
+                displayProfile.update({
+                    "idCodes": IDCode().findIdCodes(
+                        userProfile['_id']
+                    )
+                })
+            if userProfile.get('code', False):
+                displayProfile.update({
+                    "idCode": userProfile.get('code')
+                })
+            print(displayProfile)
+
         return({
             k: v if v!="" else None for k, v in displayProfile.items(
             ) if k in profileFields and v is not None
         })
+
+    def profileAsUser(self, profile, requester):
+        from .applet import Applet as AppletModel
+        return(self.cycleDefinitions(
+            profile,
+            showEmail=any([
+                AppletModel().isCoordinator(profile['appletId'], requester),
+                str(requester['_id'])==str(profile['userId'])
+            ]),
+            showIDCode=any([
+                AppletModel().isCoordinator(profile['appletId'], requester),
+                AppletModel()._hasRole(
+                    profile['appletId'],
+                    requester,
+                    'reviewer'
+                )
+            ])
+        ))
 
     def displayProfileFields(self, profile, user):
         """
@@ -173,7 +208,8 @@ class Profile(AccessControlledModel, dict):
 
         profileDefinitions = self.cycleDefinitions(
             profile,
-            showEmail=Applet().isCoordinator(profile['appletId'], user)
+            showEmail=Applet().isCoordinator(profile['appletId'], user),
+            showIDCode=Applet().isCoordinator(profile['appletId'], user)
         )
 
         if 'invitedBy' in profile:

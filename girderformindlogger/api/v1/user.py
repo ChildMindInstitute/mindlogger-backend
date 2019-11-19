@@ -14,6 +14,7 @@ from girderformindlogger.models.applet import Applet as AppletModel
 from girderformindlogger.models.collection import Collection as CollectionModel
 from girderformindlogger.models.folder import Folder as FolderModel
 from girderformindlogger.models.group import Group as GroupModel
+from girderformindlogger.models.ID_code import IDCode
 from girderformindlogger.models.profile import Profile as ProfileModel
 from girderformindlogger.models.setting import Setting
 from girderformindlogger.models.token import Token
@@ -36,7 +37,7 @@ class User(Resource):
         self.route('GET', (), self.find)
         self.route('GET', ('me',), self.getMe)
         self.route('GET', ('authentication',), self.login)
-        self.route('GET', (':id',), self.getUser)
+        self.route('GET', (':id',), self.getUserByID)
         self.route('GET', (':id', 'access'), self.getUserAccess)
         self.route('PUT', (':id', 'access'), self.updateUserAccess)
         self.route('GET', (':id', 'applets'), self.getUserApplets)
@@ -145,17 +146,28 @@ class User(Resource):
             text=text, user=self.getCurrentUser(), offset=offset, limit=limit, sort=sort))
 
     @access.public(scope=TokenScope.USER_INFO_READ)
-    @filtermodel(model=UserModel)
     @autoDescribeRoute(
         Description('Get a user by ID.')
-        .responseClass('User')
-        .modelParam('id', model=UserModel, level=AccessType.READ)
+        .param('id', 'Profile ID or ID code', required=True)
         .errorResponse('ID was invalid.')
         .errorResponse('You do not have permission to see this user.', 403)
-        .deprecated()
     )
-    def getUser(self, user):
-        return user
+    def getUserByID(self, id):
+        from bson.objectid import ObjectId
+        user = self.getCurrentUser()
+        try:
+            p = ProfileModel().findOne({'_id': ObjectId(id)})
+        except:
+            p = None
+        if p is None:
+            appletList = AppletModel().getAppletsForUser(
+                'coordinator',
+                user,
+                active=False
+            )
+            ps = IDCode().findProfile(id)
+            return([ProfileModel().profileAsUser(p, user) for p in ps])
+        return(ProfileModel().profileAsUser(p, user))
 
     @access.user(scope=TokenScope.USER_INFO_READ)
     @autoDescribeRoute(

@@ -100,6 +100,14 @@ class IDCode(acl_mixin.AccessControlMixin, Model):
 
         return doc
 
+    def findIdCodes(self, profileId):
+        return([
+            i['code'] for i in list(self.find({'profileId': {'$in': [
+                str(profileId),
+                ObjectId(profileId)
+            ]}})) if isinstance(i, dict) and 'code' in i
+        ])
+
     def remove(self, item, **kwargs):
         """
         Delete an item, and all references to it in the database.

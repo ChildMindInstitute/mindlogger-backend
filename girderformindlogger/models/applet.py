@@ -367,6 +367,24 @@ class Applet(Folder):
                 'roles.' + role + '.groups.id': {'$in': user.get('groups', [])},
                 'meta.applet.deleted': {'$ne': active}
             }
+        )) if active else [
+            *list(self.find(
+                {
+                    'roles.' + role + '.groups.id': {'$in': user.get(
+                        'groups',
+                        []
+                    )}
+                }
+            )),
+            *list(self.find(
+                {
+                    'roles.manager.groups.id': {'$in': user.get('groups', [])}
+                }
+            ))
+        ] if role=="coordinator" else list(self.find(
+            {
+                'roles.' + role + '.groups.id': {'$in': user.get('groups', [])}
+            }
         ))
         return(applets if isinstance(applets, list) else [applets])
 
