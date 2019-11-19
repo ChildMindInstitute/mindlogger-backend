@@ -208,7 +208,12 @@ class User(Resource):
     @autoDescribeRoute(
         Description('Remove an ID Code from a user.')
         .param('id', 'Profile ID', required=True)
-        .param('code', 'ID code to remove from profile', required=True)
+        .param(
+            'code',
+            'ID code to remove from profile. If the ID code to remove is the '
+            'only ID code for that profile, a new one will be auto-generated.',
+            required=True
+        )
         .errorResponse('ID was invalid.')
         .errorResponse('You do not have permission to see this user.', 403)
     )
