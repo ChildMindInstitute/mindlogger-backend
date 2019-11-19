@@ -206,15 +206,19 @@ class User(Resource):
                 grammaticalSubject
             )
         if 'schema:knows' in grammaticalSubject:
-            if rel in grammaticalSubject['schema:knows']:
+            if rel in grammaticalSubject['schema:knows'] and grammaticalObject[
+                '_id'
+            ] not in grammaticalSubject['schema:knows'][rel]:
                 grammaticalSubject['schema:knows'][rel].append(
-                    grammaticalObject
+                    grammaticalObject['_id']
                 )
             else:
-                grammaticalSubject['schema:knows'][rel] = [grammaticalObject]
+                grammaticalSubject['schema:knows'][rel] = [
+                    grammaticalObject['_id']
+                ]
         else:
             grammaticalSubject['schema:knows'] = {
-                rel: [grammaticalObject]
+                rel: [grammaticalObject['_id']]
             }
         ProfileModel().save(grammaticalSubject, validate=False)
         inferRelationships(grammaticalSubject)

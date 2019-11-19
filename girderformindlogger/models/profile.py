@@ -304,7 +304,7 @@ class Profile(AccessControlledModel, dict):
     def updateRelations(self, profileId):
         relations = list(self.find({
             '$or': [{
-                'schema:knows.{}._id'.format(rel): profileId
+                'schema:knows.{}'.format(rel): profileId
             } for rel in DEFINED_RELATIONS.keys()]
         }))
 

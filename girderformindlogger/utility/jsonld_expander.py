@@ -84,14 +84,12 @@ def inferRelationships(person):
                     if ep not in person['schema:knows']:
                         person['schema:knows'][ep] = []
                     for related in person['schema:knows'][rel]:
-                        if related.get('_id') not in [
-                            epr.get('_id') for epr in person['schema:knows'][ep]
-                        ]:
-                            person['schema:knows'][ep].append(related)
+                        if related.get('_id') not in person['schema:knows'][ep]:
+                            person['schema:knows'][ep].append(related['_id'])
             if "owl:inverseOf" in DEFINED_RELATIONS[rel]:
                 for related in [
                     Profile().load(
-                        p['_id'],
+                        p,
                         force=True
                     ) for p in person['schema:knows'][rel]
                 ]:
@@ -100,22 +98,18 @@ def inferRelationships(person):
                     for io in DEFINED_RELATIONS[rel]["owl:inverseOf"]:
                         if io not in related['schema:knows']:
                             related['schema:knows'][io] = []
-                        if person['_id'] not in [
-                            r.get('_id') for r in related['schema:knows'][io]
-                        ]:
-                            related['schema:knows'][io].append(
-                                Profile().profileAsUser(person, related)
-                            )
+                        if person['_id'] not in related['schema:knows'][io]:
+                            related['schema:knows'][io].append(person['_id'])
                             thread = threading.Thread(
                                 inferRelationships(related)
                             )
                             thread.start()
     if any([
-        bool(rp not in [
-            p['_id'] for p in start.get('schema:knows', {}).get(rel)
-        ]) for rp in [
-            p['_id'] for p in person['schema:knows'][rel]
-        ] for rel in list(person['schema:knows'].keys())
+        bool(
+            rp not in start.get('schema:knows', {}).get(rel)
+        ) for rp in person['schema:knows'][rel] for rel in list(
+            person['schema:knows'].keys()
+        )
     ]):
         person = inferRelationships(person)
         newPerson = Profile().load(person['_id'], force=True)
