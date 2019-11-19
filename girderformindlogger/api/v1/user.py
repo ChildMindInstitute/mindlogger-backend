@@ -165,8 +165,13 @@ class User(Resource):
                 user,
                 active=False
             )
-            ps = IDCode().findProfile(id)
-            return([ProfileModel().profileAsUser(p, user) for p in ps])
+            ps = [
+                ProfileModel().profileAsUser(
+                    p,
+                    user
+                ) for p in IDCode().findProfile(id)
+            ]
+            return(ps[0] if len(ps)==1 else ps)
         return(ProfileModel().profileAsUser(p, user))
 
     @access.user(scope=TokenScope.USER_INFO_READ)
