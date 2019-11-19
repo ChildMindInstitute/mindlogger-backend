@@ -53,10 +53,13 @@ class IDCode(acl_mixin.AccessControlMixin, Model):
         :returns: string
         """
         import hashlib
+        from datetime import datetime
+
         h = hashlib.new('shake_256')
-        h.update("{}{}".format(
+        h.update("{}{}{}".format(
             profile.get('profileId', ''),
-            profile.get('_od', str(profile['_id']))
+            profile.get('_id', str(profile['_id'])),
+            datetime.now().isoformat()
         ).encode())
         return(h.hexdigest(9))
 
@@ -107,6 +110,18 @@ class IDCode(acl_mixin.AccessControlMixin, Model):
                 ObjectId(profileId)
             ]}})) if isinstance(i, dict) and 'code' in i
         ])
+
+    def removeCode(self, profileId, code):
+        from .profile import Profile
+        idCode = self.findOne({
+            'profileId': ObjectId(profileId),
+            'code': code
+        })
+        if idCode is not None:
+            self.remove(idCode)
+        if not len(self.findIdCodes(profileId)):
+            self.createIdCode(Profile().load(profileId, force=True))
+        return(Profile().load(profileId, force=True))
 
     def remove(self, item, **kwargs):
         """
