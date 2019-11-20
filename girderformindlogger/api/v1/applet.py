@@ -52,6 +52,7 @@ class Applet(Resource):
         self.route('GET', (':id',), self.getApplet)
         self.route('GET', (':id', 'groups'), self.getAppletGroups)
         self.route('POST', (), self.createApplet)
+        self.route('PUT', (':id', 'informant'), self.updateInformant)
         self.route('PUT', (':id', 'assign'), self.assignGroup)
         self.route('PUT', (':id', 'constraints'), self.setConstraints)
         self.route('POST', (':id', 'invite'), self.invite)
@@ -182,6 +183,38 @@ class Applet(Resource):
             user=thisUser
         )
         return(applet)
+
+    @access.user(scope=TokenScope.DATA_WRITE)
+    @autoDescribeRoute(
+        Description('(managers only) Update the informant of an applet.')
+        .modelParam(
+            'id',
+            model=AppletModel,
+            description='ID of the applet to update',
+            required=True
+        )
+        .param(
+            'informant',
+            'Relationship from informant to individual of interest.',
+            required=False
+        )
+        .errorResponse('Write access was denied for this applet.', 403)
+    )
+    def updateInformant(self, applet, informant):
+        user = self.getCurrentUser()
+        if not AppletModel().isManager(applet['_id'], user):
+            raise AccessException(
+                "Only managers can update informant relationship"
+            )
+        AppletModel().updateRelationship(applet, informant)
+        return(
+            jsonld_expander.formatLdObject(
+                applet,
+                'applet',
+                user,
+                refreshCache=True
+            )
+        )
 
     @access.user(scope=TokenScope.DATA_WRITE)
     @autoDescribeRoute(

@@ -164,6 +164,23 @@ class Applet(Folder):
         )
         self.updateUserCacheAllRoles(user)
 
+    def updateRelationship(self, applet, relationship):
+        """
+        :param applet: Applet to update
+        :type applet: dict
+        :param relationship: Relationship to apply
+        :type relationship: str
+        :returns: updated Applet
+        """
+        if not isinstance(relationship, str):
+            raise TypeError("Applet relationship must be defined as a string.")
+        if 'meta' not in applet:
+            applet['meta'] = {'protocol': {}}
+        if 'protocol' not in applet['meta']:
+            applet['meta']['protocol'] = {}
+        applet['meta']['protocol']['rel:Relationship'] = relationship
+        return(self.save(applet, validate=False))
+
     def unexpanded(self, applet):
         return({
             **(
