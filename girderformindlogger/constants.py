@@ -67,14 +67,14 @@ DEFINED_RELATIONS = {
         "rdfs:comment": [
             "The biological father of a person, also known as the genitor"
         ],
-        "owl:inverseOf": ["rel:childOf"]
+        "owl:inverseOf": ["rel:parentOf"]
     },
     "bio:mother": {
         "rdfs:subPropertyOf": ["schema:knows"],
         "rdfs:comment": [
             "The biological mother of a person, also known as the genetrix"
         ],
-        "owl:inverseOf": ["rel:childOf"]
+        "owl:inverseOf": ["rel:parentOf"]
     },
     "rel:childOf": {
         "owl:inverseOf": ["rel:parentOf"],
