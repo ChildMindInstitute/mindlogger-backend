@@ -8,6 +8,10 @@ Changes
 -------
 Unreleased
 ==========
+2019-11-19: v0.6.3
+^^^^^^^^^^^^^^^^^^
+* :hammer: Update invitation routes
+
 2019-11-18: v0.6.1
 ^^^^^^^^^^^^^^^^^^
 * :sparkles: User profiles
