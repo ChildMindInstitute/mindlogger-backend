@@ -8,7 +8,11 @@ Changes
 -------
 Unreleased
 ==========
-2019-11-19: v0.6.2
+2019-11-20: v0.6.3
+^^^^^^^^^^^^^^^^^^
+* :hammer: Update invitation routes
+
+2019-11-20: v0.6.2
 ^^^^^^^^^^^^^^^^^^
 * :sparkles: ID codes
 
