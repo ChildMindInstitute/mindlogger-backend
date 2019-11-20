@@ -190,10 +190,5 @@ class Invitation(Resource):
         """
         Decline an invitation.
         """
-        currentUser = self.getCurrentUser()
-        if currentUser is None:
-            raise AccessException(
-                "You must be logged in to accept an invitation."
-            )
         InvitationModel().remove(invitation)
         return("Successfully deleted invitation.")
