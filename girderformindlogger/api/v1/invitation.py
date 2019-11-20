@@ -33,7 +33,7 @@ class Invitation(Resource):
     """API Endpoint for schedules."""
 
     def __init__(self):
-        super(Resource, self).__init__()
+        super(Invitation, self).__init__()
         self.resourceName = 'invitation'
         self.route('GET', (':id',), self.getInvitation)
         self.route('GET', (':id', 'accept'), self.acceptInvitationByToken)
@@ -139,8 +139,7 @@ class Invitation(Resource):
             raise AccessException(
                 "You must be logged in to accept an invitation."
             )
-        Invitation().acceptInvitation(invitation, currentUser)
-        return(InvitationModel().htmlInvitation(invitation, currentUser))
+        return(InvitationModel().acceptInvitation(invitation, currentUser))
 
     @access.public(scope=TokenScope.USER_INFO_READ)
     @autoDescribeRoute(
@@ -183,7 +182,7 @@ class Invitation(Resource):
         .modelParam(
             'id',
             model=InvitationModel,
-            level=AccessType.WRITE,
+            force=True,
             destName='invitation'
         )
         .errorResponse()

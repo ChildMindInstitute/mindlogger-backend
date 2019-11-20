@@ -153,16 +153,29 @@ class Invitation(AccessControlledModel):
 
     def acceptInvitation(self, invitation, user):
         from .applet import Applet
+        from .ID_code import IDCode
         from .profile import Profile
 
         applet = Applet().load(invitation['appletId'], force=True)
-        profile = Profile().createProfile(
-            applet,
-            user,
-            role=invitation.get('role', 'user')
-        )
+        profiles = None
+        if 'idCode' in invitation:
+            profiles = IDCode().findProfile(invitation['idCode'])
+        if profiles and len(profiles):
+            profile = [
+                pro for pro in profiles if str(pro['userId'])==str(user['_id'])
+            ]
+            profile = profile[0] if len(profile) else None
+        else:
+            profile=None
+        if profiles==None or profile==None or not len(profile):
+            profile = Profile().createProfile(
+                applet,
+                user,
+                role=invitation.get('role', 'user')
+            )
+            IDCode().createIdCode(profile, invitation.get('idCode'))
         self.remove(invitation)
-        return(profile)
+        return(Profile().displayProfileFields(profile, user))
 
     def htmlInvitation(self, invitation, invitee=None, fullDoc=False):
         """

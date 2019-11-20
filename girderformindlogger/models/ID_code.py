@@ -24,10 +24,10 @@ class IDCode(acl_mixin.AccessControlMixin, Model):
 
     def initialize(self):
         self.name = 'idCode'
-        self.ensureIndices(('folderId'))
+        self.ensureIndices(('profileId'))
         self.ensureTextIndex({'code': 10})
-        self.resourceColl = 'folder'
-        self.resourceParent = 'folderId'
+        # self.resourceColl = 'folder'
+        self.resourceParent = 'profileId'
 
         self.exposeFields(level=AccessType.READ, fields=('code'))
 
@@ -53,11 +53,14 @@ class IDCode(acl_mixin.AccessControlMixin, Model):
         :returns: string
         """
         import hashlib
+        from datetime import datetime
+
         h = hashlib.new('shake_256')
-        h.update(b"{}{}".format(
-            profile.get('folderId', ''),
-            profile.get('userId', '')
-        ))
+        h.update("{}{}{}".format(
+            profile.get('profileId', ''),
+            profile.get('_id', str(profile['_id'])),
+            datetime.now().isoformat()
+        ).encode())
         return(h.hexdigest(9))
 
     def load(self, id, level=AccessType.ADMIN, user=None, objectId=True,
@@ -100,6 +103,26 @@ class IDCode(acl_mixin.AccessControlMixin, Model):
 
         return doc
 
+    def findIdCodes(self, profileId):
+        return([
+            i['code'] for i in list(self.find({'profileId': {'$in': [
+                str(profileId),
+                ObjectId(profileId)
+            ]}})) if isinstance(i, dict) and 'code' in i
+        ])
+
+    def removeCode(self, profileId, code):
+        from .profile import Profile
+        idCode = self.findOne({
+            'profileId': ObjectId(profileId),
+            'code': code
+        })
+        if idCode is not None:
+            self.remove(idCode)
+        if not len(self.findIdCodes(profileId)):
+            self.createIdCode(Profile().load(profileId, force=True))
+        return(Profile().load(profileId, force=True))
+
     def remove(self, item, **kwargs):
         """
         Delete an item, and all references to it in the database.
@@ -121,34 +144,46 @@ class IDCode(acl_mixin.AccessControlMixin, Model):
         :type idCode: str or None
         :returns: The ID code document that was created.
         """
-        existing = self.findOne({
-            'folderId': profile['_id']
-        })
-        if existing:
-            raise ValidationException(
-                "An applet ∩ user can only have one ID code. One already "
-                "exists here."
-            )
-
         now = datetime.datetime.utcnow()
 
-        if 'baseParentType' not in folder:
-            pathFromRoot = self.parentsToRoot({'folderId': folder['_id']},
-                                              creator, force=True)
-            folder['baseParentType'] = pathFromRoot[0]['type']
-            folder['baseParentId'] = pathFromRoot[0]['object']['_id']
+        try:
+            self.save(
+                {
+                    'code': idCode if idCode is not None else self.generateCode(
+                        profile
+                    ),
+                    'profileId': ObjectId(profile['_id']),
+                    'created': now,
+                    'updated': now,
+                    'size': 0
+                },
+                validate=False
+            )
+            return(True)
+        except Exception as e:
+            import sys, traceback
+            raise e
+            print(sys.exc_info())
 
-        return self.save({
-            'code': idCode if idCode is not None else self.generateCode(
-                profile
-            ),
-            'folderId': ObjectId(folder['_id']),
-            'baseParentType': folder['baseParentType'],
-            'baseParentId': folder['baseParentId'],
-            'created': now,
-            'updated': now,
-            'size': 0
-        })
+
+    def findProfile(self, idCode):
+        """
+        Find a profile for a given ID code.
+        """
+        existing = list(self.find({
+            'code': idCode
+        }))
+        if len(existing):
+            from .profile import Profile
+            existing = [
+                Profile().load(
+                    exist['profileId'],
+                    force=True
+                ) for exist in existing
+            ]
+            return(existing)
+        else:
+            return(None)
 
     def updateIdCode(self, item):
         """
@@ -180,17 +215,17 @@ class IDCode(acl_mixin.AccessControlMixin, Model):
 
         folderModel = Folder()
         curFolder = folderModel.load(
-            item['folderId'], user=user, level=AccessType.READ, force=force)
-        folderIdsToRoot = folderModel.parentsToRoot(
+            item['profileId'], user=user, level=AccessType.READ, force=force)
+        profileIdsToRoot = folderModel.parentsToRoot(
             curFolder, user=user, level=AccessType.READ, force=force)
 
         if force:
-            folderIdsToRoot.append({'type': 'folder', 'object': curFolder})
+            profileIdsToRoot.append({'type': 'folder', 'object': curFolder})
         else:
             filteredFolder = folderModel.filter(curFolder, user)
-            folderIdsToRoot.append({'type': 'folder', 'object': filteredFolder})
+            profileIdsToRoot.append({'type': 'folder', 'object': filteredFolder})
 
-        return folderIdsToRoot
+        return profileIdsToRoot
 
     def isOrphan(self, item):
         """
@@ -200,4 +235,4 @@ class IDCode(acl_mixin.AccessControlMixin, Model):
         :type item: dict
         """
         from .folder import Folder
-        return not Folder().load(item.get('folderId'), force=True)
+        return not Folder().load(item.get('profileId'), force=True)
