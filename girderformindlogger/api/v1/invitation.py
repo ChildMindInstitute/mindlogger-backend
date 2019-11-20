@@ -39,7 +39,7 @@ class Invitation(Resource):
         self.route('GET', (':id', 'accept'), self.acceptInvitationByToken)
         self.route('POST', (':id', 'accept'), self.acceptInvitation)
         self.route('GET', (':id', 'qr'), self.getQR)
-        self.route('DELETE', (':id', 'remove'), self.declineInvitation)
+        self.route('DELETE', (':id',), self.declineInvitation)
 
     @access.public(scope=TokenScope.USER_INFO_READ)
     @autoDescribeRoute(
@@ -183,7 +183,7 @@ class Invitation(Resource):
         .modelParam(
             'id',
             model=InvitationModel,
-            level=AccessType.WRITE,
+            force=True,
             destName='invitation'
         )
         .errorResponse()
@@ -197,8 +197,4 @@ class Invitation(Resource):
             raise AccessException(
                 "You must be logged in to accept an invitation."
             )
-        if not any([
-            AppletModel().isCoordinator(invitation['appletId'], currentUser)
-        ]):
-            pass
-        return(InvitationModel().htmlInvitation(invitation, currentUser))
+        return(InvitationModel().remove())
