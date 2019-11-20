@@ -638,7 +638,7 @@ class Profile(AccessControlledModel, dict):
         from .group import Group
 
         user = self._canonicalUser(applet["_id"], user)
-        returnFields=["_id", "coordinatorDefined", "userDefined"]
+        returnFields=["_id", "appletId", "coordinatorDefined", "userDefined"]
         existing = self.findOne(
             {
                 'appletId': applet['_id'],
