@@ -298,9 +298,9 @@ class Invitation(AccessControlledModel):
             description="<h2>Description</h2><p>{}</p>".format(
                 description
             ) if len(description) else "",
-            greeting="{}, y".format(
+            greeting="Welcome {}, y".format(
                 displayProfile['displayName']
-            ) if 'displayName' in displayProfile else "Y",
+            ) if 'displayName' in displayProfile else "Welcome! Y",
             instanceName=instanceName,
             managers="<h3>Users who can change this applet's settings, "
                 " including who can access your data: </h3>{}"
