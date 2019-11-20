@@ -33,7 +33,7 @@ class Invitation(Resource):
     """API Endpoint for schedules."""
 
     def __init__(self):
-        super(Resource, self).__init__()
+        super(Invitation, self).__init__()
         self.resourceName = 'invitation'
         self.route('GET', (':id',), self.getInvitation)
         self.route('GET', (':id', 'accept'), self.acceptInvitationByToken)

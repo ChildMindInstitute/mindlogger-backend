@@ -8,16 +8,20 @@ Changes
 -------
 Unreleased
 ==========
-2019-11-19: v0.6.3
+2019-11-20: v0.6.3
 ^^^^^^^^^^^^^^^^^^
 * :hammer: Update invitation routes
 
-2019-11-18: v0.6.1
+2019-11-20: v0.6.2
+^^^^^^^^^^^^^^^^^^
+* :sparkles: ID codes
+
+2019-11-19: v0.6.1
 ^^^^^^^^^^^^^^^^^^
 * :sparkles: User profiles
 * :tractor: :art: :hammer: Invitations
 
-2019-11-15: v0.5.13
+2019-11-19: v0.5.13
 ^^^^^^^^^^^^^^^^^^^
 * :ambulance: restore `schedule` object to `GET /user/applets`
 * :tractor: :art: Make URL values dereferenceable
