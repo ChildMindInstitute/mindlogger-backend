@@ -66,6 +66,7 @@ class User(Resource):
     @access.user
     @autoDescribeRoute(
         Description('Get all pending invites for the logged-in user.')
+        .deprecated()
     )
     def getGroupInvites(self):
         pending = self.getCurrentUser().get("groupInvites")
