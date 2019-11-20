@@ -175,7 +175,10 @@ class Invitation(AccessControlledModel):
             )
             IDCode().createIdCode(profile, invitation.get('idCode'))
         self.remove(invitation)
-        return(Profile().displayProfileFields(profile, user))
+        return(Profile().displayProfileFields(
+            Profile().load(profile, force=True),
+            user
+        ))
 
     def htmlInvitation(
         self,
