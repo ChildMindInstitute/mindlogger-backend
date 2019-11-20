@@ -164,7 +164,13 @@ class Invitation(AccessControlledModel):
         self.remove(invitation)
         return(profile)
 
-    def htmlInvitation(self, invitation, invitee=None, fullDoc=False):
+    def htmlInvitation(
+        self,
+        invitation,
+        invitee=None,
+        fullDoc=False,
+        includeLink=True
+    ):
         """
         Returns an HTML document rendering the invitation.
 
@@ -203,14 +209,13 @@ class Invitation(AccessControlledModel):
             #     "accept?token={}".format(str(Token(
             #     ).createToken(invitee)['_id']))
             # ])
-        acceptURL = "https://web.mindlogger.org/#/invitation/{}".format(str(
-            invitation['_id']
-        ))
         accept = (
             "To accept or decline, visit <a href=\"{u}\">{u}</a>".format(
-                u=acceptURL
+                u="https://web.mindlogger.org/#/invitation/{}".format(str(
+                    invitation['_id']
+                ))
             )
-        )
+        ) if includeLink else ""
         # else:
         #     accept = "To accept, first create an accout or log in, then "      \
         #         "reload this invitation."
@@ -260,7 +265,7 @@ class Invitation(AccessControlledModel):
 {managers}
 {coordinators}
 <br/>
-{accept}.
+{accept}
         """.format(
             accept=accept,
             appletName=appletName,

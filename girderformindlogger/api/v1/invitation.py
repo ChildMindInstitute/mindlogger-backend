@@ -56,27 +56,26 @@ class Invitation(Resource):
             required=False,
             dataType='boolean'
         )
+        .param(
+            'includeLink',
+            'Include a link to the invitation on MindLogger web?',
+            required=False,
+            dataType='boolean'
+        )
         .errorResponse()
     )
     @rawResponse
-    def getInvitation(self, invitation, fullHTML=False):
+    def getInvitation(self, invitation, fullHTML=False, includeLink=True):
         """
         Get an invitation as a string.
         """
         currentUser = self.getCurrentUser()
-        if fullHTML:
-            return(InvitationModel().htmlInvitation(
-                invitation,
-                currentUser,
-                fullDoc=fullHTML
-            ))
-        else:
-            return(
-                InvitationModel().htmlInvitation(
-                    invitation,
-                    currentUser
-                )
-            )
+        return(InvitationModel().htmlInvitation(
+            invitation,
+            currentUser,
+            fullDoc=fullHTML,
+            includeLink=includeLink if includeLink is not None else True
+        ))
 
     @access.public(scope=TokenScope.USER_INFO_READ)
     @autoDescribeRoute(
