@@ -185,28 +185,35 @@ class Invitation(AccessControlledModel):
         from girderformindlogger.utility import context as contextUtil,        \
             mail_utils
 
-        if invitee is not None:
-            try:
-                acceptURL = getApiUrl()
-            except GirderException:
-                import cherrypy
-                from girderformindlogger.utiltiy import config
-
-                acceptURL = "/".join([
-                    cherrypy.url(),
-                    config.getConfig()['server']['api_root']
-                ])
-            acceptURL = "/".join([
-                acceptURL,
-                "invitation",
-                str(invitation['_id']),
-                "accept?token={}".format(str(Token(
-                ).createToken(invitee)['_id']))
-            ])
-            accept = "To accept, click {}".format(acceptURL)
-        else:
-            accept = "To accept, first create an accout or log in, then "      \
-                "reload this invitation."
+        # if invitee is not None:
+            # try:
+            #     acceptURL = getApiUrl()
+            # except GirderException:
+            #     import cherrypy
+            #     from girderformindlogger.utiltiy import config
+            #
+            #     acceptURL = "/".join([
+            #         cherrypy.url(),
+            #         config.getConfig()['server']['api_root']
+            #     ])
+            # acceptURL = "/".join([
+            #     acceptURL,
+            #     "invitation",
+            #     str(invitation['_id']),
+            #     "accept?token={}".format(str(Token(
+            #     ).createToken(invitee)['_id']))
+            # ])
+        acceptURL = "https://web.mindlogger.org/#/invitation/{}".format(str(
+            invitation['_id']
+        ))
+        accept = (
+            "To accept or decline, visit <a href=\"{u}\">{u}</a>".format(
+                u=acceptURL
+            )
+        )
+        # else:
+        #     accept = "To accept, first create an accout or log in, then "      \
+        #         "reload this invitation."
         applet = Applet().load(ObjectId(invitation['appletId']), force=True)
         appletName = Applet().preferredName(applet)
         try:
@@ -288,7 +295,7 @@ class Invitation(AccessControlledModel):
                     reviewers if len(reviewers) else "<ul><li>None</li></ul>"
                 )
         ).strip()
-
+        print(body)
         return(body if not fullDoc else """
 <!DOCTYPE html>
 <html>

@@ -139,8 +139,7 @@ class Invitation(Resource):
             raise AccessException(
                 "You must be logged in to accept an invitation."
             )
-        Invitation().acceptInvitation(invitation, currentUser)
-        return(InvitationModel().htmlInvitation(invitation, currentUser))
+        return(InvitationModel().acceptInvitation(invitation, currentUser))
 
     @access.public(scope=TokenScope.USER_INFO_READ)
     @autoDescribeRoute(
@@ -197,4 +196,5 @@ class Invitation(Resource):
             raise AccessException(
                 "You must be logged in to accept an invitation."
             )
-        return(InvitationModel().remove())
+        InvitationModel().remove(invitation)
+        return("Successfully deleted invitation.")
