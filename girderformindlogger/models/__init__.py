@@ -169,7 +169,6 @@ def lookForCached(modelType, IRIset):
         }
     print("Looking for cached {} {}".format(modelType, str(IRIset)))
     cachedDoc = MODELS[modelType]().findOne(query)
-    print(query)
     return(cachedDoc)
 
 
