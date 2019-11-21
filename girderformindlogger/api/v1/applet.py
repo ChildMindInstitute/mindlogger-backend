@@ -151,16 +151,15 @@ class Applet(Resource):
         .errorResponse('Write access was denied for this applet.', 403)
     )
     def createApplet(self, protocolUrl=None, name=None, refreshCache=False):
-        protocol = {}
         thisUser = self.getCurrentUser()
         # get an activity set from a URL
-        if protocolUrl:
-            protocol.update(ProtocolModel().getFromUrl(
-                protocolUrl,
-                'protocol',
-                thisUser,
-                refreshCache=refreshCache
-            )[0])
+        protocol = jsonld_expander.formatLdObject(ProtocolModel().getFromUrl(
+            protocolUrl,
+            'protocol',
+            thisUser,
+            refreshCache=refreshCache
+        )[0])
+        protocol = protocol.get('protocol', protocol)
         # create an applet for it
         applet=AppletModel().createApplet(
             name=name if name is not None and len(name) else ProtocolModel(

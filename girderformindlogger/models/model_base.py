@@ -282,7 +282,7 @@ class Model(object):
             cachedId = None
             cachedDocObj = {}
         if not cachedDocObj or len(list(diff(cachedDocObj, model))):
-            if cachedId:
+            if cachedId is not None:
                 for prop in provenenceProps:
                     model[prop] = {
                         '@id': '/'.join([
