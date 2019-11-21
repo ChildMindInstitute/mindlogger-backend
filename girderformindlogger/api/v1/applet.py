@@ -169,9 +169,7 @@ class Applet(Resource):
             thisUser,
             refreshCache=refreshCache
         )[0]
-        print(protocol)
         protocol = protocol.get('protocol', protocol)
-        print(protocol)
         # create an applet for it
         applet=AppletModel().createApplet(
             name=name if name is not None and len(name) else ProtocolModel(
