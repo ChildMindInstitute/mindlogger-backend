@@ -186,10 +186,11 @@ class Applet(Resource):
                     {}
                 ).get('url', protocolUrl)
             },
-            user=thisUser
+            user=thisUser,
+            constraints={
+                'informantRelationship': informant
+            } if informant is not None else None
         )
-        if informant is not None:
-            applet = AppletModel().updateRelationship(applet, informant)
         return(applet)
 
     @access.user(scope=TokenScope.DATA_WRITE)
