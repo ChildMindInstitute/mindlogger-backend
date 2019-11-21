@@ -48,7 +48,6 @@ class Applet(Resource):
         super(Applet, self).__init__()
         self.resourceName = 'applet'
         self._model = AppletModel()
-        self.route('GET', (), self.getAppletFromURL)
         self.route('GET', (':id',), self.getApplet)
         self.route('GET', (':id', 'groups'), self.getAppletGroups)
         self.route('POST', (), self.createApplet)
@@ -56,7 +55,6 @@ class Applet(Resource):
         self.route('PUT', (':id', 'assign'), self.assignGroup)
         self.route('PUT', (':id', 'constraints'), self.setConstraints)
         self.route('POST', (':id', 'invite'), self.invite)
-        self.route('POST', ('invite',), self.inviteFromURL)
         self.route('GET', (':id', 'roles'), self.getAppletRoles)
         self.route('GET', (':id', 'users'), self.getAppletUsers)
         self.route('DELETE', (':id',), self.deactivateApplet)
@@ -154,16 +152,15 @@ class Applet(Resource):
         .errorResponse('Write access was denied for this applet.', 403)
     )
     def createApplet(self, protocolUrl=None, name=None, refreshCache=False):
-        protocol = {}
         thisUser = self.getCurrentUser()
         # get an activity set from a URL
-        if protocolUrl:
-            protocol.update(ProtocolModel().getFromUrl(
-                protocolUrl,
-                'protocol',
-                thisUser,
-                refreshCache=refreshCache
-            )[0])
+        protocol = jsonld_expander.formatLdObject(ProtocolModel().getFromUrl(
+            protocolUrl,
+            'protocol',
+            thisUser,
+            refreshCache=refreshCache
+        )[0])
+        protocol = protocol.get('protocol', protocol)
         # create an applet for it
         applet=AppletModel().createApplet(
             name=name if name is not None and len(name) else ProtocolModel(
@@ -327,23 +324,6 @@ class Applet(Resource):
         user = Applet().getCurrentUser()
         return(AppletModel().getFullRolesList(applet))
 
-    @access.user(scope=TokenScope.DATA_READ)
-    @autoDescribeRoute(
-        Description('Get an applet by URL.')
-        .param('url', 'URL of Applet.', required=True)
-        .deprecated()
-        .notes('Use `GET /protocol` or `GET /applet/{id}`.')
-        .errorResponse('Invalid applet URL.')
-        .errorResponse('Read access was denied for this applet.', 403)
-    )
-    def getAppletFromURL(self, url):
-        thisUser=self.getCurrentUser()
-        return(jsonld_expander.formatLdObject(
-            AppletModel().importUrl(url, thisUser),
-            'applet',
-            thisUser
-        ))
-
     @access.user(scope=TokenScope.DATA_WRITE)
     @autoDescribeRoute(
         Description('Invite a user to a role in an applet.')
@@ -401,73 +381,6 @@ class Applet(Resource):
         except:
             import sys, traceback
             print(sys.exc_info())
-
-
-    @access.user(scope=TokenScope.DATA_WRITE)
-    @autoDescribeRoute(
-        Description('Invite a user to a role in an applet by applet URL.')
-        #.responseClass('Folder')
-        .param(
-            'url',
-            'URL of applet, eg, '
-            '`{}protocols/example/nda-phq`'.format(REPROLIB_CANONICAL),
-            required=True
-        )
-        .param(
-            'user',
-            'Applet-specific or canonical ID or email address of the user to '
-            'invite. The current user is assumed if this parameter is omitted.',
-            required=False,
-            strip=True
-        )
-        .param(
-            'role',
-            'Role to invite this user to. One of ' + str(USER_ROLE_KEYS),
-            default='user',
-            required=False,
-            strip=True
-        )
-        .param(
-            'rsvp',
-            'Can the invited user decline the invitation?',
-            default=True,
-            required=False
-        )
-        .param(
-            'subject',
-            'For \'user\' or \'reviewer\' roles, an applet-specific or '
-            'cannonical ID of the subject of that informant or reviewer, an '
-            'iterable thereof, or \'ALL\' or \'NONE\'. The current user is '
-            'assumed if this parameter is omitted.',
-            required=False
-        )
-        .errorResponse('ID was invalid.')
-        .errorResponse('Write access was denied for the folder or its new parent object.', 403)
-        .deprecated()
-    )
-    def inviteFromURL(self, url, user, role, rsvp, subject, refreshCache=False):
-        if role not in USER_ROLE_KEYS:
-            raise ValidationException(
-                'Invalid role.',
-                'role'
-            )
-        thisUser = self.getCurrentUser()
-        thisApplet = AppletModel().getFromUrl(
-            url,
-            'applet',
-            user=thisUser,
-            refreshCache=refreshCache
-        )[0]
-        return(
-            _invite(
-                applet=thisApplet,
-                user=user,
-                role=role,
-                rsvp=rsvp,
-                subject=subject
-            )
-        )
-
 
     @access.user(scope=TokenScope.DATA_WRITE)
     @autoDescribeRoute(
