@@ -35,7 +35,7 @@ class Relationship(Resource):
 
     @access.public(scope=TokenScope.USER_INFO_READ)
     @autoDescribeRoute(
-        Description('Get all currently-defined relationships.')
+        Description('Get all currently-defined interpersonal relationships.')
         .errorResponse()
     )
     def getDefinedRelations(self):
@@ -46,7 +46,7 @@ class Relationship(Resource):
 
     @access.public(scope=TokenScope.USER_INFO_READ)
     @autoDescribeRoute(
-        Description('Get all currently-defined relationships.')
+        Description('Get all currently-defined informant relationships.')
         .errorResponse()
     )
     def getDefinedReports(self):
