@@ -153,12 +153,12 @@ class Applet(Resource):
     def createApplet(self, protocolUrl=None, name=None, refreshCache=False):
         thisUser = self.getCurrentUser()
         # get an activity set from a URL
-        protocol = jsonld_expander.formatLdObject(ProtocolModel().getFromUrl(
+        protocol = ProtocolModel().getFromUrl(
             protocolUrl,
             'protocol',
             thisUser,
             refreshCache=refreshCache
-        )[0])
+        )[0]
         protocol = protocol.get('protocol', protocol)
         # create an applet for it
         applet=AppletModel().createApplet(
