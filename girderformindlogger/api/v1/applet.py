@@ -149,18 +149,29 @@ class Applet(Resource):
             'this parameter is not provided.',
             required=False
         )
+        .param(
+            'informant',
+            ' '.join([
+                'Relationship from informant to individual of interest.',
+                'Currently handled informant relationships are',
+                str([r for r in DEFINED_INFORMANTS.keys()])
+            ]),
+            required=False
+        )
         .errorResponse('Write access was denied for this applet.', 403)
     )
     def createApplet(self, protocolUrl=None, name=None, refreshCache=False):
         thisUser = self.getCurrentUser()
         # get an activity set from a URL
-        protocol = jsonld_expander.formatLdObject(ProtocolModel().getFromUrl(
+        protocol = ProtocolModel().getFromUrl(
             protocolUrl,
             'protocol',
             thisUser,
             refreshCache=refreshCache
-        )[0])
+        )[0]
+        print(protocol)
         protocol = protocol.get('protocol', protocol)
+        print(protocol)
         # create an applet for it
         applet=AppletModel().createApplet(
             name=name if name is not None and len(name) else ProtocolModel(
@@ -179,6 +190,8 @@ class Applet(Resource):
             },
             user=thisUser
         )
+        if informant is not None:
+            applet = AppletModel().updateRelationship(applet, informant)
         return(applet)
 
     @access.user(scope=TokenScope.DATA_WRITE)
