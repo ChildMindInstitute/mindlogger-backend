@@ -160,14 +160,14 @@ class Applet(Resource):
         )
         .errorResponse('Write access was denied for this applet.', 403)
     )
-    def createApplet(self, protocolUrl=None, name=None, refreshCache=False):
+    def createApplet(self, protocolUrl=None, name=None, informant=None):
         thisUser = self.getCurrentUser()
         # get an activity set from a URL
         protocol = ProtocolModel().getFromUrl(
             protocolUrl,
             'protocol',
             thisUser,
-            refreshCache=refreshCache
+            refreshCache=False
         )[0]
         protocol = protocol.get('protocol', protocol)
         # create an applet for it
