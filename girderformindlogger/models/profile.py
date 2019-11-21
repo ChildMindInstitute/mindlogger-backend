@@ -96,15 +96,20 @@ class Profile(AccessControlledModel, dict):
 
         return doc
 
-    def coordinatorProfile(self, applet, coordinator):
+    def coordinatorProfile(self, appletId, coordinator):
         from .applet import Applet
+
         if isinstance(coordinator, dict) and "userId" not in coordinator:
-            coordinator = self.createProfile(applet, coordinator, "coordinator")
+            coordinator = self.createProfile(
+                appletId,
+                coordinator,
+                "coordinator"
+            )
         return(self.cycleDefinitions(
             coordinator,
             showEmail=True
         ) if Applet().isCoordinator(
-            applet['_id'],
+            appletId,
             coordinator
         ) else {})
 
@@ -172,7 +177,6 @@ class Profile(AccessControlledModel, dict):
                 displayProfile.update({
                     "idCode": userProfile.get('code')
                 })
-            print(displayProfile)
 
         return({
             k: v if v!="" else None for k, v in displayProfile.items(
@@ -185,7 +189,7 @@ class Profile(AccessControlledModel, dict):
             profile,
             showEmail=any([
                 AppletModel().isCoordinator(profile['appletId'], requester),
-                str(requester['_id'])==str(profile['userId'])
+                str(requester['_id'])==str(profile.get('userId'))
             ]),
             showIDCode=any([
                 AppletModel().isCoordinator(profile['appletId'], requester),
@@ -224,17 +228,16 @@ class Profile(AccessControlledModel, dict):
     def getProfile(self, id, user):
         from .applet import Applet as AppletModel
         from .ID_code import IDCode
+        from bson.errors import InvalidId
 
-        try:
-            p = self.findOne({'_id': ObjectId(id)})
-        except:
-            p = None
+        if not isinstance(id, ObjectId):
+            try:
+                id = ObjectId(id)
+            except InvalidId:
+                p = None
+        if isinstance(id, ObjectId):
+            p = self.findOne({'_id': id})
         if p is None:
-            appletList = AppletModel().getAppletsForUser(
-                'coordinator',
-                user,
-                active=False
-            )
             ps = IDCode().findProfile(id)
             if ps is not None:
                 ps = [
@@ -242,43 +245,49 @@ class Profile(AccessControlledModel, dict):
                 ]
                 return(ps[0] if len(ps)==1 and ps[0] is not None else ps)
             else:
-                return(None)
+                from .invitation import Invitation
+                from girderformindlogger.utility.jsonld_expander import        \
+                    oidIffHex
+                inv = Invitation().findOne({'$or': [
+                    {'_id': {'$in': oidIffHex(id)}},
+                    {'idCode': id}
+                ]})
+                return(
+                    self.profileAsUser(
+                        inv,
+                        user
+                    ) if isinstance(inv, dict) else {}
+                )
         return(self.profileAsUser(self.load(p['_id'], force=True), user))
 
     def getSubjectProfile(self, id, displayName, user):
         from .applet import Applet as AppletModel
         from .ID_code import IDCode
 
-        try:
-            p = self.profileAsUser(
-                self.findOne({
-                    '_id': ObjectId(id),
-                    '$or': [
-                        {'coordinatorDefined.displayName': displayName},
-                        {'userDefined.displayName': displayName}
-                    ]
-                }),
-                user
-            )
-        except:
-            p = None
-        if p is None:
-            appletList = AppletModel().getAppletsForUser(
-                'coordinator',
-                user,
-                active=False
-            )
-            ps = IDCode().findProfile(id)
-            if ps is not None:
-                print(ps)
-                ps = [self.profileAsUser(p, user) for p in ps if p is not None]
-                ps = [p for p in ps if p is not None and p.get(
-                    'displayName'
-                )==displayName]
-                if len(ps):
-                    p = ps[0]
-                else:
-                    return(None)
+        p = None
+        ps = IDCode().findProfile(id)
+        if ps is not None:
+            ps = [self.profileAsUser(p, user) for p in ps if p is not None]
+            ps = [p for p in ps if p is not None and p.get(
+                'displayName'
+            )==displayName]
+            if len(ps):
+                return(ps[0])
+        else:
+            try:
+                id = ObjectId(id)
+                p = self.profileAsUser(
+                    self.findOne({
+                        '_id': id,
+                        '$or': [
+                            {'coordinatorDefined.displayName': displayName},
+                            {'userDefined.displayName': displayName}
+                        ]
+                    }),
+                    user
+                )
+            except:
+                p = None
         return(p)
 
     def updateProfile(self, profileId, user, profileUpdate):
@@ -637,6 +646,8 @@ class Profile(AccessControlledModel, dict):
         from .applet import Applet
         from .group import Group
 
+        if not isinstance(applet, dict):
+            applet = Applet().load(applet, force=True)
         user = self._canonicalUser(applet["_id"], user)
         returnFields=["_id", "appletId", "coordinatorDefined", "userDefined"]
         existing = self.findOne(
@@ -716,12 +727,13 @@ class Profile(AccessControlledModel, dict):
         :returns: The profile document that was created.
         """
         from .ID_code import IDCode
+        returnFields=["_id", "appletId", "coordinatorDefined", "userDefined"]
 
         now = datetime.datetime.utcnow()
-
+        appletId = ObjectId(appletId)
         profile = {
             k: v for k, v in {
-                'appletId': ObjectId(applet['_id']),
+                'appletId': appletId,
                 'userId': now,
                 'profile': True,
                 'created': now,
@@ -730,7 +742,10 @@ class Profile(AccessControlledModel, dict):
                 'coordinatorDefined': {
                     'displayName': displayName
                 },
-                'createdBy': coordinator
+                'createdBy': self.coordinatorProfile(
+                    appletId,
+                    coordinator
+                )
             }.items() if v is not None
         }
 
@@ -742,7 +757,7 @@ class Profile(AccessControlledModel, dict):
         IDCode().createIdCode(profile, code)
 
         return({
-            k: v for k, v in self.load(profile, force=True).items(
+            k: v for k, v in self.load(profile['_id'], force=True).items(
             ) if k in returnFields
         })
 

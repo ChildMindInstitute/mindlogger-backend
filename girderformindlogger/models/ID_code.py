@@ -168,22 +168,35 @@ class IDCode(acl_mixin.AccessControlMixin, Model):
 
     def findProfile(self, idCode):
         """
-        Find a profile for a given ID code.
+        Find a list of profiles for a given ID code.
         """
         existing = list(self.find({
             'code': idCode
         }))
         if len(existing):
             from .profile import Profile
-            existing = [
+            ps = [
                 Profile().load(
                     exist['profileId'],
                     force=True
                 ) for exist in existing
             ]
-            return(existing)
+            if len(ps):
+                return(ps)
         else:
-            return(None)
+            from .invitation import Invitation
+            existing = list(self.find({
+                'idCode': idCode
+            }))
+            ps = [
+                Invitation().load(
+                    exist['_id'],
+                    force=True
+                ) for exist in existing
+            ]
+            if len(ps):
+                return(ps)
+        return(None)
 
     def updateIdCode(self, item):
         """

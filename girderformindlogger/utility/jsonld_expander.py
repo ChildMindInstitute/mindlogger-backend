@@ -71,7 +71,7 @@ def _deeperContextualize(ldObj, context):
 
 
 def inferRelationships(person):
-    import threading
+    from girderformindlogger.models.invitation import Invitation
     from girderformindlogger.models.profile import Profile
 
     if "schema:knows" not in person:
@@ -84,38 +84,63 @@ def inferRelationships(person):
                     if ep not in person['schema:knows']:
                         person['schema:knows'][ep] = []
                     for related in person['schema:knows'][rel]:
-                        if related.get('_id') not in person['schema:knows'][ep]:
-                            person['schema:knows'][ep].append(related['_id'])
-            if "owl:inverseOf" in DEFINED_RELATIONS[rel]:
-                for related in [
-                    Profile().load(
-                        p,
-                        force=True
-                    ) for p in person['schema:knows'][rel]
-                ]:
-                    if 'schema:knows' not in related:
-                        related['schema:knows'] = {}
-                    for io in DEFINED_RELATIONS[rel]["owl:inverseOf"]:
-                        if io not in related['schema:knows']:
-                            related['schema:knows'][io] = []
-                        if person['_id'] not in related['schema:knows'][io]:
-                            related['schema:knows'][io].append(person['_id'])
-                            thread = threading.Thread(
-                                inferRelationships(related)
-                            )
-                            thread.start()
+                        if related not in person['schema:knows'][ep]:
+                            person['schema:knows'][ep].append(related)
+            # if "owl:inverseOf" in DEFINED_RELATIONS[rel]:
+            #     for related in [
+            #         Profile().load(
+            #             p,
+            #             force=True
+            #         ) for p in person['schema:knows'][rel]
+            #     ]:
+            #         if 'schema:knows' not in related:
+            #             related['schema:knows'] = {}
+            #         for io in DEFINED_RELATIONS[rel]["owl:inverseOf"]:
+            #             if io not in related['schema:knows']:
+            #                 related['schema:knows'][io] = []
+            #             if person['_id'] not in related['schema:knows'][io]:
+            #                 related['schema:knows'][io].append(person['_id'])
+            #                 inferRelationships(related)
     if any([
         bool(
-            rp not in start.get('schema:knows', {}).get(rel)
+            rp not in start.get('schema:knows', {}).get(rel, [])
         ) for rp in person['schema:knows'][rel] for rel in list(
             person['schema:knows'].keys()
         )
     ]):
-        person = inferRelationships(person)
         newPerson = Profile().load(person['_id'], force=True)
-        newPerson['schema:knows'].update(person['schema:knows'])
-        Profile().save(newPerson, validate=False)
+        if 'schema:knows' in newPerson:
+            newPerson['schema:knows'].update(person['schema:knows'])
+        else:
+            newPerson['schema:knows'] = person['schema:knows']
+        Profile().save(
+            newPerson,
+            validate=False
+        ) if 'userId' in newPerson else Invitation().save(
+            newPerson,
+            validate=False
+        )
     return(person)
+
+
+def oidIffHex(s):
+    """
+    Function to return a list of the passed string and its ObjectId if the
+    passed string is a valid hexidecimal string, or a list of just the passed
+    string otherwise.
+
+    :param s: string to check and potentially convert
+    :type s: str
+    :returns: list of strings, 1≤len≤2
+    """
+    from bson.objectid import ObjectId
+    from bson.errors import InvalidId
+
+    try:
+        ObjectId(s)
+        return([ObjectId(s), s])
+    except InvalidId:
+        return([s])
 
 
 def reprolibPrefix(s):

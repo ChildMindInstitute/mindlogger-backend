@@ -180,16 +180,28 @@ class User(Resource):
         .errorResponse('You do not have permission to see this user.', 403)
     )
     def setUserRelationship(self, id, rel, otherId, otherName):
+        from girderformindlogger.models.invitation import Invitation
         from girderformindlogger.utility.jsonld_expander import                \
-            inferRelationships
+            inferRelationships, oidIffHex
+
         user = self.getCurrentUser()
         grammaticalSubject = ProfileModel().getProfile(id, user)
-        if grammaticalSubject is None:
+        gsp = ProfileModel().load(
+            grammaticalSubject['_id'],
+            force=True
+        )
+        grammaticalSubject = Invitation().load(
+            grammaticalSubject['_id'],
+            force=True
+        ) if gsp is None else gsp
+        print(grammaticalSubject)
+        if grammaticalSubject is None or not AppletModel().isCoordinator(
+            grammaticalSubject['appletId'], user
+        ):
             raise AccessException(
                 'You do not have permission to update this user.'
             )
-        else:
-            grammaticalSubject = ProfileModel().load(id, force=True)
+
         appletId = grammaticalSubject['appletId']
         grammaticalObject = ProfileModel().getSubjectProfile(
             otherId,
