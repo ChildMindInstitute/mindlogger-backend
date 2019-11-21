@@ -68,7 +68,7 @@ DEFINED_RELATIONS = {
     },
     "schema:parent": {
         "owl:inverseOf": ["schema:children"],
-        "owl:equivalentProperty": ["rel:parentOf"],
+        "owl:equivalentProperty": ["rel:childOf"],
         "rdfs:subPropertyOf": ["schema:knows"],
         "rdfs:comment": ["A parent of this person."]
     },
@@ -96,7 +96,7 @@ DEFINED_RELATIONS = {
     },
     "schema:children": {
         "owl:inverseOf": ["schema:parent"],
-        "owl:equivalentProperty": ["rel:childOf"],
+        "owl:equivalentProperty": ["rel:parentOf"],
         "rdfs:comment": ["A child of the person."]
     }
 }
