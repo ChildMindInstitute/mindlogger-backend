@@ -175,10 +175,12 @@ class Applet(Folder):
         if not isinstance(relationship, str):
             raise TypeError("Applet relationship must be defined as a string.")
         if 'meta' not in applet:
-            applet['meta'] = {'protocol': {}}
-        if 'protocol' not in applet['meta']:
-            applet['meta']['protocol'] = {}
-        applet['meta']['protocol']['rel:Relationship'] = relationship
+            applet['meta'] = {'applet': {}}
+        if 'applet' not in applet['meta']:
+            applet['meta']['applet'] = {}
+        applet['meta']['applet']['informantRelationship'] = relationship
+        if 'cached' in applet and 'applet' in applet['cached']:
+            applet['cached']['applet']['informantRelationship'] = relationship
         return(self.save(applet, validate=False))
 
     def unexpanded(self, applet):

@@ -20,8 +20,8 @@
 from ..describe import Description, autoDescribeRoute
 from ..rest import Resource
 from girderformindlogger.api import access
-from girderformindlogger.constants import AccessType, DEFINED_RELATIONS,       \
-    TokenScope
+from girderformindlogger.constants import AccessType, DEFINED_INFORMANTS,         \
+    DEFINED_RELATIONS, TokenScope
 from girderformindlogger.exceptions import AccessException
 
 class Relationship(Resource):
@@ -31,6 +31,7 @@ class Relationship(Resource):
         super(Relationship, self).__init__()
         self.resourceName = 'relationship'
         self.route('GET', (), self.getDefinedRelations)
+        self.route('GET', ('informant',), self.getDefinedReports)
 
     @access.public(scope=TokenScope.USER_INFO_READ)
     @autoDescribeRoute(
@@ -42,3 +43,14 @@ class Relationship(Resource):
         Get all currently-defined relationships.
         """
         return(DEFINED_RELATIONS)
+
+    @access.public(scope=TokenScope.USER_INFO_READ)
+    @autoDescribeRoute(
+        Description('Get all currently-defined relationships.')
+        .errorResponse()
+    )
+    def getDefinedReports(self):
+        """
+        Get all currently-defined informant-subject reporting relationships.
+        """
+        return(["{}-report".format(r) for r in DEFINED_INFORMANTS.keys()])

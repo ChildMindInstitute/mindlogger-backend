@@ -25,7 +25,7 @@ from ..describe import Description, autoDescribeRoute
 from ..rest import Resource
 from bson.objectid import ObjectId
 from girderformindlogger.constants import AccessType, SortDir, TokenScope,     \
-    REPROLIB_CANONICAL, SPECIAL_SUBJECTS, USER_ROLES
+    DEFINED_INFORMANTS, REPROLIB_CANONICAL, SPECIAL_SUBJECTS, USER_ROLES
 from girderformindlogger.api import access
 from girderformindlogger.exceptions import AccessException, ValidationException
 from girderformindlogger.models.activity import Activity as ActivityModel
@@ -191,12 +191,18 @@ class Applet(Resource):
             'id',
             model=AppletModel,
             description='ID of the applet to update',
+            destName='applet',
+            force=True,
             required=True
         )
         .param(
             'informant',
-            'Relationship from informant to individual of interest.',
-            required=False
+            ' '.join([
+                'Relationship from informant to individual of interest.',
+                'Currently handled informant relationships are',
+                str([r for r in DEFINED_INFORMANTS.keys()])
+            ]),
+            required=True
         )
         .errorResponse('Write access was denied for this applet.', 403)
     )
@@ -212,7 +218,7 @@ class Applet(Resource):
                 applet,
                 'applet',
                 user,
-                refreshCache=True
+                refreshCache=False
             )
         )
 

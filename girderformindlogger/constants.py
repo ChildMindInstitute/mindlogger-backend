@@ -32,6 +32,16 @@ STATIC_PREFIX = os.path.join(
 )
 STATIC_ROOT_DIR = os.path.join(STATIC_PREFIX, 'web_client', 'static')
 
+DEFINED_INFORMANTS = {
+    "parent": [
+        "schema:children",
+        "rel:parentOf"
+    ],
+    "self": [
+        "schema:sameAs"
+    ]
+}
+
 DEFINED_RELATIONS = {
     "schema:knows": {
         "rdf:type": ["owl:SymmetricProperty"],
