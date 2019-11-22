@@ -70,6 +70,10 @@ def _deeperContextualize(ldObj, context):
     return(context, newObj)
 
 
+def childByParent(parent, applet):
+    children = {}
+
+
 def inferRelationships(person):
     from girderformindlogger.models.invitation import Invitation
     from girderformindlogger.models.profile import Profile

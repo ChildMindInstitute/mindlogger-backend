@@ -343,13 +343,26 @@ class Applet(Folder):
                 ).get('deleted')
             )
         ]
-        user['cached']['applets'].update({role: formatted})
+        postformatted = []
+        for applet in formatted:
+            if applet['applet'].get('informantRelationship')=='parent':
+                [
+                    postformatted.append(
+                        a
+                    ) for a in jsonld_expander.childByParent(
+                        user,
+                        applet
+                    )
+                ]
+            else:
+                postformatted.append(applet)
+        user['cached']['applets'].update({role: postformatted})
         thread = threading.Thread(
             target=UserModel().save,
             args=(user,)
         )
         thread.start()
-        return(formatted)
+        return(postformatted)
 
     def getAppletsForUser(self, role, user, active=True):
         """
