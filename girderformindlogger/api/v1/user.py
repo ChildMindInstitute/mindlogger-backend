@@ -34,22 +34,15 @@ class User(Resource):
 
         self.route('DELETE', ('authentication',), self.logout)
         self.route('DELETE', (':id',), self.deleteUser)
-        self.route('GET', (), self.find)
         self.route('GET', ('me',), self.getMe)
         self.route('GET', ('authentication',), self.login)
         self.route('GET', (':id',), self.getUserByID)
-        self.route('GET', (':id', 'access'), self.getUserAccess)
-        self.route('PUT', (':id', 'access'), self.updateUserAccess)
-        self.route('GET', (':id', 'applets'), self.getUserApplets)
         self.route('PUT', (':id', 'code'), self.updateIDCode)
         self.route('DELETE', (':id', 'code'), self.removeIDCode)
         self.route('GET', ('applets',), self.getOwnApplets)
-        self.route('GET', (':id', 'details'), self.getUserDetails)
-        self.route('GET', ('invites',), self.getGroupInvites)
         self.route('PUT', (':id', 'knows'), self.setUserRelationship)
         self.route('GET', ('details',), self.getUsersDetails)
         self.route('POST', (), self.createUser)
-        self.route('PUT', (':id',), self.updateUser)
         self.route('PUT', ('password',), self.changePassword)
         self.route('PUT', (':id', 'password'), self.changeUserPassword)
         self.route('GET', ('password', 'temporary', ':id'),
@@ -62,92 +55,6 @@ class User(Resource):
         self.route('PUT', ('profile',), self.updateProfile)
         self.route('PUT', (':id', 'verification'), self.verifyEmail)
         self.route('POST', ('verification',), self.sendVerificationEmail)
-
-
-    @access.user
-    @autoDescribeRoute(
-        Description('Get all pending invites for the logged-in user.')
-        .deprecated()
-    )
-    def getGroupInvites(self):
-        pending = self.getCurrentUser().get("groupInvites")
-        output = []
-        userfields = [
-            'firstName',
-            '_id',
-            'email',
-            'gravatar_baseUrl',
-            'login'
-        ]
-        for p in pending:
-            groupId = p.get('groupId')
-            applets = list(AppletModel().find(
-                query={
-                    "roles.user.groups.id": groupId
-                },
-                fields=[
-                    'cached.applet.skos:prefLabel',
-                    'cached.applet.schema:description',
-                    'cached.applet.schema:image',
-                    'roles'
-                ]
-            ))
-            for applet in applets:
-                for role in ['manager', 'reviewer']:
-                    applet[''.join([role, 's'])] = [{
-                        (
-                            'image' if userKey=='gravatar_baseUrl' else userKey
-                        ): user.get(
-                            userKey
-                        ) for userKey in user.keys()
-                    } for user in list(UserModel().find(
-                            query={
-                                "groups": {
-                                    "$in": [
-                                        group.get('id') for group in applet.get(
-                                            'roles',
-                                            {}
-                                        ).get(role, {}).get('groups', [])
-                                    ]
-                                }
-                            },
-                            fields=userfields
-                        ))
-                    ]
-            output.append({
-                '_id': groupId,
-                'applets': [{
-                    'name': applet.get('cached', {}).get('applet', {}).get(
-                        'skos:prefLabel',
-                        ''
-                    ),
-                    'image': applet.get('cached', {}).get('applet', {}).get(
-                        'schema:image',
-                        ''
-                    ),
-                    'description': applet.get('cached', {}).get('applet', {
-                    }).get(
-                        'schema:description',
-                        ''
-                    ),
-                    'managers': applet.get('managers'),
-                    'reviewers': applet.get('reviewers')
-                } for applet in applets]
-            })
-        return(output)
-
-    @access.user
-    @filtermodel(model=UserModel)
-    @autoDescribeRoute(
-        Description('List or search for users.')
-        .responseClass('User', array=True)
-        .param('text', 'Pass this to perform a full text search for items.', required=False)
-        .pagingParams(defaultSort='firstName')
-        .deprecated()
-    )
-    def find(self, text, limit, offset, sort):
-        return list(self._model.search(
-            text=text, user=self.getCurrentUser(), offset=offset, limit=limit, sort=sort))
 
     @access.public(scope=TokenScope.USER_INFO_READ)
     @autoDescribeRoute(
@@ -237,7 +144,6 @@ class User(Resource):
         inferRelationships(grammaticalSubject)
         return(ProfileModel().getProfile(id, user))
 
-
     @access.public(scope=TokenScope.USER_INFO_READ)
     @autoDescribeRoute(
         Description('Update a user\'s ID Code.')
@@ -298,135 +204,6 @@ class User(Resource):
                 user
             )
         )
-
-    @access.user(scope=TokenScope.USER_INFO_READ)
-    @autoDescribeRoute(
-        Description('Get the access control list for a user.')
-        .responseClass('User')
-        .modelParam('id', model=UserModel, level=AccessType.READ)
-        .errorResponse('ID was invalid.')
-        .errorResponse('You do not have permission to see this user.', 403)
-        .deprecated()
-    )
-    def getUserAccess(self, user):
-        return self._model.getFullAccessList(user)
-
-    @access.user(scope=TokenScope.DATA_OWN)
-    @filtermodel(model=UserModel, addFields={'access'})
-    @autoDescribeRoute(
-        Description('Update the access control list for a user.')
-        .modelParam('id', model=UserModel, level=AccessType.WRITE)
-        .jsonParam(
-            'access',
-            'The JSON-encoded access control list.',
-            requireObject=True
-        )
-        .errorResponse('ID was invalid.')
-        .errorResponse('Admin access was denied for the user.', 403)
-        .deprecated()
-    )
-    def updateUserAccess(self, user, access):
-        return self._model.setAccessList(
-            user,
-            access,
-            save=True
-        )
-
-    @access.public(scope=TokenScope.DATA_READ)
-    @autoDescribeRoute(
-        Description('Get all applets for a user by that user\'s ID and role.')
-        .modelParam('id', model=UserModel, level=AccessType.READ)
-        .param(
-            'role',
-            'One of ' + str(USER_ROLES.keys()),
-            required=False,
-            default='user'
-        )
-        .param(
-            'ids_only',
-            'If true, only returns an Array of the IDs of assigned applets. '
-            'Otherwise, returns an Array of Objects keyed with "applet" '
-            '"protocol", "activities" and "items" with expanded JSON-LD as '
-            'values.',
-            required=False,
-            default=False,
-            dataType='boolean'
-        )
-        .errorResponse('ID was invalid.')
-        .errorResponse(
-            'You do not have permission to see any of this user\'s applets.',
-            403
-        )
-        .deprecated()
-    )
-    def getUserApplets(self, user, role, ids_only):
-        from bson.objectid import ObjectId
-        reviewer = self.getCurrentUser()
-        if reviewer is None:
-            raise AccessException("You must be logged in to get user applets.")
-        if user.get('_id') != reviewer.get('_id') and user.get(
-            '_id'
-        ) is not None:
-            raise AccessException("You can only get your own applets.")
-        role = role.lower()
-        if role not in USER_ROLES.keys():
-            raise RestException(
-                'Invalid user role.',
-                'role'
-            )
-        try:
-            applets = AppletModel().getAppletsForUser(role, user, active=True)
-            if len(applets)==0:
-                return([])
-            if ids_only==True:
-                return([applet.get('_id') for applet in applets])
-            return(
-                [
-                    {
-                        **jsonld_expander.formatLdObject(
-                            applet,
-                            'applet',
-                            reviewer,
-                            refreshCache=False
-                        ),
-                        "users": AppletModel().getAppletUsers(applet, user),
-                        "groups": AppletModel().getAppletGroups(
-                            applet,
-                            arrayOfObjects=True
-                        )
-                    } if role=="manager" else {
-                        **jsonld_expander.formatLdObject(
-                            applet,
-                            'applet',
-                            reviewer,
-                            dropErrors=True
-                        ),
-                        "groups": [
-                            group for group in AppletModel(
-                            ).getAppletGroups(applet).get(role) if ObjectId(
-                                group
-                            ) in [
-                                *user.get('groups', []),
-                                *user.get('formerGroups', []),
-                                *[invite['groupId'] for invite in [
-                                    *user.get('groupInvites', []),
-                                    *user.get('declinedInvites', [])
-                                ]]
-                            ]
-                        ]
-                    } for applet in applets if (
-                        applet is not None and not applet.get(
-                            'meta',
-                            {}
-                        ).get(
-                            'applet',
-                            {}
-                        ).get('deleted')
-                    )
-                ]
-            )
-        except Exception as e:
-            return(e)
 
     @access.public(scope=TokenScope.DATA_READ)
     @autoDescribeRoute(
@@ -737,76 +514,6 @@ class User(Resource):
         )).count()
         return {'nUsers': nUsers}
 
-    @access.user
-    @filtermodel(model=UserModel)
-    @autoDescribeRoute(
-        Description("Update a user's information.")
-        .modelParam('id', model=UserModel, level=AccessType.WRITE)
-        .param(
-            'displayName',
-            'Display name of the user, usually just their first name.',
-            default="",
-            required=False
-        )
-        .param('admin', 'Is the user a site admin (admin access required)',
-               required=False, dataType='boolean')
-        .param('status', 'The account status (admin access required)',
-               required=False, enum=('pending', 'enabled', 'disabled'))
-        .param(
-             'email',
-             'Deprecated. Do not use.',
-             required=False,
-             dataType='string'
-        )
-        .param(
-            'firstName',
-            'Deprecated. Do not use.',
-            deprecated=True,
-            required=False
-        )
-        .param(
-            'lastName',
-            'Deprecated. Do not use.',
-            deprecated=True,
-            required=False
-        )
-        .errorResponse()
-        .errorResponse(('You do not have write access for this user.',
-                        'Must be an admin to create an admin.'), 403)
-    )
-    def updateUser(
-        self,
-        user,
-        displayName="",
-        email="",
-        admin=False,
-        status=None,
-        firstName=None,
-        lastName=None
-    ): # 🔥 delete firstName and lastName once fully deprecated
-        user['firstName'] = displayName if len(
-            displayName
-        ) else firstName if firstName is not None else ""
-        user['email'] = email
-
-        # Only admins can change admin state
-        if admin is not None:
-            if self.getCurrentUser()['admin']:
-                user['admin'] = admin
-            elif user['admin'] is not admin:
-                raise AccessException('Only admins may change admin status.')
-
-        # Only admins can change status
-        if status is not None and status != user.get('status', 'enabled'):
-            if not self.getCurrentUser()['admin']:
-                raise AccessException('Only admins may change status.')
-            if user['status'] == 'pending' and status == 'enabled':
-                # Send email on the 'pending' -> 'enabled' transition
-                self._model._sendApprovedEmail(user)
-            user['status'] = status
-
-        return self._model.save(user)
-
     @access.admin
     @autoDescribeRoute(
         Description("Change a user's password.")
@@ -913,20 +620,6 @@ class User(Resource):
                 'temporary': True
             },
             'message': 'Temporary access token is valid.'
-        }
-
-    @access.public
-    @autoDescribeRoute(
-        Description('Get detailed information about a user.')
-        .modelParam('id', model=UserModel, level=AccessType.READ)
-        .errorResponse()
-        .errorResponse('Read access was denied on the user.', 403)
-        .deprecated()
-    )
-    def getUserDetails(self, user):
-        return {
-            'nFolders': self._model.countFolders(
-                user, filterUser=self.getCurrentUser(), level=AccessType.READ)
         }
 
     @access.user
