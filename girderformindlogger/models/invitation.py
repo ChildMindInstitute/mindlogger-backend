@@ -133,7 +133,10 @@ class Invitation(AccessControlledModel):
             'created': now,
             'updated': now,
             'size': 0,
-            'invitedBy': Profile().coordinatorProfile(applet, coordinator)
+            'invitedBy': Profile().coordinatorProfile(
+                applet['_id'],
+                coordinator
+            )
         }
 
         if codified:
@@ -162,7 +165,9 @@ class Invitation(AccessControlledModel):
             profiles = IDCode().findProfile(invitation['idCode'])
         if profiles and len(profiles):
             profile = [
-                pro for pro in profiles if str(pro['userId'])==str(user['_id'])
+                pro for pro in profiles if str(
+                    pro.get('userId')
+                )==str(user['_id'])
             ]
             profile = profile[0] if len(profile) else None
         else:
@@ -174,8 +179,27 @@ class Invitation(AccessControlledModel):
                 role=invitation.get('role', 'user')
             )
             IDCode().createIdCode(profile, invitation.get('idCode'))
+        if 'schema:knows' in invitation:
+            if 'schema:knows' not in profile:
+                profile['schema:knows'] = invitation['schema:knows']
+            else:
+                for k in invitation['schema:knows']:
+                    if k in profile['schema:knows']:
+                        profile['schema:knows'][k].extend([
+                            r for r in invitation['schema:knows'][
+                                k
+                            ] if r not in profile['schema:knows'][k]
+                        ])
+                    else:
+                        profile['schema:knows'][k] = invitation['schema:knows'][
+                            k
+                        ]
+            Profile().save(profile, validate=False)
         self.remove(invitation)
-        return(Profile().displayProfileFields(profile, user))
+        return(Profile().displayProfileFields(
+            Profile().load(profile['_id'], force=True),
+            user
+        ))
 
     def htmlInvitation(
         self,
@@ -204,24 +228,6 @@ class Invitation(AccessControlledModel):
         from girderformindlogger.utility import context as contextUtil,        \
             mail_utils
 
-        # if invitee is not None:
-            # try:
-            #     acceptURL = getApiUrl()
-            # except GirderException:
-            #     import cherrypy
-            #     from girderformindlogger.utiltiy import config
-            #
-            #     acceptURL = "/".join([
-            #         cherrypy.url(),
-            #         config.getConfig()['server']['api_root']
-            #     ])
-            # acceptURL = "/".join([
-            #     acceptURL,
-            #     "invitation",
-            #     str(invitation['_id']),
-            #     "accept?token={}".format(str(Token(
-            #     ).createToken(invitee)['_id']))
-            # ])
         accept = (
             "To accept or decline, visit <a href=\"{u}\">{u}</a>".format(
                 u="https://web.mindlogger.org/#/invitation/{}".format(str(
@@ -229,9 +235,6 @@ class Invitation(AccessControlledModel):
                 ))
             )
         ) if includeLink else ""
-        # else:
-        #     accept = "To accept, first create an accout or log in, then "      \
-        #         "reload this invitation."
         applet = Applet().load(ObjectId(invitation['appletId']), force=True)
         appletName = Applet().preferredName(applet)
         try:
@@ -241,7 +244,7 @@ class Invitation(AccessControlledModel):
         instanceName = skin.get("name", "MindLogger")
         try:
             coordinator = Profile().coordinatorProfile(
-                applet,
+                applet['_id'],
                 invitation["invitedBy"]
             )
         except:

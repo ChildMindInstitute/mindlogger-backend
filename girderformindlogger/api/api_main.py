@@ -2,8 +2,8 @@
 import cherrypy
 
 from . import describe
-from .v1 import activity, api_key, applet, assetstore, file,     \
-    collection, context, folder, group, invitation, item, protocol, resource,  \
+from .v1 import activity, api_key, applet, assetstore, collection, context,    \
+    file, folder, group, invitation, item, protocol, relationship, resource,   \
     response, schedule, screen, system, token, user, notification
 
 
@@ -39,6 +39,7 @@ def _addV1ToNode(node):
     node.v1.item = item.Item()
     node.v1.notification = notification.Notification()
     node.v1.protocol = protocol.Protocol()
+    node.v1.relationship = relationship.Relationship()
     node.v1.resource = resource.Resource()
     node.v1.response = response.ResponseItem()
     node.v1.schedule = schedule.Schedule()

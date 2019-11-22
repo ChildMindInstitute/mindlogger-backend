@@ -8,6 +8,10 @@ Changes
 -------
 Unreleased
 ==========
+2019-11-21: v0.6.4
+^^^^^^^^^^^^^^^^^^
+* :sparkles: Informant-subject relationships
+
 2019-11-20: v0.6.3
 ^^^^^^^^^^^^^^^^^^
 * :hammer: Update invitation routes

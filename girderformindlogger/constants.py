@@ -32,6 +32,75 @@ STATIC_PREFIX = os.path.join(
 )
 STATIC_ROOT_DIR = os.path.join(STATIC_PREFIX, 'web_client', 'static')
 
+DEFINED_INFORMANTS = {
+    "parent": [
+        "schema:children",
+        "rel:parentOf"
+    ],
+    "self": [
+        "schema:sameAs"
+    ]
+}
+
+DEFINED_RELATIONS = {
+    "schema:knows": {
+        "rdf:type": ["owl:SymmetricProperty"],
+        "rdfs:comment": [
+            "The most generic bi-directional social/work relation."
+        ]
+    },
+    "schema:sameAs": {
+        "rdf:type": ["owl:SymmetricProperty"],
+        "rdfs:comment": [
+            "URL of a reference Web page that unambiguously indicates the "
+            "item's identity. E.g. the URL of the item's Wikipedia page, "
+            "Wikidata entry, or official website."
+        ]
+    },
+    "rel:parentOf": {
+        "owl:inverseOf": ["rel:childOf"],
+        "owl:equivalentProperty": ["schema:parent"],
+        "rdfs:subPropertyOf": ["schema:knows"],
+        "rdfs:comment": [
+            "A person who has given birth to or nurtured and raised this "
+            "person."
+        ]
+    },
+    "schema:parent": {
+        "owl:inverseOf": ["schema:children"],
+        "owl:equivalentProperty": ["rel:childOf"],
+        "rdfs:subPropertyOf": ["schema:knows"],
+        "rdfs:comment": ["A parent of this person."]
+    },
+    "bio:father": {
+        "rdfs:subPropertyOf": ["schema:knows"],
+        "rdfs:comment": [
+            "The biological father of a person, also known as the genitor"
+        ],
+        "owl:inverseOf": ["rel:parentOf"]
+    },
+    "bio:mother": {
+        "rdfs:subPropertyOf": ["schema:knows"],
+        "rdfs:comment": [
+            "The biological mother of a person, also known as the genetrix"
+        ],
+        "owl:inverseOf": ["rel:parentOf"]
+    },
+    "rel:childOf": {
+        "owl:inverseOf": ["rel:parentOf"],
+        "owl:equivalentProperty": ["schema:children"],
+        "rdfs:comment": [
+            "A person who was given birth to or nurtured and raised by this "
+            "person."
+        ]
+    },
+    "schema:children": {
+        "owl:inverseOf": ["schema:parent"],
+        "owl:equivalentProperty": ["rel:parentOf"],
+        "rdfs:comment": ["A child of the person."]
+    }
+}
+
 PREFERRED_NAMES = ["skos:prefLabel", "skos:altLabel", "name", "@id", "url"]
 
 HIERARCHY = ['applet', 'protocol', 'activity', 'screen', 'item']
@@ -63,7 +132,8 @@ KEYS_TO_EXPAND = [
 
 PROFILE_FIELDS = [
     '_id',
-    'displayName'
+    'displayName',
+    'schema:knows'
 ]
 
 def MODELS():

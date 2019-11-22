@@ -30,7 +30,7 @@ from girderformindlogger.utility import jsonld_expander, response
 
 
 class Invitation(Resource):
-    """API Endpoint for schedules."""
+    """API Endpoint for invitations."""
 
     def __init__(self):
         super(Invitation, self).__init__()

@@ -25,7 +25,7 @@ from ..describe import Description, autoDescribeRoute
 from ..rest import Resource
 from bson.objectid import ObjectId
 from girderformindlogger.constants import AccessType, SortDir, TokenScope,     \
-    REPROLIB_CANONICAL, SPECIAL_SUBJECTS, USER_ROLES
+    DEFINED_INFORMANTS, REPROLIB_CANONICAL, SPECIAL_SUBJECTS, USER_ROLES
 from girderformindlogger.api import access
 from girderformindlogger.exceptions import AccessException, ValidationException
 from girderformindlogger.models.activity import Activity as ActivityModel
@@ -51,6 +51,7 @@ class Applet(Resource):
         self.route('GET', (':id',), self.getApplet)
         self.route('GET', (':id', 'groups'), self.getAppletGroups)
         self.route('POST', (), self.createApplet)
+        self.route('PUT', (':id', 'informant'), self.updateInformant)
         self.route('PUT', (':id', 'assign'), self.assignGroup)
         self.route('PUT', (':id', 'constraints'), self.setConstraints)
         self.route('POST', (':id', 'invite'), self.invite)
@@ -148,16 +149,25 @@ class Applet(Resource):
             'this parameter is not provided.',
             required=False
         )
+        .param(
+            'informant',
+            ' '.join([
+                'Relationship from informant to individual of interest.',
+                'Currently handled informant relationships are',
+                str([r for r in DEFINED_INFORMANTS.keys()])
+            ]),
+            required=False
+        )
         .errorResponse('Write access was denied for this applet.', 403)
     )
-    def createApplet(self, protocolUrl=None, name=None, refreshCache=False):
+    def createApplet(self, protocolUrl=None, name=None, informant=None):
         thisUser = self.getCurrentUser()
         # get an activity set from a URL
         protocol = ProtocolModel().getFromUrl(
             protocolUrl,
             'protocol',
             thisUser,
-            refreshCache=refreshCache
+            refreshCache=False
         )[0]
         protocol = protocol.get('protocol', protocol)
         # create an applet for it
@@ -176,9 +186,50 @@ class Applet(Resource):
                     {}
                 ).get('url', protocolUrl)
             },
-            user=thisUser
+            user=thisUser,
+            constraints={
+                'informantRelationship': informant
+            } if informant is not None else None
         )
         return(applet)
+
+    @access.user(scope=TokenScope.DATA_WRITE)
+    @autoDescribeRoute(
+        Description('(managers only) Update the informant of an applet.')
+        .modelParam(
+            'id',
+            model=AppletModel,
+            description='ID of the applet to update',
+            destName='applet',
+            force=True,
+            required=True
+        )
+        .param(
+            'informant',
+            ' '.join([
+                'Relationship from informant to individual of interest.',
+                'Currently handled informant relationships are',
+                str([r for r in DEFINED_INFORMANTS.keys()])
+            ]),
+            required=True
+        )
+        .errorResponse('Write access was denied for this applet.', 403)
+    )
+    def updateInformant(self, applet, informant):
+        user = self.getCurrentUser()
+        if not AppletModel().isManager(applet['_id'], user):
+            raise AccessException(
+                "Only managers can update informant relationship"
+            )
+        AppletModel().updateRelationship(applet, informant)
+        return(
+            jsonld_expander.formatLdObject(
+                applet,
+                'applet',
+                user,
+                refreshCache=False
+            )
+        )
 
     @access.user(scope=TokenScope.DATA_WRITE)
     @autoDescribeRoute(

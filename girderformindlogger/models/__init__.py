@@ -163,6 +163,7 @@ def lookForCached(modelType, IRIset):
                     REPROLIB_TYPES[modelType]
                 ),
                 'reproschema:{}'.format(suffix),
+                'reprolib:{}'.format(suffix),
                 suffix
             ] if t is not None]
         }

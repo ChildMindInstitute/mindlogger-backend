@@ -1,9 +1,9 @@
 from bson import json_util
 from copy import deepcopy
 from datetime import datetime
-from girderformindlogger.constants import AccessType, HIERARCHY,               \
-    KEYS_TO_DELANGUAGETAG, KEYS_TO_DEREFERENCE, KEYS_TO_EXPAND, MODELS,        \
-    REPROLIB_CANONICAL, REPROLIB_PREFIXES
+from girderformindlogger.constants import AccessType, DEFINED_RELATIONS,       \
+    HIERARCHY, KEYS_TO_DELANGUAGETAG, KEYS_TO_DEREFERENCE, KEYS_TO_EXPAND,     \
+    MODELS, REPROLIB_CANONICAL, REPROLIB_PREFIXES
 from girderformindlogger.exceptions import AccessException,                    \
     ResourcePathNotFound, ValidationException
 from girderformindlogger.models.activity import Activity as ActivityModel
@@ -68,6 +68,79 @@ def _deeperContextualize(ldObj, context):
         else:
             newObj[k] = reprolibPrefix(ldObj[k])
     return(context, newObj)
+
+
+def inferRelationships(person):
+    from girderformindlogger.models.invitation import Invitation
+    from girderformindlogger.models.profile import Profile
+
+    if "schema:knows" not in person:
+        return(person)
+    start = deepcopy(person)
+    for rel in list(person['schema:knows'].keys()):
+        if rel in DEFINED_RELATIONS.keys():
+            if "owl:equivalentProperty" in DEFINED_RELATIONS[rel]:
+                for ep in DEFINED_RELATIONS[rel]["owl:equivalentProperty"]:
+                    if ep not in person['schema:knows']:
+                        person['schema:knows'][ep] = []
+                    for related in person['schema:knows'][rel]:
+                        if related not in person['schema:knows'][ep]:
+                            person['schema:knows'][ep].append(related)
+            # if "owl:inverseOf" in DEFINED_RELATIONS[rel]:
+            #     for related in [
+            #         Profile().load(
+            #             p,
+            #             force=True
+            #         ) for p in person['schema:knows'][rel]
+            #     ]:
+            #         if 'schema:knows' not in related:
+            #             related['schema:knows'] = {}
+            #         for io in DEFINED_RELATIONS[rel]["owl:inverseOf"]:
+            #             if io not in related['schema:knows']:
+            #                 related['schema:knows'][io] = []
+            #             if person['_id'] not in related['schema:knows'][io]:
+            #                 related['schema:knows'][io].append(person['_id'])
+            #                 inferRelationships(related)
+    if any([
+        bool(
+            rp not in start.get('schema:knows', {}).get(rel, [])
+        ) for rp in person['schema:knows'][rel] for rel in list(
+            person['schema:knows'].keys()
+        )
+    ]):
+        newPerson = Profile().load(person['_id'], force=True)
+        if 'schema:knows' in newPerson:
+            newPerson['schema:knows'].update(person['schema:knows'])
+        else:
+            newPerson['schema:knows'] = person['schema:knows']
+        Profile().save(
+            newPerson,
+            validate=False
+        ) if 'userId' in newPerson else Invitation().save(
+            newPerson,
+            validate=False
+        )
+    return(person)
+
+
+def oidIffHex(s):
+    """
+    Function to return a list of the passed string and its ObjectId if the
+    passed string is a valid hexidecimal string, or a list of just the passed
+    string otherwise.
+
+    :param s: string to check and potentially convert
+    :type s: str
+    :returns: list of strings, 1≤len≤2
+    """
+    from bson.objectid import ObjectId
+    from bson.errors import InvalidId
+
+    try:
+        ObjectId(s)
+        return([ObjectId(s), s])
+    except InvalidId:
+        return([s])
 
 
 def reprolibPrefix(s):
