@@ -8,7 +8,11 @@ Changes
 -------
 Unreleased
 ==========
-2019-11-21: v0.6.4
+2019-11-22: v0.6.5
+^^^^^^^^^^^^^^^^^^
+* :sparkles: Returns one applet per child for parent-report applets
+
+2019-11-22: v0.6.4
 ^^^^^^^^^^^^^^^^^^
 * :sparkles: Informant-subject relationships
 
