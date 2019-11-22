@@ -170,7 +170,12 @@ def _formatSubjectDocument(obj, child):
                 "?subjectId=".join([
                     vizK,
                     str(child['_id'])
-                ]): obj[k][vizK] for vizK in obj[k]
+                ]): (
+                "?subjectId=".join([
+                    obj[k][vizK],
+                    str(child['_id'])
+                ]) if isinstance(obj[k][vizK], str) else obj[k][vizK]
+            ) for vizK in obj[k]
             } if k=="visibility" else obj[
                 k
             ] if k=="@type" else _formatSubjectDocument(obj[k], child)
