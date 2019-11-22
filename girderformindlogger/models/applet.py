@@ -287,6 +287,7 @@ class Applet(Folder):
 
     def updateUserCache(self, role, user, active=True, refreshCache=False):
         import threading
+        from girderformindlogger.models.profile import Profile
         from girderformindlogger.utility import jsonld_expander
 
         applets=self.getAppletsForUser(role, user, active)
@@ -345,13 +346,24 @@ class Applet(Folder):
         ]
         postformatted = []
         for applet in formatted:
-            if applet['applet'].get('informantRelationship')=='parent':
+            if role=='user' and applet['applet'].get(
+                'informantRelationship'
+            )=='parent':
+                parentProfile = Profile().getProfile(
+                    Profile().createProfile(
+                        applet['applet']['_id'].split('applet/')[-1],
+                        user,
+                        "user"
+                    ).get('_id'),
+                    user=user
+                )
                 [
                     postformatted.append(
                         a
                     ) for a in jsonld_expander.childByParent(
                         user,
-                        applet
+                        applet,
+                        parentProfile
                     )
                 ]
             else:
