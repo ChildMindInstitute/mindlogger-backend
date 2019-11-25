@@ -8,6 +8,10 @@ Changes
 -------
 Unreleased
 ==========
+2019-11-25: v0.6.5
+^^^^^^^^^^^^^^^^^^
+* :pencil: Allow invitations for roles other than "user"
+
 2019-11-21: v0.6.4
 ^^^^^^^^^^^^^^^^^^
 * :sparkles: Informant-subject relationships
