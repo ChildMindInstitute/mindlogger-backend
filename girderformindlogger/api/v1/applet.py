@@ -384,7 +384,7 @@ class Applet(Resource):
             invitation = Invitation().createInvitation(
                 applet=applet,
                 coordinator=user,
-                role="user",
+                role=role,
                 profile=profile,
                 idCode=idCode
             )

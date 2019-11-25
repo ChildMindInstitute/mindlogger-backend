@@ -132,6 +132,7 @@ class Invitation(AccessControlledModel):
             'appletId': applet['_id'],
             'created': now,
             'updated': now,
+            'role': role,
             'size': 0,
             'invitedBy': Profile().coordinatorProfile(
                 applet['_id'],
@@ -242,6 +243,7 @@ class Invitation(AccessControlledModel):
         except:
             skin = {}
         instanceName = skin.get("name", "MindLogger")
+        role = invitation.get("role", "user")
         try:
             coordinator = Profile().coordinatorProfile(
                 applet['_id'],
@@ -273,8 +275,7 @@ class Invitation(AccessControlledModel):
             Applet().listUsers(applet, 'reviewer', force=True)
         )
         body = """
-{greeting}ou have been invited {byCoordinator}to <b>{appletName}</b> on
-{instanceName}.
+{greeting}ou have been invited {byCoordinator}to be {role} of <b>{appletName}</b>{instanceName}.
 <br/>
 {description}
 {reviewers}
@@ -304,7 +305,9 @@ class Invitation(AccessControlledModel):
             greeting="Welcome {}; y".format(
                 displayProfile['displayName']
             ) if 'displayName' in displayProfile else "Welcome! Y",
-            instanceName=instanceName,
+            instanceName=" on {}".format(
+                instanceName
+            ) if instanceName is not None and len(instanceName) else "",
             managers="<h3>Users who can change this applet's settings, "
                 " including who can access your data: </h3>{}"
                 "".format(
@@ -314,9 +317,9 @@ class Invitation(AccessControlledModel):
                 "applet: </h3>{}"
                 "".format(
                     reviewers if len(reviewers) else "<ul><li>None</li></ul>"
-                )
+                ),
+            role="an editor" if role=="editor" else "a {}".format(role)
         ).strip()
-        print(body)
         return(body if not fullDoc else """
 <!DOCTYPE html>
 <html>
