@@ -3,18 +3,18 @@ on:
   pull_request:
     branches:
     - master
-    
+
 jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-    
+
     - name: Checkout source code
       uses: actions/checkout@v1
 
     - name: Generate deployment package
-      run: zip deploy.zip *.js *.json *.html *.css
-      
+      run: zip -r deploy.zip *.js *.json *.html *.css
+
     - name: Deploy to EB
       uses: einaregilsson/beanstalk-deploy@v3
       with:
@@ -22,6 +22,6 @@ jobs:
         aws_secret_key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
         application_name: mindlogger_mongo_atlas
         environment_name: mindlogger-atlas-dev
-        version_label: GITHUB_SHA
+        version_label: $GITHUB_SHA
         region: us-east-1
         deployment_package: deploy.zip
