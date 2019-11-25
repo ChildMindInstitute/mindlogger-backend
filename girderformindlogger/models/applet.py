@@ -164,6 +164,20 @@ class Applet(Folder):
         )
         self.updateUserCacheAllRoles(user)
 
+    def getResponseData(self, appletId, reviewer, filter={}):
+        """
+        Function to collect response data available to given reviewer.
+
+        :param appletId: ID of applet for which to get response data
+        :type appletId: ObjectId or str
+        :param reviewer: Reviewer making request
+        :type reviewer: dict
+        :param filter: reduction criteria (not yet implemented)
+        :type filter: dict
+        :reutrns: TBD
+        """
+        pass
+
     def updateRelationship(self, applet, relationship):
         """
         :param applet: Applet to update
