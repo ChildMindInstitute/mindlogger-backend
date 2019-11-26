@@ -13,7 +13,7 @@ jobs:
       uses: actions/checkout@v1
 
     - name: Generate deployment package
-      run: zip -r deploy.zip *.js *.json *.html *.css
+      run: zip -r deploy.zip *
 
     - name: Deploy to EB
       uses: einaregilsson/beanstalk-deploy@v3
