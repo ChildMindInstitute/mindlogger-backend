@@ -8,6 +8,10 @@ Changes
 -------
 Unreleased
 ==========
+2019-12-02: v0.7.1
+^^^^^^^^^^^^^^^^^^
+* :racehorse: Resolve some query efficiency problems
+
 2019-11-25: v0.6.6
 ^^^^^^^^^^^^^^^^^^
 * :ambulance: Fix `POST response/applet/activity` route

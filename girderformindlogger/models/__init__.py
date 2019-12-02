@@ -122,54 +122,98 @@ def pluralize(modelType):
 
 
 def cycleModels(IRIset, modelType=None):
-    from girderformindlogger.constants import HIERARCHY
+    from girderformindlogger.constants import HIERARCHY, REPROLIB_TYPES
+    from girderformindlogger.models.folder import Folder as FolderModel
+    from girderformindlogger.models.item import Item as ItemModel
+    from girderformindlogger.utility.jsonld_expander import reprolibCanonize
 
     cachedDoc = None
     primary = [modelType] if isinstance(modelType, str) else [
     ] if modelType is None else modelType
     secondary = [m for m in HIERARCHY if m not in primary]
-    for i in primary:
-        cachedDoc = lookForCached(i, IRIset)
-        if cachedDoc is not None:
-            modelType = i
-            break
+
+    del modelType
+
+    if len(primary):
+        query = {
+            '$and': [
+                {
+                    '$or': [{
+                        'meta.{}.@type'.format(modelType): {
+                            "$in": [
+                                t for t in [
+                                    reprolibCanonize(
+                                        REPROLIB_TYPES[modelType]
+                                    ),
+                                    'reproschema:{}'.format(suffix),
+                                    'reprolib:{}'.format(suffix),
+                                    suffix
+                                ] if t is not None
+                            ] for suffix in [
+                                REPROLIB_TYPES[modelType].split('/')[-1]
+                            ]
+                        }
+                    } for modelType in primary if modelType in REPROLIB_TYPES]
+                },
+                {
+                    '$or': [{
+                        'meta.{}.url'.format(modelType): {
+                            '$in': list(IRIset)
+                        }
+                    } for modelType in primary if modelType in REPROLIB_TYPES]
+                }
+            ]
+        }
+        cachedDoc = (FolderModel() if not any([
+            'screen' in primary,
+            'item' in primary
+        ]) else ItemModel()).findOne(query)
     if cachedDoc is None:
-        for i in secondary:
-            cachedDoc = lookForCached(i, IRIset)
-            if cachedDoc is not None:
-                modelType = i
-                break
+        query = {
+            '$and': [
+                {
+                    '$or': [{
+                        'meta.{}.@type'.format(modelType): {
+                            "$in": [
+                                t for t in [
+                                    reprolibCanonize(
+                                        REPROLIB_TYPES[modelType]
+                                    ),
+                                    'reproschema:{}'.format(suffix),
+                                    'reprolib:{}'.format(suffix),
+                                    suffix
+                                ] if t is not None
+                            ] for suffix in [
+                                REPROLIB_TYPES[modelType].split('/')[-1]
+                            ]
+                        }
+                    } for modelType in secondary if modelType in REPROLIB_TYPES]
+                },
+                {
+                    '$or': [{
+                        'meta.{}.url'.format(modelType): {
+                            '$in': list(IRIset)
+                        }
+                    } for modelType in secondary if modelType in REPROLIB_TYPES]
+                }
+            ]
+        }
+        cachedDoc = FolderModel().findOne(query)
+    if cachedDoc is None:
+        cachedDoc = ItemModel().findOne(query)
+
     if cachedDoc is None:
         return(None, None)
+
+    modelType = [
+        rt for rt in list(
+            REPROLIB_TYPES.keys()
+        ) if '@type' in cachedDoc.get('meta', {}).get(rt, {})
+    ]
+    modelType = modelType[0] if len(modelType) else None
+
     print("Found {}/{}".format(modelType, str(cachedDoc['_id'])))
     return(modelType, cachedDoc)
-
-
-def lookForCached(modelType, IRIset):
-    from girderformindlogger.constants import MODELS, REPROLIB_TYPES
-    from girderformindlogger.utility.jsonld_expander import reprolibCanonize
-
-    MODELS = MODELS()
-    query = {
-        'meta.{}.url'.format(modelType): {
-            '$in': list(IRIset)
-        }
-    }
-    if modelType in REPROLIB_TYPES.keys():
-        suffix = REPROLIB_TYPES[modelType].split('/')[-1]
-        query['meta.{}.@type'.format(modelType)] = {
-            "$in": [t for t in [
-                reprolibCanonize(
-                    REPROLIB_TYPES[modelType]
-                ),
-                'reproschema:{}'.format(suffix),
-                'reprolib:{}'.format(suffix),
-                suffix
-            ] if t is not None]
-        }
-    print("Looking for cached {} {}".format(modelType, str(IRIset)))
-    cachedDoc = MODELS[modelType]().findOne(query)
-    return(cachedDoc)
 
 
 def smartImport(IRI, user=None, refreshCache=False, modelType=None):
