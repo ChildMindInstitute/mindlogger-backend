@@ -49,6 +49,7 @@ class Applet(Resource):
         self.resourceName = 'applet'
         self._model = AppletModel()
         self.route('GET', (':id',), self.getApplet)
+        self.route('GET', (':id', 'data'), self.getAppletData)
         self.route('GET', (':id', 'groups'), self.getAppletGroups)
         self.route('POST', (), self.createApplet)
         self.route('PUT', (':id', 'informant'), self.updateInformant)
@@ -161,6 +162,64 @@ class Applet(Resource):
         .errorResponse('Write access was denied for this applet.', 403)
     )
     def createApplet(self, protocolUrl=None, name=None, informant=None):
+        thisUser = self.getCurrentUser()
+        # get an activity set from a URL
+        protocol = ProtocolModel().getFromUrl(
+            protocolUrl,
+            'protocol',
+            thisUser,
+            refreshCache=False
+        )[0]
+        protocol = protocol.get('protocol', protocol)
+        # create an applet for it
+        applet=AppletModel().createApplet(
+            name=name if name is not None and len(name) else ProtocolModel(
+            ).preferredName(
+                protocol
+            ),
+            protocol={
+                '_id': 'protocol/{}'.format(protocol.get('_id')),
+                'url': protocol.get(
+                    'meta',
+                    {}
+                ).get(
+                    'protocol',
+                    {}
+                ).get('url', protocolUrl)
+            },
+            user=thisUser,
+            constraints={
+                'informantRelationship': informant
+            } if informant is not None else None
+        )
+        return(applet)
+
+    @access.user(scope=TokenScope.DATA_WRITE)
+    @autoDescribeRoute(
+        Description('Create an applet.')
+        .param(
+            'protocolUrl',
+            'URL of Activity Set from which to create applet',
+            required=False
+        )
+        .param(
+            'name',
+            'Name to give the applet. The Protocol\'s name will be used if '
+            'this parameter is not provided.',
+            required=False
+        )
+        .param(
+            'informant',
+            ' '.join([
+                'Relationship from informant to individual of interest.',
+                'Currently handled informant relationships are',
+                str([r for r in DEFINED_INFORMANTS.keys()])
+            ]),
+            required=False
+        )
+        .errorResponse('Write access was denied for this applet.', 403)
+    )
+    def getAppletData(self, protocolUrl=None, name=None, informant=None):
         thisUser = self.getCurrentUser()
         # get an activity set from a URL
         protocol = ProtocolModel().getFromUrl(
@@ -347,7 +406,7 @@ class Applet(Resource):
         )
         .param(
             'role',
-            'Role to invite this user to. One of ' + str(USER_ROLE_KEYS),
+            'Role to invite this user to. One of ' + str(set(USER_ROLE_KEYS)),
             default='user',
             required=False,
             strip=True

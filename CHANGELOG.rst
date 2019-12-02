@@ -8,6 +8,10 @@ Changes
 -------
 Unreleased
 ==========
+2019-11-26: v0.7.1
+^^^^^^^^^^^^^^^^^^
+* :sparkles: Data access for reviewers
+
 2019-11-25: v0.6.6
 ^^^^^^^^^^^^^^^^^^
 * :ambulance: Fix `POST response/applet/activity` route
