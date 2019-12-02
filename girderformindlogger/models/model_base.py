@@ -210,11 +210,12 @@ class Model(object):
         :type refreshCache: bool
         :returns: (dict, str) or (None, None)
         """
+        import threading
         from . import cycleModels
         from girderformindlogger.utility import firstLower, loadJSON
         from girderformindlogger.utility.jsonld_expander import camelCase,     \
-            contextualize, formatLdObject, reprolibCanonize, snake_case,       \
-            _fixUpFormat
+            contextualize, _fixUpFormat, formatLdObject, getModelCollection,   \
+            importAndCompareModelType, reprolibCanonize, snake_case
 
         primary = [modelType] if isinstance(modelType, str) else [
         ] if modelType is None else modelType
@@ -242,13 +243,20 @@ class Model(object):
                         ] else " {}".format(modelType)
                     )
                 )
-            model = contextualize(loadJSON(
-                url,
-                modelType
-            ))
-            if model is None:
-                return(None, None)
-            atType = model.get('@type', '').split('/')[-1].split(':')[-1]
+            thread = threading.Thread(
+                target=importAndCompareModelType,
+                args=(
+                    contextualize(loadJSON(url, modelType)),
+                )
+            )
+            thread.start
+            return(
+                {
+                    "message": "This JSON LD document is not cached and must "
+                               "be loaded. Please check back in several "
+                               "minutes."
+                }
+            )
         else:
             model = cachedDoc
         model = _fixUpFormat(model)
@@ -290,7 +298,7 @@ class Model(object):
                             cachedId
                         ])
                     }
-            docCollection=self.getModelCollection(modelType)
+            docCollection=getModelCollection(modelType)
             if self.name in ['folder', 'item']:
                 if self.name=='item':
                     from girderformindlogger.models.folder import Folder as \
@@ -356,29 +364,6 @@ class Model(object):
                         modelType
                     )
         return(cachedDoc, modelType)
-
-    def getModelCollection(self, modelType):
-        """
-        Returns the Collection named for the given modelType, creating if not
-        already extant.
-
-        :param modelType: 'activity', 'screen', etc.
-        :type modelType: str
-        :returns: dict
-        """
-        from girderformindlogger.models import pluralize
-        from girderformindlogger.models.collection import Collection
-        name = pluralize(modelType).title()
-        collection = Collection().findOne(
-            {'name': name}
-        )
-        if not collection:
-            collection = Collection().createCollection(
-                name=name,
-                public=True,
-                reuseExisting=True
-            )
-        return(collection)
 
     def _createIndex(self, index):
         if isinstance(index, (list, tuple)):

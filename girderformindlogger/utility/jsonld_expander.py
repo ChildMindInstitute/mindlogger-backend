@@ -18,6 +18,121 @@ from girderformindlogger.utility.response import responseDateList
 from pyld import jsonld
 
 
+def getModelCollection(modelType):
+    """
+    Returns the Collection named for the given modelType, creating if not
+    already extant.
+
+    :param modelType: 'activity', 'screen', etc.
+    :type modelType: str
+    :returns: dict
+    """
+    from girderformindlogger.models import pluralize
+    name = pluralize(modelType).title()
+    collection = CollectionModel().findOne(
+        {'name': name}
+    )
+    if not collection:
+        collection = CollectionModel().createCollection(
+            name=name,
+            public=True,
+            reuseExisting=True
+        )
+    return(collection)
+
+
+def importAndCompareModelType(model):
+    if model is None:
+        return(None, None)
+    atType = model.get('@type', '').split('/')[-1].split(':')[-1]
+    model = _fixUpFormat(model)
+    modelType = firstLower(atType) if len(atType) else modelType
+    modelType = 'screen' if modelType.lower(
+    )=='field' else 'protocol' if modelType.lower(
+    )=='activityset' else modelType
+    changedModel = (atType != modelType and len(atType))
+    modelClass = MODELS()[modelType]()
+    prefName = modelClass.preferredName(model)
+    if cachedDoc and not changedModel:
+        if not refreshCache:
+            return(cachedDoc, modelType)
+        provenenceProps = [
+            'schema:isBasedOn',
+            'prov:wasRevisionOf'
+        ]
+        cachedId = str(cachedDoc.get('_id'))
+        cachedDocObj = cachedDoc.get('meta', {}).get(
+            snake_case(modelType),
+            cachedDoc.get('meta', {}).get(
+                camelCase(modelType),
+                cachedDoc.get('meta', {}).get(
+                    modelType,
+                    {}
+                )
+            )
+        )
+        for prop in ['url', *provenenceProps]:
+            cachedDocObj.pop(prop, None)
+    else:
+        cachedId = None
+        cachedDocObj = {}
+    if not cachedDocObj or len(list(diff(cachedDocObj, model))):
+        if cachedId is not None:
+            for prop in provenenceProps:
+                model[prop] = {
+                    '@id': '/'.join([
+                        snake_case(modelType),
+                        cachedId
+                    ])
+                }
+        docCollection=getModelCollection(modelType)
+        if modelClass.name in ['folder', 'item']:
+            docFolder = FolderModel().createFolder(
+                name=prefName,
+                parent=docCollection,
+                parentType='collection',
+                public=True,
+                creator=user,
+                allowRename=True,
+                reuseExisting=False
+            )
+            if modelClass.name=='folder':
+                modelClass.setMetadata(
+                    docFolder,
+                    {
+                        modelType: {
+                            **model,
+                            'schema:url': url,
+                            'url': url
+                        }
+                    }
+                )
+            elif modelClass.name=='item':
+                modelClass.setMetadata(
+                    modelClass.createItem(
+                        name=prefName if prefName else str(len(list(
+                            FolderModel().childItems(
+                                FolderModel().load(
+                                    docFolder,
+                                    level=None,
+                                    user=user,
+                                    force=True
+                                )
+                            )
+                        )) + 1),
+                        creator=user,
+                        folder=docFolder,
+                        reuseExisting=False
+                    ),
+                    {
+                        modelType: {
+                            **model,
+                            'url': url
+                        }
+                    }
+                )
+
+
 def _createContextForStr(s):
     sp = s.split('/')
     k = '_'.join(
