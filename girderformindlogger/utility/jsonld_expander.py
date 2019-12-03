@@ -51,6 +51,7 @@ def importAndCompareModelType(model):
     )=='field' else 'protocol' if modelType.lower(
     )=='activityset' else modelType
     changedModel = (atType != modelType and len(atType))
+    modelType = atType if changedModel else modelType
     modelClass = MODELS()[modelType]()
     prefName = modelClass.preferredName(model)
     if cachedDoc and not changedModel:
@@ -492,6 +493,11 @@ def checkURL(s):
         return(False)
 
 
+def createCache(obj, modelType):
+    obj["cached"] = _fixUpFormat(obj)
+    return(MODELS()[modelType]().save(obj, validate=False))
+
+
 def _fixUpFormat(obj):
     if isinstance(obj, dict):
         newObj = {}
@@ -770,7 +776,7 @@ def componentImport(
     from girderformindlogger.utility import firstLower
 
     updatedProtocol = deepcopy(protocol)
-    obj2 = expand(obj.copy())
+    obj2 = {k: v for k, v in expand(obj.copy()).items() if v is not None}
     try:
         for order in obj2.get(
             "reprolib:terms/order",

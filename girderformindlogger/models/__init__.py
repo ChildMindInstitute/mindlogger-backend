@@ -221,14 +221,21 @@ def smartImport(IRI, user=None, refreshCache=False, modelType=None):
     from girderformindlogger.utility.jsonld_expander import reprolibCanonize
 
     MODELS = MODELS()
-    mt1 = "screen" if modelType is None else modelType
+    mt1 = "screen" if modelType in [
+        None,
+        "external JSON-LD document"
+    ] else modelType
     model, modelType = MODELS[mt1]().getFromUrl(
         IRI,
         user=user,
         refreshCache=refreshCache
     )
     if mt1!=modelType:
-        MODELS[mt1]().remove(model)
+        try:
+            MODELS[mt1]().remove(model)
+        except KeyError:
+            import sys, traceback
+            print(sys.exc_info())
         model, modelType = MODELS[modelType]().getFromUrl(
             IRI,
             user=user,

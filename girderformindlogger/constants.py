@@ -186,6 +186,11 @@ REPROLIB_TYPES = {
     'screen': 'reprolib:schemas/Field'
 }
 
+REPROLIB_TYPES_REVERSED = {
+    v.split('/')[1]: k for k, v in REPROLIB_TYPES.items()
+}
+
+
 SPECIAL_SUBJECTS = {"ALL", "NONE"}
 
 USER_ROLES = {

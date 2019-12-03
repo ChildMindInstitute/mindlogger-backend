@@ -155,6 +155,55 @@ class Applet(Folder):
             "protocol": protocol
         })
 
+    def createAppletFromUrl(
+        self,
+        name,
+        protocolUrl,
+        user=None,
+        roles=None,
+        constraints=None
+    ):
+        from girderformindlogger.models.protocol import Protocol
+        # get a protocol from a URL
+        protocol = Protocol().getFromUrl(
+            protocolUrl,
+            'protocol',
+            user,
+            refreshCache=False
+        )[0]
+        protocol = protocol.get('protocol', protocol)
+        name = name if name is not None and len(name) else Protocol(
+        ).preferredName(
+            protocol
+        )
+        applet = self.createApplet(
+            name=name,
+            protocol={
+                '_id': 'protocol/{}'.format(protocol.get('_id')),
+                'url': protocol.get(
+                    'meta',
+                    {}
+                ).get(
+                    'protocol',
+                    {}
+                ).get('url', protocolUrl)
+            },
+            user=user,
+            roles=roles,
+            constraints=constraints
+        )
+        if 'email' in user:
+            from girderformindlogger.utility.mail_utils import sendMail
+            sendMail(
+                subject=name,
+                text="Your applet, {}, has been successfully created. The "
+                     "applet's ID is {}".format(
+                        name,
+                        str(applet.get('_id'))
+                    ),
+                to=[user['email']]
+            )
+
     def formatThenUpdate(self, applet, user):
         from girderformindlogger.utility import jsonld_expander
         jsonld_expander.formatLdObject(

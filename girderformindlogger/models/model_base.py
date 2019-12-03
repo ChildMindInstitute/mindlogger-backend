@@ -11,8 +11,9 @@ from bson.errors import InvalidId
 from pymongo.errors import WriteError
 from dictdiffer import diff
 from girderformindlogger import events, logprint, logger, auditLogger
-from girderformindlogger.constants import AccessType, CoreEventHandler,        \
-    SortDir, ACCESS_FLAGS, PREFERRED_NAMES, TEXT_SCORE_SORT_MAX, USER_ROLES
+from girderformindlogger.constants import ACCESS_FLAGS, AccessType,            \
+    CoreEventHandler, MODELS, PREFERRED_NAMES, REPROLIB_TYPES_REVERSED,        \
+    SortDir, TEXT_SCORE_SORT_MAX, USER_ROLES
 from girderformindlogger.external.mongodb_proxy import MongoProxy
 from girderformindlogger.models import getDbConnection
 from girderformindlogger.exceptions import AccessException,                    \
@@ -198,6 +199,19 @@ class Model(object):
 
         return self.filterDocument(doc, allow=keys)
 
+    def getModelType(self, model):
+        if '@type' in model:
+            return(REPROLIB_TYPES_REVERSED[
+                model['@type'].split(':')[-1].split('/')[-1]
+            ])
+        if 'meta' in model:
+            for k in MODELS():
+                if k in model['meta']:
+                    mt = self.getModelType(model['meta'][k])
+                    if mt is not None:
+                        return(mt)
+        return(None)
+
     def getFromUrl(self, url, modelType=None, user=None, refreshCache=False):
         """
         Loads from a URL and saves to the DB, returning the loaded model.
@@ -214,7 +228,7 @@ class Model(object):
         from . import cycleModels
         from girderformindlogger.utility import firstLower, loadJSON
         from girderformindlogger.utility.jsonld_expander import camelCase,     \
-            contextualize, _fixUpFormat, formatLdObject, getModelCollection,   \
+            contextualize, createCache, formatLdObject, getModelCollection,    \
             importAndCompareModelType, reprolibCanonize, snake_case
 
         primary = [modelType] if isinstance(modelType, str) else [
@@ -243,127 +257,35 @@ class Model(object):
                         ] else " {}".format(modelType)
                     )
                 )
+            compact = loadJSON(url, modelType)
             thread = threading.Thread(
                 target=importAndCompareModelType,
-                args=(
-                    contextualize(loadJSON(url, modelType)),
-                )
+                args=(contextualize(compact),)
             )
-            thread.start
+            thread.start()
             return(
                 {
                     "message": "This JSON LD document is not cached and must "
                                "be loaded. Please check back in several "
                                "minutes."
-                }
+                },
+                self.getModelType(compact)
             )
         else:
             model = cachedDoc
-        model = _fixUpFormat(model)
-        modelType = firstLower(atType) if len(atType) else modelType
-        modelType = 'screen' if modelType.lower(
-        )=='field' else 'protocol' if modelType.lower(
-        )=='activityset' else modelType
-        changedModel = (atType != modelType and len(atType))
-        prefName = self.preferredName(model)
-        if cachedDoc and not changedModel:
-            if not refreshCache:
-                return(cachedDoc, modelType)
-            provenenceProps = [
-                'schema:isBasedOn',
-                'prov:wasRevisionOf'
-            ]
-            cachedId = str(cachedDoc.get('_id'))
-            cachedDocObj = cachedDoc.get('meta', {}).get(
-                snake_case(modelType),
-                cachedDoc.get('meta', {}).get(
-                    camelCase(modelType),
-                    cachedDoc.get('meta', {}).get(
-                        modelType,
-                        {}
-                    )
-                )
-            )
-            for prop in ['url', *provenenceProps]:
-                cachedDocObj.pop(prop, None)
-        else:
-            cachedId = None
-            cachedDocObj = {}
-        if not cachedDocObj or len(list(diff(cachedDocObj, model))):
-            if cachedId is not None:
-                for prop in provenenceProps:
-                    model[prop] = {
-                        '@id': '/'.join([
-                            snake_case(modelType),
-                            cachedId
-                        ])
-                    }
-            docCollection=getModelCollection(modelType)
-            if self.name in ['folder', 'item']:
-                if self.name=='item':
-                    from girderformindlogger.models.folder import Folder as \
-                        FolderModel
-                docFolder = (
-                    FolderModel() if self.name=='item' else self
-                ).createFolder(
-                    name=prefName,
-                    parent=docCollection,
-                    parentType='collection',
-                    public=True,
-                    creator=user,
-                    allowRename=True,
-                    reuseExisting=False
-                )
-                if self.name=='folder':
-                    return(
-                        formatLdObject(
-                            self.setMetadata(
-                                docFolder,
-                                {
-                                    modelType: {
-                                        **model,
-                                        'schema:url': url,
-                                        'url': url
-                                    }
-                                }
-                            ),
-                            modelType,
-                            user
-                        ),
-                        modelType
-                    )
-                elif self.name=='item':
-                    return(
-                        formatLdObject(
-                            self.setMetadata(
-                                self.createItem(
-                                    name=prefName if prefName else str(len(list(
-                                        FolderModel().childItems(
-                                            FolderModel().load(
-                                                docFolder,
-                                                level=None,
-                                                user=user,
-                                                force=True
-                                            )
-                                        )
-                                    )) + 1),
-                                    creator=user,
-                                    folder=docFolder,
-                                    reuseExisting=False
-                                ),
-                                {
-                                    modelType: {
-                                        **model,
-                                        'url': url
-                                    }
-                                }
-                            ),
-                            modelType,
-                            user
-                        ),
-                        modelType
-                    )
-        return(cachedDoc, modelType)
+        if "cached" in model:
+            return(model["cached"], self.getModelType(model["cached"]))
+        modelType = self.getModelType(model)
+        thread = threading.Thread(target=createCache, args=(model, modelType))
+        thread.start()
+        return(
+            {
+                "message": "This JSON LD document is not cached and must "
+                           "be loaded. Please check back in several "
+                           "minutes."
+            },
+            modelType
+        )
 
     def _createIndex(self, index):
         if isinstance(index, (list, tuple)):
