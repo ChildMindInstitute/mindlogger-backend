@@ -242,7 +242,7 @@ class Model(object):
         from . import cycleModels
         from girderformindlogger.utility import loadJSON
         from girderformindlogger.utility.jsonld_expander import camelCase,     \
-            contextualize, createCache, formatLdObject, getModelCollection,    \
+            contextualize, createCache, getModelCollection,                    \
             importAndCompareModelType, reprolibCanonize, snake_case
 
         primary = [modelType] if isinstance(modelType, str) else [
@@ -288,26 +288,23 @@ class Model(object):
                     self.getModelType(compact)
                 )
             else:
-                print(compact)
-                print('-----')
-                print(importAndCompareModelType(
-                    contextualize(compact),
-                    url=url,
-                    user=user
-                ))
                 model, modelType = importAndCompareModelType(
                     contextualize(compact),
                     url=url,
                     user=user
                 )
-                return(createCache(model, modelType), modelType)
+                return(createCache(model, modelType, user), modelType)
         else:
             model = cachedDoc
         if "cached" in model:
             return(model["cached"], self.getModelType(model["cached"]))
         modelType = self.getModelType(model)
         if thread:
-            thread = threading.Thread(target=createCache, args=(model, modelType))
+            thread = threading.Thread(target=createCache, args=(
+                model,
+                modelType,
+                user
+            ))
             thread.start()
             return(
                 {
@@ -318,7 +315,7 @@ class Model(object):
                 modelType
             )
         else:
-            return(createCache(model, modelType), modelType)
+            return(createCache(model, modelType, user), modelType)
 
     def _createIndex(self, index):
         if isinstance(index, (list, tuple)):

@@ -407,7 +407,7 @@ class Applet(Resource):
         .errorResponse('Read access was denied for this applet.', 403)
     )
     def setConstraints(self, folder, activity, schedule, **kwargs):
-        thisUser = Applet().getCurrentUser()
+        thisUser = self.getCurrentUser()
         applet = jsonld_expander.formatLdObject(
             _setConstraints(folder, activity, schedule, thisUser),
             'applet',

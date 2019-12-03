@@ -467,10 +467,11 @@ def checkURL(s):
         return(False)
 
 
-def createCache(obj, modelType):
+def createCache(obj, modelType, user):
     obj["cached"] = _fixUpFormat(formatLdObject(
         obj,
-        mesoPrefix=modelType
+        mesoPrefix=modelType,
+        user=user
     ))
     return(MODELS()[modelType]().save(obj, validate=False))
 
@@ -799,8 +800,6 @@ def componentImport(
                             user,
                             refreshCache=refreshCache
                         ).copy()
-        print("^^^")
-        print(updatedProtocol)
         return(updatedProtocol.get(
             'meta',
             updatedProtocol
