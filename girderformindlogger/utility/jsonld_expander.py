@@ -41,7 +41,8 @@ def getModelCollection(modelType):
     return(collection)
 
 
-def importAndCompareModelType(model):
+def importAndCompareModelType(model, url, user):
+    from girderformindlogger.utility import firstLower
     if model is None:
         return(None, None)
     atType = model.get('@type', '').split('/')[-1].split(':')[-1]
@@ -51,87 +52,60 @@ def importAndCompareModelType(model):
     )=='field' else 'protocol' if modelType.lower(
     )=='activityset' else modelType
     changedModel = (atType != modelType and len(atType))
-    modelType = atType if changedModel else modelType
+    modelType = firstLower(atType) if changedModel else modelType
+    modelType = 'screen' if modelType.lower(
+    )=='field' else 'protocol' if modelType.lower(
+    )=='activityset' else modelType
     modelClass = MODELS()[modelType]()
     prefName = modelClass.preferredName(model)
-    if cachedDoc and not changedModel:
-        if not refreshCache:
-            return(cachedDoc, modelType)
-        provenenceProps = [
-            'schema:isBasedOn',
-            'prov:wasRevisionOf'
-        ]
-        cachedId = str(cachedDoc.get('_id'))
-        cachedDocObj = cachedDoc.get('meta', {}).get(
-            snake_case(modelType),
-            cachedDoc.get('meta', {}).get(
-                camelCase(modelType),
-                cachedDoc.get('meta', {}).get(
-                    modelType,
-                    {}
-                )
-            )
+    cachedDocObj = {}
+    docCollection=getModelCollection(modelType)
+    if modelClass.name in ['folder', 'item']:
+        docFolder = FolderModel().createFolder(
+            name=prefName,
+            parent=docCollection,
+            parentType='collection',
+            public=True,
+            creator=user,
+            allowRename=True,
+            reuseExisting=False
         )
-        for prop in ['url', *provenenceProps]:
-            cachedDocObj.pop(prop, None)
-    else:
-        cachedId = None
-        cachedDocObj = {}
-    if not cachedDocObj or len(list(diff(cachedDocObj, model))):
-        if cachedId is not None:
-            for prop in provenenceProps:
-                model[prop] = {
-                    '@id': '/'.join([
-                        snake_case(modelType),
-                        cachedId
-                    ])
+        if modelClass.name=='folder':
+            modelClass.setMetadata(
+                docFolder,
+                {
+                    modelType: {
+                        **model,
+                        'schema:url': url,
+                        'url': url
+                    }
                 }
-        docCollection=getModelCollection(modelType)
-        if modelClass.name in ['folder', 'item']:
-            docFolder = FolderModel().createFolder(
-                name=prefName,
-                parent=docCollection,
-                parentType='collection',
-                public=True,
-                creator=user,
-                allowRename=True,
-                reuseExisting=False
             )
-            if modelClass.name=='folder':
-                modelClass.setMetadata(
-                    docFolder,
-                    {
-                        modelType: {
-                            **model,
-                            'schema:url': url,
-                            'url': url
-                        }
-                    }
-                )
-            elif modelClass.name=='item':
-                modelClass.setMetadata(
-                    modelClass.createItem(
-                        name=prefName if prefName else str(len(list(
-                            FolderModel().childItems(
-                                FolderModel().load(
-                                    docFolder,
-                                    level=None,
-                                    user=user,
-                                    force=True
-                                )
+        elif modelClass.name=='item':
+            modelClass.setMetadata(
+                modelClass.createItem(
+                    name=prefName if prefName else str(len(list(
+                        FolderModel().childItems(
+                            FolderModel().load(
+                                docFolder,
+                                level=None,
+                                user=user,
+                                force=True
                             )
-                        )) + 1),
-                        creator=user,
-                        folder=docFolder,
-                        reuseExisting=False
-                    ),
-                    {
-                        modelType: {
-                            **model,
-                            'url': url
-                        }
+                        )
+                    )) + 1),
+                    creator=user,
+                    folder=docFolder,
+                    reuseExisting=False
+                ),
+                {
+                    modelType: {
+                        **model,
+                        'url': url
                     }
-                )
+                }
+            )
+    return(model, modelType)
 
 
 def _createContextForStr(s):
@@ -494,7 +468,10 @@ def checkURL(s):
 
 
 def createCache(obj, modelType):
-    obj["cached"] = _fixUpFormat(obj)
+    obj["cached"] = _fixUpFormat(formatLdObject(
+        obj,
+        mesoPrefix=modelType
+    ))
     return(MODELS()[modelType]().save(obj, validate=False))
 
 
@@ -601,15 +578,11 @@ def formatLdObject(
                     'http://schema.org/url',
                     obj.get('meta', {}).get('protocol', obj).get('url')
                 )
-                protocol = _fixUpFormat(formatLdObject(
-                    ProtocolModel().getFromUrl(
-                        protocolUrl,
-                        'protocol',
-                        user
-                    )[0],
+                protocol = ProtocolModel().getFromUrl(
+                    protocolUrl,
                     'protocol',
                     user
-                )) if protocolUrl is not None else {}
+                )[0] if protocolUrl is not None else {}
                 applet = {}
                 applet['activities'] = protocol.pop('activities', {})
                 applet['items'] = protocol.pop('items', {})
@@ -826,6 +799,8 @@ def componentImport(
                             user,
                             refreshCache=refreshCache
                         ).copy()
+        print("^^^")
+        print(updatedProtocol)
         return(updatedProtocol.get(
             'meta',
             updatedProtocol

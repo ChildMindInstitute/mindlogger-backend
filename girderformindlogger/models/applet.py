@@ -140,20 +140,6 @@ class Applet(Folder):
             'applet',
             user
         ))
-        return(self.formatThenUpdate(
-            applet,
-            user
-        ))
-        return({
-            "_id": applet.get("_id"),
-            "applet": {
-                **self.unexpanded(applet),
-                "name": self.preferredName(applet),
-                "note - loading": "Your applet is being expanded on the "
-                "server. Check back in a few minutes to see the full content."
-                },
-            "protocol": protocol
-        })
 
     def createAppletFromUrl(
         self,
@@ -169,9 +155,10 @@ class Applet(Folder):
             protocolUrl,
             'protocol',
             user,
-            refreshCache=False
-        )[0]
-        protocol = protocol.get('protocol', protocol)
+            refreshCache=False,
+            thread=False
+        )
+        protocol = protocol[0].get('protocol', protocol[0])
         name = name if name is not None and len(name) else Protocol(
         ).preferredName(
             protocol
@@ -199,7 +186,7 @@ class Applet(Folder):
                 text="Your applet, {}, has been successfully created. The "
                      "applet's ID is {}".format(
                         name,
-                        str(applet.get('_id'))
+                        str(applet.get('applet', applet).get('_id'))
                     ),
                 to=[user['email']]
             )
@@ -361,27 +348,35 @@ class Applet(Folder):
         )
         formatted = [
             {
-                **jsonld_expander.formatLdObject(
+                **(applet[
+                    'cached'
+                ] if (
+                    'cached' in applet and not refreshCache
+                ) else jsonld_expander.formatLdObject(
                     applet,
                     'applet',
                     user,
                     refreshCache=refreshCache,
                     responseDates=False
-                ),
+                )),
                 "users": self.getAppletUsers(applet, user),
                 "groups": self.getAppletGroups(
                     applet,
                     arrayOfObjects=True
                 )
             } if role in ["coordinator", "manager"] else {
-                **jsonld_expander.formatLdObject(
+                **(applet[
+                    'cached'
+                ] if (
+                    'cached' in applet and not refreshCache
+                ) else jsonld_expander.formatLdObject(
                     applet,
                     'applet',
                     user,
                     dropErrors=True,
                     responseDates=True if role=="user" else False,
                     refreshCache=refreshCache
-                ),
+                )),
                 "groups": [
                     group for group in self.getAppletGroups(applet).get(
                         role

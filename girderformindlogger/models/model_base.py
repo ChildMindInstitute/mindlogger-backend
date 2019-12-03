@@ -201,8 +201,15 @@ class Model(object):
 
     def getModelType(self, model):
         if '@type' in model:
+            mt = model['@type'] if isinstance(
+                model['@type'],
+                str
+            ) else model['@type'][0] if isinstance(
+                model['@type'],
+                list
+            ) and len(model['@type']) else None
             return(REPROLIB_TYPES_REVERSED[
-                model['@type'].split(':')[-1].split('/')[-1]
+                mt.split(':')[-1].split('/')[-1]
             ])
         if 'meta' in model:
             for k in MODELS():
@@ -212,7 +219,14 @@ class Model(object):
                         return(mt)
         return(None)
 
-    def getFromUrl(self, url, modelType=None, user=None, refreshCache=False):
+    def getFromUrl(
+        self,
+        url,
+        modelType=None,
+        user=None,
+        refreshCache=False,
+        thread=True
+    ):
         """
         Loads from a URL and saves to the DB, returning the loaded model.
 
@@ -226,7 +240,7 @@ class Model(object):
         """
         import threading
         from . import cycleModels
-        from girderformindlogger.utility import firstLower, loadJSON
+        from girderformindlogger.utility import loadJSON
         from girderformindlogger.utility.jsonld_expander import camelCase,     \
             contextualize, createCache, formatLdObject, getModelCollection,    \
             importAndCompareModelType, reprolibCanonize, snake_case
@@ -258,10 +272,42 @@ class Model(object):
                     )
                 )
             compact = loadJSON(url, modelType)
-            thread = threading.Thread(
-                target=importAndCompareModelType,
-                args=(contextualize(compact),)
-            )
+            if thread:
+                thread = threading.Thread(
+                    target=importAndCompareModelType,
+                    args=(contextualize(compact),),
+                    kwargs={'url': url, 'user': user}
+                )
+                thread.start()
+                return(
+                    {
+                        "message": "This JSON LD document is not cached and must "
+                                   "be loaded. Please check back in several "
+                                   "minutes."
+                    },
+                    self.getModelType(compact)
+                )
+            else:
+                print(compact)
+                print('-----')
+                print(importAndCompareModelType(
+                    contextualize(compact),
+                    url=url,
+                    user=user
+                ))
+                model, modelType = importAndCompareModelType(
+                    contextualize(compact),
+                    url=url,
+                    user=user
+                )
+                return(createCache(model, modelType), modelType)
+        else:
+            model = cachedDoc
+        if "cached" in model:
+            return(model["cached"], self.getModelType(model["cached"]))
+        modelType = self.getModelType(model)
+        if thread:
+            thread = threading.Thread(target=createCache, args=(model, modelType))
             thread.start()
             return(
                 {
@@ -269,23 +315,10 @@ class Model(object):
                                "be loaded. Please check back in several "
                                "minutes."
                 },
-                self.getModelType(compact)
+                modelType
             )
         else:
-            model = cachedDoc
-        if "cached" in model:
-            return(model["cached"], self.getModelType(model["cached"]))
-        modelType = self.getModelType(model)
-        thread = threading.Thread(target=createCache, args=(model, modelType))
-        thread.start()
-        return(
-            {
-                "message": "This JSON LD document is not cached and must "
-                           "be loaded. Please check back in several "
-                           "minutes."
-            },
-            modelType
-        )
+            return(createCache(model, modelType), modelType)
 
     def _createIndex(self, index):
         if isinstance(index, (list, tuple)):

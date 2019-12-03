@@ -178,7 +178,7 @@ class Applet(Resource):
         return({
             "message": "The applet is being created. Please check back in "
                        "several mintutes to see it. If you have an email "
-                       "address associated with your account, you will recieve "
+                       "address associated with your account, you will receive "
                        "an email when your applet is ready."
         })
 
@@ -251,7 +251,12 @@ class Applet(Resource):
     @access.user(scope=TokenScope.DATA_READ)
     @autoDescribeRoute(
         Description('Get an applet by ID.')
-        .modelParam('id', model=AppletModel, level=AccessType.READ)
+        .modelParam(
+            'id',
+            model=AppletModel,
+            level=AccessType.READ,
+            destName='applet'
+        )
         .param(
             'refreshCache',
             'Reparse JSON-LD',
@@ -261,9 +266,10 @@ class Applet(Resource):
         .errorResponse('Invalid applet ID.')
         .errorResponse('Read access was denied for this applet.', 403)
     )
-    def getApplet(self, folder, refreshCache=False):
-        applet = folder
+    def getApplet(self, applet, refreshCache=False):
         user = self.getCurrentUser()
+        if 'cached' in applet and not refreshCache:
+            return(applet['cached'])
         return(
             jsonld_expander.formatLdObject(
                 applet,
