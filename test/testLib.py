@@ -149,6 +149,13 @@ def addApplet(new_user, protocolUrl):
     # TODO: create an activity-set that JUST for testing.
     # make sure it has all the weird qualities that can break
 
+    userAppletsToStart = AppletModel().getAppletsForUser(
+        'user',
+        currentUser,
+        active=True
+    )
+    print(userAppletsToStart)
+    userApplets = userAppletsToStart.copy()
 
     # for now, lets do the mindlogger demo
     protocol = {}
@@ -158,22 +165,22 @@ def addApplet(new_user, protocolUrl):
         currentUser
     )[0])
     randomAS = np.random.randint(1000000)
-    ar = AppletModel().createApplet(
+    ar = AppletModel().createAppletFromUrl(
         name="testProtocol{}".format(randomAS),
-        protocol={
-            '_id': 'protocol/{}'.format(protocol.get('_id')),
-            'url': protocol.get(
-                'meta',
-                {}
-            ).get(
-                'protocol',
-                {}
-            ).get('url', protocolUrl)
-        },
+        protocolUrl=protocolUrl,
         user=currentUser
     )
 
-    assert ar['applet']['_id'], 'there is no ID!'
+    while len(userApplets)==len(userAppletsToStart):
+        nightyNight(sleepInterval)
+        userApplets = AppletModel().getAppletsForUser(
+            'manager',
+            currentUser,
+            active=True
+        )
+        print(userApplets)
+
+    return(ar)
     assert jsonld_expander.reprolibCanonize(
         ar['protocol']['url']
     ) == jsonld_expander.reprolibCanonize(protocolUrl), \
@@ -182,22 +189,28 @@ def addApplet(new_user, protocolUrl):
             protocolUrl
         )
 
+    assert ar['applet']['_id'], 'there is no ID!'
+
+
     userApplets = AppletModel().getAppletsForUser(
         'user',
         currentUser,
         active=True
     )
-    timer = sleepInterval
-    while(timer > 0):
-        print("😴   {}".format(str(timer)))
-        time.sleep(1)
-        timer = timer - 1
+    nightyNight(sleepInterval)
 
     assert getAppletById(
         new_user,
         ar
     ) is not None, 'something wrong with getAppletById'
     return ar
+
+
+def nightyNight(timer):
+    while(timer > 0):
+        print("😴   {}".format(str(timer)))
+        time.sleep(1)
+        timer = timer - 1
 
 
 def getAppletsUser(user, n=1):

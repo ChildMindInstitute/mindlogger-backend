@@ -68,7 +68,7 @@ def importAndCompareModelType(model, url, user):
             public=True,
             creator=user,
             allowRename=True,
-            reuseExisting=False
+            reuseExisting=True
         )
         if modelClass.name=='folder':
             modelClass.setMetadata(
@@ -468,11 +468,14 @@ def checkURL(s):
 
 
 def createCache(obj, modelType, user):
-    obj["cached"] = _fixUpFormat(formatLdObject(
-        obj,
-        mesoPrefix=modelType,
-        user=user
-    ))
+    obj["cached"] = {
+        **_fixUpFormat(formatLdObject(
+            obj,
+            mesoPrefix=modelType,
+            user=user
+        )),
+        "prov:generatedAtTime": xsdNow()
+    }
     return(MODELS()[modelType]().save(obj, validate=False))
 
 
@@ -582,7 +585,8 @@ def formatLdObject(
                 protocol = ProtocolModel().getFromUrl(
                     protocolUrl,
                     'protocol',
-                    user
+                    user,
+                    thread=False
                 )[0] if protocolUrl is not None else {}
                 applet = {}
                 applet['activities'] = protocol.pop('activities', {})
@@ -612,13 +616,7 @@ def formatLdObject(
                         obj.get('meta', {}).get('protocol', {}).get("url", "")
                     ])
                 }
-                applet = _fixUpFormat(applet)
-                obj["cached"] = {
-                    **applet,
-                    "prov:generatedAtTime": xsdNow()
-                }
-                AppletModel().save(obj, validate=False)
-                returnObj = applet
+                returnObj = createCache(applet, 'applet', user)
             elif mesoPrefix=='protocol':
                 protocol = {
                     'protocol': newObj,
@@ -635,6 +633,7 @@ def formatLdObject(
                         refreshCache=refreshCache
                     )
                 except:
+                    print("636")
                     protocol = componentImport(
                         newObj,
                         deepcopy(protocol),
@@ -668,6 +667,7 @@ def formatLdObject(
                                 refreshCache=refreshCache
                             )
                         except:
+                            print("670")
                             protocol = componentImport(
                                 deepcopy(activity),
                                 deepcopy(protocol),
@@ -688,6 +688,7 @@ def formatLdObject(
                                 refreshCache=refreshCache
                             )
                         except:
+                            print("691")
                             protocol = componentImport(
                                 deepcopy(activity),
                                 deepcopy(protocol),

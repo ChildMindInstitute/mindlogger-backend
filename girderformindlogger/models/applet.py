@@ -352,12 +352,10 @@ class Applet(Folder):
                     'cached'
                 ] if (
                     'cached' in applet and not refreshCache
-                ) else jsonld_expander.formatLdObject(
+                ) else jsonld_expander.createCache(
                     applet,
                     'applet',
-                    user,
-                    refreshCache=refreshCache,
-                    responseDates=False
+                    user
                 )),
                 "users": self.getAppletUsers(applet, user),
                 "groups": self.getAppletGroups(
@@ -369,13 +367,10 @@ class Applet(Folder):
                     'cached'
                 ] if (
                     'cached' in applet and not refreshCache
-                ) else jsonld_expander.formatLdObject(
+                ) else jsonld_expander.createCache(
                     applet,
                     'applet',
-                    user,
-                    dropErrors=True,
-                    responseDates=True if role=="user" else False,
-                    refreshCache=refreshCache
+                    user
                 )),
                 "groups": [
                     group for group in self.getAppletGroups(applet).get(
@@ -551,16 +546,6 @@ class Applet(Folder):
             import sys, traceback
             print(sys.exc_info())
             return({traceback.print_tb(sys.exc_info()[2])})
-
-
-    def importUrl(self, url, user=None, refreshCache=False):
-        """
-        Gets an applet from a given URL, checks against the database, stores
-        and returns that applet.
-
-        Deprecated.
-        """
-        return(self.getFromUrl(url, 'applet', user, refreshCache)[0])
 
     def load(self, id, level=AccessType.ADMIN, user=None, objectId=True,
              force=False, fields=None, exc=False):

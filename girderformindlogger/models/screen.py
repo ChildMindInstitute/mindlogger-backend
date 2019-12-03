@@ -124,6 +124,14 @@ class Screen(Item):
         except AttributeError:
             url = None
         if url:
-            return(self.getFromUrl(url, 'screen', user, refreshCache)[0])
+            return(
+                self.getFromUrl(
+                    url,
+                    'screen',
+                    user,
+                    refreshCache,
+                    thread=False
+                )[0]
+            )
         else:
             return(doc)
