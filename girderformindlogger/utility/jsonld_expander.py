@@ -478,9 +478,60 @@ def checkURL(s):
         return(False)
 
 
+def compactKeys(obj):
+    context = obj.get('@context', [])
+    if not isinstance(context, list):
+        context = [context]
+    newObj = {}
+    for k in list(obj.keys()):
+        if "." in k:
+            c, nk = _createContext(k)
+            if c not in context:
+                context.append(c)
+            nc, newObj[nk] = _deepCompactKeys(obj[k])
+            for c in nc:
+                if c not in context:
+                    context.append(c)
+        else:
+            nc, newObj[k] = _deepCompactKeys(obj[k])
+            for c in nc:
+                if c not in context:
+                    context.append(c)
+    newObj['@context'] = context
+    return(newObj)
+
+
+def _deepCompactKeys(obj):
+    context = []
+    if not isinstance(obj, dict):
+        return(context, obj)
+    newObj = {}
+    for k in list(obj.keys()):
+        if "." in k:
+            c, nk = _createContext(k)
+            if c not in context:
+                context.append(c)
+            nc, newObj[nk] = _deepCompactKeys(obj[k])
+            for c in nc:
+                if c not in context:
+                    context.append(c)
+        else:
+            nc, newObj[k] = _deepCompactKeys(obj[k])
+            for c in nc:
+                if c not in context:
+                    context.append(c)
+    return(context, newObj)
+
+
+def _createContext(key):
+    s = key.split('/')
+    k = s[-1]
+    key = '{}/'.format('/'.join(s[0:-1]))
+    return({key.split('://')[-1].replace('.', '_dot_'): key}, k)
+
 def createCache(obj, modelType, user):
     if obj.get('_id') is None:
-        obj = MODELS()[modelType]().save(obj, validate=False)
+        obj = MODELS()[modelType]().save(compactKeys(obj), validate=False)
     print("caching")
     obj["cached"] = json_util.dumps({
         **_fixUpFormat(formatLdObject(
