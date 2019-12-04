@@ -46,7 +46,6 @@ def importAndCompareModelType(model, url, user):
     if model is None:
         return(None, None)
     atType = model.get('@type', '').split('/')[-1].split(':')[-1]
-    model = _fixUpFormat(model)
     modelType = firstLower(atType) if len(atType) else modelType
     modelType = 'screen' if modelType.lower(
     )=='field' else 'protocol' if modelType.lower(
@@ -57,8 +56,20 @@ def importAndCompareModelType(model, url, user):
     )=='field' else 'protocol' if modelType.lower(
     )=='activityset' else modelType
     modelClass = MODELS()[modelType]()
+    print(modelType)
+    print(model)
+    model = _fixUpFormat(
+        formatLdObject(
+            model,
+            modelType,
+            user,
+            refreshCache=True
+        )
+    )
+    print(model)
     prefName = modelClass.preferredName(model)
     cachedDocObj = {}
+    print(": ".join([modelType, prefName]))
     docCollection=getModelCollection(modelType)
     if modelClass.name in ['folder', 'item']:
         docFolder = FolderModel().createFolder(
@@ -68,7 +79,7 @@ def importAndCompareModelType(model, url, user):
             public=True,
             creator=user,
             allowRename=True,
-            reuseExisting=True
+            reuseExisting=(modelType!='applet')
         )
         if modelClass.name=='folder':
             modelClass.setMetadata(
@@ -96,7 +107,7 @@ def importAndCompareModelType(model, url, user):
                     )) + 1),
                     creator=user,
                     folder=docFolder,
-                    reuseExisting=False
+                    reuseExisting=True
                 ),
                 {
                     modelType: {
@@ -468,15 +479,25 @@ def checkURL(s):
 
 
 def createCache(obj, modelType, user):
-    obj["cached"] = {
+    if obj.get('_id') is None:
+        obj = MODELS()[modelType]().save(obj, validate=False)
+    print("caching")
+    obj["cached"] = json_util.dumps({
         **_fixUpFormat(formatLdObject(
             obj,
             mesoPrefix=modelType,
             user=user
         )),
         "prov:generatedAtTime": xsdNow()
-    }
+    })
     return(MODELS()[modelType]().save(obj, validate=False))
+
+
+def loadCache(obj):
+    if isinstance(obj, dict):
+        return(obj)
+    else:
+        return(json_util.loads(obj))
 
 
 def _fixUpFormat(obj):
@@ -550,7 +571,7 @@ def formatLdObject(
         elif isinstance(obj, dict) and 'meta' not in obj.keys():
             return(_fixUpFormat(obj))
         elif isinstance(obj, dict) and "cached" in obj and not refreshCache:
-            returnObj = obj["cached"]
+            returnObj = loadCache(obj["cached"])
         else:
             mesoPrefix = camelCase(mesoPrefix)
             if type(obj)==list:

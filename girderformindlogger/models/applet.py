@@ -37,7 +37,8 @@ from girderformindlogger.models.folder import Folder as FolderModel
 from girderformindlogger.models.group import Group as GroupModel
 from girderformindlogger.models.protoUser import ProtoUser as ProtoUserModel
 from girderformindlogger.models.user import User as UserModel
-from girderformindlogger.utility.progress import noProgress, setResponseTimeLimit
+from girderformindlogger.utility.progress import noProgress,                   \
+    setResponseTimeLimit
 
 
 class Applet(Folder):
@@ -135,11 +136,7 @@ class Applet(Folder):
                 force=False
             )
 
-        return(jsonld_expander.formatLdObject(
-            applet,
-            'applet',
-            user
-        ))
+        return(applet)
 
     def createAppletFromUrl(
         self,
@@ -166,7 +163,9 @@ class Applet(Folder):
         applet = self.createApplet(
             name=name,
             protocol={
-                '_id': 'protocol/{}'.format(protocol.get('_id')),
+                '_id': 'protocol/{}'.format(
+                    str(protocol.get('_id')).split('/')[-1]
+                ),
                 'url': protocol.get(
                     'meta',
                     {}
@@ -179,17 +178,20 @@ class Applet(Folder):
             roles=roles,
             constraints=constraints
         )
+        emailMessage = "Your applet, {}, has been successfully created. The "  \
+            "applet's ID is {}".format(
+                name,
+                str(applet.get('applet', applet).get('_id')
+            )
+        )
         if 'email' in user:
             from girderformindlogger.utility.mail_utils import sendMail
             sendMail(
                 subject=name,
-                text="Your applet, {}, has been successfully created. The "
-                     "applet's ID is {}".format(
-                        name,
-                        str(applet.get('applet', applet).get('_id'))
-                    ),
+                text=emailMessage,
                 to=[user['email']]
             )
+        print(emailMessage)
 
     def formatThenUpdate(self, applet, user):
         from girderformindlogger.utility import jsonld_expander
@@ -222,6 +224,9 @@ class Applet(Folder):
         :type relationship: str
         :returns: updated Applet
         """
+        from bson.json_util import dumps
+        from girderformindlogger.utility.jsonld_expander import loadCache
+
         if not isinstance(relationship, str):
             raise TypeError("Applet relationship must be defined as a string.")
         if 'meta' not in applet:
@@ -229,17 +234,21 @@ class Applet(Folder):
         if 'applet' not in applet['meta']:
             applet['meta']['applet'] = {}
         applet['meta']['applet']['informantRelationship'] = relationship
-        if 'cached' in applet and 'applet' in applet['cached']:
+        if 'cached' in applet:
+            applet['cached'] = loadCache(applet['cached'])
+        if 'applet' in applet['cached']:
             applet['cached']['applet']['informantRelationship'] = relationship
+        applet['cached'] = dumps(applet['cached'])
         return(self.save(applet, validate=False))
 
     def unexpanded(self, applet):
+        from girderformindlogger.utility.jsonld_expander import loadCache
         return({
             **(
-                applet.get(
+                loadCache(applet.get(
                     'cached',
                     {}
-                ).get('applet') if isinstance(
+                )).get('applet') if isinstance(
                     applet,
                     dict
                 ) and 'cached' in applet else {
@@ -340,7 +349,7 @@ class Applet(Folder):
         from girderformindlogger.utility import jsonld_expander
 
         applets=self.getAppletsForUser(role, user, active)
-        user['cached'] = user.get('cached', {})
+        user['cached'] = jsonld_expander.loadCache(user.get('cached', {}))
         user['cached']['applets'] = user['cached'].get('applets', {})
         user['cached']['applets'][role] = user['cached']['applets'].get(
             role,
@@ -348,9 +357,9 @@ class Applet(Folder):
         )
         formatted = [
             {
-                **(applet[
+                **(jsonld_expander.loadCache(applet[
                     'cached'
-                ] if (
+                ]) if (
                     'cached' in applet and not refreshCache
                 ) else jsonld_expander.createCache(
                     applet,
@@ -363,9 +372,9 @@ class Applet(Folder):
                     arrayOfObjects=True
                 )
             } if role in ["coordinator", "manager"] else {
-                **(applet[
+                **(jsonld_expander.loadCache(applet[
                     'cached'
-                ] if (
+                ]) if (
                     'cached' in applet and not refreshCache
                 ) else jsonld_expander.createCache(
                     applet,

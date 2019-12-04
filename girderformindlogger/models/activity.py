@@ -160,7 +160,7 @@ class Activity(Folder):
             url = doc.get('meta', {}).get('url')
             if url:
                 return(
-                    ActivityModel.getFromUrl(
+                    self.getFromUrl(
                         url,
                         'activity',
                         user,

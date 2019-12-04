@@ -113,26 +113,27 @@ class User(Resource):
                             fields=userfields
                         ))
                     ]
-            output.append({
-                '_id': groupId,
-                'applets': [{
-                    'name': applet.get('cached', {}).get('applet', {}).get(
-                        'skos:prefLabel',
-                        ''
-                    ),
-                    'image': applet.get('cached', {}).get('applet', {}).get(
-                        'schema:image',
-                        ''
-                    ),
-                    'description': applet.get('cached', {}).get('applet', {
-                    }).get(
-                        'schema:description',
-                        ''
-                    ),
-                    'managers': applet.get('managers'),
-                    'reviewers': applet.get('reviewers')
-                } for applet in applets]
-            })
+                appletC = jsonld_expander.loadCache(applet.get('cached'), applet)
+                output.append({
+                    '_id': groupId,
+                    'applets': [{
+                        'name': appletC.get('applet', {}).get(
+                            'skos:prefLabel',
+                            ''
+                        ),
+                        'image': appletC.get('applet', {}).get(
+                            'schema:image',
+                            ''
+                        ),
+                        'description': appletC.get('applet', {
+                        }).get(
+                            'schema:description',
+                            ''
+                        ),
+                        'managers': applet.get('managers'),
+                        'reviewers': applet.get('reviewers')
+                    } for applet in applets]
+                })
         return(output)
 
     @access.user
@@ -413,7 +414,11 @@ class User(Resource):
                 )
             )
         try:
-            if 'cached' in reviewer and 'applets' in reviewer[
+            if 'cached' in reviewer:
+                reviewer['cached'] = jsonld_expander.loadCache(
+                    reviewer['cached']
+                )
+            if 'applets' in reviewer[
                 'cached'
             ] and role in reviewer['cached']['applets'] and isinstance(
                 reviewer['cached']['applets'][role],

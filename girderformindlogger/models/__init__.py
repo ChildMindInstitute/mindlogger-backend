@@ -218,7 +218,7 @@ def cycleModels(IRIset, modelType=None):
 
 def smartImport(IRI, user=None, refreshCache=False, modelType=None):
     from girderformindlogger.constants import MODELS
-    from girderformindlogger.utility.jsonld_expander import createCache,       \
+    from girderformindlogger.utility.jsonld_expander import loadCache,         \
         reprolibCanonize
 
     MODELS = MODELS()
@@ -232,20 +232,8 @@ def smartImport(IRI, user=None, refreshCache=False, modelType=None):
         refreshCache=refreshCache,
         thread=False
     )
-    if mt1!=modelType:
-        try:
-            MODELS[mt1]().remove(model)
-        except KeyError:
-            import sys, traceback
-            print(sys.exc_info())
-            print(model)
-        return((
-            modelType,
-            createCache(model, modelType, user),
-            reprolibCanonize(IRI)
-        ))
     return((
         modelType,
-        model,
+        loadCache(model.get('cached', model)),
         reprolibCanonize(IRI)
     ))

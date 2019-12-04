@@ -150,7 +150,7 @@ def addApplet(new_user, protocolUrl):
     # make sure it has all the weird qualities that can break
 
     userAppletsToStart = AppletModel().getAppletsForUser(
-        'user',
+        'manager',
         currentUser,
         active=True
     )
@@ -190,14 +190,6 @@ def addApplet(new_user, protocolUrl):
         )
 
     assert ar['applet']['_id'], 'there is no ID!'
-
-
-    userApplets = AppletModel().getAppletsForUser(
-        'user',
-        currentUser,
-        active=True
-    )
-    nightyNight(sleepInterval)
 
     assert getAppletById(
         new_user,
@@ -509,25 +501,6 @@ def checkForInvite(user, appletObject):
                         fields=userfields
                     ))
                 ]
-        pendingInvitesForUser.append({
-            '_id': groupId,
-            'applets': [{
-                'name': applet.get('cached', {}).get('applet', {}).get(
-                    'skos:prefLabel',
-                    ''
-                ),
-                'image': applet.get('cached', {}).get('applet', {}).get(
-                    'schema:image',
-                    ''
-                ),
-                'description': applet.get('cached', {}).get('applet', {
-                }).get(
-                    'schema:description',
-                    ''
-                ),
-                'managers': applet.get('managers'),
-                'reviewers': applet.get('reviewers')
-            } for applet in applets]
         })
     groupId = appletObject['roles']['user']['groups'][0]['id']
     assert len(pendingInvitesForUser), "this user has no invites"
