@@ -501,7 +501,6 @@ def checkForInvite(user, appletObject):
                         fields=userfields
                     ))
                 ]
-        })
     groupId = appletObject['roles']['user']['groups'][0]['id']
     assert len(pendingInvitesForUser), "this user has no invites"
     assert pendingInvitesForUser[0]['_id'] == groupId, "this user doesn't have the invite you expect"

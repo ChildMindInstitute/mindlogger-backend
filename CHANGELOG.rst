@@ -8,7 +8,7 @@ Changes
 -------
 Unreleased
 ==========
-2019-12-03: v0.7.1
+2019-12-05: v0.7.1
 ^^^^^^^^^^^^^^^^^^
 * :racehorse: Resolve some query efficiency problems
 * :fire: :books: Remove some deprecated text and illustrations from README

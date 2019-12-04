@@ -99,6 +99,8 @@ class Applet(Folder):
             }
         )
 
+        applet = jsonld_expander.createCache(applet, 'applet', user)
+
         appletGroupName = "Default {} ({})".format(
             name,
             str(applet.get('_id', ''))
@@ -152,7 +154,6 @@ class Applet(Folder):
             protocolUrl,
             'protocol',
             user,
-            refreshCache=False,
             thread=False
         )
         protocol = protocol[0].get('protocol', protocol[0])

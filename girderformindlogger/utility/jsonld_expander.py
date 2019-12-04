@@ -56,20 +56,9 @@ def importAndCompareModelType(model, url, user):
     )=='field' else 'protocol' if modelType.lower(
     )=='activityset' else modelType
     modelClass = MODELS()[modelType]()
-    print(modelType)
-    print(model)
-    model = _fixUpFormat(
-        formatLdObject(
-            model,
-            modelType,
-            user,
-            refreshCache=True
-        )
-    )
-    print(model)
     prefName = modelClass.preferredName(model)
     cachedDocObj = {}
-    print(": ".join([modelType, prefName]))
+    print("Loaded {}".format(": ".join([modelType, prefName])))
     docCollection=getModelCollection(modelType)
     if modelClass.name in ['folder', 'item']:
         docFolder = FolderModel().createFolder(
@@ -82,7 +71,7 @@ def importAndCompareModelType(model, url, user):
             reuseExisting=(modelType!='applet')
         )
         if modelClass.name=='folder':
-            modelClass.setMetadata(
+            newModel = modelClass.setMetadata(
                 docFolder,
                 {
                     modelType: {
@@ -93,7 +82,7 @@ def importAndCompareModelType(model, url, user):
                 }
             )
         elif modelClass.name=='item':
-            modelClass.setMetadata(
+            newModel = modelClass.setMetadata(
                 modelClass.createItem(
                     name=prefName if prefName else str(len(list(
                         FolderModel().childItems(
@@ -116,7 +105,11 @@ def importAndCompareModelType(model, url, user):
                     }
                 }
             )
-    return(model, modelType)
+    return(_fixUpFormat(formatLdObject(
+        newModel,
+        mesoPrefix=modelType,
+        user=user,
+    )), modelType)
 
 
 def _createContextForStr(s):
@@ -530,12 +523,13 @@ def _createContext(key):
     return({key.split('://')[-1].replace('.', '_dot_'): key}, k)
 
 def createCache(obj, modelType, user):
+    if modelType is None:
+        print(obj)
     if obj.get('_id') is None:
         obj = MODELS()[modelType]().save(compactKeys(obj), validate=False)
-    print("caching")
     obj["cached"] = json_util.dumps({
         **_fixUpFormat(formatLdObject(
-            obj,
+            {k: v for k, v in obj.items() if k!="cached" and v is not None},
             mesoPrefix=modelType,
             user=user
         )),
@@ -591,7 +585,8 @@ def formatLdObject(
     keepUndefined=False,
     dropErrors=False,
     refreshCache=False,
-    responseDates=False):
+    responseDates=False
+):
     """
     Function to take a compacted JSON-LD Object within a Girder for Mindlogger
     database and return an exapanded JSON-LD Object including an _id.

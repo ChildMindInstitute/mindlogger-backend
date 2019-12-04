@@ -273,6 +273,7 @@ class Model(object):
                 )
             compact = loadJSON(url, modelType)
             if thread:
+                print("!")
                 thread = threading.Thread(
                     target=importAndCompareModelType,
                     args=(contextualize(compact),),
@@ -287,12 +288,12 @@ class Model(object):
                     },
                     self.getModelType(compact)
                 )
-            else:
-                model, modelType = importAndCompareModelType(
-                    contextualize(compact),
-                    url=url,
-                    user=user
-                )
+            model, modelType = importAndCompareModelType(
+                contextualize(compact),
+                url=url,
+                user=user
+            )
+            return(model, modelType)
         else:
             model = cachedDoc
         if "cached" in model:
