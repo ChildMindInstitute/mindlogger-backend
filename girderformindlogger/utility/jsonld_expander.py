@@ -522,14 +522,16 @@ def _createContext(key):
     key = '{}/'.format('/'.join(s[0:-1]))
     return({key.split('://')[-1].replace('.', '_dot_'): key}, k)
 
+
 def createCache(obj, modelType, user):
     if modelType is None:
         print(obj)
     if obj.get('_id') is None:
         obj = MODELS()[modelType]().save(compactKeys(obj), validate=False)
+    meta = obj.get('meta', obj)
     obj["cached"] = json_util.dumps({
         **_fixUpFormat(formatLdObject(
-            {k: v for k, v in obj.items() if k!="cached" and v is not None},
+            {k: v for k, v in meta.items() if k!="cached" and v is not None},
             mesoPrefix=modelType,
             user=user
         )),
@@ -614,177 +616,177 @@ def formatLdObject(
     try:
         if obj is None:
             return(None)
-        elif isinstance(obj, dict) and 'meta' not in obj.keys():
-            return(_fixUpFormat(obj))
-        elif isinstance(obj, dict) and "cached" in obj and not refreshCache:
-            returnObj = loadCache(obj["cached"])
-        else:
-            mesoPrefix = camelCase(mesoPrefix)
-            if type(obj)==list:
-                return(_fixUpFormat([
-                    formatLdObject(
-                        o,
-                        mesoPrefix,
-                        user=user
-                    ) for o in obj if o is not None
-                ]))
-            if not type(obj)==dict and not dropErrors:
-                raise TypeError("JSON-LD must be an Object or Array.")
-            newObj = obj.get('meta', obj)
-            newObj = newObj.get(mesoPrefix, newObj)
-            newObj = expand(newObj, keepUndefined=keepUndefined)
-            if type(newObj)==list and len(newObj)==1:
-                try:
-                    newObj = newObj[0]
-                except:
-                    raise ValidationException(str(newObj))
-            if type(newObj)!=dict:
-                newObj = {}
-            objID = str(obj.get('_id', 'undefined'))
-            if objID=='undefined':
-                raise ResourcePathNotFound()
-            newObj['_id'] = "/".join([snake_case(mesoPrefix), objID])
-            if mesoPrefix=='applet':
-                protocolUrl = obj.get('meta', {}).get('protocol', obj).get(
-                    'http://schema.org/url',
-                    obj.get('meta', {}).get('protocol', obj).get('url')
-                )
-                protocol = ProtocolModel().getFromUrl(
-                    protocolUrl,
-                    'protocol',
-                    user,
-                    thread=False
-                )[0] if protocolUrl is not None else {}
-                applet = {}
-                applet['activities'] = protocol.pop('activities', {})
-                applet['items'] = protocol.pop('items', {})
-                applet['protocol'] = {
-                    key: protocol.get(
-                        'protocol',
-                        protocol.get(
-                            'activitySet',
-                            {}
-                        )
-                    ).pop(
-                        key
-                    ) for key in [
-                        '@type',
-                        '_id',
-                        'http://schema.org/url',
-                        'url'
-                    ] if key in list(protocol.get('protocol', {}).keys())
-                }
-
-                applet['applet'] = {
-                    **protocol.pop('protocol', {}),
-                    **obj.get('meta', {}).get(mesoPrefix, {}),
-                    '_id': "/".join([snake_case(mesoPrefix), objID]),
-                    'url': "#".join([
-                        obj.get('meta', {}).get('protocol', {}).get("url", "")
-                    ])
-                }
-                returnObj = createCache(applet, 'applet', user)
-            elif mesoPrefix=='protocol':
-                protocol = {
-                    'protocol': newObj,
-                    'activities': {},
-                    "items": {}
-                }
-                activitiesNow = set()
-                itemsNow = set()
-                try:
-                    protocol = componentImport(
-                        newObj,
-                        deepcopy(protocol),
-                        user,
-                        refreshCache=refreshCache
-                    )
-                except:
-                    print("636")
-                    protocol = componentImport(
-                        newObj,
-                        deepcopy(protocol),
-                        user,
-                        refreshCache=True
-                    )
-                newActivities = [
-                    a for a in protocol.get('activities', {}).keys(
-                    ) if a not in activitiesNow
-                ]
-                newItems = [
-                    i for i in protocol.get('items', {}).keys(
-                    ) if i not in itemsNow
-                ]
-                while(any([len(newActivities), len(newItems)])):
-                    activitiesNow = set(
-                        protocol.get('activities', {}).keys()
-                    )
-                    itemsNow = set(protocol.get('items', {}).keys())
-                    for activityURL in newActivities:
-                        activity = protocol['activities'][activityURL]
-                        activity = activity.get(
-                            'meta',
-                            {}
-                        ).get('activity', activity)
-                        try:
-                            protocol = componentImport(
-                                deepcopy(activity),
-                                deepcopy(protocol),
-                                user,
-                                refreshCache=refreshCache
-                            )
-                        except:
-                            print("670")
-                            protocol = componentImport(
-                                deepcopy(activity),
-                                deepcopy(protocol),
-                                user,
-                                refreshCache=True
-                            )
-                    for itemURL in newItems:
-                        activity = protocol['items'][itemURL]
-                        activity = activity.get(
-                            'meta',
-                            {}
-                        ).get('screen', activity)
-                        try:
-                            protocol = componentImport(
-                                deepcopy(activity),
-                                deepcopy(protocol),
-                                user,
-                                refreshCache=refreshCache
-                            )
-                        except:
-                            print("691")
-                            protocol = componentImport(
-                                deepcopy(activity),
-                                deepcopy(protocol),
-                                user,
-                                refreshCache=True
-                            )
-                    newActivities = list(
-                        set(
-                            protocol.get('activities', {}).keys()
-                        ) - activitiesNow
-                    )
-                    newItems = list(
-                        set(
-                            protocol.get('items', {}).keys()
-                        ) - itemsNow
-                    )
-                return(_fixUpFormat(protocol))
-            else:
-                return(_fixUpFormat(newObj))
-        if responseDates and mesoPrefix=="applet":
+        if isinstance(obj, dict):
+            if "cached" in obj and not refreshCache:
+                returnObj = loadCache(obj["cached"])
+            if 'meta' not in obj.keys():
+                return(_fixUpFormat(obj))
+        mesoPrefix = camelCase(mesoPrefix)
+        if type(obj)==list:
+            return(_fixUpFormat([
+                formatLdObject(
+                    o,
+                    mesoPrefix,
+                    user=user
+                ) for o in obj if o is not None
+            ]))
+        if not type(obj)==dict and not dropErrors:
+            raise TypeError("JSON-LD must be an Object or Array.")
+        newObj = obj.get('meta', obj)
+        newObj = newObj.get(mesoPrefix, newObj)
+        newObj = expand(newObj, keepUndefined=keepUndefined)
+        if type(newObj)==list and len(newObj)==1:
             try:
-                returnObj["applet"]["responseDates"] = responseDateList(
-                    obj.get('_id'),
-                    user.get('_id'),
-                    user
+                newObj = newObj[0]
+            except:
+                raise ValidationException(str(newObj))
+        if type(newObj)!=dict:
+            newObj = {}
+        objID = str(obj.get('_id', 'undefined'))
+        if objID=='undefined':
+            raise ResourcePathNotFound()
+        newObj['_id'] = "/".join([snake_case(mesoPrefix), objID])
+        if mesoPrefix=='applet':
+            protocolUrl = obj.get('meta', {}).get('protocol', obj).get(
+                'http://schema.org/url',
+                obj.get('meta', {}).get('protocol', obj).get('url')
+            )
+            protocol = ProtocolModel().getFromUrl(
+                protocolUrl,
+                'protocol',
+                user,
+                thread=False
+            )[0] if protocolUrl is not None else {}
+            applet = {}
+            applet['activities'] = protocol.pop('activities', {})
+            applet['items'] = protocol.pop('items', {})
+            applet['protocol'] = {
+                key: protocol.get(
+                    'protocol',
+                    protocol.get(
+                        'activitySet',
+                        {}
+                    )
+                ).pop(
+                    key
+                ) for key in [
+                    '@type',
+                    '_id',
+                    'http://schema.org/url',
+                    'url'
+                ] if key in list(protocol.get('protocol', {}).keys())
+            }
+
+            applet['applet'] = {
+                **protocol.pop('protocol', {}),
+                **obj.get('meta', {}).get(mesoPrefix, {}),
+                '_id': "/".join([snake_case(mesoPrefix), objID]),
+                'url': "#".join([
+                    obj.get('meta', {}).get('protocol', {}).get("url", "")
+                ])
+            }
+            returnObj = createCache(applet, 'applet', user)
+        elif mesoPrefix=='protocol':
+            protocol = {
+                'protocol': newObj,
+                'activities': {},
+                "items": {}
+            }
+            activitiesNow = set()
+            itemsNow = set()
+            try:
+                protocol = componentImport(
+                    newObj,
+                    deepcopy(protocol),
+                    user,
+                    refreshCache=refreshCache
                 )
             except:
-                returnObj["applet"]["responseDates"] = []
-        return(_fixUpFormat(returnObj))
+                print("636")
+                protocol = componentImport(
+                    newObj,
+                    deepcopy(protocol),
+                    user,
+                    refreshCache=True
+                )
+            newActivities = [
+                a for a in protocol.get('activities', {}).keys(
+                ) if a not in activitiesNow
+            ]
+            newItems = [
+                i for i in protocol.get('items', {}).keys(
+                ) if i not in itemsNow
+            ]
+            while(any([len(newActivities), len(newItems)])):
+                activitiesNow = set(
+                    protocol.get('activities', {}).keys()
+                )
+                itemsNow = set(protocol.get('items', {}).keys())
+                for activityURL in newActivities:
+                    activity = protocol['activities'][activityURL]
+                    activity = activity.get(
+                        'meta',
+                        {}
+                    ).get('activity', activity)
+                    try:
+                        protocol = componentImport(
+                            deepcopy(activity),
+                            deepcopy(protocol),
+                            user,
+                            refreshCache=refreshCache
+                        )
+                    except:
+                        print("670")
+                        protocol = componentImport(
+                            deepcopy(activity),
+                            deepcopy(protocol),
+                            user,
+                            refreshCache=True
+                        )
+                for itemURL in newItems:
+                    activity = protocol['items'][itemURL]
+                    activity = activity.get(
+                        'meta',
+                        {}
+                    ).get('screen', activity)
+                    try:
+                        protocol = componentImport(
+                            deepcopy(activity),
+                            deepcopy(protocol),
+                            user,
+                            refreshCache=refreshCache
+                        )
+                    except:
+                        print("691")
+                        protocol = componentImport(
+                            deepcopy(activity),
+                            deepcopy(protocol),
+                            user,
+                            refreshCache=True
+                        )
+                newActivities = list(
+                    set(
+                        protocol.get('activities', {}).keys()
+                    ) - activitiesNow
+                )
+                newItems = list(
+                    set(
+                        protocol.get('items', {}).keys()
+                    ) - itemsNow
+                )
+            return(_fixUpFormat(protocol))
+        else:
+            return(_fixUpFormat(newObj))
+        # if responseDates and mesoPrefix=="applet":
+        #     try:
+        #         returnObj["applet"]["responseDates"] = responseDateList(
+        #             obj.get('_id'),
+        #             user.get('_id'),
+        #             user
+        #         )
+        #     except:
+        #         returnObj["applet"]["responseDates"] = []
+        # return(_fixUpFormat(returnObj))
     except:
         if refreshCache==False:
             return(_fixUpFormat(formatLdObject(

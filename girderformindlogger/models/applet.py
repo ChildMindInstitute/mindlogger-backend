@@ -358,30 +358,26 @@ class Applet(Folder):
         )
         formatted = [
             {
-                **(jsonld_expander.loadCache(applet[
-                    'cached'
-                ]) if (
-                    'cached' in applet and not refreshCache
-                ) else jsonld_expander.createCache(
+                **jsonld_expander.formatLdObject(
                     applet,
                     'applet',
-                    user
-                )),
+                    user,
+                    refreshCache=refreshCache,
+                    responseDates=False
+                ),
                 "users": self.getAppletUsers(applet, user),
                 "groups": self.getAppletGroups(
                     applet,
                     arrayOfObjects=True
                 )
             } if role in ["coordinator", "manager"] else {
-                **(jsonld_expander.loadCache(applet[
-                    'cached'
-                ]) if (
-                    'cached' in applet and not refreshCache
-                ) else jsonld_expander.createCache(
+                **jsonld_expander.formatLdObject(
                     applet,
                     'applet',
-                    user
-                )),
+                    user,
+                    refreshCache=refreshCache,
+                    responseDates=(role=="user")
+                ),
                 "groups": [
                     group for group in self.getAppletGroups(applet).get(
                         role
