@@ -159,7 +159,7 @@ def MODELS():
         'user': UserModel
     })
 
-NONES = {"None", None, "none"}
+NONES = {"None", None, "none", ""}
 
 REPROLIB_CANONICAL = "://".join([
     "https",

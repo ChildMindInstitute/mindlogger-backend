@@ -99,8 +99,6 @@ class Applet(Folder):
             }
         )
 
-        applet = jsonld_expander.createCache(applet, 'applet', user)
-
         appletGroupName = "Default {} ({})".format(
             name,
             str(applet.get('_id', ''))
@@ -138,6 +136,11 @@ class Applet(Folder):
                 force=False
             )
         print(applet)
+        print(jsonld_expander.formatLdObject(
+            applet,
+            'applet',
+            user
+        ))
         return(jsonld_expander.formatLdObject(
             applet,
             'applet',

@@ -293,13 +293,12 @@ class Model(object):
                 url=url,
                 user=user
             )
-            return(model, modelType)
         else:
             model = cachedDoc
+            modelType = self.getModelType(model)
         if "cached" in model:
             r = loadCache(model["cached"])
             return(r, self.getModelType(r))
-        modelType = self.getModelType(model)
         if thread:
             thread = threading.Thread(target=createCache, args=(
                 model,
@@ -315,7 +314,9 @@ class Model(object):
                 },
                 modelType
             )
-        return(createCache(model, modelType, user), modelType)
+        # if model is None:
+        #     return(mode, modelType)
+        return(model, modelType)
 
     def _createIndex(self, index):
         if isinstance(index, (list, tuple)):

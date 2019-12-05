@@ -3,7 +3,7 @@ from copy import deepcopy
 from datetime import datetime
 from girderformindlogger.constants import AccessType, DEFINED_RELATIONS,       \
     HIERARCHY, KEYS_TO_DELANGUAGETAG, KEYS_TO_DEREFERENCE, KEYS_TO_EXPAND,     \
-    MODELS, REPROLIB_CANONICAL, REPROLIB_PREFIXES
+    MODELS, NONES, REPROLIB_CANONICAL, REPROLIB_PREFIXES
 from girderformindlogger.exceptions import AccessException,                    \
     ResourcePathNotFound, ValidationException
 from girderformindlogger.models.activity import Activity as ActivityModel
@@ -180,21 +180,6 @@ def inferRelationships(person):
                     for related in person['schema:knows'][rel]:
                         if related not in person['schema:knows'][ep]:
                             person['schema:knows'][ep].append(related)
-            # if "owl:inverseOf" in DEFINED_RELATIONS[rel]:
-            #     for related in [
-            #         Profile().load(
-            #             p,
-            #             force=True
-            #         ) for p in person['schema:knows'][rel]
-            #     ]:
-            #         if 'schema:knows' not in related:
-            #             related['schema:knows'] = {}
-            #         for io in DEFINED_RELATIONS[rel]["owl:inverseOf"]:
-            #             if io not in related['schema:knows']:
-            #                 related['schema:knows'][io] = []
-            #             if person['_id'] not in related['schema:knows'][io]:
-            #                 related['schema:knows'][io].append(person['_id'])
-            #                 inferRelationships(related)
     if any([
         bool(
             rp not in start.get('schema:knows', {}).get(rel, [])
@@ -524,10 +509,18 @@ def _createContext(key):
 
 
 def createCache(obj, modelType, user):
-    if modelType is None:
+    if modelType in NONES:
         print(obj)
-    if obj.get('_id') is None:
-        obj = MODELS()[modelType]().save(compactKeys(obj), validate=False)
+    oid = str(
+        obj.get('_id', obj.get(modelType, {}).get('_id', ''))
+    ).split('/')[-1]
+    if oid in NONES:
+        print(modelType)
+        print(obj.keys())
+        obj = MODELS()[modelType]().setMetadata(
+            MODELS()[modelType]().load(oid, force=True),
+            compactKeys(obj)
+        )
     meta = obj.get('meta', obj)
     obj["cached"] = json_util.dumps({
         **_fixUpFormat(formatLdObject(
@@ -537,6 +530,7 @@ def createCache(obj, modelType, user):
         )),
         "prov:generatedAtTime": xsdNow()
     })
+    print(list(obj.keys()))
     return(MODELS()[modelType]().save(obj, validate=False))
 
 
@@ -661,9 +655,7 @@ def formatLdObject(
                 user,
                 thread=False
             )[0] if protocolUrl is not None else {}
-            protocol = _fixUpFormat(formatLdOb)
-            print(protocol)
-            print('5')
+            protocol = formatLdObject(protocol, 'protocol', user)
             applet = {}
             applet['activities'] = protocol.pop('activities', {})
             applet['items'] = protocol.pop('items', {})
@@ -683,7 +675,6 @@ def formatLdObject(
                     'url'
                 ] if key in list(protocol.get('protocol', {}).keys())
             }
-
             applet['applet'] = {
                 **protocol.pop('protocol', {}),
                 **obj.get('meta', {}).get(mesoPrefix, {}),
@@ -692,7 +683,7 @@ def formatLdObject(
                     obj.get('meta', {}).get('protocol', {}).get("url", "")
                 ])
             }
-            returnObj = createCache(applet, 'applet', user)
+            return(applet)
         elif mesoPrefix=='protocol':
             protocol = {
                 'protocol': newObj,
