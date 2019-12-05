@@ -617,8 +617,12 @@ def formatLdObject(
         if obj is None:
             return(None)
         if isinstance(obj, dict):
-            if "cached" in obj and not refreshCache:
-                returnObj = loadCache(obj["cached"])
+            oc = obj.get("cached")
+            if all([
+                not refreshCache,
+                oc is not None
+            ]):
+                returnObj = loadCache(oc)
             if 'meta' not in obj.keys():
                 return(_fixUpFormat(obj))
         mesoPrefix = camelCase(mesoPrefix)
@@ -657,6 +661,9 @@ def formatLdObject(
                 user,
                 thread=False
             )[0] if protocolUrl is not None else {}
+            protocol = _fixUpFormat(formatLdOb)
+            print(protocol)
+            print('5')
             applet = {}
             applet['activities'] = protocol.pop('activities', {})
             applet['items'] = protocol.pop('items', {})

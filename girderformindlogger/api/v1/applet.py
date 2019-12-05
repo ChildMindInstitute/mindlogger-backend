@@ -268,9 +268,6 @@ class Applet(Resource):
     )
     def getApplet(self, applet, refreshCache=False):
         user = self.getCurrentUser()
-        if 'cached' in applet and not refreshCache:
-            print(jsonld_expander.loadCache(applet['cached']))
-            return(jsonld_expander.loadCache(applet['cached']))
         return(
             jsonld_expander.formatLdObject(
                 applet,

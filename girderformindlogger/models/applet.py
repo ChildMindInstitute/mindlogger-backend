@@ -137,8 +137,12 @@ class Applet(Folder):
                 currentUser=user,
                 force=False
             )
-
-        return(applet)
+        print(applet)
+        return(jsonld_expander.formatLdObject(
+            applet,
+            'applet',
+            user
+        ))
 
     def createAppletFromUrl(
         self,
@@ -179,6 +183,7 @@ class Applet(Folder):
             roles=roles,
             constraints=constraints
         )
+        print(applet)
         emailMessage = "Your applet, {}, has been successfully created. The "  \
             "applet's ID is {}".format(
                 name,
