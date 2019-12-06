@@ -291,7 +291,7 @@ class Model(object):
                 contextualize(compact),
                 url=url,
                 user=user,
-                modeltype=modelType
+                modelType=modelType
             )
         else:
             model = cachedDoc
