@@ -48,7 +48,7 @@ def importAndCompareModelType(model, url, user):
     if model is None:
         return(None, None)
     atType = model.get('@type', '').split('/')[-1].split(':')[-1]
-    modelType = firstLower(atType) if len(atType) else modelType
+    modelType = firstLower(atType) if len(atType) else ""
     modelType = 'screen' if modelType.lower(
     )=='field' else 'protocol' if modelType.lower(
     )=='activityset' else modelType

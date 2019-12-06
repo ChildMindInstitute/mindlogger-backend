@@ -225,7 +225,7 @@ class Model(object):
         modelType=None,
         user=None,
         refreshCache=False,
-        thread=True
+        thread=False
     ):
         """
         Loads from a URL and saves to the DB, returning the loaded model.
