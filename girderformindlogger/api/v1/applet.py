@@ -238,7 +238,7 @@ class Applet(Resource):
                 applet.get('_id')
             )
             thread = threading.Thread(
-                target=AppletModel().updateAllUserCaches,
+                target=AppletModel().updateUserCacheAllUsersAllRoles,
                 args=(applet, user)
             )
             thread.start()

@@ -423,8 +423,13 @@ class Applet(Folder):
         :type active: bool
         :returns: list of dicts
         """
-        if "userId" in user:
-            user = UserModel().load(id=ObjectId(user["userId"]), force=True)
+        user = UserModel().load(
+            id=ObjectId(user["userId"]),
+            force=True
+        ) if "userId" in user else UserModel().load(
+            id=ObjectId(user["_id"]),
+            force=True
+        ) if "_id" in user else user
         applets = [
             *list(self.find(
                 {

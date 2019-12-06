@@ -519,9 +519,10 @@ def _createContext(key):
 def createCache(obj, formatted, modelType, user):
     obj = MODELS()[modelType]().load(obj['_id'], force=True)
     if "cached" in obj:
-        oc = object.get("oldCache", [])
+        oc = obj.get("oldCache", [])
         obj["oldCache"] = (oc if oc is not None else []).append(obj["cached"])
     if modelType in NONES:
+        print("No modelType!")
         print(obj)
     obj["cached"] = json_util.dumps({
         **formatted,
