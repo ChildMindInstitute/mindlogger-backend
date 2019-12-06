@@ -117,8 +117,15 @@ class Screen(Item):
         return(self.getFromUrl(url, 'screen', user, refreshCache)[0])
 
 
-    def load(self, id, level=AccessType.ADMIN, user=None, refreshCache=False):
-        doc = super(Item, self).load(id=id, level=level, user=user)
+    def load(
+        self,
+        id,
+        level=AccessType.ADMIN,
+        user=None,
+        refreshCache=False,
+        **kwargs
+    ):
+        doc = super(Item, self).load(id=id, level=level, user=user, **kwargs)
         try:
             url = doc.get('meta', {}).get('url')
         except AttributeError:

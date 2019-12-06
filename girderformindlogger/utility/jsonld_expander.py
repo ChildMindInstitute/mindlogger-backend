@@ -42,7 +42,9 @@ def getModelCollection(modelType):
 
 
 def importAndCompareModelType(model, url, user):
+    import threading
     from girderformindlogger.utility import firstLower
+
     if model is None:
         return(None, None)
     atType = model.get('@type', '').split('/')[-1].split(':')[-1]
@@ -105,11 +107,17 @@ def importAndCompareModelType(model, url, user):
                     }
                 }
             )
-    return(_fixUpFormat(formatLdObject(
+    formatted = _fixUpFormat(formatLdObject(
         newModel,
         mesoPrefix=modelType,
         user=user,
-    )), modelType)
+    ))
+    thread = threading.Thread(
+        target=createCache,
+        args=(newModel, formatted, modelType, user)
+    )
+    thread.start()
+    return(formatted, modelType)
 
 
 def _createContextForStr(s):
@@ -508,29 +516,18 @@ def _createContext(key):
     return({key.split('://')[-1].replace('.', '_dot_'): key}, k)
 
 
-def createCache(obj, modelType, user):
+def createCache(obj, formatted, modelType, user):
+    print(modelType)
+    print(MODELS()[modelType])
+    obj = MODELS()[modelType]().load(obj['_id'], force=True)
+    if "cached" in obj:
+        obj["oldCache"] = obj.get("oldCache", []).append(obj["cached"])
     if modelType in NONES:
         print(obj)
-    oid = str(
-        obj.get('_id', obj.get(modelType, {}).get('_id', ''))
-    ).split('/')[-1]
-    if oid in NONES:
-        print(modelType)
-        print(obj.keys())
-        obj = MODELS()[modelType]().setMetadata(
-            MODELS()[modelType]().load(oid, force=True),
-            compactKeys(obj)
-        )
-    meta = obj.get('meta', obj)
     obj["cached"] = json_util.dumps({
-        **_fixUpFormat(formatLdObject(
-            {k: v for k, v in meta.items() if k!="cached" and v is not None},
-            mesoPrefix=modelType,
-            user=user
-        )),
+        **formatted,
         "prov:generatedAtTime": xsdNow()
     })
-    print(list(obj.keys()))
     return(MODELS()[modelType]().save(obj, validate=False))
 
 

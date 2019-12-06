@@ -113,7 +113,9 @@ class User(Resource):
                             fields=userfields
                         ))
                     ]
-                appletC = jsonld_expander.loadCache(applet.get('cached'), applet)
+                appletC = jsonld_expander.loadCache(
+                    applet.get('cached')
+                ) if 'cached' in applet else applet
                 output.append({
                     '_id': groupId,
                     'applets': [{

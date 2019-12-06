@@ -242,8 +242,8 @@ class Model(object):
         from . import cycleModels
         from girderformindlogger.utility import loadJSON
         from girderformindlogger.utility.jsonld_expander import camelCase,     \
-            contextualize, createCache, importAndCompareModelType, loadCache,  \
-            reprolibCanonize, snake_case
+            contextualize, formatLdObject, importAndCompareModelType,          \
+            loadCache, reprolibCanonize, snake_case
 
         primary = [modelType] if isinstance(modelType, str) else [
         ] if modelType is None else modelType
@@ -299,23 +299,8 @@ class Model(object):
         if "cached" in model:
             r = loadCache(model["cached"])
             return(r, self.getModelType(r))
-        if thread:
-            thread = threading.Thread(target=createCache, args=(
-                model,
-                modelType,
-                user
-            ))
-            thread.start()
-            return(
-                {
-                    "message": "This JSON LD document is not cached and must "
-                               "be loaded. Please check back in several "
-                               "minutes."
-                },
-                modelType
-            )
-        # if model is None:
-        #     return(mode, modelType)
+        else:
+            return(model, modelType)
         return(model, modelType)
 
     def _createIndex(self, index):
