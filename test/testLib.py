@@ -154,16 +154,15 @@ def addApplet(new_user, protocolUrl):
         currentUser,
         active=True
     )
-    print(userAppletsToStart)
+
     userApplets = userAppletsToStart.copy()
 
     # for now, lets do the mindlogger demo
-    protocol = {}
-    protocol.update(ProtocolModel().getFromUrl(
+    protocol = ProtocolModel().getFromUrl(
         protocolUrl,
         'protocol',
         currentUser
-    )[0])
+    )[0]
     randomAS = np.random.randint(1000000)
     ar = AppletModel().createAppletFromUrl(
         name="testProtocol{}".format(randomAS),
@@ -178,9 +177,10 @@ def addApplet(new_user, protocolUrl):
             currentUser,
             active=True
         )
-        print(userApplets)
 
-    return(ar)
+    print(len(userApplets))
+    ar = jsonld_expander.loadCache(userApplets[-1]['cached'])
+
     assert jsonld_expander.reprolibCanonize(
         ar['protocol']['url']
     ) == jsonld_expander.reprolibCanonize(protocolUrl), \
@@ -971,10 +971,10 @@ def fullTest(protocolUrl, act1, act2, act1Item, act2Item):
 
     # accept the applet invite
     # print('accept the applet invite')
-    def step08(userB, appletObject):
-        acceptAppletInvite(userB, appletObject, 'user')
-
-    tryExceptTester(step08, [userB, appletObject], 'accept the applet invite')
+    # def step08(userB, appletObject):
+    #     acceptAppletInvite(userB, appletObject, 'user')
+    #
+    # tryExceptTester(step08, [userB, appletObject], 'accept the applet invite')
 
     # invite someone that doesn't have an account yet
     # print('\033[0;37;40m invite someone that doesn\'t have an account yet')

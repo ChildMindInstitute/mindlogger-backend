@@ -112,11 +112,7 @@ def importAndCompareModelType(model, url, user):
         mesoPrefix=modelType,
         user=user,
     ))
-    thread = threading.Thread(
-        target=createCache,
-        args=(newModel, formatted, modelType, user)
-    )
-    thread.start()
+    createCache(newModel, formatted, modelType, user)
     return(formatted, modelType)
 
 
@@ -775,16 +771,6 @@ def formatLdObject(
             return(_fixUpFormat(protocol))
         else:
             return(_fixUpFormat(newObj))
-        # if responseDates and mesoPrefix=="applet":
-        #     try:
-        #         returnObj["applet"]["responseDates"] = responseDateList(
-        #             obj.get('_id'),
-        #             user.get('_id'),
-        #             user
-        #         )
-        #     except:
-        #         returnObj["applet"]["responseDates"] = []
-        # return(_fixUpFormat(returnObj))
     except:
         if refreshCache==False:
             return(_fixUpFormat(formatLdObject(

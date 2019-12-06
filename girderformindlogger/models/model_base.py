@@ -273,7 +273,6 @@ class Model(object):
                 )
             compact = loadJSON(url, modelType)
             if thread:
-                print("!")
                 thread = threading.Thread(
                     target=importAndCompareModelType,
                     args=(contextualize(compact),),
