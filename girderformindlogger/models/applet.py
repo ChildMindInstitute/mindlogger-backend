@@ -135,12 +135,6 @@ class Applet(Folder):
                 currentUser=user,
                 force=False
             )
-        print(applet)
-        print(jsonld_expander.formatLdObject(
-            applet,
-            'applet',
-            user
-        ))
         return(jsonld_expander.formatLdObject(
             applet,
             'applet',
@@ -186,7 +180,6 @@ class Applet(Folder):
             roles=roles,
             constraints=constraints
         )
-        print(applet)
         emailMessage = "Your applet, {}, has been successfully created. The "  \
             "applet's ID is {}".format(
                 name,

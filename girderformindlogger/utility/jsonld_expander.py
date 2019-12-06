@@ -517,11 +517,10 @@ def _createContext(key):
 
 
 def createCache(obj, formatted, modelType, user):
-    print(modelType)
-    print(MODELS()[modelType])
     obj = MODELS()[modelType]().load(obj['_id'], force=True)
     if "cached" in obj:
-        obj["oldCache"] = obj.get("oldCache", []).append(obj["cached"])
+        oc = object.get("oldCache", [])
+        obj["oldCache"] = (oc if oc is not None else []).append(obj["cached"])
     if modelType in NONES:
         print(obj)
     obj["cached"] = json_util.dumps({
@@ -604,6 +603,8 @@ def formatLdObject(
     """
     from girderformindlogger.models import pluralize
 
+    refreshCache = refreshCache if refreshCache is not None else False
+
     try:
         if obj is None:
             return(None)
@@ -613,7 +614,7 @@ def formatLdObject(
                 not refreshCache,
                 oc is not None
             ]):
-                returnObj = loadCache(oc)
+                return(loadCache(oc))
             if 'meta' not in obj.keys():
                 return(_fixUpFormat(obj))
         mesoPrefix = camelCase(mesoPrefix)
@@ -680,6 +681,7 @@ def formatLdObject(
                     obj.get('meta', {}).get('protocol', {}).get("url", "")
                 ])
             }
+            createCache(obj, applet, 'applet', user)
             return(applet)
         elif mesoPrefix=='protocol':
             protocol = {
