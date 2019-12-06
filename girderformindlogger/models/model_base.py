@@ -276,7 +276,7 @@ class Model(object):
                 thread = threading.Thread(
                     target=importAndCompareModelType,
                     args=(contextualize(compact),),
-                    kwargs={'url': url, 'user': user}
+                    kwargs={'url': url, 'user': user, 'modelType': modelType}
                 )
                 thread.start()
                 return(
@@ -290,7 +290,8 @@ class Model(object):
             model, modelType = importAndCompareModelType(
                 contextualize(compact),
                 url=url,
-                user=user
+                user=user,
+                modeltype=modelType
             )
         else:
             model = cachedDoc

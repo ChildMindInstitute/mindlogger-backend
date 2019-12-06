@@ -41,18 +41,20 @@ def getModelCollection(modelType):
     return(collection)
 
 
-def importAndCompareModelType(model, url, user):
+def importAndCompareModelType(model, url, user, modelType):
     import threading
     from girderformindlogger.utility import firstLower
 
     if model is None:
         return(None, None)
     atType = model.get('@type', '').split('/')[-1].split(':')[-1]
-    modelType = firstLower(atType) if len(atType) else ""
+    modelType = firstLower(atType) if len(atType) else modelType
     modelType = 'screen' if modelType.lower(
     )=='field' else 'protocol' if modelType.lower(
     )=='activityset' else modelType
-    changedModel = (atType != modelType and len(atType))
+    changedModel = (
+        (atType != modelType and len(atType)) or (" " in modelType)
+    )
     modelType = firstLower(atType) if changedModel else modelType
     modelType = 'screen' if modelType.lower(
     )=='field' else 'protocol' if modelType.lower(
