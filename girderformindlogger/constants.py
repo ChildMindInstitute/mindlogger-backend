@@ -159,7 +159,7 @@ def MODELS():
         'user': UserModel
     })
 
-NONES = {"None", None, "none"}
+NONES = {"None", None, "none", ""}
 
 REPROLIB_CANONICAL = "://".join([
     "https",
@@ -185,6 +185,11 @@ REPROLIB_TYPES = {
     'protocol': 'reprolib:schemas/ActivitySet',
     'screen': 'reprolib:schemas/Field'
 }
+
+REPROLIB_TYPES_REVERSED = {
+    v.split('/')[1]: k for k, v in REPROLIB_TYPES.items()
+}
+
 
 SPECIAL_SUBJECTS = {"ALL", "NONE"}
 

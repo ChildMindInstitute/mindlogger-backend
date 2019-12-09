@@ -8,6 +8,11 @@ Changes
 -------
 Unreleased
 ==========
+2019-12-05: v0.7.1
+^^^^^^^^^^^^^^^^^^
+* :racehorse: Resolve some query efficiency problems
+* :fire: :books: Remove some deprecated text and illustrations from README
+
 2019-11-25: v0.6.6
 ^^^^^^^^^^^^^^^^^^
 * :ambulance: Fix `POST response/applet/activity` route

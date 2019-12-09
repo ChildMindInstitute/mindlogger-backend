@@ -59,7 +59,7 @@ class Screen(Resource):
         .errorResponse('Read access was denied for the screen.', 403)
     )
     def createScreen(self, activity, screenName=None):
-        thisUser = Screen().getCurrentUser()
+        thisUser = self.getCurrentUser()
         activity = ActivityModel().load(
             activity,
             level=AccessType.WRITE,
