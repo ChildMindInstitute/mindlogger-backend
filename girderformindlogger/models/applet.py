@@ -147,7 +147,8 @@ class Applet(Folder):
         protocolUrl,
         user=None,
         roles=None,
-        constraints=None
+        constraints=None,
+        sendEmail=True
     ):
         from girderformindlogger.models.protocol import Protocol
         # get a protocol from a URL
@@ -186,7 +187,7 @@ class Applet(Folder):
                 str(applet.get('applet', applet).get('_id')
             )
         )
-        if 'email' in user:
+        if sendEmail and 'email' in user:
             from girderformindlogger.utility.mail_utils import sendMail
             sendMail(
                 subject=name,

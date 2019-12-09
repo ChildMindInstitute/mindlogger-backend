@@ -48,19 +48,19 @@ def testCreateUser(email=None, admin=False):
     displayName = 'test'
     # NOTE: girder makes login and email lowercase!!!
     login = 'testuser{}'.format(randomUser)
-    # if not email:
-        # email = 'testemail{}@testemail.com'.format(randomUser)
+    if not email:
+        email = 'testemail{}@testemail.com'.format(randomUser)
     password = 'password'
     createUser = UserModel().createUser(
         login=login,
         password=password,
         displayName=displayName,
-        # email=email
+        email=email
     )
-    # assert createUser['email'] == email, 'email does not match, {} {}'.format(
-        # createUser['email'],
-        # email
-    # )
+    assert createUser['email'] == email, 'email does not match, {} {}'.format(
+        createUser['email'],
+        email
+    )
     assert createUser['displayName'] == displayName, 'displayName does not match'
     assert createUser['login'] == login, 'login does not match, {} {}'.format(
         createUser['login'],
@@ -167,7 +167,8 @@ def addApplet(new_user, protocolUrl):
     ar = AppletModel().createAppletFromUrl(
         name="testProtocol{}".format(randomAS),
         protocolUrl=protocolUrl,
-        user=currentUser
+        user=currentUser,
+        sendEmail=False
     )
 
     while len(userApplets)==len(userAppletsToStart):
@@ -872,11 +873,11 @@ def fullTest(protocolUrl, act1, act2, act1Item, act2Item):
             # First user will be admin on a new image
             admin = testCreateUser(admin=True)
         user = testCreateUser()
-        # with pytest.raises(AccessException) as excinfo:
-        #     authenticateWithEmailAddress(
-        #         user.get('email', 'test@mindlogger.org')
-        #     )
-        # assert "your username rather than your email" in str(excinfo.value)
+        with pytest.raises(AccessException) as excinfo:
+            authenticateWithEmailAddress(
+                user.get('email', 'test@mindlogger.org')
+            )
+        assert "your username rather than your email" in str(excinfo.value)
         currentUser = authenticate(user)
         return user
 
