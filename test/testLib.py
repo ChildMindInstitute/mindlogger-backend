@@ -128,6 +128,13 @@ def getAppletById(user, ar):
     return res[0]
 
 
+def checkActivitySequence(a, e):
+    print(a)
+    assert a['applet'][
+        'reprolib:terms/order'
+    ]==e['applet']['reprolib:terms/order']
+
+
 def addApplet(new_user, protocolUrl):
     """
     adds an applet for the user, where the user becomes a manager for it.
@@ -861,7 +868,7 @@ def testTests():
     assert 'language' in str(excinfo.value)
 
 
-def fullTest(protocolUrl, act1, act2, act1Item, act2Item):
+def fullTest(protocolUrl, act1, act2, act1Item, act2Item, expectedResults=None):
     testElses()
     testTests()
 
@@ -910,6 +917,9 @@ def fullTest(protocolUrl, act1, act2, act1Item, act2Item):
     )
 
     appletObject = checkItWasAdded
+
+    if expectedResults and expectedResults is not None:
+        checkActivitySequence(appletObject, expectedResults)
 
     # expand and refresh the applet
     # print('\033[1;37;40m expand and refresh the applet')

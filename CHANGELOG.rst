@@ -8,6 +8,10 @@ Changes
 -------
 Unreleased
 ==========
+2019-12-10: v0.7.2
+^^^^^^^^^^^^^^^^^^
+* :ambulance: Restore `responseDates` to `applet` Objects
+
 2019-12-05: v0.7.1
 ^^^^^^^^^^^^^^^^^^
 * :racehorse: Resolve some query efficiency problems

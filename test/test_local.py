@@ -1,3 +1,4 @@
+import json
 import pytest
 from .testLib import fullTest
 from girderformindlogger.constants import REPROLIB_CANONICAL
@@ -22,16 +23,18 @@ act2Item = ''.join([
     REPROLIB_CANONICAL,
     'activities/EmaHBNMorning/items/sleeping_aids'
 ])
+with open('test/expected/test_1_HBN.jsonld') as te:
+    expectedResults = json.loads(te.read())
 
 @pytest.mark.parametrize(
     "args",
-    [(protocolUrl, act1, act2, act1Item, act2Item)]
+    [(protocolUrl, act1, act2, act1Item, act2Item, expectedResults)]
 )
 def test_1_HBN(args):
-    protocolUrl, act1, act2, act1Item, act2Item = args
+    protocolUrl, act1, act2, act1Item, act2Item, expectedResults = args
     try:
         print('\n\n TEST 1: HBN')
-        fullTest(protocolUrl, act1, act2, act1Item, act2Item)
+        fullTest(protocolUrl, act1, act2, act1Item, act2Item, expectedResults)
     except Exception as e:
         print('\n\n ERROR:', e)
         raise e

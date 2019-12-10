@@ -105,6 +105,7 @@ def importAndCompareModelType(model, url, user, modelType):
                 {
                     modelType: {
                         **model,
+                        'schema:url': url,
                         'url': url
                     }
                 }
@@ -529,12 +530,34 @@ def createCache(obj, formatted, modelType, user):
     return(MODELS()[modelType]().save(obj, validate=False))
 
 
-def loadCache(obj):
+def loadCache(obj, user=None):
     if isinstance(obj, dict):
+        if 'applet' in obj:
+            try:
+                obj["applet"]["responseDates"] = responseDateList(
+                    obj['applet'].get('_id', '').split('applet/')[-1],
+                    user.get('_id'),
+                    user
+                )
+            except:
+                obj["applet"]["responseDates"] = []
         return(obj)
     else:
-        return(json_util.loads(obj))
-
+        cache = json_util.loads(obj)
+        if 'applet' in cache:
+            try:
+                cache["applet"]["responseDates"] = responseDateList(
+                    cache['applet'].get('_id', '').split('applet/')[-1],
+                    user.get('_id'),
+                    user
+                )
+            except:
+                cache["applet"]["responseDates"] = []
+        return(
+            {
+                k: v for k, v in cache.items() if k!="prov:generatedAtTime"
+            } if isinstance(cache, dict) else cache
+        )
 
 def _fixUpFormat(obj):
     if isinstance(obj, dict):
@@ -561,7 +584,7 @@ def _fixUpFormat(obj):
             newObj["@context"] = reprolibCanonize(newObj["@context"])
         for k in ["schema:url", "http://schema.org/url"]:
             if k in newObj:
-                newObj["url"] = newObj[k]
+                newObj["url"] = newObj["schema:url"] = newObj[k]
         return(newObj)
     elif isinstance(obj, str):
         return(reprolibPrefix(obj))
@@ -669,6 +692,7 @@ def formatLdObject(
                     '@type',
                     '_id',
                     'http://schema.org/url',
+                    'schema:url',
                     'url'
                 ] if key in list(protocol.get('protocol', {}).keys())
             }
@@ -681,6 +705,15 @@ def formatLdObject(
                 ])
             }
             createCache(obj, applet, 'applet', user)
+            if responseDates:
+                try:
+                    applet["applet"]["responseDates"] = responseDateList(
+                        obj.get('_id'),
+                        user.get('_id'),
+                        user
+                    )
+                except:
+                    applet["applet"]["responseDates"] = []
             return(applet)
         elif mesoPrefix=='protocol':
             protocol = {
@@ -831,8 +864,7 @@ def componentImport(
                             user=user,
                             refreshCache=refreshCache
                         ) if IRI is not None else (None, None, None)
-                    if IRI != canonicalIRI:
-                        activity["url"] = activity["schema:url"] = canonicalIRI
+                    activity["url"] = activity["schema:url"] = canonicalIRI
                     activityComponent = pluralize(firstLower(
                         activityContent.get(
                             '@type',

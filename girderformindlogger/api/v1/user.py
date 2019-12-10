@@ -433,6 +433,19 @@ class User(Resource):
                     kwargs={"active": True, "refreshCache": refreshCache}
                 )
                 thread.start()
+                for applet in applets:
+                    try:
+                        applet["applet"]["responseDates"] = responseDateList(
+                            applet['applet'].get(
+                                '_id',
+                                ''
+                            ).split('applet/')[-1],
+                            user.get('_id'),
+                            user
+                        )
+                    except:
+                        applet["applet"]["responseDates"] = []
+
                 return(applets)
             return(AppletModel().updateUserCache(
                 role,
