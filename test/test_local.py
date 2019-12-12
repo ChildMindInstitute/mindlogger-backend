@@ -1,4 +1,5 @@
 import json
+import os
 import pytest
 from .testLib import fullTest
 from girderformindlogger.constants import REPROLIB_CANONICAL
@@ -23,7 +24,10 @@ act2Item = ''.join([
     REPROLIB_CANONICAL,
     'activities/EmaHBNMorning/items/sleeping_aids'
 ])
-with open('test/expected/test_1_HBN.jsonld') as te:
+with open(os.path.join(
+    os.path.dirname(os.path.abspath(__file__)),
+    'expected/test_1_HBN.jsonld'
+)) as te:
     expectedResults = json.loads(te.read())
 
 @pytest.mark.parametrize(
