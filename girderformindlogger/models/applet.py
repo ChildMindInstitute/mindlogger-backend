@@ -545,16 +545,20 @@ class Applet(Folder):
                 ]
             }
 
+            missing = threading.Thread(
+                target=Profile().generateMissing,
+                args=(applet,)
+            )
+            missing.start()
+
             if len(userDict['active']):
-                missing = threading.Thread(
-                    target=Profile().generateMissing,
-                    args=(applet,)
-                )
-                missing.start()
                 return(userDict)
 
             else:
-                return(Profile().generateMissing(applet))
+                return({
+                    **userDict,
+                    "message": "cache updating"
+                })
         except:
             import sys, traceback
             print(sys.exc_info())
