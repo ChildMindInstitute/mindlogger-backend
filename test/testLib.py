@@ -125,11 +125,16 @@ def getAppletById(user, ar):
     assert str(res[0]['_id']) == str(
         ar['applet']['_id'].split('applet/')[-1]
     ), 'applet ids are not the same'
-    return res[0]
+
+    return (jsonld_expander.formatLdObject(
+        res[0],
+        'applet',
+        user,
+        refreshCache=False
+    ))
 
 
 def checkActivitySequence(a, e):
-    print(a)
     assert a['applet'][
         'reprolib:terms/order'
     ]==e['applet']['reprolib:terms/order']
@@ -186,7 +191,6 @@ def addApplet(new_user, protocolUrl):
             active=True
         )
 
-    print(len(userApplets))
     ar = jsonld_expander.loadCache(userApplets[-1]['cached'])
 
     assert jsonld_expander.reprolibCanonize(
@@ -392,7 +396,6 @@ def addSchedule(user, appletObject):
         }]
     })
     schedule = json.loads(scheduleString)
-    appletId = appletObject['_id']
     putResp = _setConstraints(appletObject, None, schedule, user).get(
         'meta',
         {'applet': {'schedule': None}}
@@ -939,8 +942,16 @@ def fullTest(protocolUrl, act1, act2, act1Item, act2Item, expectedResults=None):
     # add a schedule to the applet
     # print('add a schedule to the applet')
 
+    appletObject=AppletModel().load(
+        appletObject['applet']['_id'].split('/')[-1],
+        force=True
+    )
+
     def step05(user, appletObject):
-        addSchedule(user, appletObject)
+        addSchedule(
+            user,
+            appletObject=appletObject
+        )
 
     tryExceptTester(
         step05,
