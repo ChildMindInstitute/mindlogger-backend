@@ -8,9 +8,10 @@ Changes
 -------
 Unreleased
 ==========
-2019-12-10: v0.7.2
+2019-12-12: v0.7.2
 ^^^^^^^^^^^^^^^^^^
 * :ambulance: Restore `responseDates` to `applet` Objects
+* :racehorse: Thread cache refreshing
 
 2019-12-05: v0.7.1
 ^^^^^^^^^^^^^^^^^^
