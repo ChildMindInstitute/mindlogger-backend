@@ -8,6 +8,10 @@ Changes
 -------
 Unreleased
 ==========
+2019-12-16: v0.7.3
+^^^^^^^^^^^^^^^^^^
+* :racehorse: Check if user requesting user list is a coordinator just once
+
 2019-12-16: v0.7.2
 ^^^^^^^^^^^^^^^^^^
 * :ambulance: Restore `responseDates` to `applet` Objects

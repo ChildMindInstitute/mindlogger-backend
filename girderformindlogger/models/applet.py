@@ -138,8 +138,7 @@ class Applet(Folder):
         return(jsonld_expander.formatLdObject(
             applet,
             'applet',
-            user,
-            refreshCache=True
+            user
         ))
 
     def createAppletFromUrl(
@@ -506,7 +505,7 @@ class Applet(Folder):
         }
         return(userlist)
 
-    def getAppletUsers(self, applet, user=None):
+    def getAppletUsers(self, applet, user=None, force=False):
         """
         Function to return a list of Applet Users
 
@@ -530,19 +529,28 @@ class Applet(Folder):
                     force=True
                 ) if isinstance(user, str) else {}
 
-            if not self.isManager(applet.get('_id', applet), user):
-                return([])
+            if not force:
+                if not self.isCoordinator(applet.get('_id', applet), user):
+                    return([])
 
             userDict = {
                 'active': [
-                    Profile().displayProfileFields(p, user) for p in list(
+                    Profile().displayProfileFields(
+                        p,
+                        user,
+                        forceManager=True
+                    ) for p in list(
                         Profile().find(
                             query={'appletId': applet['_id']}
                         )
                     )
                 ],
                 'pending': [
-                    Profile().displayProfileFields(p, user) for p in list(
+                    Profile().displayProfileFields(
+                        p,
+                        user,
+                        forceManager=True
+                    ) for p in list(
                         Invitation().find(query={'appletId': applet['_id']})
                     )
                 ]
