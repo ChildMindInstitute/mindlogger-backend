@@ -260,7 +260,7 @@ def schemaPrefix(s):
     :returns: str
     """
     a = "schema:"
-    b = "http://schema.org"
+    b = "http://schema.org/"
     if isinstance(s, str):
         if s.startswith(a):
             return(s.replace(a, b))
@@ -577,6 +577,7 @@ def loadCache(obj, user=None):
             } if isinstance(cache, dict) else cache
         )
 
+
 def _fixUpFormat(obj):
     if isinstance(obj, dict):
         newObj = {}
@@ -599,7 +600,7 @@ def _fixUpFormat(obj):
                 newObj[rk] = c if c is not None else obj[k]
             s2k = schemaPrefix(rk)
             if s2k!=rk:
-                newObj[s2k] = newObj[rk]
+                newObj[s2k] = deepcopy(newObj[rk])
         if "@context" in newObj:
             newObj["@context"] = reprolibCanonize(newObj["@context"])
         for k in ["schema:url", "http://schema.org/url"]:
