@@ -583,7 +583,7 @@ def _fixUpFormat(obj):
         if "@context" in newObj:
             newObj["@context"] = reprolibCanonize(newObj["@context"])
         for k in ["schema:url", "http://schema.org/url"]:
-            if k in newObj:
+            if k in newObj and newObj[k] is not None:
                 newObj["url"] = newObj["schema:url"] = newObj[k]
         return(newObj)
     elif isinstance(obj, str):
@@ -625,7 +625,7 @@ def formatLdObject(
     """
     from girderformindlogger.models import pluralize
 
-    refreshCache = refreshCache if refreshCache is not None else False
+    refreshCache = False if refreshCache is None else refreshCache
 
     try:
         if obj is None:
@@ -645,6 +645,7 @@ def formatLdObject(
                 formatLdObject(
                     o,
                     mesoPrefix,
+                    refreshCache=refreshCache,
                     user=user
                 ) for o in obj if o is not None
             ]))
@@ -675,7 +676,12 @@ def formatLdObject(
                 user,
                 thread=False
             )[0] if protocolUrl is not None else {}
-            protocol = formatLdObject(protocol, 'protocol', user)
+            protocol = formatLdObject(
+                protocol,
+                'protocol',
+                user,
+                refreshCache=refreshCache
+            )
             applet = {}
             applet['activities'] = protocol.pop('activities', {})
             applet['items'] = protocol.pop('items', {})
