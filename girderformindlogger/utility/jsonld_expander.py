@@ -251,6 +251,23 @@ def reprolibPrefix(s):
     return(s)
 
 
+def schemaPrefix(s):
+    """
+    Function to toggle between "schema:" and "http://schema.org/" prefixes.
+
+    :type s: str
+    :returns: str
+    """
+    a = "schema:"
+    b = "http://schema.org"
+    if isinstance(s, str):
+        if s.startswith(a):
+            return(s.replace(a, b))
+        elif s.startswith(b):
+            return(s.replace(b, a))
+    return(s)
+
+
 def reprolibCanonize(s):
     """
     Function to check if a string is a prfixed reprolib URL, and, if so,
@@ -563,23 +580,25 @@ def _fixUpFormat(obj):
     if isinstance(obj, dict):
         newObj = {}
         for k in obj.keys():
+            rk = reprolibPrefix(k)
             if k in KEYS_TO_DELANGUAGETAG:
-                newObj[reprolibPrefix(k)] = reprolibCanonize(
+                newObj[rk] = reprolibCanonize(
                     delanguageTag(obj[k])
                 )
             elif k in KEYS_TO_DEREFERENCE:
-                newObj[reprolibPrefix(k)] = dereference(obj[k])
+                newObj[rk] = dereference(obj[k])
             elif isinstance(obj[k], list):
-                newObj[reprolibPrefix(k)] = [_fixUpFormat(li) for li in obj[k]]
+                newObj[rk] = [_fixUpFormat(li) for li in obj[k]]
             elif isinstance(obj[k], dict):
-                newObj[reprolibPrefix(k)] = _fixUpFormat(obj[k])
+                newObj[rk] = _fixUpFormat(obj[k])
             else: # bool, int, float
-                newObj[reprolibPrefix(k)] = obj[k]
+                newObj[rk] = obj[k]
             if isinstance(obj[k], str) and k not in KEYS_TO_DEREFERENCE:
                 c = reprolibPrefix(obj[k])
-                newObj[
-                    reprolibPrefix(k)
-                ] = c if c is not None else obj[k]
+                newObj[rk] = c if c is not None else obj[k]
+            s2k = schemaPrefix(rk)
+            if s2k!=rk:
+                newObj[s2k] = newObj[rk]
         if "@context" in newObj:
             newObj["@context"] = reprolibCanonize(newObj["@context"])
         for k in ["schema:url", "http://schema.org/url"]:
@@ -870,7 +889,9 @@ def componentImport(
                             user=user,
                             refreshCache=refreshCache
                         ) if IRI is not None else (None, None, None)
-                    activity["url"] = activity["schema:url"] = canonicalIRI
+                    activity["url"] = activity["schema:url"] = canonicalIRI if(
+                        canonicalIRI is not None
+                    ) else IRI
                     activityComponent = pluralize(firstLower(
                         activityContent.get(
                             '@type',

@@ -245,6 +245,8 @@ class Model(object):
             contextualize, formatLdObject, importAndCompareModelType,          \
             loadCache, reprolibCanonize, snake_case
 
+        refreshCache = False if refreshCache is None else refreshCache
+
         primary = [modelType] if isinstance(modelType, str) else [
         ] if modelType is None else modelType
         modelType = modelType if isinstance(
@@ -259,7 +261,10 @@ class Model(object):
             raise ResourcePathNotFound("Document not found: {}".format(str(
                 passedUrl
             )))
-        atType, cachedDoc = cycleModels({url, passedUrl}, modelType=primary)
+        atType, cachedDoc = cycleModels(
+            {url, passedUrl},
+            modelType=primary
+        ) if not refreshCache else modelType, None
         if cachedDoc is None:
             if user==None:
                 raise AccessException(
