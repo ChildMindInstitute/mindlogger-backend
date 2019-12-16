@@ -893,7 +893,9 @@ def componentImport(
                             IRI,
                             user=user,
                             refreshCache=refreshCache
-                        ) if IRI is not None else (None, None, None)
+                        ) if (IRI is not None and not IRI.startswith(
+                            "Document not found"
+                        )) else (None, None, None)
                     activity["url"] = activity["schema:url"] = canonicalIRI if(
                         canonicalIRI is not None
                     ) else IRI
