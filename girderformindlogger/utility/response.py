@@ -507,6 +507,11 @@ def isodatetime(d):
 
 
 def responseDateList(appletId, userId, reviewer):
+    from girderformindlogger.models.profile import Profile
+    userId = ProfileModel().getProfile(userId, reviewer)
+    if not isinstance(userId, dict):
+        return([])
+    userId = userId.get('userId')
     rdl = list(set([
         determine_date(
             response.get("meta", {}).get(

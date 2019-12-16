@@ -138,7 +138,8 @@ class Applet(Folder):
         return(jsonld_expander.formatLdObject(
             applet,
             'applet',
-            user
+            user,
+            refreshCache=True
         ))
 
     def createAppletFromUrl(
@@ -156,7 +157,8 @@ class Applet(Folder):
             protocolUrl,
             'protocol',
             user,
-            thread=False
+            thread=False,
+            refreshCache=True
         )
         protocol = protocol[0].get('protocol', protocol[0])
         name = name if name is not None and len(name) else Protocol(
@@ -201,7 +203,8 @@ class Applet(Folder):
         jsonld_expander.formatLdObject(
             applet,
             'applet',
-            user
+            user,
+            refreshCache=True
         )
         self.updateUserCacheAllRoles(user)
 
@@ -545,16 +548,20 @@ class Applet(Folder):
                 ]
             }
 
+            missing = threading.Thread(
+                target=Profile().generateMissing,
+                args=(applet,)
+            )
+            missing.start()
+
             if len(userDict['active']):
-                missing = threading.Thread(
-                    target=Profile().generateMissing,
-                    args=(applet,)
-                )
-                missing.start()
                 return(userDict)
 
             else:
-                return(Profile().generateMissing(applet))
+                return({
+                    **userDict,
+                    "message": "cache updating"
+                })
         except:
             import sys, traceback
             print(sys.exc_info())

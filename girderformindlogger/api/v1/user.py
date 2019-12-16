@@ -407,14 +407,16 @@ class User(Resource):
                     'applet': AppletModel().unexpanded(applet)
                 } for applet in applets])
         if refreshCache:
-            return(
-                AppletModel().updateUserCache(
-                    role,
-                    reviewer,
-                    active=True,
-                    refreshCache=refreshCache
-                )
+            thread = threading.Thread(
+                target=AppletModel().updateUserCache,
+                args=(role, reviewer),
+                kwargs={"active": True, "refreshCache": refreshCache}
             )
+            thread.start()
+            return({
+                "message": "The user cache is being updated. Please check back "
+                           "in several mintutes to see it."
+            })
         try:
             if 'cached' in reviewer:
                 reviewer['cached'] = jsonld_expander.loadCache(
@@ -433,13 +435,28 @@ class User(Resource):
                     kwargs={"active": True, "refreshCache": refreshCache}
                 )
                 thread.start()
-                return(applets)
-            return(AppletModel().updateUserCache(
-                role,
-                reviewer,
-                active=True,
-                refreshCache=refreshCache
-            ))
+            else:
+                applets = AppletModel().updateUserCache(
+                    role,
+                    reviewer,
+                    active=True,
+                    refreshCache=refreshCache
+                )
+
+            for applet in applets:
+                try:
+                    applet["applet"]["responseDates"] = responseDateList(
+                        applet['applet'].get(
+                            '_id',
+                            ''
+                        ).split('applet/')[-1],
+                        user.get('_id'),
+                        user
+                    )
+                except:
+                    applet["applet"]["responseDates"] = []
+
+            return(applets)
         except Exception as e:
             return(e)
 

@@ -125,7 +125,19 @@ def getAppletById(user, ar):
     assert str(res[0]['_id']) == str(
         ar['applet']['_id'].split('applet/')[-1]
     ), 'applet ids are not the same'
-    return res[0]
+
+    return (jsonld_expander.formatLdObject(
+        res[0],
+        'applet',
+        user,
+        refreshCache=False
+    ))
+
+
+def checkActivitySequence(a, e):
+    assert a['applet'][
+        'reprolib:terms/order'
+    ]==e['applet']['reprolib:terms/order']
 
 
 def addApplet(new_user, protocolUrl):
@@ -179,7 +191,6 @@ def addApplet(new_user, protocolUrl):
             active=True
         )
 
-    print(len(userApplets))
     ar = jsonld_expander.loadCache(userApplets[-1]['cached'])
 
     assert jsonld_expander.reprolibCanonize(
@@ -385,7 +396,6 @@ def addSchedule(user, appletObject):
         }]
     })
     schedule = json.loads(scheduleString)
-    appletId = appletObject['_id']
     putResp = _setConstraints(appletObject, None, schedule, user).get(
         'meta',
         {'applet': {'schedule': None}}
@@ -861,7 +871,7 @@ def testTests():
     assert 'language' in str(excinfo.value)
 
 
-def fullTest(protocolUrl, act1, act2, act1Item, act2Item):
+def fullTest(protocolUrl, act1, act2, act1Item, act2Item, expectedResults=None):
     testElses()
     testTests()
 
@@ -911,6 +921,9 @@ def fullTest(protocolUrl, act1, act2, act1Item, act2Item):
 
     appletObject = checkItWasAdded
 
+    if expectedResults and expectedResults is not None:
+        checkActivitySequence(appletObject, expectedResults)
+
     # expand and refresh the applet
     # print('\033[1;37;40m expand and refresh the applet')
     def step04(user, appletObject):
@@ -929,8 +942,16 @@ def fullTest(protocolUrl, act1, act2, act1Item, act2Item):
     # add a schedule to the applet
     # print('add a schedule to the applet')
 
+    appletObject=AppletModel().load(
+        appletObject['applet']['_id'].split('/')[-1],
+        force=True
+    )
+
     def step05(user, appletObject):
-        addSchedule(user, appletObject)
+        addSchedule(
+            user,
+            appletObject=appletObject
+        )
 
     tryExceptTester(
         step05,

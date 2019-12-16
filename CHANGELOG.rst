@@ -8,6 +8,13 @@ Changes
 -------
 Unreleased
 ==========
+2019-12-16: v0.7.2
+^^^^^^^^^^^^^^^^^^
+* :ambulance: Restore `responseDates` to `applet` Objects
+* :racehorse: Thread cache refreshing
+* :ambulance: Update cache, *then* load when refreshing caches
+* :pencil: Return real parsed URLs (resolve #247)
+
 2019-12-05: v0.7.1
 ^^^^^^^^^^^^^^^^^^
 * :racehorse: Resolve some query efficiency problems

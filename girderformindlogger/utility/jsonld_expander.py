@@ -105,6 +105,7 @@ def importAndCompareModelType(model, url, user, modelType):
                 {
                     modelType: {
                         **model,
+                        'schema:url': url,
                         'url': url
                     }
                 }
@@ -113,6 +114,7 @@ def importAndCompareModelType(model, url, user, modelType):
         newModel,
         mesoPrefix=modelType,
         user=user,
+        refreshCache=True
     ))
     createCache(newModel, formatted, modelType, user)
     return(formatted, modelType)
@@ -247,6 +249,23 @@ def reprolibPrefix(s):
             ) if k not in KEYS_TO_DEREFERENCE else dereference(s[k])
     elif isinstance(s, list):
         s = [reprolibPrefix(li) for li in s]
+    return(s)
+
+
+def schemaPrefix(s):
+    """
+    Function to toggle between "schema:" and "http://schema.org/" prefixes.
+
+    :type s: str
+    :returns: str
+    """
+    a = "schema:"
+    b = "http://schema.org/"
+    if isinstance(s, str):
+        if s.startswith(a):
+            return(s.replace(a, b))
+        elif s.startswith(b):
+            return(s.replace(b, a))
     return(s)
 
 
@@ -529,39 +548,64 @@ def createCache(obj, formatted, modelType, user):
     return(MODELS()[modelType]().save(obj, validate=False))
 
 
-def loadCache(obj):
+def loadCache(obj, user=None):
     if isinstance(obj, dict):
+        if 'applet' in obj:
+            try:
+                obj["applet"]["responseDates"] = responseDateList(
+                    obj['applet'].get('_id', '').split('applet/')[-1],
+                    user.get('_id'),
+                    user
+                )
+            except:
+                obj["applet"]["responseDates"] = []
         return(obj)
     else:
-        return(json_util.loads(obj))
+        cache = json_util.loads(obj)
+        if 'applet' in cache:
+            try:
+                cache["applet"]["responseDates"] = responseDateList(
+                    cache['applet'].get('_id', '').split('applet/')[-1],
+                    user.get('_id'),
+                    user
+                )
+            except:
+                cache["applet"]["responseDates"] = []
+        return(
+            {
+                k: v for k, v in cache.items() if k!="prov:generatedAtTime"
+            } if isinstance(cache, dict) else cache
+        )
 
 
 def _fixUpFormat(obj):
     if isinstance(obj, dict):
         newObj = {}
         for k in obj.keys():
+            rk = reprolibPrefix(k)
             if k in KEYS_TO_DELANGUAGETAG:
-                newObj[reprolibPrefix(k)] = reprolibCanonize(
+                newObj[rk] = reprolibCanonize(
                     delanguageTag(obj[k])
                 )
             elif k in KEYS_TO_DEREFERENCE:
-                newObj[reprolibPrefix(k)] = dereference(obj[k])
+                newObj[rk] = dereference(obj[k])
             elif isinstance(obj[k], list):
-                newObj[reprolibPrefix(k)] = [_fixUpFormat(li) for li in obj[k]]
+                newObj[rk] = [_fixUpFormat(li) for li in obj[k]]
             elif isinstance(obj[k], dict):
-                newObj[reprolibPrefix(k)] = _fixUpFormat(obj[k])
+                newObj[rk] = _fixUpFormat(obj[k])
             else: # bool, int, float
-                newObj[reprolibPrefix(k)] = obj[k]
+                newObj[rk] = obj[k]
             if isinstance(obj[k], str) and k not in KEYS_TO_DEREFERENCE:
                 c = reprolibPrefix(obj[k])
-                newObj[
-                    reprolibPrefix(k)
-                ] = c if c is not None else obj[k]
+                newObj[rk] = c if c is not None else obj[k]
+            s2k = schemaPrefix(rk)
+            if s2k!=rk:
+                newObj[s2k] = deepcopy(newObj[rk])
         if "@context" in newObj:
             newObj["@context"] = reprolibCanonize(newObj["@context"])
         for k in ["schema:url", "http://schema.org/url"]:
-            if k in newObj:
-                newObj["url"] = newObj[k]
+            if k in newObj and newObj[k] is not None:
+                newObj["url"] = newObj["schema:url"] = newObj[k]
         return(newObj)
     elif isinstance(obj, str):
         return(reprolibPrefix(obj))
@@ -602,7 +646,7 @@ def formatLdObject(
     """
     from girderformindlogger.models import pluralize
 
-    refreshCache = refreshCache if refreshCache is not None else False
+    refreshCache = False if refreshCache is None else refreshCache
 
     try:
         if obj is None:
@@ -622,6 +666,7 @@ def formatLdObject(
                 formatLdObject(
                     o,
                     mesoPrefix,
+                    refreshCache=refreshCache,
                     user=user
                 ) for o in obj if o is not None
             ]))
@@ -650,9 +695,15 @@ def formatLdObject(
                 protocolUrl,
                 'protocol',
                 user,
-                thread=False
+                thread=False,
+                refreshCache=refreshCache
             )[0] if protocolUrl is not None else {}
-            protocol = formatLdObject(protocol, 'protocol', user)
+            protocol = formatLdObject(
+                protocol,
+                'protocol',
+                user,
+                refreshCache=refreshCache
+            )
             applet = {}
             applet['activities'] = protocol.pop('activities', {})
             applet['items'] = protocol.pop('items', {})
@@ -669,6 +720,7 @@ def formatLdObject(
                     '@type',
                     '_id',
                     'http://schema.org/url',
+                    'schema:url',
                     'url'
                 ] if key in list(protocol.get('protocol', {}).keys())
             }
@@ -681,6 +733,15 @@ def formatLdObject(
                 ])
             }
             createCache(obj, applet, 'applet', user)
+            if responseDates:
+                try:
+                    applet["applet"]["responseDates"] = responseDateList(
+                        obj.get('_id'),
+                        user.get('_id'),
+                        user
+                    )
+                except:
+                    applet["applet"]["responseDates"] = []
             return(applet)
         elif mesoPrefix=='protocol':
             protocol = {
@@ -830,9 +891,12 @@ def componentImport(
                             IRI,
                             user=user,
                             refreshCache=refreshCache
-                        ) if IRI is not None else (None, None, None)
-                    if IRI != canonicalIRI:
-                        activity["url"] = activity["schema:url"] = canonicalIRI
+                        ) if (IRI is not None and not IRI.startswith(
+                            "Document not found"
+                        )) else (None, None, None)
+                    activity["url"] = activity["schema:url"] = canonicalIRI if(
+                        canonicalIRI is not None
+                    ) else IRI
                     activityComponent = pluralize(firstLower(
                         activityContent.get(
                             '@type',
