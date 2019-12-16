@@ -242,8 +242,8 @@ class Model(object):
         from . import cycleModels
         from girderformindlogger.utility import loadJSON
         from girderformindlogger.utility.jsonld_expander import camelCase,     \
-            contextualize, formatLdObject, importAndCompareModelType,          \
-            loadCache, reprolibCanonize, snake_case
+            contextualize, importAndCompareModelType, loadCache,               \
+            reprolibCanonize, snake_case
 
         refreshCache = False if refreshCache is None else refreshCache
 

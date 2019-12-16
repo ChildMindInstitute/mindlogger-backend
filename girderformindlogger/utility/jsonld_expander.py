@@ -114,6 +114,7 @@ def importAndCompareModelType(model, url, user, modelType):
         newModel,
         mesoPrefix=modelType,
         user=user,
+        refreshCache=True
     ))
     createCache(newModel, formatted, modelType, user)
     return(formatted, modelType)
@@ -645,6 +646,8 @@ def formatLdObject(
     from girderformindlogger.models import pluralize
 
     refreshCache = False if refreshCache is None else refreshCache
+    print(mesoPrefix)
+    print(refreshCache)
 
     try:
         if obj is None:
@@ -693,7 +696,8 @@ def formatLdObject(
                 protocolUrl,
                 'protocol',
                 user,
-                thread=False
+                thread=False,
+                refreshCache=refreshCache
             )[0] if protocolUrl is not None else {}
             protocol = formatLdObject(
                 protocol,
