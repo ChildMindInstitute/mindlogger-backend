@@ -647,8 +647,6 @@ def formatLdObject(
     from girderformindlogger.models import pluralize
 
     refreshCache = False if refreshCache is None else refreshCache
-    print(mesoPrefix)
-    print(refreshCache)
 
     try:
         if obj is None:
