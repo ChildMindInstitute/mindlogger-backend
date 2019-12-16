@@ -110,13 +110,13 @@ def importAndCompareModelType(model, url, user, modelType):
                     }
                 }
             )
-    createCache(newModel, formatted, modelType, user)
     formatted = _fixUpFormat(formatLdObject(
         newModel,
         mesoPrefix=modelType,
         user=user,
         refreshCache=True
     ))
+    createCache(newModel, formatted, modelType, user)
     return(formatted, modelType)
 
 
