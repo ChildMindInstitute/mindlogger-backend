@@ -8,6 +8,10 @@ Changes
 -------
 Unreleased
 ==========
+2019-12-17: v0.7.3
+^^^^^^^^^^^^^^^^^^
+* :ambulance: :chipmunk: Resolve caching issue for new users
+
 2019-12-16: v0.7.2
 ^^^^^^^^^^^^^^^^^^
 * :ambulance: Restore `responseDates` to `applet` Objects
