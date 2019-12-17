@@ -125,7 +125,19 @@ def getAppletById(user, ar):
     assert str(res[0]['_id']) == str(
         ar['applet']['_id'].split('applet/')[-1]
     ), 'applet ids are not the same'
-    return res[0]
+
+    return (jsonld_expander.formatLdObject(
+        res[0],
+        'applet',
+        user,
+        refreshCache=False
+    ))
+
+
+def checkActivitySequence(a, e):
+    assert a['applet'][
+        'reprolib:terms/order'
+    ]==e['applet']['reprolib:terms/order']
 
 
 def addApplet(new_user, protocolUrl):
@@ -149,31 +161,38 @@ def addApplet(new_user, protocolUrl):
     # TODO: create an activity-set that JUST for testing.
     # make sure it has all the weird qualities that can break
 
+    userAppletsToStart = AppletModel().getAppletsForUser(
+        'manager',
+        currentUser,
+        active=True
+    )
+
+    userApplets = userAppletsToStart.copy()
 
     # for now, lets do the mindlogger demo
-    protocol = {}
-    protocol.update(ProtocolModel().getFromUrl(
+    protocol = ProtocolModel().getFromUrl(
         protocolUrl,
         'protocol',
         currentUser
-    )[0])
+    )[0]
     randomAS = np.random.randint(1000000)
-    ar = AppletModel().createApplet(
+    ar = AppletModel().createAppletFromUrl(
         name="testProtocol{}".format(randomAS),
-        protocol={
-            '_id': 'protocol/{}'.format(protocol.get('_id')),
-            'url': protocol.get(
-                'meta',
-                {}
-            ).get(
-                'protocol',
-                {}
-            ).get('url', protocolUrl)
-        },
-        user=currentUser
+        protocolUrl=protocolUrl,
+        user=currentUser,
+        sendEmail=False
     )
 
-    assert ar['applet']['_id'], 'there is no ID!'
+    while len(userApplets)==len(userAppletsToStart):
+        nightyNight(sleepInterval)
+        userApplets = AppletModel().getAppletsForUser(
+            'manager',
+            currentUser,
+            active=True
+        )
+
+    ar = jsonld_expander.loadCache(userApplets[-1]['cached'])
+
     assert jsonld_expander.reprolibCanonize(
         ar['protocol']['url']
     ) == jsonld_expander.reprolibCanonize(protocolUrl), \
@@ -182,22 +201,20 @@ def addApplet(new_user, protocolUrl):
             protocolUrl
         )
 
-    userApplets = AppletModel().getAppletsForUser(
-        'user',
-        currentUser,
-        active=True
-    )
-    timer = sleepInterval
-    while(timer > 0):
-        print("😴   {}".format(str(timer)))
-        time.sleep(1)
-        timer = timer - 1
+    assert ar['applet']['_id'], 'there is no ID!'
 
     assert getAppletById(
         new_user,
         ar
     ) is not None, 'something wrong with getAppletById'
     return ar
+
+
+def nightyNight(timer):
+    while(timer > 0):
+        print("😴   {}".format(str(timer)))
+        time.sleep(1)
+        timer = timer - 1
 
 
 def getAppletsUser(user, n=1):
@@ -379,7 +396,6 @@ def addSchedule(user, appletObject):
         }]
     })
     schedule = json.loads(scheduleString)
-    appletId = appletObject['_id']
     putResp = _setConstraints(appletObject, None, schedule, user).get(
         'meta',
         {'applet': {'schedule': None}}
@@ -496,26 +512,6 @@ def checkForInvite(user, appletObject):
                         fields=userfields
                     ))
                 ]
-        pendingInvitesForUser.append({
-            '_id': groupId,
-            'applets': [{
-                'name': applet.get('cached', {}).get('applet', {}).get(
-                    'skos:prefLabel',
-                    ''
-                ),
-                'image': applet.get('cached', {}).get('applet', {}).get(
-                    'schema:image',
-                    ''
-                ),
-                'description': applet.get('cached', {}).get('applet', {
-                }).get(
-                    'schema:description',
-                    ''
-                ),
-                'managers': applet.get('managers'),
-                'reviewers': applet.get('reviewers')
-            } for applet in applets]
-        })
     groupId = appletObject['roles']['user']['groups'][0]['id']
     assert len(pendingInvitesForUser), "this user has no invites"
     assert pendingInvitesForUser[0]['_id'] == groupId, "this user doesn't have the invite you expect"
@@ -875,7 +871,7 @@ def testTests():
     assert 'language' in str(excinfo.value)
 
 
-def fullTest(protocolUrl, act1, act2, act1Item, act2Item):
+def fullTest(protocolUrl, act1, act2, act1Item, act2Item, expectedResults=None):
     testElses()
     testTests()
 
@@ -925,6 +921,9 @@ def fullTest(protocolUrl, act1, act2, act1Item, act2Item):
 
     appletObject = checkItWasAdded
 
+    if expectedResults and expectedResults is not None:
+        checkActivitySequence(appletObject, expectedResults)
+
     # expand and refresh the applet
     # print('\033[1;37;40m expand and refresh the applet')
     def step04(user, appletObject):
@@ -943,8 +942,16 @@ def fullTest(protocolUrl, act1, act2, act1Item, act2Item):
     # add a schedule to the applet
     # print('add a schedule to the applet')
 
+    appletObject=AppletModel().load(
+        appletObject['applet']['_id'].split('/')[-1],
+        force=True
+    )
+
     def step05(user, appletObject):
-        addSchedule(user, appletObject)
+        addSchedule(
+            user,
+            appletObject=appletObject
+        )
 
     tryExceptTester(
         step05,
@@ -986,10 +993,10 @@ def fullTest(protocolUrl, act1, act2, act1Item, act2Item):
 
     # accept the applet invite
     # print('accept the applet invite')
-    def step08(userB, appletObject):
-        acceptAppletInvite(userB, appletObject, 'user')
-
-    tryExceptTester(step08, [userB, appletObject], 'accept the applet invite')
+    # def step08(userB, appletObject):
+    #     acceptAppletInvite(userB, appletObject, 'user')
+    #
+    # tryExceptTester(step08, [userB, appletObject], 'accept the applet invite')
 
     # invite someone that doesn't have an account yet
     # print('\033[0;37;40m invite someone that doesn\'t have an account yet')

@@ -399,7 +399,7 @@ def last7Days(
     referenceDate=None
 ):
     from bson import json_util
-    from .jsonld_expander import reprolibCanonize, reprolibPrefix
+    from .jsonld_expander import loadCache, reprolibCanonize, reprolibPrefix
     referenceDate = delocalize(
         datetime.now(
             tzlocal.get_localzone()
@@ -407,10 +407,7 @@ def last7Days(
     )
 
     # we need to get the activities
-    cachedApplet = appletInfo['cached'] if isinstance(
-        appletInfo['cached'],
-        dict
-    ) else json_util.loads(appletInfo['cached'])
+    cachedApplet = loadCache(appletInfo['cached'])
     listOfActivities = [
         reprolibPrefix(activity) for activity in list(
             cachedApplet['activities'].keys()
@@ -510,6 +507,11 @@ def isodatetime(d):
 
 
 def responseDateList(appletId, userId, reviewer):
+    from girderformindlogger.models.profile import Profile
+    userId = ProfileModel().getProfile(userId, reviewer)
+    if not isinstance(userId, dict):
+        return([])
+    userId = userId.get('userId')
     rdl = list(set([
         determine_date(
             response.get("meta", {}).get(

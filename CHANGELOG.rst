@@ -8,9 +8,21 @@ Changes
 -------
 Unreleased
 ==========
-2019-11-26: v0.7.1
+2019-12-17: v0.7.3
 ^^^^^^^^^^^^^^^^^^
 * :sparkles: Data access for reviewers
+
+2019-12-16: v0.7.2
+^^^^^^^^^^^^^^^^^^
+* :ambulance: Restore `responseDates` to `applet` Objects
+* :racehorse: Thread cache refreshing
+* :ambulance: Update cache, *then* load when refreshing caches
+* :pencil: Return real parsed URLs (resolve #247)
+
+2019-12-05: v0.7.1
+^^^^^^^^^^^^^^^^^^
+* :racehorse: Resolve some query efficiency problems
+* :fire: :books: Remove some deprecated text and illustrations from README
 
 2019-11-25: v0.6.6
 ^^^^^^^^^^^^^^^^^^
