@@ -351,10 +351,14 @@ class Applet(Folder):
 
     def updateUserCache(self, role, user, active=True, refreshCache=False):
         import threading
+        from bson import json_util
         from girderformindlogger.utility import jsonld_expander
 
         applets=self.getAppletsForUser(role, user, active)
-        user['cached'] = jsonld_expander.loadCache(user.get('cached', {}))
+        user['cached'] = user.get('cached', {})
+        user['cached'] = json_util.loads(user['cached']) if isinstance(
+            user['cached'], str
+        ) else user['cached']
         user['cached']['applets'] = user['cached'].get('applets', {})
         user['cached']['applets'][role] = user['cached']['applets'].get(
             role,
