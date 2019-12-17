@@ -423,6 +423,8 @@ class User(Resource):
                 reviewer['cached'] = json_util.loads(
                     reviewer['cached']
                 ) if isinstance(reviewer['cached'], str) else reviewer['cached']
+            else:
+                reviewer['cached'] = {}
             if 'applets' in reviewer[
                 'cached'
             ] and role in reviewer['cached']['applets'] and isinstance(
@@ -443,7 +445,6 @@ class User(Resource):
                     active=True,
                     refreshCache=refreshCache
                 )
-
             for applet in applets:
                 try:
                     applet["applet"]["responseDates"] = responseDateList(
@@ -459,7 +460,9 @@ class User(Resource):
 
             return(applets)
         except Exception as e:
-            return(e)
+            import sys, traceback
+            print(sys.exc_info())
+            return([])
 
 
     @access.public(scope=TokenScope.USER_INFO_READ)
