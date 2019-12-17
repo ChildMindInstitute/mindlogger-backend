@@ -381,6 +381,7 @@ class User(Resource):
         refreshCache=False
     ):
         import threading
+        from bson import json_util
         from bson.objectid import ObjectId
 
         reviewer = self.getCurrentUser()
@@ -419,9 +420,11 @@ class User(Resource):
             })
         try:
             if 'cached' in reviewer:
-                reviewer['cached'] = jsonld_expander.loadCache(
+                reviewer['cached'] = json_util.loads(
                     reviewer['cached']
-                )
+                ) if isinstance(reviewer['cached'], str) else reviewer['cached']
+            else:
+                reviewer['cached'] = {}
             if 'applets' in reviewer[
                 'cached'
             ] and role in reviewer['cached']['applets'] and isinstance(
@@ -442,7 +445,6 @@ class User(Resource):
                     active=True,
                     refreshCache=refreshCache
                 )
-
             for applet in applets:
                 try:
                     applet["applet"]["responseDates"] = responseDateList(
@@ -458,7 +460,9 @@ class User(Resource):
 
             return(applets)
         except Exception as e:
-            return(e)
+            import sys, traceback
+            print(sys.exc_info())
+            return([])
 
 
     @access.public(scope=TokenScope.USER_INFO_READ)
