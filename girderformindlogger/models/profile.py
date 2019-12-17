@@ -597,7 +597,6 @@ class Profile(AccessControlledModel, dict):
             } for role in appletGroups.keys()
         }
 
-
         # restructure dictionary & return
         userList = {
             str(ulu["user"]["_id"]): {k: v for k, v in {

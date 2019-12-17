@@ -381,6 +381,7 @@ class User(Resource):
         refreshCache=False
     ):
         import threading
+        from bson import json_util
         from bson.objectid import ObjectId
 
         reviewer = self.getCurrentUser()
@@ -419,9 +420,9 @@ class User(Resource):
             })
         try:
             if 'cached' in reviewer:
-                reviewer['cached'] = jsonld_expander.loadCache(
+                reviewer['cached'] = json_util.loads(
                     reviewer['cached']
-                )
+                ) if isinstance(reviewer['cached'], str) else reviewer['cached']
             if 'applets' in reviewer[
                 'cached'
             ] and role in reviewer['cached']['applets'] and isinstance(
