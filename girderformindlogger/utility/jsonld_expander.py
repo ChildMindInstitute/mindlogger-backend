@@ -314,7 +314,7 @@ def delanguageTag(obj):
 
 
 def expandOneLevel(obj):
-    if obj==None:
+    if obj is None:
         return(obj)
     try:
         newObj = jsonld.expand(obj)
