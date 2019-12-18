@@ -8,9 +8,17 @@ Changes
 -------
 Unreleased
 ==========
-2019-12-17: v0.7.3
+2019-12-19: v0.8.1
 ^^^^^^^^^^^^^^^^^^
 * :sparkles: Data access for reviewers
+
+2019-12-17: v0.7.4
+^^^^^^^^^^^^^^^^^^
+* :ambulance: :chipmunk: Resolve caching issue for new users
+
+2019-12-17: v0.7.3
+^^^^^^^^^^^^^^^^^^
+* :ambulance: :pencil: Save invitation acceptance
 
 2019-12-16: v0.7.2
 ^^^^^^^^^^^^^^^^^^
