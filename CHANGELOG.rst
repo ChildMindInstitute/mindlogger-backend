@@ -8,6 +8,10 @@ Changes
 -------
 Unreleased
 ==========
+2019-12-17: v0.7.5
+^^^^^^^^^^^^^^^^^^
+* :racehorse: Check if user requesting user list is a coordinator just once
+
 2019-12-17: v0.7.4
 ^^^^^^^^^^^^^^^^^^
 * :ambulance: :chipmunk: Resolve caching issue for new users
