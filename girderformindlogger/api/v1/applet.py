@@ -185,30 +185,15 @@ class Applet(Resource):
 
     @access.user(scope=TokenScope.DATA_WRITE)
     @autoDescribeRoute(
-        Description('Create an applet.')
+        Description('Get all data you are authorized to see for an applet.')
         .param(
-            'protocolUrl',
-            'URL of Activity Set from which to create applet',
-            required=False
-        )
-        .param(
-            'name',
-            'Name to give the applet. The Protocol\'s name will be used if '
-            'this parameter is not provided.',
-            required=False
-        )
-        .param(
-            'informant',
-            ' '.join([
-                'Relationship from informant to individual of interest.',
-                'Currently handled informant relationships are',
-                str([r for r in DEFINED_INFORMANTS.keys()])
-            ]),
-            required=False
+            'id',
+            'ID of the applet for which to fetch data',
+            required=True
         )
         .errorResponse('Write access was denied for this applet.', 403)
     )
-    def getAppletData(self, protocolUrl=None, name=None, informant=None):
+    def getAppletData(self, id):
         thisUser = self.getCurrentUser()
         # get an activity set from a URL
         protocol = ProtocolModel().getFromUrl(
