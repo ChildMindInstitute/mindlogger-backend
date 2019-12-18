@@ -23,13 +23,13 @@ Submitting a PR
 ~~~~~~~~~~~~~~~
 
 1. Update `the CHANGELOG <./CHANGELOG.rst>`_ with a brief description of the changes in this new version.
-3. From your branch, open a pull request to `|masterLink|`_.
-4. Give your PR a descriptive title, optionally with :octocat: `gitmoji <https://gitmoji.carloscuesta.me/>`_.
-5. Give a brief but thorough description of what your PR does.
-6. Submit. `Circle CI <https://circleci.com/gh/ChildMindInstitute/mindlogger-app-backend>`_ will run :microscope: tests.
-7. If no other pull requests are pending and you have adequate permissions to deploy to the development server, `deploy to the development server <#deploy-to-dev>`_ and add a note to your PR that you have done so.
-8. Wait for a review.
-9. Respond to the review if necessary.
+2. From your branch, open a pull request to `|masterLink|`_.
+3. Give your PR a descriptive title, optionally with :octocat: `gitmoji <https://gitmoji.carloscuesta.me/>`_.
+4. Give a brief but thorough description of what your PR does.
+5. Submit. `Circle CI <https://circleci.com/gh/ChildMindInstitute/mindlogger-app-backend>`_ will run :microscope: tests.
+6. If no other pull requests are pending and you have adequate permissions to deploy to the development server, `deploy to the development server <#deploy-to-dev>`_ and add a note to your PR that you have done so.
+7. Wait for a review.
+8. Respond to the review if necessary.
 
 
 Reviewing a PR
