@@ -14,6 +14,7 @@ from girderformindlogger.models.item import Item as ItemModel
 from girderformindlogger.models.protocol import Protocol as ProtocolModel
 from girderformindlogger.models.screen import Screen as ScreenModel
 from girderformindlogger.models.user import User as UserModel
+from girderformindlogger.utility import loadJSON
 from girderformindlogger.utility.response import responseDateList
 from pyld import jsonld
 
@@ -328,6 +329,10 @@ def expandOneLevel(obj):
         elif e.cause.type == "jsonld.ContextUrlError":
             invalidContext = e.cause.details.get("url")
             print("Invalid context: {}".format(invalidContext))
+            if isinstance(obj, str):
+                obj = loadJSON(obj)
+            if not isinstance(obj, dict):
+                obj = {"@context": []}
             if invalidContext in obj.get("@context", []):
                 obj["@context"] = obj["@context"].remove(invalidContext)
                 obj["@context"].append(reprolibCanonize(invalidContext))
@@ -415,7 +420,7 @@ def expand(obj, keepUndefined=False):
     :param keepUndefined: bool
     :returns: list, expanded JSON-LD Array or Object
     """
-    if obj==None:
+    if obj is None:
         return(obj)
     newObj = expandOneLevel(obj)
     if isinstance(newObj, dict):
