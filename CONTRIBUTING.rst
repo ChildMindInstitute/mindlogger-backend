@@ -23,7 +23,7 @@ Submitting a PR
 ~~~~~~~~~~~~~~~
 
 1. Update `the CHANGELOG <./CHANGELOG.rst>`_ with a brief description of the changes in this new version.
-2. From your branch, open a pull request to `|masterLink|`_.
+2. From your branch, open a pull request to `master <https://github.com/ChildMindInstitute/mindlogger-app-backend/tree/master>`_.
 3. Give your PR a descriptive title, optionally with :octocat: `gitmoji <https://gitmoji.carloscuesta.me/>`_.
 4. Give a brief but thorough description of what your PR does.
 5. Submit. `Circle CI <https://circleci.com/gh/ChildMindInstitute/mindlogger-app-backend>`_ will run :microscope: tests.
@@ -73,7 +73,7 @@ Deploy to dev
 
      girderformindlogger build
 
-4. Use EB CLI to deploy to the development server. Our development server instance is labeled `|devServer|`_.
+4. Use EB CLI to deploy to the development server. Our development server instance is labeled `mindlogger-atlas-dev <https://console.aws.amazon.com/elasticbeanstalk/home?region=us-east-1#/environment/dashboard?applicationName=mindlogger_mongo_atlas&environmentId=e-cmi89zpeqn>`_.
 
    .. code-block:: sh
 
@@ -116,7 +116,7 @@ Deploy to production
      girderformindlogger build
 
 6. Use EB CLI to deploy to the production server. Our production server
-   instance is labeled `|prodServer|`_.
+   instance is labeled `mindlogger-girder-atlas <https://console.aws.amazon.com/elasticbeanstalk/home?region=us-east-1#/environment/dashboard?applicationName=mindlogger_mongo_atlas&environmentId=e-vhc2nxivk7>`_.
 
    .. code-block:: sh
 
@@ -225,13 +225,3 @@ Next, there are two scenarios:
 - You have push access: Simply click on the "Merge pull request" button.
 
 Then, click on the "Delete branch" button that appears afterward.
-
-
-.. |devServer| replace:: ``mindlogger-atlas-dev``
-.. _devServer: https://console.aws.amazon.com/elasticbeanstalk/home?region=us-east-1#/environment/dashboard?applicationName=mindlogger_mongo_atlas&environmentId=e-cmi89zpeqn
-
-.. |masterLink| replace:: ``master``
-.. _masterLink: https://github.com/ChildMindInstitute/mindlogger-app/tree/master
-
-.. |prodServer| replace:: ``mindlogger-girder-atlas``
-.. _prodServer: https://console.aws.amazon.com/elasticbeanstalk/home?region=us-east-1#/environment/dashboard?applicationName=mindlogger_mongo_atlas&environmentId=e-vhc2nxivk7
