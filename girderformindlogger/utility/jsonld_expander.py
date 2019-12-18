@@ -47,7 +47,9 @@ def importAndCompareModelType(model, url, user, modelType):
 
     if model is None:
         return(None, None)
-    atType = model.get('@type', '').split('/')[-1].split(':')[-1]
+    mt = model.get('@type', '')
+    mt = mt[0] if isinstance(mt, list) else mt
+    atType = mt.split('/')[-1].split(':')[-1]
     modelType = firstLower(atType) if len(atType) else modelType
     modelType = 'screen' if modelType.lower(
     )=='field' else 'protocol' if modelType.lower(
@@ -156,7 +158,7 @@ def contextualize(ldObj):
         else:
             newObj[k] = ldObj[k]
     newObj['@context'] = reprolibCanonize(context)
-    return(newObj)
+    return(expand(newObj))
 
 
 def _deeperContextualize(ldObj, context):
