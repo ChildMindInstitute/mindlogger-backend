@@ -1,21 +1,13 @@
 Contributing to Girder for MindLogger
 =====================================
 
-1. Check the `open issues for this repository <https://github.com/ChildMindInstitute/mindlogger-app-backend/issues>`_,
-   `open bug reports <https://github.com/ChildMindInstitute/MindLogger-bug-reports/issues>`_,
-   and `the overall project 看板 <https://github.com/orgs/ChildMindInstitute/projects/9>`_
-   for known issues and discussions.
-2. If your issue is not already listed, add your issue, optionally with
-   :octocat: `gitmoji <https://gitmoji.carloscuesta.me/>`_.
+1. Check the `open issues for this repository <https://github.com/ChildMindInstitute/mindlogger-app-backend/issues>`_, `open bug reports <https://github.com/ChildMindInstitute/MindLogger-bug-reports/issues>`_, and `the overall project 看板 <https://github.com/orgs/ChildMindInstitute/projects/9>`_ for known issues and discussions.
+2. If your issue is not already listed, add your issue, optionally with :octocat: `gitmoji <https://gitmoji.carloscuesta.me/>`_.
 3. Clone this repository.
-4. If your issue already has a discussion, see if it has a branch. If
-   so, checkout that branch before creating your own.
+4. If your issue already has a discussion, see if it has a branch. If so, checkout that branch before creating your own.
 5. Create a new branch to work in.
-6. When you’re ready to submit your changes, submit a pull request from your
-   branch to the branch you branched  from (ie, the branch you checked out in
-   step 4 above or ``master``).
-7. One or more of the project developers will review your request and
-   merge or request changes.
+6. When you’re ready to submit your changes, submit a pull request from your branch to the branch you branched  from (ie, the branch you checked out in step 4 above or ``master``).
+7. One or more of the project developers will review your request and merge or request changes.
 
 Versioning
 ----------
@@ -25,28 +17,20 @@ Use `Semantic Versioning 2.0.0 <https://semver.org/#semantic-versioning-200>`_. 
 Pull requests
 -------------
 
-Each pull request (PR) requires a review from at least one contributor other
-than the author of that PR.
+Each pull request (PR) requires a review from at least one contributor other than the author of that PR.
 
 Submitting a PR
 ~~~~~~~~~~~~~~~
 
-1. Update `the CHANGELOG <./CHANGELOG.rst>`_ with a brief description of the
-   changes in this new version.
+1. Update `the CHANGELOG <./CHANGELOG.rst>`_ with a brief description of the changes in this new version.
 3. From your branch, open a pull request to `|masterLink|`_.
 4. Give your PR a descriptive title, optionally with :octocat: `gitmoji <https://gitmoji.carloscuesta.me/>`_.
 5. Give a brief but thorough description of what your PR does.
-6. Submit. `Circle CI <https://circleci.com/gh/ChildMindInstitute/mindlogger-app-backend>`_
-   will run :microscope: tests.
-7. If no other pull requests are pending and you have adequate permissions to
-   deploy to the development server, `deploy to the development server <#deploy-to-dev>`_
-   and add a note to your PR that you have done so.
+6. Submit. `Circle CI <https://circleci.com/gh/ChildMindInstitute/mindlogger-app-backend>`_ will run :microscope: tests.
+7. If no other pull requests are pending and you have adequate permissions to deploy to the development server, `deploy to the development server <#deploy-to-dev>`_ and add a note to your PR that you have done so.
 8. Wait for a review.
 9. Respond to the review if necessary.
 
-
-.. |masterLink| replace:: ``master``
-.. _masterLink: https://github.com/ChildMindInstitute/mindlogger-app/tree/master
 
 Reviewing a PR
 --------------
@@ -56,28 +40,22 @@ Reviewing a PR
 3. Verify that the `CHANGELOG <./CHANGELOG.rst>`_ has been adequately updated.
 4. If any changes are necessary, request those changes.
 5. Otherwise, or once the necessary changes are made, approve the PR.
-6. Merge the PR (usually via a merge commit, but by a merge squash or a
-   merge rebase by discretion).
+6. Merge the PR (usually via a merge commit, but by a merge squash or a merge rebase by discretion).
 7. Tag the master branch with an `updated version <#versioning>`_.
 
 
 Deployment
 ----------
-We are deploying through Amazon Web Services Elastic Beanstalk. To deploy,
-you'll need write access to the instance you're deploying to. For the process
-described in this document, you'll also need `the Elastic Beanstalk Command Line Interface (EB CLI) <https://docs.aws.amazon.com/elasticbeanstalk/latest/dg/eb-cli3-install.html>`_.
+We are deploying through Amazon Web Services Elastic Beanstalk. To deploy, you'll need write access to the instance you're deploying to. For the process described in this document, you'll also need `the Elastic Beanstalk Command Line Interface (EB CLI) <https://docs.aws.amazon.com/elasticbeanstalk/latest/dg/eb-cli3-install.html>`_.
 
-Elastic Beanstalk relies on Git and a local installation, so prior to deploying,
-you'll need to have a local installation with the latest tag and a named branch.
+Elastic Beanstalk relies on Git and a local installation, so prior to deploying, you'll need to have a local installation with the latest tag and a named branch.
 
-**Note:** *EB does not allow non-ASCII characters in the name of the branch or
-the latest commit message title from which it deploys.*
+**Note:** *EB does not allow non-ASCII characters in the name of the branch or the latest commit message title from which it deploys.*
 
 Deploy to dev
 ~~~~~~~~~~~~~
 
-1. From the branch you want to deplpy, create a temporary Git tag (typically the
-   upcoming semver plus a hyphen and a suffix, eg, ``v0.7.4-contributing``).
+1. From the branch you want to deplpy, create a temporary Git tag (typically the upcoming semver plus a hyphen and a suffix, eg, ``v0.7.4-contributing``).
 
    .. code-block:: sh
 
@@ -95,15 +73,12 @@ Deploy to dev
 
      girderformindlogger build
 
-4. Use EB CLI to deploy to the development server. Our development server
-   instance is labeled `|devServer|`_.
+4. Use EB CLI to deploy to the development server. Our development server instance is labeled `|devServer|`_.
 
    .. code-block:: sh
 
      eb deploy mindlogger-atlas-dev
 
-.. |devServer| replace:: ``mindlogger-atlas-dev``
-.. _devServer: https://console.aws.amazon.com/elasticbeanstalk/home?region=us-east-1#/environment/dashboard?applicationName=mindlogger_mongo_atlas&environmentId=e-cmi89zpeqn
 
 Deploy to production
 ~~~~~~~~~~~~~~~~~~~~
@@ -148,9 +123,6 @@ Deploy to production
      eb deploy mindlogger-girder-atlas
 
 
-.. |prodServer| replace:: ``mindlogger-girder-atlas``
-.. _prodServer: https://console.aws.amazon.com/elasticbeanstalk/home?region=us-east-1#/environment/dashboard?applicationName=mindlogger_mongo_atlas&environmentId=e-vhc2nxivk7
-
 Contributing to Girder (upstream project)
 =========================================
 
@@ -170,7 +142,7 @@ The PR Process, CircleCI, and Related Gotchas
 ---------------------------------------------
 
 How to submit a PR
-^^^^^^^^^^^^^^^^^^
+~~~~~~~~~~~~~~~~~~
 
 If you are new to Girder development and you don't have push access to the Girder
 repository, here are the steps:
@@ -253,3 +225,13 @@ Next, there are two scenarios:
 - You have push access: Simply click on the "Merge pull request" button.
 
 Then, click on the "Delete branch" button that appears afterward.
+
+
+.. |devServer| replace:: ``mindlogger-atlas-dev``
+.. _devServer: https://console.aws.amazon.com/elasticbeanstalk/home?region=us-east-1#/environment/dashboard?applicationName=mindlogger_mongo_atlas&environmentId=e-cmi89zpeqn
+
+.. |masterLink| replace:: ``master``
+.. _masterLink: https://github.com/ChildMindInstitute/mindlogger-app/tree/master
+
+.. |prodServer| replace:: ``mindlogger-girder-atlas``
+.. _prodServer: https://console.aws.amazon.com/elasticbeanstalk/home?region=us-east-1#/environment/dashboard?applicationName=mindlogger_mongo_atlas&environmentId=e-vhc2nxivk7
