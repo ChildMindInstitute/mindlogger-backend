@@ -276,7 +276,7 @@ class Model(object):
                         ] else " {}".format(modelType)
                     )
                 )
-            compact = expand(url)
+            compact = loadJSON(url)
             if thread:
                 thread = threading.Thread(
                     target=importAndCompareModelType,

@@ -64,6 +64,7 @@ def importAndCompareModelType(model, url, user, modelType):
     modelClass = MODELS()[modelType]()
     prefName = modelClass.preferredName(model)
     cachedDocObj = {}
+    model = expand(url)
     print("Loaded {}".format(": ".join([modelType, prefName])))
     docCollection=getModelCollection(modelType)
     if modelClass.name in ['folder', 'item']:
@@ -543,6 +544,9 @@ def createCache(obj, formatted, modelType, user):
     if modelType in NONES:
         print("No modelType!")
         print(obj)
+    if formatted is None:
+        print("formatting failed!")
+        print(obj)
     obj["cached"] = json_util.dumps({
         **formatted,
         "prov:generatedAtTime": xsdNow()
@@ -869,7 +873,7 @@ def componentImport(
     from girderformindlogger.utility import firstLower
 
     updatedProtocol = deepcopy(protocol)
-    obj2 = {k: v for k, v in expand(obj.copy()).items() if v is not None}
+    obj2 = {k: v for k, v in expand(deepcopy(obj)).items() if v is not None}
     try:
         for order in obj2.get(
             "reprolib:terms/order",
@@ -916,12 +920,12 @@ def componentImport(
                         )
                         updatedProtocol[activityComponents][
                             canonicalIRI
-                        ] = formatLdObject(
+                        ] = deepcopy(formatLdObject(
                             activityContent,
                             activityComponent,
                             user,
                             refreshCache=refreshCache
-                        ).copy()
+                        ))
         return(updatedProtocol.get(
             'meta',
             updatedProtocol
