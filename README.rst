@@ -12,7 +12,8 @@ Contents
     1. `Diagram <#diagram>`_
     2. `Glossary <#glossary>`_
 5. `Links <#links>`_
-6. `Girder Source <#girder-source>`_
+6. `Contributing <./CONTRIBUTING.rst>`_
+7. `Girder Source <#girder-source>`_
 
 Reqirements
 -----------
@@ -93,6 +94,10 @@ Links
 - `Development instance <https://dev.mindlogger.org>`_
 - `Production instance <https://api.mindlogger.org>`_
 - `Run a local instance <#requirements>`_
+
+Contributing
+------------
+See `CONTRIBUTING <./CONTRIBUTING.rst>`_.
 
 Girder Source
 -------------
