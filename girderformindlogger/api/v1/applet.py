@@ -73,7 +73,12 @@ class Applet(Resource):
     )
     def getAppletUsers(self, applet):
         thisUser=self.getCurrentUser()
-        return(AppletModel().getAppletUsers(applet, thisUser))
+        if AppletModel().isCoordinator(applet['_id'], thisUser):
+            return(AppletModel().getAppletUsers(applet, thisUser, force=True))
+        else:
+            raise AccessException(
+                "Only coordinators and managers can see user lists."
+            )
 
     @access.user(scope=TokenScope.DATA_WRITE)
     @autoDescribeRoute(

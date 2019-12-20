@@ -65,22 +65,22 @@ nact2Item = ''.join([
     'activities/PediatricScreener-SelfReport/items/having_less_fun'
 ])
 
-@pytest.mark.parametrize(
-    "args",
-    [(nestedProtocol, nact1, nact2, nact1Item, nact2Item)]
-)
-def test_2_pediatric_screener(args):
-    nestedProtocol, nact1, nact2, nact1Item, nact2Item = args
-
-    try:
-        print('\n\n TEST 2: Pediatric Screener')
-        fullTest(
-            nestedProtocol,
-            nact1,
-            nact2,
-            nact1Item,
-            nact2Item
-        )
-    except Exception as e:
-        print('\n\n ERROR:', e)
-        raise e
+# @pytest.mark.parametrize(
+#     "args",
+#     [(nestedProtocol, nact1, nact2, nact1Item, nact2Item)]
+# )
+# def test_2_pediatric_screener(args):
+#     nestedProtocol, nact1, nact2, nact1Item, nact2Item = args
+#
+#     try:
+#         print('\n\n TEST 2: Pediatric Screener')
+#         fullTest(
+#             nestedProtocol,
+#             nact1,
+#             nact2,
+#             nact1Item,
+#             nact2Item
+#         )
+#     except Exception as e:
+#         print('\n\n ERROR:', e)
+#         raise e

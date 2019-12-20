@@ -242,8 +242,8 @@ class Model(object):
         from . import cycleModels
         from girderformindlogger.utility import loadJSON
         from girderformindlogger.utility.jsonld_expander import camelCase,     \
-            contextualize, importAndCompareModelType, loadCache,               \
-            reprolibCanonize, snake_case
+            expand, importAndCompareModelType, loadCache, reprolibCanonize,    \
+            snake_case
 
         refreshCache = False if refreshCache is None else refreshCache
 
@@ -276,11 +276,11 @@ class Model(object):
                         ] else " {}".format(modelType)
                     )
                 )
-            compact = loadJSON(url, modelType)
+            compact = loadJSON(url)
             if thread:
                 thread = threading.Thread(
                     target=importAndCompareModelType,
-                    args=(contextualize(compact),),
+                    args=(compact,),
                     kwargs={'url': url, 'user': user, 'modelType': modelType}
                 )
                 thread.start()
@@ -293,7 +293,7 @@ class Model(object):
                     self.getModelType(compact)
                 )
             model, modelType = importAndCompareModelType(
-                contextualize(compact),
+                compact,
                 url=url,
                 user=user,
                 modelType=modelType
