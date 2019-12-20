@@ -236,7 +236,7 @@ class Applet(Folder):
             user=reviewer,
             sort=[("created", DESCENDING)]
         ))
-        respondants = {
+        respondents = {
             str(response['baseParentId']): IDCode().findIdCodes(
                 Profile().createProfile(
                     appletId,
@@ -247,9 +247,9 @@ class Applet(Folder):
         }
         return([
             {
-                "respondant": code,
+                "respondent": code,
                 **response.get('meta', {})
-            } for response in responses for code in respondants[
+            } for response in responses for code in respondents[
                 str(response['baseParentId'])
             ]
         ])
