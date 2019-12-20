@@ -219,7 +219,40 @@ class Applet(Folder):
         :type filter: dict
         :reutrns: TBD
         """
-        pass
+        from .ID_code import IDCode
+        from .profile import Profile
+        from .response_folder import ResponseItem
+        from .user import User
+        from pymongo import DESCENDING
+
+        if not self._hasRole(appletId, reviewer, 'reviewer'):
+            raise AccessException("You are not a reviewer for this applet.")
+        query = {
+            "baseParentType": "user",
+            "meta.applet.@id": ObjectId(appletId)
+        }
+        responses = list(ResponseItem().find(
+            query=query,
+            user=reviewer,
+            sort=[("created", DESCENDING)]
+        ))
+        respondants = {
+            str(response['baseParentId']): IDCode().findIdCodes(
+                Profile().createProfile(
+                    appletId,
+                    User().load(response['baseParentId'], force=True),
+                    'user'
+                )['_id']
+            ) for response in responses if 'baseParentId' in response
+        }
+        return([
+            {
+                "respondant": code,
+                **response.get('meta', {})
+            } for response in responses for code in respondants[
+                str(response['baseParentId'])
+            ]
+        ])
 
     def updateRelationship(self, applet, relationship):
         """

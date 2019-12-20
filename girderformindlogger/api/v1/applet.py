@@ -23,7 +23,7 @@ import threading
 import uuid
 import requests
 from ..describe import Description, autoDescribeRoute
-from ..rest import Resource
+from ..rest import Resource, rawResponse
 from bson.objectid import ObjectId
 from girderformindlogger.constants import AccessType, SortDir, TokenScope,     \
     DEFINED_INFORMANTS, REPROLIB_CANONICAL, SPECIAL_SUBJECTS, USER_ROLES
@@ -196,40 +196,35 @@ class Applet(Resource):
             'ID of the applet for which to fetch data',
             required=True
         )
+        .param(
+            'format',
+            'JSON or CSV',
+            required=False
+        )
         .errorResponse('Write access was denied for this applet.', 403)
     )
-    def getAppletData(self, id):
+    def getAppletData(self, id, format='json'):
+        import pandas as pd
+        from datetime import datetime
+        from ..rest import setContentDisposition, setRawResponse, setResponseHeader
+
+        format = ('json' if format is None else format).lower()
         thisUser = self.getCurrentUser()
-        # get an activity set from a URL
-        protocol = ProtocolModel().getFromUrl(
-            protocolUrl,
-            'protocol',
-            thisUser,
-            refreshCache=False
-        )[0]
-        protocol = protocol.get('protocol', protocol)
-        # create an applet for it
-        applet=AppletModel().createApplet(
-            name=name if name is not None and len(name) else ProtocolModel(
-            ).preferredName(
-                protocol
-            ),
-            protocol={
-                '_id': 'protocol/{}'.format(protocol.get('_id')),
-                'url': protocol.get(
-                    'meta',
-                    {}
-                ).get(
-                    'protocol',
-                    {}
-                ).get('url', protocolUrl)
-            },
-            user=thisUser,
-            constraints={
-                'informantRelationship': informant
-            } if informant is not None else None
-        )
-        return(applet)
+        data = AppletModel().getResponseData(id, thisUser)
+
+        setContentDisposition("{}-{}.{}".format(
+            str(id),
+            datetime.now().isoformat(),
+            format
+        ))
+        if format=='csv':
+            setRawResponse()
+            setResponseHeader('Content-Type', 'text/{}'.format(format))
+            csv = pd.DataFrame(data).to_csv(index=False)
+            return(csv)
+        setResponseHeader('Content-Type', 'application/{}'.format(format))
+        return(data)
+
 
     @access.user(scope=TokenScope.DATA_WRITE)
     @autoDescribeRoute(
