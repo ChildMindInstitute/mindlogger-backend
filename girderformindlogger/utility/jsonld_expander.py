@@ -14,6 +14,7 @@ from girderformindlogger.models.item import Item as ItemModel
 from girderformindlogger.models.protocol import Protocol as ProtocolModel
 from girderformindlogger.models.screen import Screen as ScreenModel
 from girderformindlogger.models.user import User as UserModel
+from girderformindlogger.utility import loadJSON
 from girderformindlogger.utility.response import responseDateList
 from pyld import jsonld
 
@@ -47,7 +48,9 @@ def importAndCompareModelType(model, url, user, modelType):
 
     if model is None:
         return(None, None)
-    atType = model.get('@type', '').split('/')[-1].split(':')[-1]
+    mt = model.get('@type', '')
+    mt = mt[0] if isinstance(mt, list) else mt
+    atType = mt.split('/')[-1].split(':')[-1]
     modelType = firstLower(atType) if len(atType) else modelType
     modelType = 'screen' if modelType.lower(
     )=='field' else 'protocol' if modelType.lower(
@@ -62,6 +65,7 @@ def importAndCompareModelType(model, url, user, modelType):
     modelClass = MODELS()[modelType]()
     prefName = modelClass.preferredName(model)
     cachedDocObj = {}
+    model = expand(url)
     print("Loaded {}".format(": ".join([modelType, prefName])))
     docCollection=getModelCollection(modelType)
     if modelClass.name in ['folder', 'item']:
@@ -156,7 +160,7 @@ def contextualize(ldObj):
         else:
             newObj[k] = ldObj[k]
     newObj['@context'] = reprolibCanonize(context)
-    return(newObj)
+    return(expand(newObj))
 
 
 def _deeperContextualize(ldObj, context):
@@ -311,7 +315,7 @@ def delanguageTag(obj):
 
 
 def expandOneLevel(obj):
-    if obj==None:
+    if obj is None:
         return(obj)
     try:
         newObj = jsonld.expand(obj)
@@ -325,6 +329,10 @@ def expandOneLevel(obj):
         elif e.cause.type == "jsonld.ContextUrlError":
             invalidContext = e.cause.details.get("url")
             print("Invalid context: {}".format(invalidContext))
+            if isinstance(obj, str):
+                obj = loadJSON(obj)
+            if not isinstance(obj, dict):
+                obj = {"@context": []}
             if invalidContext in obj.get("@context", []):
                 obj["@context"] = obj["@context"].remove(invalidContext)
                 obj["@context"].append(reprolibCanonize(invalidContext))
@@ -412,7 +420,7 @@ def expand(obj, keepUndefined=False):
     :param keepUndefined: bool
     :returns: list, expanded JSON-LD Array or Object
     """
-    if obj==None:
+    if obj is None:
         return(obj)
     newObj = expandOneLevel(obj)
     if isinstance(newObj, dict):
@@ -540,6 +548,9 @@ def createCache(obj, formatted, modelType, user):
         obj["oldCache"] = (oc if oc is not None else []).append(obj["cached"])
     if modelType in NONES:
         print("No modelType!")
+        print(obj)
+    if formatted is None:
+        print("formatting failed!")
         print(obj)
     obj["cached"] = json_util.dumps({
         **formatted,
@@ -867,7 +878,7 @@ def componentImport(
     from girderformindlogger.utility import firstLower
 
     updatedProtocol = deepcopy(protocol)
-    obj2 = {k: v for k, v in expand(obj.copy()).items() if v is not None}
+    obj2 = {k: v for k, v in expand(deepcopy(obj)).items() if v is not None}
     try:
         for order in obj2.get(
             "reprolib:terms/order",
@@ -914,12 +925,12 @@ def componentImport(
                         )
                         updatedProtocol[activityComponents][
                             canonicalIRI
-                        ] = formatLdObject(
+                        ] = deepcopy(formatLdObject(
                             activityContent,
                             activityComponent,
                             user,
                             refreshCache=refreshCache
-                        ).copy()
+                        ))
         return(updatedProtocol.get(
             'meta',
             updatedProtocol

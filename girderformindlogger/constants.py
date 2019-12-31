@@ -127,7 +127,8 @@ KEYS_TO_EXPAND = [
     "https://schema.repronim.org/valueconstraints",
     "reproterms:valueconstraints",
     "valueconstraints",
-    "reprolib:valueconstraints"
+    "reprolib:valueconstraints",
+    "reprolib:terms/valueconstraints"
 ]
 
 PROFILE_FIELDS = [

@@ -8,6 +8,11 @@ Changes
 -------
 Unreleased
 ==========
+2019-12-18: v0.7.5
+^^^^^^^^^^^^^^^^^^
+* :racehorse: Check if user requesting user list is a coordinator just once
+* :ambulance: Restore language tags to keys where those tags are expected
+
 2019-12-17: v0.7.4
 ^^^^^^^^^^^^^^^^^^
 * :ambulance: :chipmunk: Resolve caching issue for new users
