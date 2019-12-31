@@ -8,6 +8,31 @@ Changes
 -------
 Unreleased
 ==========
+2019-12-18: v0.7.5
+^^^^^^^^^^^^^^^^^^
+* :racehorse: Check if user requesting user list is a coordinator just once
+* :ambulance: Restore language tags to keys where those tags are expected
+
+2019-12-17: v0.7.4
+^^^^^^^^^^^^^^^^^^
+* :ambulance: :chipmunk: Resolve caching issue for new users
+
+2019-12-17: v0.7.3
+^^^^^^^^^^^^^^^^^^
+* :ambulance: :pencil: Save invitation acceptance
+
+2019-12-16: v0.7.2
+^^^^^^^^^^^^^^^^^^
+* :ambulance: Restore `responseDates` to `applet` Objects
+* :racehorse: Thread cache refreshing
+* :ambulance: Update cache, *then* load when refreshing caches
+* :pencil: Return real parsed URLs (resolve #247)
+
+2019-12-05: v0.7.1
+^^^^^^^^^^^^^^^^^^
+* :racehorse: Resolve some query efficiency problems
+* :fire: :books: Remove some deprecated text and illustrations from README
+
 2019-11-25: v0.6.6
 ^^^^^^^^^^^^^^^^^^
 * :ambulance: Fix `POST response/applet/activity` route

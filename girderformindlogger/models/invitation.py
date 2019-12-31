@@ -195,7 +195,7 @@ class Invitation(AccessControlledModel):
                         profile['schema:knows'][k] = invitation['schema:knows'][
                             k
                         ]
-            Profile().save(profile, validate=False)
+        Profile().save(profile, validate=False)
         self.remove(invitation)
         return(Profile().displayProfileFields(
             Profile().load(profile['_id'], force=True),

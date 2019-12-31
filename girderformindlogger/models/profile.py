@@ -201,7 +201,7 @@ class Profile(AccessControlledModel, dict):
             ])
         ))
 
-    def displayProfileFields(self, profile, user):
+    def displayProfileFields(self, profile, user=None, forceManager=False, forceReviewer=False):
         """
         :param profile: Profile or Invitation
         :type profile: dict
@@ -213,8 +213,10 @@ class Profile(AccessControlledModel, dict):
 
         profileDefinitions = self.cycleDefinitions(
             profile,
-            showEmail=Applet().isCoordinator(profile['appletId'], user),
-            showIDCode=Applet().isCoordinator(profile['appletId'], user)
+            showEmail=forceManager if forceManager else Applet(
+            ).isCoordinator(profile['appletId'], user),
+            showIDCode=forceReviewer if forceReviewer else Applet(
+            ).isCoordinator(profile['appletId'], user)
         )
 
         if 'invitedBy' in profile:
@@ -594,7 +596,6 @@ class Profile(AccessControlledModel, dict):
                 } for groupId in appletGroups[role].keys()
             } for role in appletGroups.keys()
         }
-
 
         # restructure dictionary & return
         userList = {

@@ -19,6 +19,7 @@
 
 import itertools
 import re
+import threading
 import uuid
 import requests
 from ..describe import Description, autoDescribeRoute
@@ -71,7 +72,12 @@ class Applet(Resource):
     )
     def getAppletUsers(self, applet):
         thisUser=self.getCurrentUser()
-        return(AppletModel().getAppletUsers(applet, thisUser))
+        if AppletModel().isCoordinator(applet['_id'], thisUser):
+            return(AppletModel().getAppletUsers(applet, thisUser, force=True))
+        else:
+            raise AccessException(
+                "Only coordinators and managers can see user lists."
+            )
 
     @access.user(scope=TokenScope.DATA_WRITE)
     @autoDescribeRoute(
@@ -162,36 +168,24 @@ class Applet(Resource):
     )
     def createApplet(self, protocolUrl=None, name=None, informant=None):
         thisUser = self.getCurrentUser()
-        # get an activity set from a URL
-        protocol = ProtocolModel().getFromUrl(
-            protocolUrl,
-            'protocol',
-            thisUser,
-            refreshCache=False
-        )[0]
-        protocol = protocol.get('protocol', protocol)
-        # create an applet for it
-        applet=AppletModel().createApplet(
-            name=name if name is not None and len(name) else ProtocolModel(
-            ).preferredName(
-                protocol
-            ),
-            protocol={
-                '_id': 'protocol/{}'.format(protocol.get('_id')),
-                'url': protocol.get(
-                    'meta',
-                    {}
-                ).get(
-                    'protocol',
-                    {}
-                ).get('url', protocolUrl)
-            },
-            user=thisUser,
-            constraints={
-                'informantRelationship': informant
-            } if informant is not None else None
+        thread = threading.Thread(
+            target=AppletModel().createAppletFromUrl,
+            kwargs={
+                'name': name,
+                'protocolUrl': protocolUrl,
+                'user': thisUser,
+                'constraints': {
+                    'informantRelationship': informant
+                } if informant is not None else None
+            }
         )
-        return(applet)
+        thread.start()
+        return({
+            "message": "The applet is being created. Please check back in "
+                       "several mintutes to see it. If you have an email "
+                       "address associated with your account, you will receive "
+                       "an email when your applet is ready."
+        })
 
     @access.user(scope=TokenScope.DATA_WRITE)
     @autoDescribeRoute(
@@ -239,8 +233,6 @@ class Applet(Resource):
         .errorResponse('Write access was denied for this applet.', 403)
     )
     def deactivateApplet(self, folder):
-        import threading
-
         applet = folder
         user = Applet().getCurrentUser()
         applet['meta']['applet']['deleted'] = True
@@ -251,8 +243,10 @@ class Applet(Resource):
                 applet.get('_id')
             )
             thread = threading.Thread(
-                target=AppletModel().updateAllUserCaches(applet, user)
+                target=AppletModel().updateUserCacheAllUsersAllRoles,
+                args=(applet, user)
             )
+            thread.start()
         else:
             message = 'Could not deactivate applet {} ({}).'.format(
                 AppletModel().preferredName(applet),
@@ -264,7 +258,12 @@ class Applet(Resource):
     @access.user(scope=TokenScope.DATA_READ)
     @autoDescribeRoute(
         Description('Get an applet by ID.')
-        .modelParam('id', model=AppletModel, level=AccessType.READ)
+        .modelParam(
+            'id',
+            model=AppletModel,
+            level=AccessType.READ,
+            destName='applet'
+        )
         .param(
             'refreshCache',
             'Reparse JSON-LD',
@@ -274,9 +273,19 @@ class Applet(Resource):
         .errorResponse('Invalid applet ID.')
         .errorResponse('Read access was denied for this applet.', 403)
     )
-    def getApplet(self, folder, refreshCache=False):
-        applet = folder
+    def getApplet(self, applet, refreshCache=False):
         user = self.getCurrentUser()
+        if refreshCache:
+            thread = threading.Thread(
+                target=jsonld_expander.formatLdObject,
+                args=(applet, 'applet', user),
+                kwargs={'refreshCache': refreshCache}
+            )
+            thread.start()
+            return({
+                "message": "The applet is being refreshed. Please check back "
+                           "in several mintutes to see it."
+            })
         return(
             jsonld_expander.formatLdObject(
                 applet,
@@ -414,8 +423,7 @@ class Applet(Resource):
         .errorResponse('Read access was denied for this applet.', 403)
     )
     def setConstraints(self, folder, activity, schedule, **kwargs):
-        import threading
-        thisUser = Applet().getCurrentUser()
+        thisUser = self.getCurrentUser()
         applet = jsonld_expander.formatLdObject(
             _setConstraints(folder, activity, schedule, thisUser),
             'applet',

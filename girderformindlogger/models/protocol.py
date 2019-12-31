@@ -41,7 +41,11 @@ class Protocol(Folder):
         Gets an activity set from a given URL, checks against the database,
         stores and returns that activity set.
         """
-        return(self.getFromUrl(url, 'protocol', user, refreshCache)[0])
+        return(
+            self.getFromUrl(url, 'protocol', user, refreshCache, thread=False)[
+                0
+            ]
+        )
 
     def load(self, id, level=AccessType.ADMIN, user=None, objectId=True,
              force=False, fields=None, exc=False):

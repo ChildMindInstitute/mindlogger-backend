@@ -40,7 +40,6 @@ class User(Resource):
         self.route('GET', (':id',), self.getUserByID)
         self.route('GET', (':id', 'access'), self.getUserAccess)
         self.route('PUT', (':id', 'access'), self.updateUserAccess)
-        self.route('GET', (':id', 'applets'), self.getUserApplets)
         self.route('PUT', (':id', 'code'), self.updateIDCode)
         self.route('DELETE', (':id', 'code'), self.removeIDCode)
         self.route('GET', ('applets',), self.getOwnApplets)
@@ -114,26 +113,29 @@ class User(Resource):
                             fields=userfields
                         ))
                     ]
-            output.append({
-                '_id': groupId,
-                'applets': [{
-                    'name': applet.get('cached', {}).get('applet', {}).get(
-                        'skos:prefLabel',
-                        ''
-                    ),
-                    'image': applet.get('cached', {}).get('applet', {}).get(
-                        'schema:image',
-                        ''
-                    ),
-                    'description': applet.get('cached', {}).get('applet', {
-                    }).get(
-                        'schema:description',
-                        ''
-                    ),
-                    'managers': applet.get('managers'),
-                    'reviewers': applet.get('reviewers')
-                } for applet in applets]
-            })
+                appletC = jsonld_expander.loadCache(
+                    applet.get('cached')
+                ) if 'cached' in applet else applet
+                output.append({
+                    '_id': groupId,
+                    'applets': [{
+                        'name': appletC.get('applet', {}).get(
+                            'skos:prefLabel',
+                            ''
+                        ),
+                        'image': appletC.get('applet', {}).get(
+                            'schema:image',
+                            ''
+                        ),
+                        'description': appletC.get('applet', {
+                        }).get(
+                            'schema:description',
+                            ''
+                        ),
+                        'managers': applet.get('managers'),
+                        'reviewers': applet.get('reviewers')
+                    } for applet in applets]
+                })
         return(output)
 
     @access.user
@@ -334,102 +336,6 @@ class User(Resource):
 
     @access.public(scope=TokenScope.DATA_READ)
     @autoDescribeRoute(
-        Description('Get all applets for a user by that user\'s ID and role.')
-        .modelParam('id', model=UserModel, level=AccessType.READ)
-        .param(
-            'role',
-            'One of ' + str(USER_ROLES.keys()),
-            required=False,
-            default='user'
-        )
-        .param(
-            'ids_only',
-            'If true, only returns an Array of the IDs of assigned applets. '
-            'Otherwise, returns an Array of Objects keyed with "applet" '
-            '"protocol", "activities" and "items" with expanded JSON-LD as '
-            'values.',
-            required=False,
-            default=False,
-            dataType='boolean'
-        )
-        .errorResponse('ID was invalid.')
-        .errorResponse(
-            'You do not have permission to see any of this user\'s applets.',
-            403
-        )
-        .deprecated()
-    )
-    def getUserApplets(self, user, role, ids_only):
-        from bson.objectid import ObjectId
-        reviewer = self.getCurrentUser()
-        if reviewer is None:
-            raise AccessException("You must be logged in to get user applets.")
-        if user.get('_id') != reviewer.get('_id') and user.get(
-            '_id'
-        ) is not None:
-            raise AccessException("You can only get your own applets.")
-        role = role.lower()
-        if role not in USER_ROLES.keys():
-            raise RestException(
-                'Invalid user role.',
-                'role'
-            )
-        try:
-            applets = AppletModel().getAppletsForUser(role, user, active=True)
-            if len(applets)==0:
-                return([])
-            if ids_only==True:
-                return([applet.get('_id') for applet in applets])
-            return(
-                [
-                    {
-                        **jsonld_expander.formatLdObject(
-                            applet,
-                            'applet',
-                            reviewer,
-                            refreshCache=False
-                        ),
-                        "users": AppletModel().getAppletUsers(applet, user),
-                        "groups": AppletModel().getAppletGroups(
-                            applet,
-                            arrayOfObjects=True
-                        )
-                    } if role=="manager" else {
-                        **jsonld_expander.formatLdObject(
-                            applet,
-                            'applet',
-                            reviewer,
-                            dropErrors=True
-                        ),
-                        "groups": [
-                            group for group in AppletModel(
-                            ).getAppletGroups(applet).get(role) if ObjectId(
-                                group
-                            ) in [
-                                *user.get('groups', []),
-                                *user.get('formerGroups', []),
-                                *[invite['groupId'] for invite in [
-                                    *user.get('groupInvites', []),
-                                    *user.get('declinedInvites', [])
-                                ]]
-                            ]
-                        ]
-                    } for applet in applets if (
-                        applet is not None and not applet.get(
-                            'meta',
-                            {}
-                        ).get(
-                            'applet',
-                            {}
-                        ).get('deleted')
-                    )
-                ]
-            )
-        except Exception as e:
-            return(e)
-
-    @access.public(scope=TokenScope.DATA_READ)
-    @autoDescribeRoute(
         Description('Get all your applets by role.')
         .param(
             'role',
@@ -475,6 +381,7 @@ class User(Resource):
         refreshCache=False
     ):
         import threading
+        from bson import json_util
         from bson.objectid import ObjectId
 
         reviewer = self.getCurrentUser()
@@ -501,16 +408,24 @@ class User(Resource):
                     'applet': AppletModel().unexpanded(applet)
                 } for applet in applets])
         if refreshCache:
-            return(
-                AppletModel().updateUserCache(
-                    role,
-                    reviewer,
-                    active=True,
-                    refreshCache=refreshCache
-                )
+            thread = threading.Thread(
+                target=AppletModel().updateUserCache,
+                args=(role, reviewer),
+                kwargs={"active": True, "refreshCache": refreshCache}
             )
+            thread.start()
+            return({
+                "message": "The user cache is being updated. Please check back "
+                           "in several mintutes to see it."
+            })
         try:
-            if 'cached' in reviewer and 'applets' in reviewer[
+            if 'cached' in reviewer:
+                reviewer['cached'] = json_util.loads(
+                    reviewer['cached']
+                ) if isinstance(reviewer['cached'], str) else reviewer['cached']
+            else:
+                reviewer['cached'] = {}
+            if 'applets' in reviewer[
                 'cached'
             ] and role in reviewer['cached']['applets'] and isinstance(
                 reviewer['cached']['applets'][role],
@@ -523,15 +438,31 @@ class User(Resource):
                     kwargs={"active": True, "refreshCache": refreshCache}
                 )
                 thread.start()
-                return(applets)
-            return(AppletModel().updateUserCache(
-                role,
-                reviewer,
-                active=True,
-                refreshCache=refreshCache
-            ))
+            else:
+                applets = AppletModel().updateUserCache(
+                    role,
+                    reviewer,
+                    active=True,
+                    refreshCache=refreshCache
+                )
+            for applet in applets:
+                try:
+                    applet["applet"]["responseDates"] = responseDateList(
+                        applet['applet'].get(
+                            '_id',
+                            ''
+                        ).split('applet/')[-1],
+                        user.get('_id'),
+                        user
+                    )
+                except:
+                    applet["applet"]["responseDates"] = []
+
+            return(applets)
         except Exception as e:
-            return(e)
+            import sys, traceback
+            print(sys.exc_info())
+            return([])
 
 
     @access.public(scope=TokenScope.USER_INFO_READ)

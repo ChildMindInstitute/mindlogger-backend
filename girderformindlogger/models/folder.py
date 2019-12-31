@@ -25,8 +25,25 @@ class Folder(AccessControlledModel):
 
     def initialize(self):
         self.name = 'folder'
-        self.ensureIndices(('parentId', 'name', 'lowerName',
-                            ([('parentId', 1), ('name', 1)], {})))
+        self.ensureIndices(
+            (
+                'parentId',
+                'name',
+                'lowerName',
+                'meta.activity.@type',
+                'meta.protocol.@type',
+                'meta.protocol.url',
+                'meta.activity.url',
+                ([
+                    ('parentId', 1),
+                    ('name', 1),
+                    ('meta.protocol.@type', 1),
+                    ('meta.activity.@type', 1),
+                    ('meta.protocol.url', 1),
+                    ('meta.activity.url', 1)
+                ], {})
+            )
+        )
         self.ensureTextIndex({
             'name': 10,
             'description': 1
