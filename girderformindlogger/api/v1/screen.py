@@ -59,7 +59,7 @@ class Screen(Resource):
         .errorResponse('Read access was denied for the screen.', 403)
     )
     def createScreen(self, activity, screenName=None):
-        thisUser = Screen().getCurrentUser()
+        thisUser = self.getCurrentUser()
         activity = ActivityModel().load(
             activity,
             level=AccessType.WRITE,
@@ -73,7 +73,9 @@ class Screen(Resource):
             folder=activity,
             reuseExisting=False
         )
-        return(jsonld_expander.formatLdObject(screen, 'screen', thisUser))
+        return(jsonld_expander._fixUpFormat(
+            jsonld_expander.formatLdObject(screen, 'screen', thisUser)
+        ))
 
     @access.public(scope=TokenScope.DATA_READ)
     @autoDescribeRoute(
@@ -85,7 +87,9 @@ class Screen(Resource):
     def getScreen(self, item):
         screen = item
         user = self.getCurrentUser()
-        return (jsonld_expander.formatLdObject(screen, 'screen', user))
+        return (jsonld_expander._fixUpFormat(
+            jsonld_expander.formatLdObject(screen, 'screen', user)
+        ))
 
 
     @access.public(scope=TokenScope.DATA_READ)
@@ -98,10 +102,10 @@ class Screen(Resource):
     )
     def getScreenByURL(self, url):
         thisUser = self.getCurrentUser()
-        return(
+        return(jsonld_expander._fixUpFormat(
             jsonld_expander.formatLdObject(
                 ScreenModel().importUrl(url=url, user=thisUser),
                 'screen',
                 thisUser
             )
-        )
+        ))

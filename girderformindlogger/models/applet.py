@@ -23,6 +23,7 @@ import itertools
 import json
 import os
 import six
+import threading
 
 from bson.objectid import ObjectId
 from .folder import Folder
@@ -36,18 +37,19 @@ from girderformindlogger.models.folder import Folder as FolderModel
 from girderformindlogger.models.group import Group as GroupModel
 from girderformindlogger.models.protoUser import ProtoUser as ProtoUserModel
 from girderformindlogger.models.user import User as UserModel
-from girderformindlogger.utility.progress import noProgress, setResponseTimeLimit
+from girderformindlogger.utility.progress import noProgress,                   \
+    setResponseTimeLimit
 
 
 class Applet(Folder):
     """
     Applets are access-controlled Folders, each of which links to an
-    ActivitySet and contains any relevant constraints.
+    Protocol and contains any relevant constraints.
     """
     def createApplet(
         self,
         name,
-        activitySet={},
+        protocol={},
         user=None,
         roles=None,
         constraints=None
@@ -57,9 +59,9 @@ class Applet(Folder):
 
         :param name: Name for the Applet
         :type name: str
-        :param activitySet: ActivitySet to link to this Applet, with one or both
+        :param protocol: Protocol to link to this Applet, with one or both
             keys: {`_id`, `url`}
-        :type activitySet: dict
+        :type protocol: dict
         :param user: User creating Applet
         :type user: dict
         :param roles: Roles to set to this Applet
@@ -67,6 +69,8 @@ class Applet(Folder):
         :param constraints: Constraints to set to this Applet
         :type constraints: dict or None
         """
+        from girderformindlogger.utility import jsonld_expander
+
         if user==None:
             raise AccessException("You must be logged in to create an applet.")
         appletsCollection = CollectionModel().findOne({"name": "Applets"})
@@ -76,31 +80,9 @@ class Applet(Folder):
             CollectionModel().createCollection('Applets')
             appletsCollection = CollectionModel().findOne({"name": "Applets"})
 
-        # # check if applet exists with creator as a manager
-        applets = list(FolderModel().find({
-            "meta.actvitySet.url": activitySet.get('url'),
-            "parentId": appletsCollection.get('_id')
-        }))
-        # managed = [applet for applet in applets if applet.get('_id') in [
-        #     a.get('_id') for a in list(itertools.chain.from_iterable([
-        #         list(AppletModel().find(
-        #             {
-        #                 'roles.' + role + '.groups.id': groupId,
-        #                 'meta.applet.deleted': {'$ne': True}
-        #             }
-        #         )) for groupId in user.get('groups', [])
-        #     ]))
-        # ]]
-        #
-        # if len(managed):
-        #     return(managed)
-
-        # check if applet needs updated
-
         # create new applet
-
-        applet = FolderModel().setMetadata(
-            folder=FolderModel().createFolder(
+        applet = self.setMetadata(
+            folder=self.createFolder(
                 parent=appletsCollection,
                 name=name,
                 parentType='collection',
@@ -109,17 +91,20 @@ class Applet(Folder):
                 allowRename=True
             ),
             metadata={
-                'activitySet': activitySet,
+                'protocol': protocol,
                 'applet': constraints if constraints is not None and isinstance(
                     constraints,
                     dict
                 ) else {}
             }
         )
+
         appletGroupName = "Default {} ({})".format(
             name,
             str(applet.get('_id', ''))
         )
+
+        print("Name: {}".format(appletGroupName))
         # Create user groups
         for role in USER_ROLES.keys():
             try:
@@ -150,7 +135,135 @@ class Applet(Folder):
                 currentUser=user,
                 force=False
             )
-        return(applet)
+        return(jsonld_expander.formatLdObject(
+            applet,
+            'applet',
+            user
+        ))
+
+    def createAppletFromUrl(
+        self,
+        name,
+        protocolUrl,
+        user=None,
+        roles=None,
+        constraints=None,
+        sendEmail=True
+    ):
+        from girderformindlogger.models.protocol import Protocol
+        # get a protocol from a URL
+        protocol = Protocol().getFromUrl(
+            protocolUrl,
+            'protocol',
+            user,
+            thread=False,
+            refreshCache=True
+        )
+        protocol = protocol[0].get('protocol', protocol[0])
+        name = name if name is not None and len(name) else Protocol(
+        ).preferredName(
+            protocol
+        )
+        applet = self.createApplet(
+            name=name,
+            protocol={
+                '_id': 'protocol/{}'.format(
+                    str(protocol.get('_id')).split('/')[-1]
+                ),
+                'url': protocol.get(
+                    'meta',
+                    {}
+                ).get(
+                    'protocol',
+                    {}
+                ).get('url', protocolUrl)
+            },
+            user=user,
+            roles=roles,
+            constraints=constraints
+        )
+        emailMessage = "Your applet, {}, has been successfully created. The "  \
+            "applet's ID is {}".format(
+                name,
+                str(applet.get('applet', applet).get('_id')
+            )
+        )
+        if sendEmail and 'email' in user:
+            from girderformindlogger.utility.mail_utils import sendMail
+            sendMail(
+                subject=name,
+                text=emailMessage,
+                to=[user['email']]
+            )
+        print(emailMessage)
+
+    def formatThenUpdate(self, applet, user):
+        from girderformindlogger.utility import jsonld_expander
+        jsonld_expander.formatLdObject(
+            applet,
+            'applet',
+            user,
+            refreshCache=True
+        )
+        self.updateUserCacheAllRoles(user)
+
+    def getResponseData(self, appletId, reviewer, filter={}):
+        """
+        Function to collect response data available to given reviewer.
+
+        :param appletId: ID of applet for which to get response data
+        :type appletId: ObjectId or str
+        :param reviewer: Reviewer making request
+        :type reviewer: dict
+        :param filter: reduction criteria (not yet implemented)
+        :type filter: dict
+        :reutrns: TBD
+        """
+        pass
+
+    def updateRelationship(self, applet, relationship):
+        """
+        :param applet: Applet to update
+        :type applet: dict
+        :param relationship: Relationship to apply
+        :type relationship: str
+        :returns: updated Applet
+        """
+        from bson.json_util import dumps
+        from girderformindlogger.utility.jsonld_expander import loadCache
+
+        if not isinstance(relationship, str):
+            raise TypeError("Applet relationship must be defined as a string.")
+        if 'meta' not in applet:
+            applet['meta'] = {'applet': {}}
+        if 'applet' not in applet['meta']:
+            applet['meta']['applet'] = {}
+        applet['meta']['applet']['informantRelationship'] = relationship
+        if 'cached' in applet:
+            applet['cached'] = loadCache(applet['cached'])
+        if 'applet' in applet['cached']:
+            applet['cached']['applet']['informantRelationship'] = relationship
+        applet['cached'] = dumps(applet['cached'])
+        return(self.save(applet, validate=False))
+
+    def unexpanded(self, applet):
+        from girderformindlogger.utility.jsonld_expander import loadCache
+        return({
+            **(
+                loadCache(applet.get(
+                    'cached',
+                    {}
+                )).get('applet') if isinstance(
+                    applet,
+                    dict
+                ) and 'cached' in applet else {
+                    '_id': "applet/{}".format(
+                        str(applet.get('_id'))
+                    ),
+                    **applet.get('meta', {}).get('applet', {})
+                }
+            )
+        })
 
     def getAppletGroups(self, applet, arrayOfObjects=False):
         # get role list for applet
@@ -179,11 +292,29 @@ class Applet(Folder):
             ] if arrayOfObjects else appletGroups
         )
 
+    def isCoordinator(self, appletId, user):
+        from .profile import Profile
+
+        try:
+            user = Profile()._canonicalUser(appletId, user)
+            return(any([
+                self._hasRole(appletId, user, 'coordinator'),
+                self.isManager(appletId, user)
+            ]))
+        except:
+            return(False)
+
     def isManager(self, appletId, user):
+        return(self._hasRole(appletId, user, 'manager'))
+
+    def _hasRole(self, appletId, user, role):
+        from .profile import Profile
+
+        user = Profile()._canonicalUser(appletId, user)
         return(bool(
             str(appletId) in [
                 str(applet.get('_id')) for applet in self.getAppletsForUser(
-                    'manager',
+                    role,
                     user
                 ) if applet.get('_id') is not None
             ]
@@ -196,7 +327,7 @@ class Applet(Folder):
         :param role: Role to find
         :type name: str
         :param groupId: _id of group
-        :type activitySet: str
+        :type protocol: str
         :param active: Only return active Applets?
         :type active: bool
         :returns: list of dicts
@@ -208,6 +339,84 @@ class Applet(Folder):
             }
         ))
         return(applets if isinstance(applets, list) else [applets])
+
+    def updateUserCacheAllUsersAllRoles(self, applet, coordinator):
+        [self.updateUserCacheAllRoles(user) for user in self.getAppletUsers(
+            applet,
+            coordinator
+        )]
+
+    def updateUserCacheAllRoles(self, user):
+        [self.updateUserCache(role, user) for role in list(USER_ROLES.keys())]
+
+    def updateUserCache(self, role, user, active=True, refreshCache=False):
+        import threading
+        from bson import json_util
+        from girderformindlogger.utility import jsonld_expander
+
+        applets=self.getAppletsForUser(role, user, active)
+        user['cached'] = user.get('cached', {})
+        user['cached'] = json_util.loads(user['cached']) if isinstance(
+            user['cached'], str
+        ) else user['cached']
+        user['cached']['applets'] = user['cached'].get('applets', {})
+        user['cached']['applets'][role] = user['cached']['applets'].get(
+            role,
+            {}
+        )
+        formatted = [
+            {
+                **jsonld_expander.formatLdObject(
+                    applet,
+                    'applet',
+                    user,
+                    refreshCache=refreshCache,
+                    responseDates=False
+                ),
+                "users": self.getAppletUsers(applet, user),
+                "groups": self.getAppletGroups(
+                    applet,
+                    arrayOfObjects=True
+                )
+            } if role in ["coordinator", "manager"] else {
+                **jsonld_expander.formatLdObject(
+                    applet,
+                    'applet',
+                    user,
+                    refreshCache=refreshCache,
+                    responseDates=(role=="user")
+                ),
+                "groups": [
+                    group for group in self.getAppletGroups(applet).get(
+                        role
+                    ) if ObjectId(
+                        group
+                    ) in [
+                        *user.get('groups', []),
+                        *user.get('formerGroups', []),
+                        *[invite['groupId'] for invite in [
+                            *user.get('groupInvites', []),
+                            *user.get('declinedInvites', [])
+                        ]]
+                    ]
+                ]
+            } for applet in applets if (
+                applet is not None and not applet.get(
+                    'meta',
+                    {}
+                ).get(
+                    'applet',
+                    {}
+                ).get('deleted')
+            )
+        ]
+        user['cached']['applets'].update({role: formatted})
+        thread = threading.Thread(
+            target=UserModel().save,
+            args=(user,)
+        )
+        thread.start()
+        return(formatted)
 
     def getAppletsForUser(self, role, user, active=True):
         """
@@ -221,75 +430,154 @@ class Applet(Folder):
         :type active: bool
         :returns: list of dicts
         """
-
-        applets = list(self.find(
+        user = UserModel().load(
+            id=ObjectId(user["userId"]),
+            force=True
+        ) if "userId" in user else UserModel().load(
+            id=ObjectId(user["_id"]),
+            force=True
+        ) if "_id" in user else user
+        applets = [
+            *list(self.find(
+                {
+                    'roles.' + role + '.groups.id': {'$in': user.get(
+                        'groups',
+                        []
+                    )},
+                    'meta.applet.deleted': {'$ne': active}
+                }
+            )),
+            *list(self.find(
+                {
+                    'roles.manager.groups.id': {'$in': user.get('groups', [])},
+                    'meta.applet.deleted': {'$ne': active}
+                }
+            ))
+        ] if role=="coordinator" else list(self.find(
             {
                 'roles.' + role + '.groups.id': {'$in': user.get('groups', [])},
                 'meta.applet.deleted': {'$ne': active}
             }
+        )) if active else [
+            *list(self.find(
+                {
+                    'roles.' + role + '.groups.id': {'$in': user.get(
+                        'groups',
+                        []
+                    )}
+                }
+            )),
+            *list(self.find(
+                {
+                    'roles.manager.groups.id': {'$in': user.get('groups', [])}
+                }
+            ))
+        ] if role=="coordinator" else list(self.find(
+            {
+                'roles.' + role + '.groups.id': {'$in': user.get('groups', [])}
+            }
         ))
         return(applets if isinstance(applets, list) else [applets])
 
-    def getAppletUsers(self, applet, user=None):
-        # get groups for applet
-        appletGroups = self.getAppletGroups(applet)
-        if not self.isManager(applet.get('_id', applet), user):
-            return([])
-
-        userList = {
-            role: {
-                groupId: {
-                    "pending": [
-                        *list(UserModel().find(
-                            query={
-                                "groupInvites.groupId": {"$in": [
-                                    ObjectId(groupId)
-                                ]}
-                            },
-                            fields=['_id', 'email']
-                        )),
-                        *list(ProtoUserModel().find(
-                            query={
-                                "groupInvites.groupId": {"$in": [
-                                    ObjectId(groupId)
-                                ]}
+    def listUsers(self, applet, role, user=None, force=False):
+        from .profile import Profile
+        if not force:
+            if not any([
+                self.isCoordinator(applet['_id'], user),
+                self._hasRole(applet['_id'], user, 'reviewer')
+            ]):
+                return([])
+        userlist = {
+            p['_id']: Profile().display(p, role) for p in list(Profile().find({
+                'appletId': applet['_id'],
+                'userId': {
+                    '$in': [
+                        user['_id'] for user in list(UserModel().find({
+                            'groups': {
+                                '$in': [
+                                    ObjectId(
+                                        group
+                                    ) for group in self.getAppletGroups(
+                                        applet
+                                    ).get(role, {}).keys()
+                                ]
                             }
-                        ))
-                    ],
-                    "active": list(UserModel().find(
-                        query={"groups": {"$in": [ObjectId(groupId)]}},
-                        fields=['_id', 'email']
-                    ))
-                } for groupId in appletGroups[role]
-            } for role in appletGroups
+                        }))
+                    ]
+                }
+            }))
         }
-        # restructure dictionary & return
-        return([
-            {
-                "_id": user.get("_id"),
-                "email": user.get("email", ""),
-                "groups": [{
-                        "_id": groupId,
-                        "name": appletGroups[role][groupId],
-                        "status": status,
-                        "role": role
-                }]
-            } for role in userList for groupId in userList[
-                role
-            ] for status in userList[role][groupId] for user in userList[
-                role
-            ][groupId][status]
-        ])
+        return(userlist)
 
-
-    def importUrl(self, url, user=None, refreshCache=False):
+    def getAppletUsers(self, applet, user=None, force=False):
         """
-        Gets an applet from a given URL, checks against the database, stores
-        and returns that applet.
+        Function to return a list of Applet Users
 
-        Deprecated.
+        :param applet: Applet to get users for.
+        :type applet: dict
+        :param user: User making request
+        :type user: dict
+        :returns: list of dicts
         """
-        return(self.getFromUrl(url, 'applet', user, refreshCache))
+        from .invitation import Invitation
+        from .profile import Profile
+
+        profileFields = ["_id", "coordinatorDefined", "userDefined"]
+
+        try:
+
+            if not isinstance(user, dict):
+                user = UserModel().load(
+                    id=user,
+                    level=AccessType.READ,
+                    force=True
+                ) if isinstance(user, str) else {}
+
+            if not force:
+                if not self.isCoordinator(applet.get('_id', applet), user):
+                    return([])
+
+            userDict = {
+                'active': [
+                    Profile().displayProfileFields(
+                        p,
+                        user,
+                        forceManager=True
+                    ) for p in list(
+                        Profile().find(
+                            query={'appletId': applet['_id']}
+                        )
+                    )
+                ],
+                'pending': [
+                    Profile().displayProfileFields(
+                        p,
+                        user,
+                        forceManager=True
+                    ) for p in list(
+                        Invitation().find(query={'appletId': applet['_id']})
+                    )
+                ]
+            }
+
+            missing = threading.Thread(
+                target=Profile().generateMissing,
+                args=(applet,)
+            )
+            missing.start()
+
+            if len(userDict['active']):
+                return(userDict)
+
+            else:
+                return({
+                    **userDict,
+                    "message": "cache updating"
+                })
+        except:
+            import sys, traceback
+            print(sys.exc_info())
+            return({traceback.print_tb(sys.exc_info()[2])})
 
     def load(self, id, level=AccessType.ADMIN, user=None, objectId=True,
              force=False, fields=None, exc=False):

@@ -99,8 +99,10 @@ def firstLower(value):
     return("".join([value[0].lower(), value[1:]]))
 
 
-def loadJSON(url, urlType='applet'):
+def loadJSON(url, urlType='protocol'):
     from girderformindlogger.exceptions import ValidationException
+
+    print("Loading {} from {}".format(urlType, url))
     try:
         r = requests.get(url)
         data = r.json()

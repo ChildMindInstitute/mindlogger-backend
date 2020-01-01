@@ -99,17 +99,6 @@ class User(AccessControlledModel):
             raise ValidationException('That login is already registered.',
                                       'login')
 
-        # Ensure unique emails
-        # q = {'email': doc['email']}
-        # if '_id' in doc:
-        #     q['_id'] = {'$ne': doc['_id']}
-        # existing = self.findOne(q)
-        # if existing is not None:
-        #     raise ValidationException(''.join([
-        #                               'That email is already registered:',
-        #                               str(existing["_id"])]),
-        #                               'email')
-
         # If this is the first user being created, make it an admin
         existing = self.findOne({})
         if existing is None:
@@ -146,19 +135,21 @@ class User(AccessControlledModel):
 
     def authenticate(self, login, password, otpToken=None):
         """
-        Validate a user login via username and password. If authentication fails,
-        a ``AccessException`` is raised.
+        Validate a user login via username and password. If authentication
+        fails, an ``AccessException`` is raised.
 
         :param login: The user's login or email.
         :type login: str
         :param password: The user's password.
         :type password: str
-        :param otpToken: A one-time password for the user. If "True", then the one-time password
-                         (if required) is assumed to be concatenated to the password.
+        :param otpToken: A one-time password for the user. If "True", then the
+                         one-time password (if required) is assumed to be
+                         concatenated to the password.
         :type otpToken: str or bool or None
         :returns: The corresponding user if the login was successful.
         :rtype: dict
         """
+        user = None
         event = events.trigger('model.user.authenticate', {
             'login': login,
             'password': password
@@ -173,45 +164,36 @@ class User(AccessControlledModel):
         if loginField=='login':
             user = self.findOne({loginField: login})
         else:
-            users = list(self.find({loginField: login}))
-        if user is None and users is None:
-            raise AccessException('Login failed.')
+            raise AccessException(
+                'Please log in with your username rather than your email '
+                'address.'
+            )
+        if user is None:
+            raise AccessException('Login failed. Username not found.')
 
-        if user:
-            # Handle users with no password
-            if not self.hasPassword(user):
-                e = events.trigger('no_password_login_attempt', {
-                    'user': user,
-                    'password': password
-                })
+        # Handle users with no password
+        if not self.hasPassword(user):
+            e = events.trigger('no_password_login_attempt', {
+                'user': user,
+                'password': password
+            })
 
-                if len(e.responses):
-                    return e.responses[-1]
+            if len(e.responses):
+                return e.responses[-1]
 
-                raise ValidationException(
-                    'This user does not have a password. You must log in with an '
-                    'external service, or reset your password.')
+            raise ValidationException(
+                'This user does not have a password. You must log in with an '
+                'external service, or reset your password.')
 
-            # Handle OTP token concatenation
-            if otpToken is True and self.hasOtpEnabled(user):
-                # Assume the last (typically 6) characters are the OTP, so split at that point
-                otpTokenLength = self._TotpFactory.digits
-                otpToken = password[-otpTokenLength:]
-                password = password[:-otpTokenLength]
+        # Handle OTP token concatenation
+        if otpToken is True and self.hasOtpEnabled(user):
+            # Assume the last (typically 6) characters are the OTP, so split at
+            # that point
+            otpTokenLength = self._TotpFactory.digits
+            otpToken = password[-otpTokenLength:]
+            password = password[:-otpTokenLength]
 
-            self._verify_password(password, user)
-
-        else:
-            user = {}
-            verified_password = False
-            for u in users:
-                try:
-                    verified_password = self._verify_password(password, u)
-                    user = u
-                except:
-                    verified_password = verified_password
-            if not verified_password:
-                raise AccessException('Login failed.')
+        self._verify_password(password, user)
 
         # Verify OTP
         if self.hasOtpEnabled(user):
@@ -221,7 +203,9 @@ class User(AccessControlledModel):
                     '(typically in the "Girder-OTP" header).')
             self.verifyOtp(user, otpToken)
         elif isinstance(otpToken, six.string_types):
-            raise AccessException('The user has not enabled one-time passwords.')
+            raise AccessException(
+                'The user has not enabled one-time passwords.'
+            )
 
         # This has the same behavior as User.canLogin, but returns more
         # detailed error messages

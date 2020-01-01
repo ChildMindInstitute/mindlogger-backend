@@ -44,7 +44,7 @@ class Activity(Folder):
         Gets an activity from a given URL, checks against the database, stores
         and returns that activity.
         """
-        return(self.getFromUrl(url, 'activity', user, refreshCache))
+        return(self.getFromUrl(url, 'activity', user, refreshCache)[0])
 
 
     def listVersionId(self, id, level=AccessType.ADMIN, user=None,
@@ -160,12 +160,12 @@ class Activity(Folder):
             url = doc.get('meta', {}).get('url')
             if url:
                 return(
-                    ActivityModel.getFromUrl(
+                    self.getFromUrl(
                         url,
                         'activity',
                         user,
                         refreshCache
-                    )
+                    )[0]
                 )
             pathFromRoot = Folder().parentsToRoot(doc, user=user, force=True)
             baseParent = pathFromRoot[0]

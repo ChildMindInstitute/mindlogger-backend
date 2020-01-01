@@ -121,16 +121,119 @@ def pluralize(modelType):
     ))
 
 
-def smartImport(IRI, user=None, refreshCache=False, modelType='activity'):
-    from girderformindlogger.utility import firstLower, loadJSON
-    from girderformindlogger.utility.jsonld_expander import MODELS, \
-        contextualize, reprolibCanonize
-    print("loading {}".format(reprolibCanonize(IRI)))
-    model = contextualize(loadJSON(reprolibCanonize(IRI)))
-    atType = model.get('@type', '').split('/')[-1].split(':')[-1]
-    modelType = firstLower(atType) if len(atType) else modelType
-    modelType = 'screen' if modelType=='field' else modelType
+def cycleModels(IRIset, modelType=None):
+    from girderformindlogger.constants import HIERARCHY, REPROLIB_TYPES
+    from girderformindlogger.models.folder import Folder as FolderModel
+    from girderformindlogger.models.item import Item as ItemModel
+    from girderformindlogger.utility.jsonld_expander import reprolibCanonize
+
+    cachedDoc = None
+    primary = [modelType] if isinstance(modelType, str) else [
+    ] if modelType is None else modelType
+    secondary = [m for m in HIERARCHY if m not in primary]
+
+    del modelType
+
+    if len(primary):
+        query = {
+            '$and': [
+                {
+                    '$or': [{
+                        'meta.{}.@type'.format(modelType): {
+                            "$in": [
+                                t for t in [
+                                    reprolibCanonize(
+                                        REPROLIB_TYPES[modelType]
+                                    ),
+                                    'reproschema:{}'.format(suffix),
+                                    'reprolib:{}'.format(suffix),
+                                    suffix
+                                ] if t is not None
+                            ] for suffix in [
+                                REPROLIB_TYPES[modelType].split('/')[-1]
+                            ]
+                        }
+                    } for modelType in primary if modelType in REPROLIB_TYPES]
+                },
+                {
+                    '$or': [{
+                        'meta.{}.url'.format(modelType): {
+                            '$in': list(IRIset)
+                        }
+                    } for modelType in primary if modelType in REPROLIB_TYPES]
+                }
+            ]
+        }
+        cachedDoc = (FolderModel() if not any([
+            'screen' in primary,
+            'item' in primary
+        ]) else ItemModel()).findOne(query)
+    if cachedDoc is None:
+        query = {
+            '$and': [
+                {
+                    '$or': [{
+                        'meta.{}.@type'.format(modelType): {
+                            "$in": [
+                                t for t in [
+                                    reprolibCanonize(
+                                        REPROLIB_TYPES[modelType]
+                                    ),
+                                    'reproschema:{}'.format(suffix),
+                                    'reprolib:{}'.format(suffix),
+                                    suffix
+                                ] if t is not None
+                            ] for suffix in [
+                                REPROLIB_TYPES[modelType].split('/')[-1]
+                            ]
+                        }
+                    } for modelType in secondary if modelType in REPROLIB_TYPES]
+                },
+                {
+                    '$or': [{
+                        'meta.{}.url'.format(modelType): {
+                            '$in': list(IRIset)
+                        }
+                    } for modelType in secondary if modelType in REPROLIB_TYPES]
+                }
+            ]
+        }
+        cachedDoc = FolderModel().findOne(query)
+    if cachedDoc is None:
+        cachedDoc = ItemModel().findOne(query)
+
+    if cachedDoc is None:
+        return(None, None)
+
+    modelType = [
+        rt for rt in list(
+            REPROLIB_TYPES.keys()
+        ) if '@type' in cachedDoc.get('meta', {}).get(rt, {})
+    ]
+    modelType = modelType[0] if len(modelType) else None
+
+    print("Found {}/{}".format(modelType, str(cachedDoc['_id'])))
+    return(modelType, cachedDoc)
+
+
+def smartImport(IRI, user=None, refreshCache=False, modelType=None):
+    from girderformindlogger.constants import MODELS
+    from girderformindlogger.utility.jsonld_expander import loadCache,         \
+        reprolibCanonize
+
+    MODELS = MODELS()
+    mt1 = "screen" if modelType in [
+        None,
+        "external JSON-LD document"
+    ] else modelType
+    model, modelType = MODELS[mt1]().getFromUrl(
+        IRI,
+        user=user,
+        refreshCache=refreshCache,
+        thread=False
+    )
     return((
         modelType,
-        MODELS[modelType].getFromUrl(IRI, modelType, user, refreshCache)
+        loadCache(model.get('cached', model)),
+        reprolibCanonize(IRI)
     ))

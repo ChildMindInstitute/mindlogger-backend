@@ -2,6 +2,7 @@
 """
 Constants should be defined here.
 """
+import itertools
 import os
 import sys
 import girderformindlogger
@@ -30,25 +31,176 @@ STATIC_PREFIX = os.path.join(
     'girderformindlogger'
 )
 STATIC_ROOT_DIR = os.path.join(STATIC_PREFIX, 'web_client', 'static')
+
+DEFINED_INFORMANTS = {
+    "parent": [
+        "schema:children",
+        "rel:parentOf"
+    ],
+    "self": [
+        "schema:sameAs"
+    ]
+}
+
+DEFINED_RELATIONS = {
+    "schema:knows": {
+        "rdf:type": ["owl:SymmetricProperty"],
+        "rdfs:comment": [
+            "The most generic bi-directional social/work relation."
+        ]
+    },
+    "schema:sameAs": {
+        "rdf:type": ["owl:SymmetricProperty"],
+        "rdfs:comment": [
+            "URL of a reference Web page that unambiguously indicates the "
+            "item's identity. E.g. the URL of the item's Wikipedia page, "
+            "Wikidata entry, or official website."
+        ]
+    },
+    "rel:parentOf": {
+        "owl:inverseOf": ["rel:childOf"],
+        "owl:equivalentProperty": ["schema:parent"],
+        "rdfs:subPropertyOf": ["schema:knows"],
+        "rdfs:comment": [
+            "A person who has given birth to or nurtured and raised this "
+            "person."
+        ]
+    },
+    "schema:parent": {
+        "owl:inverseOf": ["schema:children"],
+        "owl:equivalentProperty": ["rel:childOf"],
+        "rdfs:subPropertyOf": ["schema:knows"],
+        "rdfs:comment": ["A parent of this person."]
+    },
+    "bio:father": {
+        "rdfs:subPropertyOf": ["schema:knows"],
+        "rdfs:comment": [
+            "The biological father of a person, also known as the genitor"
+        ],
+        "owl:inverseOf": ["rel:parentOf"]
+    },
+    "bio:mother": {
+        "rdfs:subPropertyOf": ["schema:knows"],
+        "rdfs:comment": [
+            "The biological mother of a person, also known as the genetrix"
+        ],
+        "owl:inverseOf": ["rel:parentOf"]
+    },
+    "rel:childOf": {
+        "owl:inverseOf": ["rel:parentOf"],
+        "owl:equivalentProperty": ["schema:children"],
+        "rdfs:comment": [
+            "A person who was given birth to or nurtured and raised by this "
+            "person."
+        ]
+    },
+    "schema:children": {
+        "owl:inverseOf": ["schema:parent"],
+        "owl:equivalentProperty": ["rel:parentOf"],
+        "rdfs:comment": ["A child of the person."]
+    }
+}
+
 PREFERRED_NAMES = ["skos:prefLabel", "skos:altLabel", "name", "@id", "url"]
+
+HIERARCHY = ['applet', 'protocol', 'activity', 'screen', 'item']
+
+KEYS_TO_DELANGUAGETAG = list(itertools.chain.from_iterable([[
+    "http://schema.org/{}".format(k),
+    "schema:{}".format(k),
+    k
+] for k in [
+    "contentUrl",
+    "encodingFormat",
+    "image",
+    "url"
+]]))
+
+KEYS_TO_DEREFERENCE = [
+    'schema:about',
+    'http://schema.org/about',
+    *KEYS_TO_DELANGUAGETAG
+]
+
+KEYS_TO_EXPAND = [
+    "responseOptions",
+    "https://schema.repronim.org/valueconstraints",
+    "reproterms:valueconstraints",
+    "valueconstraints",
+    "reprolib:valueconstraints",
+    "reprolib:terms/valueconstraints"
+]
+
+PROFILE_FIELDS = [
+    '_id',
+    'displayName',
+    'schema:knows'
+]
+
+def MODELS():
+    from girderformindlogger.models.activity import Activity as ActivityModel
+    from girderformindlogger.models.applet import Applet as AppletModel
+    from girderformindlogger.models.collection import Collection as \
+        CollectionModel
+    from girderformindlogger.models.folder import Folder as FolderModel
+    from girderformindlogger.models.item import Item as ItemModel
+    from girderformindlogger.models.protocol import Protocol as ProtocolModel
+    from girderformindlogger.models.screen import Screen as ScreenModel
+    from girderformindlogger.models.user import User as UserModel
+    return({
+        'activity': ActivityModel,
+        'activitySet': ProtocolModel,
+        'applet': AppletModel,
+        'collection': CollectionModel,
+        'field': ScreenModel,
+        'folder': FolderModel,
+        'item': ItemModel,
+        'protocol': ProtocolModel,
+        'screen': ScreenModel,
+        'user': UserModel
+    })
+
+NONES = {"None", None, "none", ""}
+
 REPROLIB_CANONICAL = "://".join([
     "https",
-    "raw.githubusercontent.com/ReproNim/schema-standardization/master/"
+    "raw.githubusercontent.com/ReproNim/reproschema/master/"
 ])
+
 REPROLIB_PREFIXES = [
     *[
         "://".join([p, u]) for p in ["http", "https"] for u in [
             "schema.repronim.org/",
             "purl.org/repro/s/dev/",
             "raw.githubusercontent.com/ReproNim/schema-standardization/master/",
-            "raw.githubusercontent.com/ReproNim/reprolib/master/"
+            "raw.githubusercontent.com/ReproNim/reprolib/master/",
+            "raw.githubusercontent.com/ReproNim/reproschema/master/"
         ]
     ],
     "reproschema:",
     "reproterms:"
 ]
+
+REPROLIB_TYPES = {
+    'activity': 'reprolib:schemas/Activity',
+    'protocol': 'reprolib:schemas/ActivitySet',
+    'screen': 'reprolib:schemas/Field'
+}
+
+REPROLIB_TYPES_REVERSED = {
+    v.split('/')[1]: k for k, v in REPROLIB_TYPES.items()
+}
+
+
 SPECIAL_SUBJECTS = {"ALL", "NONE"}
-USER_ROLES = {'user': dict, 'editor': list, 'manager': list, 'reviewer': dict}
+
+USER_ROLES = {
+    'user': dict,
+    'coordinator': list,
+    'editor': list,
+    'manager': list,
+    'reviewer': dict
+}
 
 def registerAccessFlag(key, name, description=None, admin=False):
     """

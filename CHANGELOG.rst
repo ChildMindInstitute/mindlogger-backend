@@ -8,13 +8,82 @@ Changes
 -------
 Unreleased
 ==========
+2019-12-18: v0.7.5
+^^^^^^^^^^^^^^^^^^
+* :racehorse: Check if user requesting user list is a coordinator just once
+* :ambulance: Restore language tags to keys where those tags are expected
+
+2019-12-17: v0.7.4
+^^^^^^^^^^^^^^^^^^
+* :ambulance: :chipmunk: Resolve caching issue for new users
+
+2019-12-17: v0.7.3
+^^^^^^^^^^^^^^^^^^
+* :ambulance: :pencil: Save invitation acceptance
+
+2019-12-16: v0.7.2
+^^^^^^^^^^^^^^^^^^
+* :ambulance: Restore `responseDates` to `applet` Objects
+* :racehorse: Thread cache refreshing
+* :ambulance: Update cache, *then* load when refreshing caches
+* :pencil: Return real parsed URLs (resolve #247)
+
+2019-12-05: v0.7.1
+^^^^^^^^^^^^^^^^^^
+* :racehorse: Resolve some query efficiency problems
+* :fire: :books: Remove some deprecated text and illustrations from README
+
+2019-11-25: v0.6.6
+^^^^^^^^^^^^^^^^^^
+* :ambulance: Fix `POST response/applet/activity` route
+
+2019-11-25: v0.6.5
+^^^^^^^^^^^^^^^^^^
+* :pencil: Allow invitations for roles other than "user"
+
+2019-11-21: v0.6.4
+^^^^^^^^^^^^^^^^^^
+* :sparkles: Informant-subject relationships
+
+2019-11-20: v0.6.3
+^^^^^^^^^^^^^^^^^^
+* :hammer: Update invitation routes
+
+2019-11-20: v0.6.2
+^^^^^^^^^^^^^^^^^^
+* :sparkles: ID codes
+
+2019-11-19: v0.6.1
+^^^^^^^^^^^^^^^^^^
+* :sparkles: User profiles
+* :tractor: :art: :hammer: Invitations
+
+2019-11-19: v0.5.13
+^^^^^^^^^^^^^^^^^^^
+* :ambulance: restore `schedule` object to `GET /user/applets`
+* :tractor: :art: Make URL values dereferenceable
+
+2019-11-11: v0.5.12
+^^^^^^^^^^^^^^^^^^^
+* :hammer: :racehorse: Stability and performance fixes
+* :lipstick: Clearer authentication error messages
+
+2019-11-06: v0.5.11
+^^^^^^^^^^^^^^^^^^^
+* :ambulance: :speaker: Handle additional JSON-LD errors.
+
+2019-11-04: v0.5.10
+^^^^^^^^^^^^^^^^^^^
+* :arrow_up: :tractor: :art: `|schema-standardization→reproschema| <https://github.com/ReproNim/reproschema/pull/278>`_
+* :arrow_up: :tractor: :art: `|activitySet→protocol| <https://github.com/ReproNim/reproschema/pull/277>`_
+
 2019-10-31 :jack_o_lantern:: v0.5.9
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 * :sparkles: :building_construction: New route: `GET schedule`
 
 2019-10-30: v0.5.8
 ^^^^^^^^^^^^^^^^^^
-* :hammer: Prefix all [reprolib](https://github.com/ReproNim/schema-standardization) terms
+* :hammer: Prefix all `reprolib <https://github.com/ReproNim/schema-standardization>`_ terms
 * :ambulance: :tractor: Delanguage tag `http://schema.org/url`s
 
 2019-10-25: v0.5.7
@@ -30,9 +99,9 @@ Unreleased
 ^^^^^^^^^^^^^^^^^^
 * :books: :microscope: Coverage reports
 
-2019-10-11: v0.5.3; 2019-10-15: v0.5.4
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-* :ambulance: :green_heart: Handle change in the way schema are defined per [ReproNim/schema-standardization@`1c54072`](https://github.com/ReproNim/schema-standardization/commit/1c5407247817f2c8ec47f2f286683ad94065e2af)
+2019-10-11 ‒ 15: v0.5.3 ‒ v0.5.4
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+* :ambulance: :green_heart: Handle change in the way schema are defined per `|1c54072| <https://github.com/ReproNim/schema-standardization/commit/1c5407247817f2c8ec47f2f286683ad94065e2af>`_
 
 2019-10-01: v0.5.2
 ^^^^^^^^^^^^^^^^^^
@@ -441,3 +510,7 @@ Removals
 
 * Remove the unmaintained external web client
 * Remove the unmaintained jQuery "girderBrowser" client, and associated "jquery_widgets" plugin
+
+.. |schema-standardization→reproschema| replace:: ``schema-standardization`` → ``reproschema``
+.. |activitySet→protocol| replace:: ``activity-sets`` → ``protocols``
+.. |1c54072| replace:: ReproNim/schema-standardization@``1c54072``

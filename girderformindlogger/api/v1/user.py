@@ -7,12 +7,15 @@ import itertools
 from ..describe import Description, autoDescribeRoute
 from girderformindlogger.api import access
 from girderformindlogger.api.rest import Resource, filtermodel, setCurrentUser
-from girderformindlogger.constants import AccessType, SortDir, TokenScope, USER_ROLES
+from girderformindlogger.constants import AccessType, SortDir, TokenScope,     \
+    USER_ROLES
 from girderformindlogger.exceptions import RestException, AccessException
 from girderformindlogger.models.applet import Applet as AppletModel
 from girderformindlogger.models.collection import Collection as CollectionModel
 from girderformindlogger.models.folder import Folder as FolderModel
 from girderformindlogger.models.group import Group as GroupModel
+from girderformindlogger.models.ID_code import IDCode
+from girderformindlogger.models.profile import Profile as ProfileModel
 from girderformindlogger.models.setting import Setting
 from girderformindlogger.models.token import Token
 from girderformindlogger.models.user import User as UserModel
@@ -34,13 +37,15 @@ class User(Resource):
         self.route('GET', (), self.find)
         self.route('GET', ('me',), self.getMe)
         self.route('GET', ('authentication',), self.login)
-        self.route('GET', (':id',), self.getUser)
+        self.route('GET', (':id',), self.getUserByID)
         self.route('GET', (':id', 'access'), self.getUserAccess)
         self.route('PUT', (':id', 'access'), self.updateUserAccess)
-        self.route('GET', (':id', 'applets'), self.getUserApplets)
+        self.route('PUT', (':id', 'code'), self.updateIDCode)
+        self.route('DELETE', (':id', 'code'), self.removeIDCode)
         self.route('GET', ('applets',), self.getOwnApplets)
         self.route('GET', (':id', 'details'), self.getUserDetails)
         self.route('GET', ('invites',), self.getGroupInvites)
+        self.route('PUT', (':id', 'knows'), self.setUserRelationship)
         self.route('GET', ('details',), self.getUsersDetails)
         self.route('POST', (), self.createUser)
         self.route('PUT', (':id',), self.updateUser)
@@ -53,6 +58,7 @@ class User(Resource):
         self.route('POST', (':id', 'otp'), self.initializeOtp)
         self.route('PUT', (':id', 'otp'), self.finalizeOtp)
         self.route('DELETE', (':id', 'otp'), self.removeOtp)
+        self.route('PUT', ('profile',), self.updateProfile)
         self.route('PUT', (':id', 'verification'), self.verifyEmail)
         self.route('POST', ('verification',), self.sendVerificationEmail)
 
@@ -60,6 +66,7 @@ class User(Resource):
     @access.user
     @autoDescribeRoute(
         Description('Get all pending invites for the logged-in user.')
+        .deprecated()
     )
     def getGroupInvites(self):
         pending = self.getCurrentUser().get("groupInvites")
@@ -106,26 +113,29 @@ class User(Resource):
                             fields=userfields
                         ))
                     ]
-            output.append({
-                '_id': groupId,
-                'applets': [{
-                    'name': applet.get('cached', {}).get('applet', {}).get(
-                        'skos:prefLabel',
-                        ''
-                    ),
-                    'image': applet.get('cached', {}).get('applet', {}).get(
-                        'schema:image',
-                        ''
-                    ),
-                    'description': applet.get('cached', {}).get('applet', {
-                    }).get(
-                        'schema:description',
-                        ''
-                    ),
-                    'managers': applet.get('managers'),
-                    'reviewers': applet.get('reviewers')
-                } for applet in applets]
-            })
+                appletC = jsonld_expander.loadCache(
+                    applet.get('cached')
+                ) if 'cached' in applet else applet
+                output.append({
+                    '_id': groupId,
+                    'applets': [{
+                        'name': appletC.get('applet', {}).get(
+                            'skos:prefLabel',
+                            ''
+                        ),
+                        'image': appletC.get('applet', {}).get(
+                            'schema:image',
+                            ''
+                        ),
+                        'description': appletC.get('applet', {
+                        }).get(
+                            'schema:description',
+                            ''
+                        ),
+                        'managers': applet.get('managers'),
+                        'reviewers': applet.get('reviewers')
+                    } for applet in applets]
+                })
         return(output)
 
     @access.user
@@ -134,23 +144,162 @@ class User(Resource):
         Description('List or search for users.')
         .responseClass('User', array=True)
         .param('text', 'Pass this to perform a full text search for items.', required=False)
-        .pagingParams(defaultSort='firstName') # 🚧 replace with customID once customID defined
+        .pagingParams(defaultSort='firstName')
+        .deprecated()
     )
     def find(self, text, limit, offset, sort):
         return list(self._model.search(
             text=text, user=self.getCurrentUser(), offset=offset, limit=limit, sort=sort))
 
     @access.public(scope=TokenScope.USER_INFO_READ)
-    @filtermodel(model=UserModel)
     @autoDescribeRoute(
         Description('Get a user by ID.')
-        .responseClass('User')
-        .modelParam('id', model=UserModel, level=AccessType.READ)
+        .param('id', 'Profile ID or ID code', required=True)
         .errorResponse('ID was invalid.')
         .errorResponse('You do not have permission to see this user.', 403)
     )
-    def getUser(self, user):
-        return user
+    def getUserByID(self, id):
+        from bson.objectid import ObjectId
+        user = self.getCurrentUser()
+        return(ProfileModel().getProfile(id, user))
+
+    @access.public(scope=TokenScope.USER_INFO_READ)
+    @autoDescribeRoute(
+        Description('Add a relationship between users.')
+        .param(
+            'id',
+            'ID or ID code of user to add relationship to',
+            required=True
+        )
+        .param('rel', 'Relationship to add', required=True)
+        .param('otherId', 'ID or ID code of related individual.', required=True)
+        .param(
+            'otherName',
+            'Name to display for related individual',
+            required=True
+        )
+        .errorResponse('ID was invalid.')
+        .errorResponse('You do not have permission to see this user.', 403)
+    )
+    def setUserRelationship(self, id, rel, otherId, otherName):
+        from girderformindlogger.models.invitation import Invitation
+        from girderformindlogger.utility.jsonld_expander import                \
+            inferRelationships, oidIffHex
+
+        user = self.getCurrentUser()
+        grammaticalSubject = ProfileModel().getProfile(id, user)
+        gsp = ProfileModel().load(
+            grammaticalSubject['_id'],
+            force=True
+        )
+        grammaticalSubject = Invitation().load(
+            grammaticalSubject['_id'],
+            force=True
+        ) if gsp is None else gsp
+        print(grammaticalSubject)
+        if grammaticalSubject is None or not AppletModel().isCoordinator(
+            grammaticalSubject['appletId'], user
+        ):
+            raise AccessException(
+                'You do not have permission to update this user.'
+            )
+
+        appletId = grammaticalSubject['appletId']
+        grammaticalObject = ProfileModel().getSubjectProfile(
+            otherId,
+            otherName,
+            user
+        )
+        if grammaticalObject is None:
+            grammaticalObject = ProfileModel().getProfile(
+                ProfileModel().createPassiveProfile(
+                    appletId,
+                    otherId,
+                    otherName,
+                    user
+                )['_id'],
+                grammaticalSubject
+            )
+        if 'schema:knows' in grammaticalSubject:
+            if rel in grammaticalSubject['schema:knows'] and grammaticalObject[
+                '_id'
+            ] not in grammaticalSubject['schema:knows'][rel]:
+                grammaticalSubject['schema:knows'][rel].append(
+                    grammaticalObject['_id']
+                )
+            else:
+                grammaticalSubject['schema:knows'][rel] = [
+                    grammaticalObject['_id']
+                ]
+        else:
+            grammaticalSubject['schema:knows'] = {
+                rel: [grammaticalObject['_id']]
+            }
+        ProfileModel().save(grammaticalSubject, validate=False)
+        inferRelationships(grammaticalSubject)
+        return(ProfileModel().getProfile(id, user))
+
+
+    @access.public(scope=TokenScope.USER_INFO_READ)
+    @autoDescribeRoute(
+        Description('Update a user\'s ID Code.')
+        .param('id', 'Profile ID', required=True)
+        .param('code', 'ID code to add to profile', required=True)
+        .errorResponse('ID was invalid.')
+        .errorResponse('You do not have permission to see this user.', 403)
+    )
+    def updateIDCode(self, id, code):
+        from bson.objectid import ObjectId
+        user = self.getCurrentUser()
+        try:
+            p = ProfileModel().findOne({'_id': ObjectId(id)})
+        except:
+            p = None
+        if p is None or not AppletModel().isCoordinator(p['appletId'], user):
+            raise AccessException(
+                'You do not have permission to update this user\'s ID code.'
+            )
+        else:
+            IDCode().createIdCode(p, code)
+        return(
+            ProfileModel().profileAsUser(
+                ProfileModel().load(p['_id'], force=True),
+                user
+            )
+        )
+
+    @access.public(scope=TokenScope.USER_INFO_READ)
+    @autoDescribeRoute(
+        Description('Remove an ID Code from a user.')
+        .param('id', 'Profile ID', required=True)
+        .param(
+            'code',
+            'ID code to remove from profile. If the ID code to remove is the '
+            'only ID code for that profile, a new one will be auto-generated.',
+            required=True
+        )
+        .errorResponse('ID was invalid.')
+        .errorResponse('You do not have permission to see this user.', 403)
+    )
+    def removeIDCode(self, id, code):
+        from bson.objectid import ObjectId
+        user = self.getCurrentUser()
+        try:
+            p = ProfileModel().findOne({'_id': ObjectId(id)})
+        except:
+            p = None
+        if p is None or not AppletModel().isCoordinator(p['appletId'], user):
+            raise AccessException(
+                'You do not have permission to update this user\'s ID code.'
+            )
+        else:
+            IDCode().removeCode(p['_id'], code)
+        return(
+            ProfileModel().profileAsUser(
+                ProfileModel().load(p['_id'], force=True),
+                user
+            )
+        )
 
     @access.user(scope=TokenScope.USER_INFO_READ)
     @autoDescribeRoute(
@@ -159,6 +308,7 @@ class User(Resource):
         .modelParam('id', model=UserModel, level=AccessType.READ)
         .errorResponse('ID was invalid.')
         .errorResponse('You do not have permission to see this user.', 403)
+        .deprecated()
     )
     def getUserAccess(self, user):
         return self._model.getFullAccessList(user)
@@ -175,6 +325,7 @@ class User(Resource):
         )
         .errorResponse('ID was invalid.')
         .errorResponse('Admin access was denied for the user.', 403)
+        .deprecated()
     )
     def updateUserAccess(self, user, access):
         return self._model.setAccessList(
@@ -182,102 +333,6 @@ class User(Resource):
             access,
             save=True
         )
-
-    @access.public(scope=TokenScope.DATA_READ)
-    @autoDescribeRoute(
-        Description('Get all applets for a user by that user\'s ID and role.')
-        .modelParam('id', model=UserModel, level=AccessType.READ)
-        .param(
-            'role',
-            'One of ' + str(USER_ROLES.keys()),
-            required=False,
-            default='user'
-        )
-        .param(
-            'ids_only',
-            'If true, only returns an Array of the IDs of assigned applets. '
-            'Otherwise, returns an Array of Objects keyed with "applet" '
-            '"activitySet", "activities" and "items" with expanded JSON-LD as '
-            'values.',
-            required=False,
-            default=False,
-            dataType='boolean'
-        )
-        .errorResponse('ID was invalid.')
-        .errorResponse(
-            'You do not have permission to see any of this user\'s applets.',
-            403
-        )
-        .deprecated()
-    )
-    def getUserApplets(self, user, role, ids_only):
-        from bson.objectid import ObjectId
-        reviewer = self.getCurrentUser()
-        if reviewer is None:
-            raise AccessException("You must be logged in to get user applets.")
-        if user.get('_id') != reviewer.get('_id') and user.get(
-            '_id'
-        ) is not None:
-            raise AccessException("You can only get your own applets.")
-        role = role.lower()
-        if role not in USER_ROLES.keys():
-            raise RestException(
-                'Invalid user role.',
-                'role'
-            )
-        try:
-            applets = AppletModel().getAppletsForUser(role, user, active=True)
-            if len(applets)==0:
-                return([])
-            if ids_only==True:
-                return([applet.get('_id') for applet in applets])
-            return(
-                [
-                    {
-                        **jsonld_expander.formatLdObject(
-                            applet,
-                            'applet',
-                            reviewer,
-                            refreshCache=False
-                        ),
-                        "users": AppletModel().getAppletUsers(applet, user),
-                        "groups": AppletModel().getAppletGroups(
-                            applet,
-                            arrayOfObjects=True
-                        )
-                    } if role=="manager" else {
-                        **jsonld_expander.formatLdObject(
-                            applet,
-                            'applet',
-                            reviewer,
-                            dropErrors=True
-                        ),
-                        "groups": [
-                            group for group in AppletModel(
-                            ).getAppletGroups(applet).get(role) if ObjectId(
-                                group
-                            ) in [
-                                *user.get('groups', []),
-                                *user.get('formerGroups', []),
-                                *[invite['groupId'] for invite in [
-                                    *user.get('groupInvites', []),
-                                    *user.get('declinedInvites', [])
-                                ]]
-                            ]
-                        ]
-                    } for applet in applets if (
-                        applet is not None and not applet.get(
-                            'meta',
-                            {}
-                        ).get(
-                            'applet',
-                            {}
-                        ).get('deleted')
-                    )
-                ]
-            )
-        except Exception as e:
-            return(e)
 
     @access.public(scope=TokenScope.DATA_READ)
     @autoDescribeRoute(
@@ -292,10 +347,24 @@ class User(Resource):
             'ids_only',
             'If true, only returns an Array of the IDs of assigned applets. '
             'Otherwise, returns an Array of Objects keyed with "applet" '
-            '"activitySet", "activities" and "items" with expanded JSON-LD as '
-            'values.',
+            '"protocol", "activities" and "items" with expanded JSON-LD as '
+            'values. This parameter takes precedence over `unexpanded`.',
             required=False,
-            default=False,
+            dataType='boolean'
+        )
+        .param(
+            'unexpanded',
+            'If true, only returns an Array of assigned applets, but only the '
+            'applet-level information. Otherwise, returns an Array of Objects '
+            'keyed with "applet", "protocol", "activities" and "items" with '
+            'expanded JSON-LD as values.',
+            required=False,
+            dataType='boolean'
+        )
+        .param(
+            'refreshCache',
+            'If true, refresh user cache.',
+            required=False,
             dataType='boolean'
         )
         .errorResponse('ID was invalid.')
@@ -304,8 +373,17 @@ class User(Resource):
             403
         )
     )
-    def getOwnApplets(self, role, ids_only):
+    def getOwnApplets(
+        self,
+        role,
+        ids_only=False,
+        unexpanded=False,
+        refreshCache=False
+    ):
+        import threading
+        from bson import json_util
         from bson.objectid import ObjectId
+
         reviewer = self.getCurrentUser()
         if reviewer is None:
             raise AccessException("You must be logged in to get user applets.")
@@ -315,7 +393,7 @@ class User(Resource):
                 'Invalid user role.',
                 'role'
             )
-        try:
+        if ids_only or unexpanded:
             applets = AppletModel().getAppletsForUser(
                 role,
                 reviewer,
@@ -325,116 +403,66 @@ class User(Resource):
                 return([])
             if ids_only==True:
                 return([applet.get('_id') for applet in applets])
-            return(
-                [
-                    {
-                        **jsonld_expander.formatLdObject(
-                            applet,
-                            'applet',
-                            reviewer,
-                            refreshCache=False,
-                            responseDates=False
-                        ),
-                        "users": AppletModel().getAppletUsers(applet, reviewer),
-                        "groups": AppletModel().getAppletGroups(
-                            applet,
-                            arrayOfObjects=True
-                        )
-                    } if role=="manager" else {
-                        **jsonld_expander.formatLdObject(
-                            applet,
-                            'applet',
-                            reviewer,
-                            dropErrors=True,
-                            responseDates=True if role=="user" else False
-                        ),
-                        "groups": [
-                            group for group in AppletModel(
-                            ).getAppletGroups(applet).get(role) if ObjectId(
-                                group
-                            ) in [
-                                *reviewer.get('groups', []),
-                                *reviewer.get('formerGroups', []),
-                                *[invite['groupId'] for invite in [
-                                    *reviewer.get('groupInvites', []),
-                                    *reviewer.get('declinedInvites', [])
-                                ]]
-                            ]
-                        ]
-                    } for applet in applets if (
-                        applet is not None and not applet.get(
-                            'meta',
-                            {}
-                        ).get(
-                            'applet',
-                            {}
-                        ).get('deleted')
-                    )
-                ]
+            elif unexpanded==True:
+                return([{
+                    'applet': AppletModel().unexpanded(applet)
+                } for applet in applets])
+        if refreshCache:
+            thread = threading.Thread(
+                target=AppletModel().updateUserCache,
+                args=(role, reviewer),
+                kwargs={"active": True, "refreshCache": refreshCache}
             )
-        except:
-            try:
-                applets = AppletModel().getAppletsForUser(
+            thread.start()
+            return({
+                "message": "The user cache is being updated. Please check back "
+                           "in several mintutes to see it."
+            })
+        try:
+            if 'cached' in reviewer:
+                reviewer['cached'] = json_util.loads(
+                    reviewer['cached']
+                ) if isinstance(reviewer['cached'], str) else reviewer['cached']
+            else:
+                reviewer['cached'] = {}
+            if 'applets' in reviewer[
+                'cached'
+            ] and role in reviewer['cached']['applets'] and isinstance(
+                reviewer['cached']['applets'][role],
+                list
+            ) and len(reviewer['cached']['applets'][role]):
+                applets = reviewer['cached']['applets'][role]
+                thread = threading.Thread(
+                    target=AppletModel().updateUserCache,
+                    args=(role, reviewer),
+                    kwargs={"active": True, "refreshCache": refreshCache}
+                )
+                thread.start()
+            else:
+                applets = AppletModel().updateUserCache(
                     role,
                     reviewer,
-                    active=True
+                    active=True,
+                    refreshCache=refreshCache
                 )
-                if len(applets)==0:
-                    return([])
-                if ids_only==True:
-                    return([applet.get('_id') for applet in applets])
-                return(
-                    [
-                        {
-                            **jsonld_expander.formatLdObject(
-                                applet,
-                                'applet',
-                                reviewer,
-                                refreshCache=True,
-                                responseDates=False
-                            ),
-                            "users": AppletModel().getAppletUsers(
-                                applet,
-                                reviewer
-                            ),
-                            "groups": AppletModel().getAppletGroups(
-                                applet,
-                                arrayOfObjects=True
-                            )
-                        } if role=="manager" else {
-                            **jsonld_expander.formatLdObject(
-                                applet,
-                                'applet',
-                                reviewer,
-                                dropErrors=True,
-                                responseDates=True if role=="user" else False
-                            ),
-                            "groups": [
-                                group for group in AppletModel(
-                                ).getAppletGroups(applet).get(role) if ObjectId(
-                                    group
-                                ) in [
-                                    *reviewer.get('groups', []),
-                                    *reviewer.get('formerGroups', []),
-                                    *[invite['groupId'] for invite in [
-                                        *reviewer.get('groupInvites', []),
-                                        *reviewer.get('declinedInvites', [])
-                                    ]]
-                                ]
-                            ]
-                        } for applet in applets if (
-                            applet is not None and not applet.get(
-                                'meta',
-                                {}
-                            ).get(
-                                'applet',
-                                {}
-                            ).get('deleted')
-                        )
-                    ]
-                )
-            except Exception as e:
-                return(e)
+            for applet in applets:
+                try:
+                    applet["applet"]["responseDates"] = responseDateList(
+                        applet['applet'].get(
+                            '_id',
+                            ''
+                        ).split('applet/')[-1],
+                        user.get('_id'),
+                        user
+                    )
+                except:
+                    applet["applet"]["responseDates"] = []
+
+            return(applets)
+        except Exception as e:
+            import sys, traceback
+            print(sys.exc_info())
+            return([])
 
 
     @access.public(scope=TokenScope.USER_INFO_READ)
@@ -451,23 +479,30 @@ class User(Resource):
         Description('Log in to the system.')
         .notes('Pass your username and password using HTTP Basic Auth. Sends'
                ' a cookie that should be passed back in future requests.')
-        .param('Girder-OTP', 'A one-time password for this user', paramType='header',
-               required=False)
+        .param('Girder-OTP', 'A one-time password for this user',
+               paramType='header', required=False)
         .errorResponse('Missing Authorization header.', 401)
         .errorResponse('Invalid login or password.', 403)
     )
     def login(self):
+        import threading
+        from girderformindlogger.utility.mail_utils import validateEmailAddress
+
         if not Setting().get(SettingKey.ENABLE_PASSWORD_LOGIN):
             raise RestException('Password login is disabled on this instance.')
 
         user, token = self.getCurrentUser(returnToken=True)
 
-        # Only create and send new cookie if user isn't already sending a valid one.
+
+        # Only create and send new cookie if user isn't already sending a valid
+        # one.
         if not user:
             authHeader = cherrypy.request.headers.get('Authorization')
 
             if not authHeader:
-                authHeader = cherrypy.request.headers.get('Girder-Authorization')
+                authHeader = cherrypy.request.headers.get(
+                    'Girder-Authorization'
+                )
 
             if not authHeader or not authHeader[0:6] == 'Basic ':
                 raise RestException('Use HTTP Basic Authentication', 401)
@@ -480,8 +515,24 @@ class User(Resource):
                 raise RestException('Invalid HTTP Authorization header', 401)
 
             login, password = credentials.split(':', 1)
+            if validateEmailAddress(login):
+                raise AccessException(
+                    "Please log in with a username, not an email address."
+                )
             otpToken = cherrypy.request.headers.get('Girder-OTP')
-            user = self._model.authenticate(login, password, otpToken)
+            try:
+                user = self._model.authenticate(login, password, otpToken)
+            except:
+                raise AccessException(
+                    "Incorrect password for {} if that user exists".format(
+                        login
+                    )
+                )
+
+            thread = threading.Thread(
+                target=AppletModel().updateUserCacheAllRoles,
+                args=(user,)
+            )
 
             setCurrentUser(user)
             token = self.sendAuthTokenCookie(user)
@@ -628,16 +679,16 @@ class User(Resource):
             default="",
             required=False
         )
-        .param(
-            'email',
-            'The email of the user.',
-            required=False,
-            dataType='string'
-        )
         .param('admin', 'Is the user a site admin (admin access required)',
                required=False, dataType='boolean')
         .param('status', 'The account status (admin access required)',
                required=False, enum=('pending', 'enabled', 'disabled'))
+        .param(
+             'email',
+             'Deprecated. Do not use.',
+             required=False,
+             dataType='string'
+        )
         .param(
             'firstName',
             'Deprecated. Do not use.',
@@ -801,6 +852,7 @@ class User(Resource):
         .modelParam('id', model=UserModel, level=AccessType.READ)
         .errorResponse()
         .errorResponse('Read access was denied on the user.', 403)
+        .deprecated()
     )
     def getUserDetails(self, user):
         return {
@@ -861,6 +913,40 @@ class User(Resource):
 
         del user['otp']
         self._model.save(user)
+
+    @access.public
+    @autoDescribeRoute(
+        Description(
+            'Update a user profile. Requires either profile ID __OR__ applet '
+            'ID and ID code.'
+        )
+        .jsonParam(
+            'update',
+            'A JSON Object with values to update, overriding existing values.',
+            required=True
+        )
+        .param('id', 'Profile ID.', required=False)
+        .param('applet', 'Applet ID.', required=False)
+        .param('idCode', 'ID code.', required=False)
+    )
+    def updateProfile(self, update={}, id=None, applet=None, idCode=None):
+        if (id is not None) and (applet is not None or idCode is not None):
+            raise RestException(
+                'Pass __either__ profile ID __OR__ (applet ID and ID code), '
+                'not both.'
+            )
+        elif (id is None) and (applet is None or idCode is None):
+            raise RestException(
+                'Either profile ID __OR__ (applet ID and ID code) required.'
+            )
+        else:
+            currentUser = self.getCurrentUser()
+            id = id if id is not None else Profile().getProfile(
+                applet=AppletModel().load(applet, force=True),
+                idCode=idCode,
+                user=currentUser
+            )
+        return(ProfileModel().updateProfile(id, currentUser, update))
 
     @access.public
     @autoDescribeRoute(

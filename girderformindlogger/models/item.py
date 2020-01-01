@@ -23,8 +23,21 @@ class Item(acl_mixin.AccessControlMixin, Model):
 
     def initialize(self):
         self.name = 'item'
-        self.ensureIndices(('folderId', 'name', 'lowerName',
-                            ([('folderId', 1), ('name', 1)], {})))
+        self.ensureIndices(
+            (
+                'folderId',
+                'name',
+                'lowerName',
+                'meta.screen.@type',
+                'meta.screen.url',
+                ([
+                    ('folderId', 1),
+                    ('name', 1),
+                    ('meta.screen.@type', 1),
+                    ('meta.screen.url', 1)
+                ], {})
+            )
+        )
         self.ensureTextIndex({
             'name': 10,
             'description': 1

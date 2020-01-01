@@ -35,13 +35,17 @@ from girderformindlogger.models.user import User as UserModel
 from girderformindlogger.utility.progress import noProgress, setResponseTimeLimit
 
 
-class ActivitySet(Folder):
+class Protocol(Folder):
     def importUrl(self, url, user=None, refreshCache=False):
         """
         Gets an activity set from a given URL, checks against the database,
         stores and returns that activity set.
         """
-        return(self.getFromUrl(url, 'activitySet', user, refreshCache))
+        return(
+            self.getFromUrl(url, 'protocol', user, refreshCache, thread=False)[
+                0
+            ]
+        )
 
     def load(self, id, level=AccessType.ADMIN, user=None, objectId=True,
              force=False, fields=None, exc=False):
@@ -93,16 +97,16 @@ class ActivitySet(Folder):
             try:
                 parent = pathFromRoot[-1]['object']
                 if (
-                    parent['name']=="Activitysets" and
+                    parent['name'] in {"Activitysets", "Protocols"} and
                     doc['baseParentType'] in {'collection', 'user'}
                 ):
                     """
-                    Check if parent is "Activitysets" collection or user
-                    folder, ie, if this is an Activity Set. If so, return
-                    Activity Set.
+                    Check if parent is "Protocols" collection or user
+                    folder, ie, if this is a Protocol. If so, return
+                    Protocol.
                     """
                     return(doc)
             except:
                 raise ValidationException(
-                    "Invalid Activity Set ID."
+                    "Invalid Protocol ID."
                 )

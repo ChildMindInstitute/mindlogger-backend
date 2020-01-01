@@ -11,11 +11,13 @@ from bson.errors import InvalidId
 from pymongo.errors import WriteError
 from dictdiffer import diff
 from girderformindlogger import events, logprint, logger, auditLogger
-from girderformindlogger.constants import AccessType, CoreEventHandler, SortDir, \
-    ACCESS_FLAGS, PREFERRED_NAMES, TEXT_SCORE_SORT_MAX, USER_ROLES
+from girderformindlogger.constants import ACCESS_FLAGS, AccessType,            \
+    CoreEventHandler, MODELS, PREFERRED_NAMES, REPROLIB_TYPES_REVERSED,        \
+    SortDir, TEXT_SCORE_SORT_MAX, USER_ROLES
 from girderformindlogger.external.mongodb_proxy import MongoProxy
 from girderformindlogger.models import getDbConnection
-from girderformindlogger.exceptions import AccessException, ValidationException
+from girderformindlogger.exceptions import AccessException,                    \
+    ResourcePathNotFound, ValidationException
 
 USER_ROLE_KEYS = USER_ROLES.keys()
 
@@ -197,35 +199,34 @@ class Model(object):
 
         return self.filterDocument(doc, allow=keys)
 
-    def getCached(self, url, modelType):
-        """
-        Returns the latest cached version of model `modelType` with URL `url`,
-        if any.
+    def getModelType(self, model):
+        if '@type' in model:
+            mt = model['@type'] if isinstance(
+                model['@type'],
+                str
+            ) else model['@type'][0] if isinstance(
+                model['@type'],
+                list
+            ) and len(model['@type']) else None
+            return(REPROLIB_TYPES_REVERSED[
+                mt.split(':')[-1].split('/')[-1]
+            ])
+        if 'meta' in model:
+            for k in MODELS():
+                if k in model['meta']:
+                    mt = self.getModelType(model['meta'][k])
+                    if mt is not None:
+                        return(mt)
+        return(None)
 
-        :param url: URL
-        :type url: str
-        :param modelType: 'activity', 'screen', etc.
-        :type modelType: str
-        :returns: dict or None
-        """
-        from girderformindlogger.utility.jsonld_expander import MODELS, \
-        reprolibCanonize
-        cached = list(MODELS[modelType].find(
-            query={
-                'meta.{}.url'.format(modelType): url,
-                'meta.activitySet.@type': reprolibCanonize(
-                    'reprolib:schemas/ActivitySet'
-                ),
-            } if modelType=="activitySet" else {
-                'meta.{}.url'.format(modelType): url
-            },
-            sort=[('created', SortDir.DESCENDING)]
-        ))
-        return(
-            cached[0] if len(cached) else None
-        )
-
-    def getFromUrl(self, url, modelType, user=None, refreshCache=False):
+    def getFromUrl(
+        self,
+        url,
+        modelType=None,
+        user=None,
+        refreshCache=False,
+        thread=False
+    ):
         """
         Loads from a URL and saves to the DB, returning the loaded model.
 
@@ -235,140 +236,77 @@ class Model(object):
         :type modelType: str
         :param refreshCache: Refresh from Dereferencing URLs?
         :type refreshCache: bool
-        :returns: dict or None
+        :returns: (dict, str) or (None, None)
         """
-        from girderformindlogger.utility import firstLower, loadJSON
-        from girderformindlogger.utility.jsonld_expander import camelCase, \
-            contextualize, reprolibCanonize, snake_case
-        if user==None:
-            raise AccessException(
-                "You must be logged in to load a{} by url".format(
-                    "n {}".format(
-                        modelType
-                    ) if modelType[0] in [
-                        'a', 'e', 'h', 'i', 'o'
-                    ] else " {}".format(modelType)
-                )
-            )
+        import threading
+        from . import cycleModels
+        from girderformindlogger.utility import loadJSON
+        from girderformindlogger.utility.jsonld_expander import camelCase,     \
+            expand, importAndCompareModelType, loadCache, reprolibCanonize,    \
+            snake_case
+
+        refreshCache = False if refreshCache is None else refreshCache
+
+        primary = [modelType] if isinstance(modelType, str) else [
+        ] if modelType is None else modelType
+        modelType = modelType if isinstance(
+            modelType,
+            str
+        ) else "external JSON-LD document" if modelType is None else modelType[
+            0
+        ]
+        passedUrl = url
         url = reprolibCanonize(url)
-        model = contextualize(loadJSON(url, modelType))
-        atType = model.get('@type', '').split('/')[-1].split(':')[-1]
-        modelType = firstLower(atType) if len(atType) else modelType
-        modelType = 'screen' if modelType.lower()=='field' else modelType
-        changedModel = atType != modelType and len(atType)
-        prefName = self.preferredName(model)
-        cachedDoc = self.getCached(url, modelType)
-        if cachedDoc and not changedModel:
-            if not refreshCache:
-                return(cachedDoc)
-            provenenceProps = [
-                'schema:isBasedOn',
-                'prov:wasRevisionOf'
-            ]
-            cachedId = str(cachedDoc.get('_id'))
-            cachedDocObj = cachedDoc.get('meta', {}).get(
-                snake_case(modelType),
-                cachedDoc.get('meta', {}).get(
-                    camelCase(modelType),
-                    cachedDoc.get('meta', {}).get(
-                        modelType,
-                        {}
+        if url is None:
+            raise ResourcePathNotFound("Document not found: {}".format(str(
+                passedUrl
+            )))
+        atType, cachedDoc = cycleModels(
+            {url, passedUrl},
+            modelType=primary
+        ) if not refreshCache else modelType, None
+        if cachedDoc is None:
+            if user==None:
+                raise AccessException(
+                    "You must be logged in to load a{} by url".format(
+                        "n {}".format(
+                            modelType
+                        ) if modelType[0] in [
+                            'a', 'e', 'h', 'i', 'o'
+                        ] else " {}".format(modelType)
                     )
                 )
+            compact = loadJSON(url)
+            if thread:
+                thread = threading.Thread(
+                    target=importAndCompareModelType,
+                    args=(compact,),
+                    kwargs={'url': url, 'user': user, 'modelType': modelType}
+                )
+                thread.start()
+                return(
+                    {
+                        "message": "This JSON LD document is not cached and must "
+                                   "be loaded. Please check back in several "
+                                   "minutes."
+                    },
+                    self.getModelType(compact)
+                )
+            model, modelType = importAndCompareModelType(
+                compact,
+                url=url,
+                user=user,
+                modelType=modelType
             )
-            for prop in ['url', *provenenceProps]:
-                cachedDocObj.pop(prop, None)
         else:
-            cachedId = None
-            cachedDocObj = {}
-        if not cachedDocObj or len(list(diff(cachedDocObj, model))):
-            if cachedId:
-                for prop in provenenceProps:
-                    model[prop] = {
-                        '@id': '/'.join([
-                            snake_case(modelType),
-                            cachedId
-                        ])
-                    }
-            docCollection=self.getModelCollection(modelType)
-            if self.name in ['folder', 'item']:
-                if self.name=='item':
-                    from girderformindlogger.models.folder import Folder as \
-                        FolderModel
-                docFolder = (
-                    FolderModel() if self.name=='item' else self
-                ).createFolder(
-                    name=prefName,
-                    parent=docCollection,
-                    parentType='collection',
-                    public=True,
-                    creator=user,
-                    allowRename=True,
-                    reuseExisting=False
-                )
-                if self.name=='folder':
-                    return(
-                        self.setMetadata(
-                            docFolder,
-                            {
-                                modelType: {
-                                    **model,
-                                    'url': url
-                                }
-                            }
-                        )
-                    )
-                elif self.name=='item':
-                    return(
-                        self.setMetadata(
-                            self.createItem(
-                                name=prefName if prefName else str(len(list(
-                                    FolderModel().childItems(
-                                        FolderModel().load(
-                                            docFolder,
-                                            level=None,
-                                            user=user,
-                                            force=True
-                                        )
-                                    )
-                                )) + 1),
-                                creator=user,
-                                folder=docFolder,
-                                reuseExisting=False
-                            ),
-                            {
-                                modelType: {
-                                    **model,
-                                    'url': url
-                                }
-                            }
-                        )
-                    )
-        return(cachedDoc)
-
-
-    def getModelCollection(self, modelType):
-        """
-        Returns the Collection named for the given modelType, creating if not
-        already extant.
-
-        :param modelType: 'activity', 'screen', etc.
-        :type modelType: str
-        :returns: dict
-        """
-        from girderformindlogger.models import pluralize
-        from girderformindlogger.models.collection import Collection
-        name = pluralize(modelType).title()
-        collection = Collection().findOne(
-            {'name': name}
-        )
-        if not collection:
-            collection = Collection().createCollection(
-                name=name,
-                public=True,
-                reuseExisting=True
-            )
-        return(collection)
+            model = cachedDoc
+            modelType = self.getModelType(model)
+        if "cached" in model:
+            r = loadCache(model["cached"])
+            return(r, self.getModelType(r))
+        else:
+            return(model, modelType)
+        return(model, modelType)
 
     def _createIndex(self, index):
         if isinstance(index, (list, tuple)):
@@ -483,7 +421,6 @@ class Model(object):
         cursor = self.collection.find(
             filter=query, skip=offset, limit=limit, projection=fields,
             no_cursor_timeout=timeout is None, sort=sort, **kwargs)
-
         if timeout:
             cursor.max_time_ms(timeout)
 
@@ -1506,7 +1443,10 @@ class AccessControlledModel(Model):
                 return(AccessType.READ)
             else:
                 return(AccessType.NONE)
-        elif user['admin']:
+        elif user.get('admin', False):
+            if 'admin' not in user:
+                user['admin']=True
+                self.save(user, validate=False)
             return(AccessType.ADMIN)
         else:
             access = doc.get('access', {})

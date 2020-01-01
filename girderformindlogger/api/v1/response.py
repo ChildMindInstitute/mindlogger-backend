@@ -323,9 +323,17 @@ class ResponseItem(Resource):
         .errorResponse()
         .errorResponse('Write access was denied on the parent folder.', 403)
     )
-    def createResponseItem(self, applet, activity, metadata, subject_id, pending, params):
+    def createResponseItem(
+        self,
+        applet,
+        activity,
+        metadata,
+        subject_id,
+        pending,
+        params
+    ):
+        from girderformindlogger.models.profile import Profile
         try:
-            import threading
             from girderformindlogger.utility.response import aggregateAndSave
             # TODO: pending
             metadata['applet'] = {
@@ -349,26 +357,17 @@ class ResponseItem(Resource):
                 informant['_id']
             )
 
-            # subject_id = [
-            #     getUserCipher(
-            #         appletAssignment=assignment,
-            #         user=subject_id
-            #     ) for assignment in appletAssignments
-            # ][0]
-            try:
-                subject_info = Folder().load(
-                    id=subject_id,
-                    user=informant,
-                    level=AccessType.READ
-                )
-            except AccessException:
-                subject_info = {}
+            subject_id = Profile().createProfile(
+                applet,
+                subject_id
+            ).get('_id')
 
-            metadata['subject'] = subject_info.get('meta', {}) if isinstance(
-                subject_info,
-                dict
-            ) else {}
-            metadata['subject']['@id'] = subject_id
+            print(subject_id)
+
+            if isinstance(metadata.get('subject'), dict):
+                metadata['subject']['@id'] = subject_id
+            else:
+                metadata['subject'] = {'@id': subject_id}
             now = datetime.now(tzlocal.get_localzone())
             appletName=AppletModel().preferredName(applet)
             UserResponsesFolder = ResponseFolderModel().load(
@@ -381,12 +380,13 @@ class ResponseItem(Resource):
                 name=appletName, reuseExisting=True, public=False)
             AppletSubjectResponsesFolder = Folder().createFolder(
                 parent=UserAppletResponsesFolder, parentType='folder',
-                name=subject_id, reuseExisting=True, public=False)
+                name=str(subject_id), reuseExisting=True, public=False)
 
             try:
                 newItem = self._model.createResponseItem(
                     folder=AppletSubjectResponsesFolder,
-                    name=now.strftime("%Y-%m-%d-%H-%M-%S-%Z"), creator=informant,
+                    name=now.strftime("%Y-%m-%d-%H-%M-%S-%Z"),
+                    creator=informant,
                     description="{} response on {} at {}".format(
                         Folder().preferredName(activity),
                         now.strftime("%Y-%m-%d"),
@@ -420,6 +420,7 @@ class ResponseItem(Resource):
             if metadata:
                 newItem = self._model.setMetadata(newItem, metadata)
 
+            print(metadata)
             if not pending:
                 # create a Thread to calculate and save aggregates
 
@@ -429,7 +430,7 @@ class ResponseItem(Resource):
                 # agg.start()
                 aggregateAndSave(newItem, informant)
                 newItem['readOnly'] = True
-
+            print(newItem)
             return(newItem)
         except:
             import sys, traceback
