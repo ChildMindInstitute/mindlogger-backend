@@ -315,8 +315,9 @@ def delanguageTag(obj):
 
 
 def expandOneLevel(obj):
-    if not obj:
-        return(None)
+    if obj is None:
+        # We only want to catch `None`s here, not other falsy objects
+        return(obj)
     try:
         newObj = jsonld.expand(obj)
     except jsonld.JsonLdError as e: # 👮 Catch illegal JSON-LD
