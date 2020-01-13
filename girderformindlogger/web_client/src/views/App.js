@@ -78,7 +78,6 @@ var App = View.extend({
         // define a function to be run after fetching the user model
         var afterFetch = (user) => {
             this._createLayout();
-
             if (user) {
                 setCurrentUser(new UserModel(user));
                 eventStream.open();

@@ -27,8 +27,10 @@ var UserAccountView = View.extend({
             this.$('#g-user-info-error-msg').empty();
 
             var params = {
+                login: this.$('#g-login').val(),
                 email: this.$('#g-email').val(),
-                firstName: this.$('#g-firstName').val()
+                firstName: this.$('#g-firstName').val(),
+                displayName: this.$('#g-firstName').val(),
             };
 
             if (this.$('#g-admin').length > 0) {
@@ -95,7 +97,7 @@ var UserAccountView = View.extend({
 
     initialize: function (settings) {
         this.tab = settings.tab || 'info';
-        this.user = settings.user || getCurrentUser();
+        this.user = getCurrentUser();
         this.isCurrentUser = getCurrentUser() &&
             settings.user.id === getCurrentUser().id;
 
@@ -127,7 +129,6 @@ var UserAccountView = View.extend({
             router.navigate('', { trigger: true });
             return;
         }
-
         this.$el.html(UserAccountTemplate({
             user: this.model,
             isCurrentUser: this.isCurrentUser,

@@ -684,6 +684,12 @@ class User(Resource):
         .param('status', 'The account status (admin access required)',
                required=False, enum=('pending', 'enabled', 'disabled'))
         .param(
+             'login',
+             'Deprecated. Do not use.',
+             required=False,
+             dataType='string'
+        )
+        .param(
              'email',
              'Deprecated. Do not use.',
              required=False,
@@ -709,6 +715,7 @@ class User(Resource):
         self,
         user,
         displayName="",
+        login="",
         email="",
         admin=False,
         status=None,
@@ -719,7 +726,7 @@ class User(Resource):
             displayName
         ) else firstName if firstName is not None else ""
         user['email'] = email
-
+        user['login'] = login
         # Only admins can change admin state
         if admin is not None:
             if self.getCurrentUser()['admin']:
