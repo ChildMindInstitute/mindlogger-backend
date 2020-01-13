@@ -9,8 +9,6 @@ Contents
 2. `Installation <#installation>`_
 3. `Deployment <#deployment>`_
 4. `Data Structure <#data-structure>`_
-    1. `Diagram <#diagram>`_
-    2. `Glossary <#glossary>`_
 5. `Links <#links>`_
 6. `Contributing <./CONTRIBUTING.rst>`_
 7. `Girder Source <#girder-source>`_
@@ -77,6 +75,8 @@ Installation
 
 Deployment
 ----------
+
+See `CONTRIBUTING.rst#deployment <./CONTRIBUTING.rst#deployment>`_.
 
 Elastic Beanstalk
 #################
