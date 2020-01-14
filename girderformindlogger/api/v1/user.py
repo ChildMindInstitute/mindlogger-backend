@@ -749,7 +749,6 @@ class User(Resource):
     )
     def changeLogin(self, login):
         user = self.getCurrentUser()
-        print(user)
 
         if not login:
             raise RestException('Login must not be empty.')
