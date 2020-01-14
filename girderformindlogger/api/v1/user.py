@@ -48,6 +48,8 @@ class User(Resource):
         self.route('PUT', (':id', 'knows'), self.setUserRelationship)
         self.route('GET', ('details',), self.getUsersDetails)
         self.route('POST', (), self.createUser)
+        self.route('PUT', ('login',), self.changeLogin),
+        self.route('PUT', (':id', 'login'), self.changeUserLogin),
         self.route('PUT', (':id',), self.updateUser)
         self.route('PUT', ('password',), self.changePassword)
         self.route('PUT', (':id', 'password'), self.changeUserPassword)
@@ -737,6 +739,43 @@ class User(Resource):
             user['status'] = status
 
         return self._model.save(user)
+
+    @access.user
+    @autoDescribeRoute(
+        Description('Change your login.')
+        .param('login', 'Your new login.')
+        .errorResponse('You are not logged in.', 401)
+        .errorResponse('Your new login is invalid.')
+    )
+    def changeLogin(self, login):
+        user = self.getCurrentUser()
+        print(user)
+
+        if not login:
+            raise RestException('Login must not be empty.')
+
+        user['login'] = login
+        self._model.save(user)
+
+        return {'message': 'Login changed.'}
+
+    @access.admin
+    @autoDescribeRoute(
+        Description("Change a user's login.")
+        .notes('Only administrators may use this endpoint.')
+        .modelParam('id', model=UserModel, level=AccessType.ADMIN)
+        .param('login', "The user's new login.")
+        .errorResponse('You are not an administrator.', 403)
+        .errorResponse('The new login is invalid.')
+    )
+    def changeUserLogin(self, user, login):
+        if not login:
+            raise RestException('Login must not be empty.')
+
+        user['login'] = login
+        self._model.save(user)
+
+        return {'message': 'Login changed.'}
 
     @access.admin
     @autoDescribeRoute(

@@ -8,6 +8,10 @@ Changes
 -------
 Unreleased
 ==========
+2020-01-14: v0.7.6
+^^^^^^^^^^^^^^^^^^
+* :racehorse: Introduced API endpoints to update a user's login
+
 2019-12-18: v0.7.5
 ^^^^^^^^^^^^^^^^^^
 * :racehorse: Check if user requesting user list is a coordinator just once
