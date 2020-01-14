@@ -684,6 +684,12 @@ class User(Resource):
         .param('status', 'The account status (admin access required)',
                required=False, enum=('pending', 'enabled', 'disabled'))
         .param(
+             'login',
+             'Deprecated. Do not use.',
+             required=False,
+             dataType='string'
+        )
+        .param(
              'email',
              'Deprecated. Do not use.',
              required=False,
@@ -708,6 +714,7 @@ class User(Resource):
     def updateUser(
         self,
         user,
+        login,
         displayName="",
         email="",
         admin=False,
@@ -718,6 +725,7 @@ class User(Resource):
         user['firstName'] = displayName if len(
             displayName
         ) else firstName if firstName is not None else ""
+        user['login'] = login
         user['email'] = email
 
         # Only admins can change admin state

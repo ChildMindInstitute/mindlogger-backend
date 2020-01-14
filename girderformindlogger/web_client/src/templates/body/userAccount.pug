@@ -26,7 +26,7 @@ ul.g-account-tabs.nav.nav-tabs
       form#g-user-info-form(role="form")
         .form-group
           label(for="g-login") Login
-          p.form-control-static= user.get('login')
+          input#g-login.input-sm.form-control(type="text", value=user.get('login'))
         .form-group
           label(for="g-email") Email
           input#g-email.input-sm.form-control(type="text", value=user.get('email'))
