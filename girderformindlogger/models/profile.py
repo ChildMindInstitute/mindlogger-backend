@@ -211,6 +211,16 @@ class Profile(AccessControlledModel, dict):
         """
         from .applet import Applet
 
+        if 'cachedDisplay' in profile:
+            if forceManager:
+                if 'manager' in profile['cachedDisplay']:
+                    return(profile['cachedDisplay']['manager'])
+            if forceReviewer:
+                if 'reviewer' in profile['cachedDisplay']:
+                    return(profile['cachedDisplay']['reviewer'])
+        else:
+            profile['cachedDisplay'] = {}
+
         profileDefinitions = self.cycleDefinitions(
             profile,
             showEmail=forceManager if forceManager else Applet(
@@ -224,6 +234,13 @@ class Profile(AccessControlledModel, dict):
                 profile['invitedBy'],
                 showEmail=True
             )
+
+        if forceManager and not forceReviewer:
+            profile['cachedDisplay']['manager'] = profileDefinitions
+            self.save(profile, validate=False)
+        elif forceReviewer:
+            profile['cachedDisplay']['reviewer'] = profileDefinitions
+            self.save(profile, validate=False)
 
         return(profileDefinitions)
 
