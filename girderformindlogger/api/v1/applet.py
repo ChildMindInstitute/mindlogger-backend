@@ -441,7 +441,7 @@ class Applet(Resource):
 
     @access.user(scope=TokenScope.DATA_WRITE)
     @autoDescribeRoute(
-        Description('Set or update schedule information for an activity.')
+        Description('Set or update schedule information for an applet.')
         .modelParam(
             'id',
             model=AppletModel,
@@ -450,7 +450,7 @@ class Applet(Resource):
         )
         .jsonParam(
             'schedule',
-            'A JSON object containing schedule information for an activity',
+            'A JSON object containing schedule information for an applet',
             paramType='form',
             required=False
         )
