@@ -487,7 +487,16 @@ class Applet(Folder):
                 'roles.' + role + '.groups.id': {'$in': user.get('groups', [])}
             }
         ))
-        return(applets if isinstance(applets, list) else [applets])
+
+        # filter out duplicates for coordinators
+        temp = set()
+        applets = [
+            k for k in applets if '_id' in k and k[
+                '_id'
+            ] not in temp and not temp.add(k['_id'])
+        ] if isinstance(applets, list) else [applets]
+
+        return(applets)
 
     def listUsers(self, applet, role, user=None, force=False):
         from .profile import Profile
