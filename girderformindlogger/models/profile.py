@@ -209,7 +209,7 @@ class Profile(AccessControlledModel, dict):
         :type user: dict
         :returns dict: display profile
         """
-        from .applet import Applet
+        import threading
 
         if 'cachedDisplay' in profile:
             if forceManager:
@@ -219,8 +219,30 @@ class Profile(AccessControlledModel, dict):
                 if 'reviewer' in profile['cachedDisplay']:
                     return(profile['cachedDisplay']['reviewer'])
         else:
+            loadingMessage = '{loading}…'
             profile['cachedDisplay'] = {}
 
+        thread = threading.Thread(
+            target=self._cacheProfileDisplay,
+            args=(profile, user, forceManager, forceReviewer)
+        )
+        thread.start()
+        return({
+            '_id': profile['_id'],
+            'displayName': loadingMessage,
+            'email': None,
+            'idCodes': [loadingMessage]
+        })
+
+
+    def _cacheProfileDisplay(
+        self,
+        profile,
+        user,
+        forceManager=False,
+        forceReviewer=False
+    ):
+        from .applet import Applet
         profileDefinitions = self.cycleDefinitions(
             profile,
             showEmail=forceManager if forceManager else Applet(
@@ -241,7 +263,7 @@ class Profile(AccessControlledModel, dict):
         elif forceReviewer:
             profile['cachedDisplay']['reviewer'] = profileDefinitions
             self.save(profile, validate=False)
-
+        print(profileDefinitions)
         return(profileDefinitions)
 
     def getProfile(self, id, user):
