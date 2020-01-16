@@ -341,10 +341,20 @@ class Applet(Folder):
         return(applets if isinstance(applets, list) else [applets])
 
     def updateUserCacheAllUsersAllRoles(self, applet, coordinator):
-        [self.updateUserCacheAllRoles(user) for user in self.getAppletUsers(
+        from .profile import Profile as ProfileModel
+
+        [self.updateUserCacheAllRoles(
+            UserModel().load(
+                id=ProfileModel().load(
+                    user['_id'],
+                    force=True
+                ).get('userId'),
+                force=True
+            )
+        ) for user in self.getAppletUsers(
             applet,
             coordinator
-        )]
+        ).get('active', [])]
 
     def updateUserCacheAllRoles(self, user):
         [self.updateUserCache(role, user) for role in list(USER_ROLES.keys())]
