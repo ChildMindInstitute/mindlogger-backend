@@ -8,6 +8,10 @@ Changes
 -------
 Unreleased
 ==========
+2019-1-18: v0.7.6
+^^^^^^^^^^^^^^^^^^
+* :sparkles: Add a new feature to allow user to change username
+
 2019-12-18: v0.7.5
 ^^^^^^^^^^^^^^^^^^
 * :racehorse: Check if user requesting user list is a coordinator just once
