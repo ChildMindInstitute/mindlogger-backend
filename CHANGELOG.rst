@@ -8,6 +8,10 @@ Changes
 -------
 Unreleased
 ==========
+2019-12-20: v0.8.1
+^^^^^^^^^^^^^^^^^^
+* :sparkles: Data access for reviewers
+
 2019-12-18: v0.7.5
 ^^^^^^^^^^^^^^^^^^
 * :racehorse: Check if user requesting user list is a coordinator just once

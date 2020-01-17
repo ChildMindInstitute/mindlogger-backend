@@ -37,6 +37,12 @@ class User(Resource):
         self.route('GET', (), self.find)
         self.route('GET', ('me',), self.getMe)
         self.route('GET', ('authentication',), self.login)
+        self.route('PUT', ('applet', ':id', 'schedule'), self.setSchedule)
+        self.route(
+            'PUT',
+            (':uid', 'applet', ':aid', 'schedule'),
+            self.setOtherSchedule
+        )
         self.route('GET', (':id',), self.getUserByID)
         self.route('GET', (':id', 'access'), self.getUserAccess)
         self.route('PUT', (':id', 'access'), self.updateUserAccess)
@@ -162,6 +168,107 @@ class User(Resource):
         from bson.objectid import ObjectId
         user = self.getCurrentUser()
         return(ProfileModel().getProfile(id, user))
+
+    @access.user(scope=TokenScope.DATA_WRITE)
+    @autoDescribeRoute(
+        Description('Set or update your own custom schedule information for an applet.')
+        .modelParam(
+            'id',
+            model=AppletModel,
+            level=AccessType.READ,
+            destName='applet'
+        )
+        .jsonParam(
+            'schedule',
+            'A JSON object containing schedule information for an activity',
+            paramType='form',
+            required=False
+        )
+        .errorResponse('Invalid applet ID.')
+        .errorResponse('Read access was denied for this applet.', 403)
+    )
+    def setSchedule(self, applet, schedule, **kwargs):
+        import threading
+
+        thisUser = self.getCurrentUser()
+        if not AppletModel()._hasRole(applet['_id'], thisUser, 'user'):
+            raise AccessException(
+                "You aren't a user of this applet."
+            )
+        profile = ProfileModel().findOne(
+            {
+                'appletId': applet['_id'],
+                'userId': thisUser['_id'],
+                'profile': True
+            }
+        )
+        if not profile:
+            raise AccessException(
+                "You aren't a user of this applet."
+            )
+        ud = profile["userDefined"] if "userDefined" in profile else {}
+        ud["schedule"] = schedule
+        profile["userDefined"] = ud
+        ProfileModel().save(profile, validate=False)
+
+        thread = threading.Thread(
+            target=AppletModel().updateUserCacheAllUsersAllRoles,
+            args=(applet, thisUser)
+        )
+        thread.start()
+        return(profile["userDefined"])
+
+    @access.user(scope=TokenScope.DATA_WRITE)
+    @autoDescribeRoute(
+        Description('Set or update custom schedule information for a user of an applet you manage or coordinate.')
+        .modelParam(
+            'uid',
+            model=ProfileModel,
+            force=True,
+            destName='profile',
+            description='The ID of the user\'s profile for this applet.'
+        )
+        .modelParam(
+            'aid',
+            model=AppletModel,
+            level=AccessType.READ,
+            destName='applet',
+            description="The ID of the applet."
+        )
+        .jsonParam(
+            'schedule',
+            'A JSON object containing schedule information for an activity',
+            paramType='form',
+            required=False
+        )
+        .errorResponse('Invalid ID.')
+        .errorResponse('Read access was denied.', 403)
+    )
+    def setOtherSchedule(self, profile, applet, schedule, **kwargs):
+        import threading
+
+        thisUser = self.getCurrentUser()
+        if not AppletModel().isCoordinator(applet['_id'], thisUser):
+            raise AccessException(
+                "You aren't a coordinator or manager of this applet."
+            )
+        if profile["appletId"] not in [applet['_id'], str(applet['_id'])]:
+            raise AccessException(
+                "That profile is not a user of this applet."
+            )
+        ud = profile[
+            "coordinatorDefined"
+        ] if "coordinatorDefined" in profile else {}
+        ud["schedule"] = schedule
+        profile["coordinatorDefined"] = ud
+        ProfileModel().save(profile, validate=False)
+
+        thread = threading.Thread(
+            target=AppletModel().updateUserCacheAllUsersAllRoles,
+            args=(applet, thisUser)
+        )
+        thread.start()
+        return(profile["coordinatorDefined"])
 
     @access.public(scope=TokenScope.USER_INFO_READ)
     @autoDescribeRoute(

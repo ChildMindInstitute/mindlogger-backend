@@ -201,7 +201,13 @@ class Profile(AccessControlledModel, dict):
             ])
         ))
 
-    def displayProfileFields(self, profile, user=None, forceManager=False, forceReviewer=False):
+    def displayProfileFields(
+        self,
+        profile,
+        user=None,
+        forceManager=False,
+        forceReviewer=False
+    ):
         """
         :param profile: Profile or Invitation
         :type profile: dict
