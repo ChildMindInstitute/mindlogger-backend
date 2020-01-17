@@ -49,6 +49,7 @@ class User(Resource):
         self.route('GET', ('details',), self.getUsersDetails)
         self.route('POST', (), self.createUser)
         self.route('PUT', (':id',), self.updateUser)
+        self.route('PUT', ('login',), self.updateLogin)
         self.route('PUT', ('password',), self.changePassword)
         self.route('PUT', (':id', 'password'), self.changeUserPassword)
         self.route('GET', ('password', 'temporary', ':id'),
@@ -735,6 +736,29 @@ class User(Resource):
                 # Send email on the 'pending' -> 'enabled' transition
                 self._model._sendApprovedEmail(user)
             user['status'] = status
+
+        return self._model.save(user)
+
+    @access.user
+    @autoDescribeRoute(
+        Description("Update a user login.")
+        .param(
+            'login',
+            'Display name of the user, usually just their first name.',
+            default="",
+            required=False
+        )
+        .errorResponse()
+        .errorResponse(('You do not have write access for this user.',
+                        'Must be an admin to create an admin.'), 403)
+    )
+    def updateLogin(
+        self,
+        login=""
+    ):
+        user = self.getCurrentUser()
+        if len(login):
+            user['login'] = login
 
         return self._model.save(user)
 
