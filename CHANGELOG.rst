@@ -8,6 +8,14 @@ Changes
 -------
 Unreleased
 ==========
+2020-01-17: v0.9.1
+^^^^^^^^^^^^^^^^^^
+:racehorse: Improve response time on ``GET /applet/users``
+
+2020-01-17: v0.8.2
+^^^^^^^^^^^^^^^^^^
+:tractor: :racehorse: Simplify setting schedules
+
 2019-12-20: v0.8.1
 ^^^^^^^^^^^^^^^^^^
 * :sparkles: Data access for reviewers
