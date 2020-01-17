@@ -22,10 +22,18 @@ ul.g-account-tabs.nav.nav-tabs
 
 .tab-content
   #g-account-tab-info.tab-pane.active
+    .g-user-login-container.g-user-settings-container
+      form#g-user-login-form(role="form")
+        .form-group
+          label(for="g-login") Username
+          input#g-login.input-sm.form-control(type="text", value=user.get('email'))
+        button.btn.btn-default.btn-sm(type="submit")
+          i.icon-edit
+          | Save
+        #g-user-login-error-msg.g-validation-failed-message
     .g-user-info-container.g-user-settings-container
       form#g-user-info-form(role="form")
         .form-group
-          label(for="g-login") Login
           p.form-control-static= user.get('login')
         .form-group
           label(for="g-email") Email

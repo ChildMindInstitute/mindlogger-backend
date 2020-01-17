@@ -122,6 +122,24 @@ var UserModel = AccessControlledModel.extend({
         });
     },
 
+    /**
+     * Change the login for this user.
+     */
+    updateLogin: function (newLogin) {
+        return restRequest({
+            url: `${this.resourceName}/login`,
+            data: {
+                login: newLogin
+            },
+            method: 'PUT',
+            error: null
+        }).done(() => {
+            this.trigger('g:loginChanged');
+        }).fail((err) => {
+            this.trigger('g:error', err);
+        });
+    },
+
     initializeEnableOtp: function () {
         return restRequest({
             url: `user/${this.id}/otp`,
