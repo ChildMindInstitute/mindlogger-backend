@@ -374,10 +374,20 @@ class Applet(Folder):
         return(applets if isinstance(applets, list) else [applets])
 
     def updateUserCacheAllUsersAllRoles(self, applet, coordinator):
-        [self.updateUserCacheAllRoles(user) for user in self.getAppletUsers(
+        from .profile import Profile as ProfileModel
+
+        [self.updateUserCacheAllRoles(
+            UserModel().load(
+                id=ProfileModel().load(
+                    user['_id'],
+                    force=True
+                ).get('userId'),
+                force=True
+            )
+        ) for user in self.getAppletUsers(
             applet,
             coordinator
-        )]
+        ).get('active', [])]
 
     def updateUserCacheAllRoles(self, user):
         [self.updateUserCache(role, user) for role in list(USER_ROLES.keys())]
@@ -510,7 +520,16 @@ class Applet(Folder):
                 'roles.' + role + '.groups.id': {'$in': user.get('groups', [])}
             }
         ))
-        return(applets if isinstance(applets, list) else [applets])
+
+        # filter out duplicates for coordinators
+        temp = set()
+        applets = [
+            k for k in applets if '_id' in k and k[
+                '_id'
+            ] not in temp and not temp.add(k['_id'])
+        ] if isinstance(applets, list) else [applets]
+
+        return(applets)
 
     def listUsers(self, applet, role, user=None, force=False):
         from .profile import Profile

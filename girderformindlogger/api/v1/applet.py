@@ -56,6 +56,7 @@ class Applet(Resource):
         self.route('PUT', (':id', 'informant'), self.updateInformant)
         self.route('PUT', (':id', 'assign'), self.assignGroup)
         self.route('PUT', (':id', 'constraints'), self.setConstraints)
+        self.route('PUT', (':id', 'schedule'), self.setSchedule)
         self.route('POST', (':id', 'invite'), self.invite)
         self.route('GET', (':id', 'roles'), self.getAppletRoles)
         self.route('GET', (':id', 'users'), self.getAppletUsers)
@@ -444,22 +445,23 @@ class Applet(Resource):
 
     @access.user(scope=TokenScope.DATA_WRITE)
     @autoDescribeRoute(
-        Description('Set or update schedule information for an activity.')
+        Description('Deprecated. Do not use')
         .modelParam('id', model=AppletModel, level=AccessType.READ)
         .param(
             'activity',
-            'Girder ID (or Array thereof) of the activity/activities to '
+            'Deprecated. Do not use.'
             'schedule.',
             required=False
         )
         .jsonParam(
             'schedule',
-            'A JSON object containing schedule information for an activity',
+            'Deprecated. Do not use.',
             paramType='form',
             required=False
         )
         .errorResponse('Invalid applet ID.')
         .errorResponse('Read access was denied for this applet.', 403)
+        .deprecated()
     )
     def setConstraints(self, folder, activity, schedule, **kwargs):
         thisUser = self.getCurrentUser()
@@ -476,6 +478,41 @@ class Applet(Resource):
         thread.start()
         return(applet)
 
+    @access.user(scope=TokenScope.DATA_WRITE)
+    @autoDescribeRoute(
+        Description('Set or update schedule information for an applet.')
+        .modelParam(
+            'id',
+            model=AppletModel,
+            level=AccessType.READ,
+            destName='applet'
+        )
+        .jsonParam(
+            'schedule',
+            'A JSON object containing schedule information for an applet',
+            paramType='form',
+            required=False
+        )
+        .errorResponse('Invalid applet ID.')
+        .errorResponse('Read access was denied for this applet.', 403)
+    )
+    def setSchedule(self, applet, schedule, **kwargs):
+        thisUser = self.getCurrentUser()
+        if not AppletModel().isCoordinator(applet['_id'], thisUser):
+            raise AccessException(
+                "Only coordinators and managers can update applet schedules."
+            )
+        appletMeta = applet['meta'] if 'meta' in applet else {'applet': {}}
+        if 'applet' not in appletMeta:
+            appletMeta['applet'] = {}
+        appletMeta['applet']['schedule'] = schedule
+        AppletModel().setMetadata(applet, appletMeta)
+        thread = threading.Thread(
+            target=AppletModel().updateUserCacheAllUsersAllRoles,
+            args=(applet, thisUser)
+        )
+        thread.start()
+        return(appletMeta)
 
 
 def authorizeReviewer(applet, reviewer, user):
