@@ -8,6 +8,10 @@ Changes
 -------
 Unreleased
 ==========
+2019-01-17: v0.7.6
+^^^^^^^^^^^^^^^^^^
+* :lock: Stop exposing sensitive data in deprecated `PUT /user/{:id}`
+
 2019-12-18: v0.7.5
 ^^^^^^^^^^^^^^^^^^
 * :racehorse: Check if user requesting user list is a coordinator just once

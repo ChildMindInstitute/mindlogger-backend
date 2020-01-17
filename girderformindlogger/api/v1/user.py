@@ -669,7 +669,6 @@ class User(Resource):
         return {'nUsers': nUsers}
 
     @access.user
-    @filtermodel(model=UserModel)
     @autoDescribeRoute(
         Description("Update a user's information.")
         .modelParam('id', model=UserModel, level=AccessType.WRITE)
@@ -714,7 +713,8 @@ class User(Resource):
         status=None,
         firstName=None,
         lastName=None
-    ): # 🔥 delete firstName and lastName once fully deprecated
+    ):
+        # 🔥 delete firstName and lastName once fully deprecated
         user['firstName'] = displayName if len(
             displayName
         ) else firstName if firstName is not None else ""
@@ -727,16 +727,25 @@ class User(Resource):
             elif user['admin'] is not admin:
                 raise AccessException('Only admins may change admin status.')
 
-        # Only admins can change status
-        if status is not None and status != user.get('status', 'enabled'):
-            if not self.getCurrentUser()['admin']:
-                raise AccessException('Only admins may change status.')
-            if user['status'] == 'pending' and status == 'enabled':
-                # Send email on the 'pending' -> 'enabled' transition
-                self._model._sendApprovedEmail(user)
-            user['status'] = status
+            # Only admins can change status
+            if status is not None and status != user.get('status', 'enabled'):
+                if not self.getCurrentUser()['admin']:
+                    raise AccessException('Only admins may change status.')
+                if user['status'] == 'pending' and status == 'enabled':
+                    # Send email on the 'pending' -> 'enabled' transition
+                    self._model._sendApprovedEmail(user)
+                user['status'] = status
 
-        return self._model.save(user)
+        try:
+            self._model.save(user)
+        except:
+            raise RestException(
+                'Update failed, and `PUT /user/{:id}` is deprecated.'
+            )
+
+        return(
+            {'message': 'Update saved, but `PUT /user/{:id}` is deprecated.'}
+        )
 
     @access.admin
     @autoDescribeRoute(
