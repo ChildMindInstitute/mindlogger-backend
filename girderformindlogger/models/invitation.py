@@ -309,7 +309,7 @@ class Invitation(AccessControlledModel):
                 instanceName
             ) if instanceName is not None and len(instanceName) else "",
             managers="<h3>Who can change this applet's settings, "
-                "can see your data, and enable others to see your data: </h3>{}"
+                "and can invite anyone to see your data: </h3>{}"
                 "".format(
                     managers if len(managers) else "<ul><li>None</li></ul>"
                 ),
