@@ -48,6 +48,8 @@ Deployment
 ----------
 We are deploying through Amazon Web Services Elastic Beanstalk. To deploy, you'll need write access to the instance you're deploying to. For the process described in this document, you'll also need `the Elastic Beanstalk Command Line Interface (EB CLI) <https://docs.aws.amazon.com/elasticbeanstalk/latest/dg/eb-cli3-install.html>`_.
 
+You'll also need a Python virtual environment with setuptools. Instructions for setting up a virtual environment are `in this repository's README <./README.rst#installation>`_.
+
 Elastic Beanstalk relies on Git and a local installation, so prior to deploying, you'll need to have a local installation with the latest tag and a named branch.
 
 **Note:** *EB does not allow non-ASCII characters in the name of the branch or the latest commit message title from which it deploys.*
@@ -61,19 +63,31 @@ Deploy to dev
 
      git tag v0.7.4-contributing
 
-2. Install **Girder for MindLogger** locally.
+2. Activate your **Girder for MindLogger** virtual environment.
+
+   .. code-block:: sh
+
+     ~/girder_env/bin/activate
+
+3. Install **Girder for MindLogger** locally.
 
    .. code-block:: sh
 
      pip install -e .
 
-3. Build **Girder for MindLogger** locally.
+4. Build **Girder for MindLogger** locally.
 
    .. code-block:: sh
 
      girderformindlogger build
 
-4. Use EB CLI to deploy to the development server. Our development server instance is labeled `mindlogger-atlas-dev <https://console.aws.amazon.com/elasticbeanstalk/home?region=us-east-1#/environment/dashboard?applicationName=mindlogger_mongo_atlas&environmentId=e-cmi89zpeqn>`_.
+5. Deactivate your virtual environment.
+
+   .. code-block:: sh
+
+     deactivate
+
+6. Use EB CLI to deploy to the development server. Our development server instance is labeled `mindlogger-atlas-dev <https://console.aws.amazon.com/elasticbeanstalk/home?region=us-east-1#/environment/dashboard?applicationName=mindlogger_mongo_atlas&environmentId=e-cmi89zpeqn>`_.
 
    .. code-block:: sh
 
@@ -103,19 +117,32 @@ Deploy to production
 
      git checkout -b deployment-example-v.0.9.10
 
-4. Install **Girder for MindLogger** locally.
+4. Activate your **Girder for MindLogger** virtual environment.
+
+   .. code-block:: sh
+
+     ~/girder_env/bin/activate
+
+
+5. Install **Girder for MindLogger** locally.
 
    .. code-block:: sh
 
      pip install -e .
 
-5. Build **Girder for MindLogger** locally.
+6. Build **Girder for MindLogger** locally.
 
    .. code-block:: sh
 
      girderformindlogger build
 
-6. Use EB CLI to deploy to the production server. Our production server
+7. Deactivate your virtual environment.
+
+   .. code-block:: sh
+
+     deactivate
+
+8. Use EB CLI to deploy to the production server. Our production server
    instance is labeled `mindlogger-girder-atlas <https://console.aws.amazon.com/elasticbeanstalk/home?region=us-east-1#/environment/dashboard?applicationName=mindlogger_mongo_atlas&environmentId=e-vhc2nxivk7>`_.
 
    .. code-block:: sh
