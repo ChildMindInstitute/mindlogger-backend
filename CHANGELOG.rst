@@ -6,11 +6,14 @@ Girder for MindLogger
 
 Changes
 -------
-Unreleased
-==========
+
 2019-01-17: v0.7.6
 ^^^^^^^^^^^^^^^^^^
 * :lock: Stop exposing sensitive data in deprecated `PUT /user/{:id}`
+
+2019-12-20: v0.8.1
+^^^^^^^^^^^^^^^^^^
+* :sparkles: Data access for reviewers
 
 2019-12-18: v0.7.5
 ^^^^^^^^^^^^^^^^^^

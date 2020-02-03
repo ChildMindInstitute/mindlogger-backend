@@ -23,7 +23,7 @@ import threading
 import uuid
 import requests
 from ..describe import Description, autoDescribeRoute
-from ..rest import Resource
+from ..rest import Resource, rawResponse
 from bson.objectid import ObjectId
 from girderformindlogger.constants import AccessType, SortDir, TokenScope,     \
     DEFINED_INFORMANTS, REPROLIB_CANONICAL, SPECIAL_SUBJECTS, USER_ROLES
@@ -50,11 +50,13 @@ class Applet(Resource):
         self.resourceName = 'applet'
         self._model = AppletModel()
         self.route('GET', (':id',), self.getApplet)
+        self.route('GET', (':id', 'data'), self.getAppletData)
         self.route('GET', (':id', 'groups'), self.getAppletGroups)
         self.route('POST', (), self.createApplet)
         self.route('PUT', (':id', 'informant'), self.updateInformant)
         self.route('PUT', (':id', 'assign'), self.assignGroup)
         self.route('PUT', (':id', 'constraints'), self.setConstraints)
+        self.route('PUT', (':id', 'schedule'), self.setSchedule)
         self.route('POST', (':id', 'invite'), self.invite)
         self.route('GET', (':id', 'roles'), self.getAppletRoles)
         self.route('GET', (':id', 'users'), self.getAppletUsers)
@@ -186,6 +188,44 @@ class Applet(Resource):
                        "address associated with your account, you will receive "
                        "an email when your applet is ready."
         })
+
+    @access.user(scope=TokenScope.DATA_WRITE)
+    @autoDescribeRoute(
+        Description('Get all data you are authorized to see for an applet.')
+        .param(
+            'id',
+            'ID of the applet for which to fetch data',
+            required=True
+        )
+        .param(
+            'format',
+            'JSON or CSV',
+            required=False
+        )
+        .errorResponse('Write access was denied for this applet.', 403)
+    )
+    def getAppletData(self, id, format='json'):
+        import pandas as pd
+        from datetime import datetime
+        from ..rest import setContentDisposition, setRawResponse, setResponseHeader
+
+        format = ('json' if format is None else format).lower()
+        thisUser = self.getCurrentUser()
+        data = AppletModel().getResponseData(id, thisUser)
+
+        setContentDisposition("{}-{}.{}".format(
+            str(id),
+            datetime.now().isoformat(),
+            format
+        ))
+        if format=='csv':
+            setRawResponse()
+            setResponseHeader('Content-Type', 'text/{}'.format(format))
+            csv = pd.DataFrame(data).to_csv(index=False)
+            return(csv)
+        setResponseHeader('Content-Type', 'application/{}'.format(format))
+        return(data)
+
 
     @access.user(scope=TokenScope.DATA_WRITE)
     @autoDescribeRoute(
@@ -356,7 +396,7 @@ class Applet(Resource):
         )
         .param(
             'role',
-            'Role to invite this user to. One of ' + str(USER_ROLE_KEYS),
+            'Role to invite this user to. One of ' + str(set(USER_ROLE_KEYS)),
             default='user',
             required=False,
             strip=True
@@ -405,22 +445,23 @@ class Applet(Resource):
 
     @access.user(scope=TokenScope.DATA_WRITE)
     @autoDescribeRoute(
-        Description('Set or update schedule information for an activity.')
+        Description('Deprecated. Do not use')
         .modelParam('id', model=AppletModel, level=AccessType.READ)
         .param(
             'activity',
-            'Girder ID (or Array thereof) of the activity/activities to '
+            'Deprecated. Do not use.'
             'schedule.',
             required=False
         )
         .jsonParam(
             'schedule',
-            'A JSON object containing schedule information for an activity',
+            'Deprecated. Do not use.',
             paramType='form',
             required=False
         )
         .errorResponse('Invalid applet ID.')
         .errorResponse('Read access was denied for this applet.', 403)
+        .deprecated()
     )
     def setConstraints(self, folder, activity, schedule, **kwargs):
         thisUser = self.getCurrentUser()
@@ -437,6 +478,41 @@ class Applet(Resource):
         thread.start()
         return(applet)
 
+    @access.user(scope=TokenScope.DATA_WRITE)
+    @autoDescribeRoute(
+        Description('Set or update schedule information for an applet.')
+        .modelParam(
+            'id',
+            model=AppletModel,
+            level=AccessType.READ,
+            destName='applet'
+        )
+        .jsonParam(
+            'schedule',
+            'A JSON object containing schedule information for an applet',
+            paramType='form',
+            required=False
+        )
+        .errorResponse('Invalid applet ID.')
+        .errorResponse('Read access was denied for this applet.', 403)
+    )
+    def setSchedule(self, applet, schedule, **kwargs):
+        thisUser = self.getCurrentUser()
+        if not AppletModel().isCoordinator(applet['_id'], thisUser):
+            raise AccessException(
+                "Only coordinators and managers can update applet schedules."
+            )
+        appletMeta = applet['meta'] if 'meta' in applet else {'applet': {}}
+        if 'applet' not in appletMeta:
+            appletMeta['applet'] = {}
+        appletMeta['applet']['schedule'] = schedule
+        AppletModel().setMetadata(applet, appletMeta)
+        thread = threading.Thread(
+            target=AppletModel().updateUserCacheAllUsersAllRoles,
+            args=(applet, thisUser)
+        )
+        thread.start()
+        return(appletMeta)
 
 
 def authorizeReviewer(applet, reviewer, user):
