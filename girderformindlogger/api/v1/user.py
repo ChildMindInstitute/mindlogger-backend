@@ -588,6 +588,8 @@ class User(Resource):
                ' a cookie that should be passed back in future requests.')
         .param('Girder-OTP', 'A one-time password for this user',
                paramType='header', required=False)
+        .param('deviceId', 'device id for push notifications',
+               paramType='header', required=False)
         .errorResponse('Missing Authorization header.', 401)
         .errorResponse('Invalid login or password.', 403)
     )
