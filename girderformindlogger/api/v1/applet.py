@@ -507,10 +507,14 @@ class Applet(Resource):
         if 'events' in schedule:
             for event in schedule['events']:
                 if event['data']['useNotifications']:
+                    if event['data']['notifications'][0]['start']:
+                        sendTime = event['data']['notifications'][0]['start']
+                    else:
+                        sendTime = '09:00'
                     sendTime = (str(event['schedule']['year'][0]) + '/' + 
                                 ('0' + str(event['schedule']['month'][0] + 1))[-2:] + '/' + 
                                 ('0' + str(event['schedule']['dayOfMonth'][0]))[-2:] + ' ' + 
-                                (str(event['schedule']['times'][0]) + ':00')[0:5])
+                                sendTime)
                     existNotification = PushNotificationModel().findOne(query={'applet':applet['_id'],
                                                                                 'creator_id':thisUser['_id'],
                                                                                 'sendTime':str(sendTime)})
@@ -518,15 +522,6 @@ class Applet(Resource):
                         PushNotificationModel().createNotification( applet['_id'], 1, 
                                                                     event['data']['title'], event['data']['description'], 
                                                                     str(sendTime), thisUser['_id'])
-
-
-        print(schedule['events'][1]['data']['notifications'])
-        #[{'start': None, 'end': None, 'random': False, 'notifyIfIncomplete': False}]
-        print(schedule['events'][1]['data']['useNotifications'])
-        #True
-        print(schedule['events'][1]['schedule'])
-        #{'times': ['03'], 'dayOfMonth': [14], 'year': [2020], 'month': [0]}
-
 
         appletMeta = applet['meta'] if 'meta' in applet else {'applet': {}}
         if 'applet' not in appletMeta:

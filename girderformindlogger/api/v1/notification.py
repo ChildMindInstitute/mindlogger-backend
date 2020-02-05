@@ -148,7 +148,6 @@ class Notification(Resource):
                                                 message_title=message_title, 
                                                 message_body=message_body)
             notification['attempts'] += 1
-            print(result)
 
             if result['failure']:
                 notification['progress'] = ProgressState.ERROR
