@@ -1523,8 +1523,8 @@ class GirderClientModule(GirderClient):
                 me = self.get('user/me')
 
                 # List of fields that can actually be updated
-                updateable = ['firstName', 'lastName', 'email', 'admin']
-                passed_in = [firstName, lastName, email, admin]
+                updateable = ['login', 'firstName', 'lastName', 'email', 'admin']
+                passed_in = [login, firstName, lastName, email, admin]
 
                 # If there is actually an update to be made
                 if set([(k, v) for k, v in me.items() if k in updateable]) ^ \

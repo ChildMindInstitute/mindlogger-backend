@@ -63,7 +63,7 @@ var Model = Backbone.Model.extend({
                 data[key] = value;
             }
         }, this);
-
+        
         return restRequest({
             url: path,
             method: type,

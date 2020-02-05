@@ -786,6 +786,12 @@ class User(Resource):
             default="",
             required=False
         )
+        .param(
+            'login',
+            'login username, Deprecated. Do not use.',
+            deprecated=True,
+            required=False
+        )
         .param('admin', 'Is the user a site admin (admin access required)',
                required=False, dataType='boolean')
         .param('status', 'The account status (admin access required)',
@@ -815,6 +821,7 @@ class User(Resource):
     def updateUser(
         self,
         user,
+        login=None,
         displayName="",
         email="",
         admin=False,
@@ -826,6 +833,7 @@ class User(Resource):
             displayName
         ) else firstName if firstName is not None else ""
         user['email'] = email
+        user['login'] = login
 
         # Only admins can change admin state
         if admin is not None:

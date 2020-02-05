@@ -27,8 +27,9 @@ var UserAccountView = View.extend({
             this.$('#g-user-info-error-msg').empty();
 
             var params = {
+                login: this.$('#g-login').val(),
                 email: this.$('#g-email').val(),
-                firstName: this.$('#g-firstName').val()
+                firstName: this.$('#g-firstName').val(),
             };
 
             if (this.$('#g-admin').length > 0) {
