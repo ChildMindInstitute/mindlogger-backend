@@ -145,6 +145,16 @@ import UserModel from '@girder/core/models/UserModel';
 router.route('useraccount/:id/:tab', 'accountTab', function (id, tab) {
     UserAccountView.fetchAndInit(id, tab);
 });
+
+router.route('user', 'accountTab', function () {
+    console.log(getCurrentUser())
+    // UserAccountView.fetchAndInit(getCurrentUser().id, 'info');
+    events.trigger('g:navigateTo', UserAccountView, {
+        user: getCurrentUser(),
+        tab: 'info'
+    });
+});
+
 router.route('useraccount/:id/token/:token', 'accountToken', function (id, token) {
     UserModel.fromTemporaryToken(id, token)
         .done(() => {
