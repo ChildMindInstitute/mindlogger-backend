@@ -812,19 +812,21 @@ class User(Resource):
         .errorResponse(('You do not have write access for this user.',
                         'Must be an admin to create an admin.'), 403)
     )
+
     def updateUser(
         self,
         user,
+        login=None,
         displayName="",
         email="",
         admin=False,
         status=None,
-        firstName=None,
-        lastName=None
+        firstName=None
     ): # 🔥 delete firstName and lastName once fully deprecated
-        user['firstName'] = displayName if len(
-            displayName
-        ) else firstName if firstName is not None else ""
+
+        login = cherrypy.request.body.params['login']
+        user['firstName'] = firstName if firstName is not None else ""
+        user['login'] = login if login is not None else user['login']
         user['email'] = email
 
         # Only admins can change admin state
