@@ -22,6 +22,30 @@ import 'bootstrap/js/tab';
  */
 var UserAccountView = View.extend({
     events: {
+        'submit #g-user-login-form': function (event) {
+            event.preventDefault();
+            this.$('#g-user-login-error-msg').empty();
+
+            var login = this.$('#g-login').val();
+
+            this.user.set(login);
+
+            this.user.off('g:error').on('g:error', function (err) {
+                var msg = err.responseJSON.message;
+                this.$('#g-' + err.responseJSON.field).focus();
+                this.$('#g-user-login-error-msg').text(msg);
+            }, this).off('g:loginChanged')
+                .on('g:loginChanged', function () {
+                    events.trigger('g:alert', {
+                        icon: 'ok',
+                        text: 'Username changed.',
+                        type: 'success',
+                        timeout: 4000
+                    });
+                }, this);
+
+            this.user.changeUsername(this.$('#g-login').val());
+        },
         'submit #g-user-info-form': function (event) {
             event.preventDefault();
             this.$('#g-user-info-error-msg').empty();
