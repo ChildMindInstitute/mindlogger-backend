@@ -85,6 +85,24 @@ var UserModel = AccessControlledModel.extend({
         this.set('groupInvites', filtered);
     },
 
+     /**
+     * Change the username for this user.
+     */
+    changeUsername: function (newUsername) {
+        return restRequest({
+            url: `${this.resourceName}/login`,
+            data: {
+                login: newUsername
+            },
+            method: 'PUT',
+            error: null
+        }).done(() => {
+            this.trigger('g:loginChanged');
+        }).fail((err) => {
+            this.trigger('g:error', err);
+        });
+    },
+
     /**
      * Change the password for this user.
      */
