@@ -797,6 +797,12 @@ class User(Resource):
              dataType='string'
         )
         .param(
+            'username',
+            'Login name',
+            required=False,
+            dataType='string'
+        )
+        .param(
             'firstName',
             'Deprecated. Do not use.',
             deprecated=True,
@@ -817,6 +823,7 @@ class User(Resource):
         user,
         displayName="",
         email="",
+        username="",
         admin=False,
         status=None,
         firstName=None,
@@ -825,7 +832,10 @@ class User(Resource):
         user['firstName'] = displayName if len(
             displayName
         ) else firstName if firstName is not None else ""
-        user['email'] = email
+        if email:
+            user['email'] = email
+        if username:
+            user['login'] = username
 
         # Only admins can change admin state
         if admin is not None:

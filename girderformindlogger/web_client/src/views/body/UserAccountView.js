@@ -27,6 +27,7 @@ var UserAccountView = View.extend({
             this.$('#g-user-info-error-msg').empty();
 
             var params = {
+                username: this.$('#g-username').val(),
                 email: this.$('#g-email').val(),
                 firstName: this.$('#g-firstName').val()
             };
