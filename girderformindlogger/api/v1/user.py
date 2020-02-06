@@ -56,6 +56,7 @@ class User(Resource):
         self.route('GET', ('details',), self.getUsersDetails)
         self.route('POST', (), self.createUser)
         self.route('PUT', (':id',), self.updateUser)
+        self.route('PUT', ('login',), self.changeUsername)
         self.route('PUT', ('password',), self.changePassword)
         self.route('PUT', (':id', 'password'), self.changeUserPassword)
         self.route('GET', ('password', 'temporary', ':id'),
@@ -963,6 +964,30 @@ class User(Resource):
             user['status'] = status
 
         return self._model.save(user)
+
+    @access.user
+    @autoDescribeRoute(
+        Description("Change username.")
+        .param(
+            'login',
+            'Display username',
+            default="",
+            required=False
+        )
+        .errorResponse()
+        .errorResponse(('You do not have write access for this user.',
+                        'Must be an admin to create an admin.'), 403)
+    )
+    def changeUsername(
+        self,
+        login=""
+    ):
+        user = self.getCurrentUser()
+        if len(login):
+            user['login'] = login
+
+        return self._model.save(user)
+
 
     @access.admin
     @autoDescribeRoute(
