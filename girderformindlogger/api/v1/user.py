@@ -832,9 +832,9 @@ class User(Resource):
         user['firstName'] = displayName if len(
             displayName
         ) else firstName if firstName is not None else ""
-        if email:
+        if len(email):
             user['email'] = email
-        if username:
+        if len(username):
             user['login'] = username
 
         # Only admins can change admin state
