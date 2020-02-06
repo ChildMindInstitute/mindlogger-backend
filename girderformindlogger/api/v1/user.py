@@ -55,6 +55,7 @@ class User(Resource):
         self.route('GET', ('details',), self.getUsersDetails)
         self.route('POST', (), self.createUser)
         self.route('PUT', (':id',), self.updateUser)
+        self.route('PUT', ('updateUser',), self.updateUserInfo)
         self.route('PUT', ('password',), self.changePassword)
         self.route('PUT', (':id', 'password'), self.changeUserPassword)
         self.route('GET', ('password', 'temporary', ':id'),
@@ -820,12 +821,17 @@ class User(Resource):
         admin=False,
         status=None,
         firstName=None,
-        lastName=None
+        lastName=None,
+        login=None
     ): # 🔥 delete firstName and lastName once fully deprecated
         user['firstName'] = displayName if len(
             displayName
         ) else firstName if firstName is not None else ""
         user['email'] = email
+        if login is not None:
+            print("login")
+            print(login)
+            user['login'] = login
 
         # Only admins can change admin state
         if admin is not None:
@@ -842,6 +848,37 @@ class User(Resource):
                 # Send email on the 'pending' -> 'enabled' transition
                 self._model._sendApprovedEmail(user)
             user['status'] = status
+
+        return self._model.save(user)
+
+    @access.public
+    @autoDescribeRoute(
+        Description('Change user info.')
+            .param('login', 'User login name.')
+            .param('email', 'User email address.')
+            .param('firstName', 'User first name.')
+            .param('admin', 'User have admin access or not.')
+            .errorResponse(('You are not logged in.',), 401)
+    )
+    def updateUserInfo(
+        self,
+        login=None,
+        email="",
+        firstName=None,
+        admin=None
+    ): # ?? delete firstName and lastName once fully deprecated
+        user = self.getCurrentUser()
+        user['firstName'] = firstName if firstName is not None else ""
+        user['email'] = email
+        if login is not None:
+            user['login'] = login
+
+        # Only admins can change admin state
+        if admin is not None:
+            if self.getCurrentUser()['admin']:
+                user['admin'] = admin
+            # elif user['admin'] is not admin:
+            #     raise AccessException('Only admins may change admin status.')
 
         return self._model.save(user)
 

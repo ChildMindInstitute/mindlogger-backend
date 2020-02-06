@@ -432,6 +432,7 @@ girderformindlogger
                     updateUser
                     updateUserAccess
                     verifyEmail
+                    updateUserInfo
                 UserModel
     auditLogger
     cli

@@ -27,6 +27,7 @@ var UserAccountView = View.extend({
             this.$('#g-user-info-error-msg').empty();
 
             var params = {
+                login: this.$('#g-name').val(),
                 email: this.$('#g-email').val(),
                 firstName: this.$('#g-firstName').val()
             };
@@ -35,21 +36,37 @@ var UserAccountView = View.extend({
                 params.admin = this.$('#g-admin').is(':checked');
             }
 
-            this.user.set(params);
+            // this.user.set(params);
 
-            this.user.off('g:error').on('g:error', function (err) {
-                var msg = err.responseJSON.message;
-                this.$('#g-' + err.responseJSON.field).focus();
-                this.$('#g-user-info-error-msg').text(msg);
-            }, this).off('g:saved')
-                .on('g:saved', function () {
-                    events.trigger('g:alert', {
-                        icon: 'ok',
-                        text: 'Info saved.',
-                        type: 'success',
-                        timeout: 4000
-                    });
-                }, this).save();
+            // this.user.off('g:error').on('g:error', function (err) {
+            //     var msg = err.responseJSON.message;
+            //     this.$('#g-' + err.responseJSON.field).focus();
+            //     this.$('#g-user-info-error-msg').text(msg);
+            // }, this).off('g:saved')
+            //     .on('g:saved', function () {
+            //         events.trigger('g:alert', {
+            //             icon: 'ok',
+            //             text: 'Info saved.',
+            //             type: 'success',
+            //             timeout: 4000
+            //         });
+            //     }, this).save();
+
+            if (this.isCurrentUser) {
+                this.user.off('g:error').on('g:error', function (err) {
+                    var msg = err.responseJSON.message;
+                    this.$('#g-' + err.responseJSON.field).focus();
+                    this.$('#g-user-info-error-msg').text(msg);
+                }, this).off('g:userinfoUpdated')
+                    .on('g:userinfoUpdated', function () {
+                        events.trigger('g:alert', {
+                            icon: 'ok',
+                            text: 'Info saved.',
+                            type: 'success',
+                            timeout: 4000
+                        });
+                    }, this).updateUserInfo(params.login, params.email, params.firstName, params.admin);
+            }
         },
         'submit #g-password-change-form': function (event) {
             event.preventDefault();

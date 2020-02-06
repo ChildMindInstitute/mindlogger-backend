@@ -86,6 +86,27 @@ var UserModel = AccessControlledModel.extend({
     },
 
     /**
+     * Change the name, email, firstname for this user.
+     */
+    updateUserInfo: function (login, email, firstName, admin=null) {
+        return restRequest({
+            url: `${this.resourceName}/updateUser`,
+            data: {
+                login: login,
+                email: email,
+                firstName: firstName,
+                admin: admin
+            },
+            method: 'PUT',
+            error: null
+        }).done(() => {
+            this.trigger('g:userinfoUpdated');
+        }).fail((err) => {
+            this.trigger('g:error', err);
+        });
+    },
+
+    /**
      * Change the password for this user.
      */
     changePassword: function (oldPassword, newPassword) {
