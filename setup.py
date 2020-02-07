@@ -40,7 +40,7 @@ installReqs = [
     'isodate',
     'jsonschema',
     'Mako',
-    'pandas',
+    'pandas==0.25.1',
     'passlib [bcrypt,totp]',
     'pymongo>=3.6',
     'PyYAML',
