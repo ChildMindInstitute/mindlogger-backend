@@ -45,6 +45,7 @@ class User(Resource):
         self.route('POST', (), self.createUser)
         self.route('PUT', (':id',), self.updateUser)
         self.route('PUT', ('password',), self.changePassword)
+        self.route('PUT', ('username',), self.changeUserName)
         self.route('PUT', (':id', 'password'), self.changeUserPassword)
         self.route('GET', ('password', 'temporary', ':id'),
                    self.checkTemporaryPassword)
@@ -794,3 +795,16 @@ class User(Resource):
 
         self._model._sendVerificationEmail(user)
         return {'message': 'Sent verification email.'}
+
+    @access.user
+    @autoDescribeRoute(
+        Description('Change your username.')
+        .param('username', 'Your new username.')
+        .errorResponse(('You are not logged in.',), 401)
+    )
+    def changeUserName(self, username):
+        user = self.getCurrentUser()
+
+        self._model.setUserName(user, username)
+
+        return {'message': 'username changed.'}
