@@ -8,7 +8,7 @@ Changes
 -------
 Unreleased
 ==========
-2019-12-20: v0.8.2
+2020-02-10: v0.8.2
 ^^^^^^^^^^^^^^^^^^
 * Fixed issue with Pandas version in CI test
 
