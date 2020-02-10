@@ -56,7 +56,7 @@ class Applet(Resource):
         self.route('PUT', (':id', 'informant'), self.updateInformant)
         self.route('PUT', (':id', 'assign'), self.assignGroup)
         self.route('PUT', (':id', 'constraints'), self.setConstraints)
-        self.route('PUT', (':id', 'schedule'), self.setSchedule)
+        self.route('PUT', (':id',), self.setSchedule)
         self.route('GET', (':id', 'schedule'), self.getSchedule)
         self.route('POST', (':id', 'invite'), self.invite)
         self.route('GET', (':id', 'roles'), self.getAppletRoles)
