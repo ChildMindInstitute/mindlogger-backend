@@ -8,6 +8,10 @@ Changes
 -------
 Unreleased
 ==========
+2020-2-9: v0.8.2
+^^^^^^^^^^^^^^^^^^
+* Add getSchedule endpoint to get information for an applet
+
 2019-12-20: v0.8.1
 ^^^^^^^^^^^^^^^^^^
 * :sparkles: Data access for reviewers
