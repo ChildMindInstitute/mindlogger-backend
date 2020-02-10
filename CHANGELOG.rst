@@ -1,3 +1,5 @@
+.. |masterbranch| replace:: ``master`` branch
+
 *********************
 Girder for MindLogger
 *********************
