@@ -1,5 +1,3 @@
-.. |masterbranch| replace:: ``master`` branch
-
 *********************
 Girder for MindLogger
 *********************
@@ -8,6 +6,10 @@ Changes
 -------
 Unreleased
 ==========
+
+2020-02-10: v0.8.2
+^^^^^^^^^^^^^^^^^^
+* Fixed issue with Pandas version in CI test
 
 2020-1-28: v0.9.2
 ^^^^^^^^^^^^^^^^^^

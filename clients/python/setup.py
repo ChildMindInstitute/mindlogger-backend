@@ -22,7 +22,7 @@ def prerelease_local_scheme(version):
 install_reqs = [
     'click>=6.7',
     'diskcache',
-    'pandas',
+    'pandas==0.25.1',
     'requests>=2.4.2',
     'requests_toolbelt',
     'six'
