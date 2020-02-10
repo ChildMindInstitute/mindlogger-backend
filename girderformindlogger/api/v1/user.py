@@ -349,8 +349,8 @@ class User(Resource):
 
     @access.public(scope=TokenScope.USER_INFO_READ)
     @autoDescribeRoute(
-        Description('Update a user\'s ID Code.')
-        .param('id', 'Profile ID', required=True)
+        Description('Add a new ID Code to a user.')
+        .param('id', 'Profile ID', required=True, paramType='path')
         .param('code', 'ID code to add to profile', required=True)
         .errorResponse('ID was invalid.')
         .errorResponse('You do not have permission to see this user.', 403)
@@ -378,7 +378,7 @@ class User(Resource):
     @access.public(scope=TokenScope.USER_INFO_READ)
     @autoDescribeRoute(
         Description('Remove an ID Code from a user.')
-        .param('id', 'Profile ID', required=True)
+        .param('id', 'Profile ID', required=True, paramType='path')
         .param(
             'code',
             'ID code to remove from profile. If the ID code to remove is the '
