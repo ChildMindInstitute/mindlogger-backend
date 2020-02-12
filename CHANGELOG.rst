@@ -6,10 +6,16 @@ Girder for MindLogger
 
 Changes
 -------
+Unreleased
+==========
 
-2019-01-17: v0.7.6
+2019-01-17: v0.8.3
 ^^^^^^^^^^^^^^^^^^
 * :lock: Stop exposing sensitive data in deprecated `PUT /user/{:id}`
+
+2020-02-10: v0.8.2
+^^^^^^^^^^^^^^^^^^
+* Fixed issue with Pandas version in CI test
 
 2019-12-20: v0.8.1
 ^^^^^^^^^^^^^^^^^^
