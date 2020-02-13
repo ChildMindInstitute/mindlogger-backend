@@ -282,11 +282,6 @@ class Applet(Resource):
                 AppletModel().preferredName(applet),
                 applet.get('_id')
             )
-            thread = threading.Thread(
-                target=AppletModel().updateUserCacheAllUsersAllRoles,
-                args=(applet, user)
-            )
-            thread.start()
         else:
             message = 'Could not deactivate applet {} ({}).'.format(
                 AppletModel().preferredName(applet),
