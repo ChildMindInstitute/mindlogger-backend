@@ -8,9 +8,14 @@ Changes
 -------
 Unreleased
 ==========
-2019-12-20: v0.8.2
+
+2019-02-10: v0.8.3
 ^^^^^^^^^^^^^^^^^^
 * Add getSchedule endpoint to get schedule information for an applet
+
+2020-02-10: v0.8.2
+^^^^^^^^^^^^^^^^^^
+* Fixed issue with Pandas version in CI test
 
 2019-12-20: v0.8.1
 ^^^^^^^^^^^^^^^^^^
