@@ -29,6 +29,10 @@ Unreleased
 ^^^^^^^^^^^^^^^^^^
 * Fixed issue with Pandas version in CI test
 
+2020-1-28: v0.9.2
+^^^^^^^^^^^^^^^^^^
+* :pencil: Change parameter type for `PUT /user/{id}/code` & `DELETE /user/{id}/code`
+
 2019-12-20: v0.8.1
 ^^^^^^^^^^^^^^^^^^
 * :sparkles: Data access for reviewers
