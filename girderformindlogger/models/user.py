@@ -58,6 +58,9 @@ class User(AccessControlledModel):
         """
         Validate the user every time it is stored in the database.
         """
+        for s in ['email', 'displayName', 'firstName']:
+            if s in doc and doc[s] is None:
+                doc[s] = ''
         doc['login'] = doc.get('login', '').lower().strip()
         doc['email'] = doc.get('email', '').lower().strip()
         doc['displayName'] = doc.get(
