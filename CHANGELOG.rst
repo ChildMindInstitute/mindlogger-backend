@@ -9,10 +9,15 @@ Changes
 Unreleased
 ==========
 
+
+2019-01-17: v0.10.1
+^^^^^^^^^^^^^^^^^^
+* :lock: Stop exposing sensitive data in deprecated `PUT /user/{:id}`
+
 2020-02-13: v0.9.1
 ^^^^^^^^^^^^^^^^^^
 * :sparkles: Returns one applet per child for parent-report applets
-=======
+
 2020-02-10: v0.8.2
 ^^^^^^^^^^^^^^^^^^
 * Fixed issue with Pandas version in CI test

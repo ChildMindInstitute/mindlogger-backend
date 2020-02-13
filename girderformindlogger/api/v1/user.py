@@ -646,6 +646,86 @@ class User(Resource):
         )).count()
         return {'nUsers': nUsers}
 
+
+    @access.user
+    @autoDescribeRoute(
+        Description("Update a user's information.")
+        .modelParam('id', model=UserModel, level=AccessType.WRITE)
+        .param(
+            'displayName',
+            'Display name of the user, usually just their first name.',
+            default="",
+            required=False
+        )
+        .param('admin', 'Is the user a site admin (admin access required)',
+               required=False, dataType='boolean')
+        .param('status', 'The account status (admin access required)',
+               required=False, enum=('pending', 'enabled', 'disabled'))
+        .param(
+             'email',
+             'Deprecated. Do not use.',
+             required=False,
+             dataType='string'
+        )
+        .param(
+            'firstName',
+            'Deprecated. Do not use.',
+            deprecated=True,
+            required=False
+        )
+        .param(
+            'lastName',
+            'Deprecated. Do not use.',
+            deprecated=True,
+            required=False
+        )
+        .errorResponse()
+        .errorResponse(('You do not have write access for this user.',
+                        'Must be an admin to create an admin.'), 403)
+    )
+    def updateUser(
+        self,
+        user,
+        displayName="",
+        email="",
+        admin=False,
+        status=None,
+        firstName=None,
+        lastName=None
+    ):
+        # 🔥 delete firstName and lastName once fully deprecated
+        user['firstName'] = displayName if len(
+            displayName
+        ) else firstName if firstName is not None else ""
+        user['email'] = email
+
+        # Only admins can change admin state
+        if admin is not None:
+            if self.getCurrentUser()['admin']:
+                user['admin'] = admin
+            elif user['admin'] is not admin:
+                raise AccessException('Only admins may change admin status.')
+
+            # Only admins can change status
+            if status is not None and status != user.get('status', 'enabled'):
+                if not self.getCurrentUser()['admin']:
+                    raise AccessException('Only admins may change status.')
+                if user['status'] == 'pending' and status == 'enabled':
+                    # Send email on the 'pending' -> 'enabled' transition
+                    self._model._sendApprovedEmail(user)
+                user['status'] = status
+
+        try:
+            self._model.save(user)
+        except:
+            raise RestException(
+                'Update failed, and `PUT /user/{:id}` is deprecated.'
+            )
+
+        return(
+            {'message': 'Update saved, but `PUT /user/{:id}` is deprecated.'}
+        )
+
     @access.admin
     @autoDescribeRoute(
         Description("Change a user's password.")
