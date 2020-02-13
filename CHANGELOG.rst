@@ -9,13 +9,33 @@ Changes
 Unreleased
 ==========
 
-2019-02-10: v0.8.3
+2019-02-13: v0.12.1
 ^^^^^^^^^^^^^^^^^^
 * Add getSchedule endpoint to get schedule information for an applet
+
+2020-02-13: v0.11.1
+^^^^^^^^^^^^^^^^^^
+:racehorse: Improve response time on ``GET /applet/users``
+
+2020-02-13: v0.10.2
+^^^^^^^^^^^^^^^^^^
+:tractor: :racehorse: Simplify setting schedules
+
+2019-02-13: v0.10.1
+^^^^^^^^^^^^^^^^^^
+* :lock: Stop exposing sensitive data in deprecated `PUT /user/{:id}`
+
+2020-02-13: v0.9.1
+^^^^^^^^^^^^^^^^^^
+* :sparkles: Returns one applet per child for parent-report applets
 
 2020-02-10: v0.8.2
 ^^^^^^^^^^^^^^^^^^
 * Fixed issue with Pandas version in CI test
+
+2020-1-28: v0.9.2
+^^^^^^^^^^^^^^^^^^
+* :pencil: Change parameter type for `PUT /user/{id}/code` & `DELETE /user/{id}/code`
 
 2019-12-20: v0.8.1
 ^^^^^^^^^^^^^^^^^^
