@@ -9,6 +9,10 @@ Changes
 Unreleased
 ==========
 
+2019-02-13: v0.12.1
+^^^^^^^^^^^^^^^^^^
+* Add getSchedule endpoint to get schedule information for an applet
+
 2020-02-13: v0.11.1
 ^^^^^^^^^^^^^^^^^^
 :racehorse: Improve response time on ``GET /applet/users``
