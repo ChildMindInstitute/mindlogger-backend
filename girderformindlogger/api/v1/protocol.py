@@ -57,7 +57,7 @@ class Protocol(Resource):
     def getProtocol(self, folder):
         try:
             protocol = folder
-            user = Protocol().getCurrentUser()
+            user = self.getCurrentUser()
             return(
                 jsonld_expander.formatLdObject(
                     protocol,

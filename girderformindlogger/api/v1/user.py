@@ -36,6 +36,12 @@ class User(Resource):
         self.route('DELETE', (':id',), self.deleteUser)
         self.route('GET', ('me',), self.getMe)
         self.route('GET', ('authentication',), self.login)
+        self.route('PUT', ('applet', ':id', 'schedule'), self.setSchedule)
+        self.route(
+            'PUT',
+            (':uid', 'applet', ':aid', 'schedule'),
+            self.setOtherSchedule
+        )
         self.route('GET', (':id',), self.getUserByID)
         self.route('PUT', (':id', 'code'), self.updateIDCode)
         self.route('DELETE', (':id', 'code'), self.removeIDCode)
@@ -67,6 +73,107 @@ class User(Resource):
         from bson.objectid import ObjectId
         user = self.getCurrentUser()
         return(ProfileModel().getProfile(id, user))
+
+    @access.user(scope=TokenScope.DATA_WRITE)
+    @autoDescribeRoute(
+        Description('Set or update your own custom schedule information for an applet.')
+        .modelParam(
+            'id',
+            model=AppletModel,
+            level=AccessType.READ,
+            destName='applet'
+        )
+        .jsonParam(
+            'schedule',
+            'A JSON object containing schedule information for an activity',
+            paramType='form',
+            required=False
+        )
+        .errorResponse('Invalid applet ID.')
+        .errorResponse('Read access was denied for this applet.', 403)
+    )
+    def setSchedule(self, applet, schedule, **kwargs):
+        import threading
+
+        thisUser = self.getCurrentUser()
+        if not AppletModel()._hasRole(applet['_id'], thisUser, 'user'):
+            raise AccessException(
+                "You aren't a user of this applet."
+            )
+        profile = ProfileModel().findOne(
+            {
+                'appletId': applet['_id'],
+                'userId': thisUser['_id'],
+                'profile': True
+            }
+        )
+        if not profile:
+            raise AccessException(
+                "You aren't a user of this applet."
+            )
+        ud = profile["userDefined"] if "userDefined" in profile else {}
+        ud["schedule"] = schedule
+        profile["userDefined"] = ud
+        ProfileModel().save(profile, validate=False)
+
+        thread = threading.Thread(
+            target=AppletModel().updateUserCacheAllUsersAllRoles,
+            args=(applet, thisUser)
+        )
+        thread.start()
+        return(profile["userDefined"])
+
+    @access.user(scope=TokenScope.DATA_WRITE)
+    @autoDescribeRoute(
+        Description('Set or update custom schedule information for a user of an applet you manage or coordinate.')
+        .modelParam(
+            'uid',
+            model=ProfileModel,
+            force=True,
+            destName='profile',
+            description='The ID of the user\'s profile for this applet.'
+        )
+        .modelParam(
+            'aid',
+            model=AppletModel,
+            level=AccessType.READ,
+            destName='applet',
+            description="The ID of the applet."
+        )
+        .jsonParam(
+            'schedule',
+            'A JSON object containing schedule information for an activity',
+            paramType='form',
+            required=False
+        )
+        .errorResponse('Invalid ID.')
+        .errorResponse('Read access was denied.', 403)
+    )
+    def setOtherSchedule(self, profile, applet, schedule, **kwargs):
+        import threading
+
+        thisUser = self.getCurrentUser()
+        if not AppletModel().isCoordinator(applet['_id'], thisUser):
+            raise AccessException(
+                "You aren't a coordinator or manager of this applet."
+            )
+        if profile["appletId"] not in [applet['_id'], str(applet['_id'])]:
+            raise AccessException(
+                "That profile is not a user of this applet."
+            )
+        ud = profile[
+            "coordinatorDefined"
+        ] if "coordinatorDefined" in profile else {}
+        ud["schedule"] = schedule
+        profile["coordinatorDefined"] = ud
+        ProfileModel().save(profile, validate=False)
+
+        thread = threading.Thread(
+            target=AppletModel().updateUserCacheAllUsersAllRoles,
+            args=(applet, thisUser)
+        )
+        thread.start()
+        return(profile["coordinatorDefined"])
 
     @access.public(scope=TokenScope.USER_INFO_READ)
     @autoDescribeRoute(
@@ -252,6 +359,7 @@ class User(Resource):
         refreshCache=False
     ):
         import threading
+        from bson import json_util
         from bson.objectid import ObjectId
 
         reviewer = self.getCurrentUser()
@@ -278,16 +386,24 @@ class User(Resource):
                     'applet': AppletModel().unexpanded(applet)
                 } for applet in applets])
         if refreshCache:
-            return(
-                AppletModel().updateUserCache(
-                    role,
-                    reviewer,
-                    active=True,
-                    refreshCache=refreshCache
-                )
+            thread = threading.Thread(
+                target=AppletModel().updateUserCache,
+                args=(role, reviewer),
+                kwargs={"active": True, "refreshCache": refreshCache}
             )
+            thread.start()
+            return({
+                "message": "The user cache is being updated. Please check back "
+                           "in several mintutes to see it."
+            })
         try:
-            if 'cached' in reviewer and 'applets' in reviewer[
+            if 'cached' in reviewer:
+                reviewer['cached'] = json_util.loads(
+                    reviewer['cached']
+                ) if isinstance(reviewer['cached'], str) else reviewer['cached']
+            else:
+                reviewer['cached'] = {}
+            if 'applets' in reviewer[
                 'cached'
             ] and role in reviewer['cached']['applets'] and isinstance(
                 reviewer['cached']['applets'][role],
@@ -300,15 +416,31 @@ class User(Resource):
                     kwargs={"active": True, "refreshCache": refreshCache}
                 )
                 thread.start()
-                return(applets)
-            return(AppletModel().updateUserCache(
-                role,
-                reviewer,
-                active=True,
-                refreshCache=refreshCache
-            ))
+            else:
+                applets = AppletModel().updateUserCache(
+                    role,
+                    reviewer,
+                    active=True,
+                    refreshCache=refreshCache
+                )
+            for applet in applets:
+                try:
+                    applet["applet"]["responseDates"] = responseDateList(
+                        applet['applet'].get(
+                            '_id',
+                            ''
+                        ).split('applet/')[-1],
+                        user.get('_id'),
+                        user
+                    )
+                except:
+                    applet["applet"]["responseDates"] = []
+
+            return(applets)
         except Exception as e:
-            return(e)
+            import sys, traceback
+            print(sys.exc_info())
+            return([])
 
 
     @access.public(scope=TokenScope.USER_INFO_READ)

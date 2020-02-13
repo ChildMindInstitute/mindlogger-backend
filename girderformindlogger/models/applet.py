@@ -37,7 +37,8 @@ from girderformindlogger.models.folder import Folder as FolderModel
 from girderformindlogger.models.group import Group as GroupModel
 from girderformindlogger.models.protoUser import ProtoUser as ProtoUserModel
 from girderformindlogger.models.user import User as UserModel
-from girderformindlogger.utility.progress import noProgress, setResponseTimeLimit
+from girderformindlogger.utility.progress import noProgress,                   \
+    setResponseTimeLimit
 
 
 class Applet(Folder):
@@ -134,35 +135,124 @@ class Applet(Folder):
                 currentUser=user,
                 force=False
             )
-
         return(jsonld_expander.formatLdObject(
             applet,
             'applet',
             user
         ))
-        return(self.formatThenUpdate(
-            applet,
-            user
-        ))
-        return({
-            "_id": applet.get("_id"),
-            "applet": {
-                **self.unexpanded(applet),
-                "name": self.preferredName(applet),
-                "note - loading": "Your applet is being expanded on the "
-                "server. Check back in a few minutes to see the full content."
-                },
-            "protocol": protocol
-        })
+
+    def createAppletFromUrl(
+        self,
+        name,
+        protocolUrl,
+        user=None,
+        roles=None,
+        constraints=None,
+        sendEmail=True
+    ):
+        from girderformindlogger.models.protocol import Protocol
+        # get a protocol from a URL
+        protocol = Protocol().getFromUrl(
+            protocolUrl,
+            'protocol',
+            user,
+            thread=False,
+            refreshCache=True
+        )
+        protocol = protocol[0].get('protocol', protocol[0])
+        name = name if name is not None and len(name) else Protocol(
+        ).preferredName(
+            protocol
+        )
+        applet = self.createApplet(
+            name=name,
+            protocol={
+                '_id': 'protocol/{}'.format(
+                    str(protocol.get('_id')).split('/')[-1]
+                ),
+                'url': protocol.get(
+                    'meta',
+                    {}
+                ).get(
+                    'protocol',
+                    {}
+                ).get('url', protocolUrl)
+            },
+            user=user,
+            roles=roles,
+            constraints=constraints
+        )
+        emailMessage = "Your applet, {}, has been successfully created. The "  \
+            "applet's ID is {}".format(
+                name,
+                str(applet.get('applet', applet).get('_id')
+            )
+        )
+        if sendEmail and 'email' in user:
+            from girderformindlogger.utility.mail_utils import sendMail
+            sendMail(
+                subject=name,
+                text=emailMessage,
+                to=[user['email']]
+            )
+        print(emailMessage)
 
     def formatThenUpdate(self, applet, user):
         from girderformindlogger.utility import jsonld_expander
         jsonld_expander.formatLdObject(
             applet,
             'applet',
-            user
+            user,
+            refreshCache=True
         )
         self.updateUserCacheAllRoles(user)
+
+    def getResponseData(self, appletId, reviewer, filter={}):
+        """
+        Function to collect response data available to given reviewer.
+
+        :param appletId: ID of applet for which to get response data
+        :type appletId: ObjectId or str
+        :param reviewer: Reviewer making request
+        :type reviewer: dict
+        :param filter: reduction criteria (not yet implemented)
+        :type filter: dict
+        :reutrns: TBD
+        """
+        from .ID_code import IDCode
+        from .profile import Profile
+        from .response_folder import ResponseItem
+        from .user import User
+        from pymongo import DESCENDING
+
+        if not self._hasRole(appletId, reviewer, 'reviewer'):
+            raise AccessException("You are not a reviewer for this applet.")
+        query = {
+            "baseParentType": "user",
+            "meta.applet.@id": ObjectId(appletId)
+        }
+        responses = list(ResponseItem().find(
+            query=query,
+            user=reviewer,
+            sort=[("created", DESCENDING)]
+        ))
+        respondents = {
+            str(response['baseParentId']): IDCode().findIdCodes(
+                Profile().createProfile(
+                    appletId,
+                    User().load(response['baseParentId'], force=True),
+                    'user'
+                )['_id']
+            ) for response in responses if 'baseParentId' in response
+        }
+        return([
+            {
+                "respondent": code,
+                **response.get('meta', {})
+            } for response in responses for code in respondents[
+                str(response['baseParentId'])
+            ]
+        ])
 
     def updateRelationship(self, applet, relationship):
         """
@@ -172,6 +262,9 @@ class Applet(Folder):
         :type relationship: str
         :returns: updated Applet
         """
+        from bson.json_util import dumps
+        from girderformindlogger.utility.jsonld_expander import loadCache
+
         if not isinstance(relationship, str):
             raise TypeError("Applet relationship must be defined as a string.")
         if 'meta' not in applet:
@@ -179,17 +272,21 @@ class Applet(Folder):
         if 'applet' not in applet['meta']:
             applet['meta']['applet'] = {}
         applet['meta']['applet']['informantRelationship'] = relationship
-        if 'cached' in applet and 'applet' in applet['cached']:
+        if 'cached' in applet:
+            applet['cached'] = loadCache(applet['cached'])
+        if 'applet' in applet['cached']:
             applet['cached']['applet']['informantRelationship'] = relationship
+        applet['cached'] = dumps(applet['cached'])
         return(self.save(applet, validate=False))
 
     def unexpanded(self, applet):
+        from girderformindlogger.utility.jsonld_expander import loadCache
         return({
             **(
-                applet.get(
+                loadCache(applet.get(
                     'cached',
                     {}
-                ).get('applet') if isinstance(
+                )).get('applet') if isinstance(
                     applet,
                     dict
                 ) and 'cached' in applet else {
@@ -277,21 +374,35 @@ class Applet(Folder):
         return(applets if isinstance(applets, list) else [applets])
 
     def updateUserCacheAllUsersAllRoles(self, applet, coordinator):
-        [self.updateUserCacheAllRoles(user) for user in self.getAppletUsers(
+        from .profile import Profile as ProfileModel
+
+        [self.updateUserCacheAllRoles(
+            UserModel().load(
+                id=ProfileModel().load(
+                    user['_id'],
+                    force=True
+                ).get('userId'),
+                force=True
+            )
+        ) for user in self.getAppletUsers(
             applet,
             coordinator
-        )]
+        ).get('active', [])]
 
     def updateUserCacheAllRoles(self, user):
         [self.updateUserCache(role, user) for role in list(USER_ROLES.keys())]
 
     def updateUserCache(self, role, user, active=True, refreshCache=False):
         import threading
+        from bson import json_util
         from girderformindlogger.models.profile import Profile
         from girderformindlogger.utility import jsonld_expander
 
         applets=self.getAppletsForUser(role, user, active)
         user['cached'] = user.get('cached', {})
+        user['cached'] = json_util.loads(user['cached']) if isinstance(
+            user['cached'], str
+        ) else user['cached']
         user['cached']['applets'] = user['cached'].get('applets', {})
         user['cached']['applets'][role] = user['cached']['applets'].get(
             role,
@@ -316,9 +427,8 @@ class Applet(Folder):
                     applet,
                     'applet',
                     user,
-                    dropErrors=True,
-                    responseDates=True if role=="user" else False,
-                    refreshCache=refreshCache
+                    refreshCache=refreshCache,
+                    responseDates=(role=="user")
                 ),
                 "groups": [
                     group for group in self.getAppletGroups(applet).get(
@@ -388,8 +498,13 @@ class Applet(Folder):
         :type active: bool
         :returns: list of dicts
         """
-        if "userId" in user:
-            user = UserModel().load(id=ObjectId(user["userId"]), force=True)
+        user = UserModel().load(
+            id=ObjectId(user["userId"]),
+            force=True
+        ) if "userId" in user else UserModel().load(
+            id=ObjectId(user["_id"]),
+            force=True
+        ) if "_id" in user else user
         applets = [
             *list(self.find(
                 {
@@ -430,7 +545,16 @@ class Applet(Folder):
                 'roles.' + role + '.groups.id': {'$in': user.get('groups', [])}
             }
         ))
-        return(applets if isinstance(applets, list) else [applets])
+
+        # filter out duplicates for coordinators
+        temp = set()
+        applets = [
+            k for k in applets if '_id' in k and k[
+                '_id'
+            ] not in temp and not temp.add(k['_id'])
+        ] if isinstance(applets, list) else [applets]
+
+        return(applets)
 
     def listUsers(self, applet, role, user=None, force=False):
         from .profile import Profile
@@ -462,7 +586,7 @@ class Applet(Folder):
         }
         return(userlist)
 
-    def getAppletUsers(self, applet, user=None):
+    def getAppletUsers(self, applet, user=None, force=False):
         """
         Function to return a list of Applet Users
 
@@ -486,48 +610,51 @@ class Applet(Folder):
                     force=True
                 ) if isinstance(user, str) else {}
 
-            if not self.isManager(applet.get('_id', applet), user):
-                return([])
+            if not force:
+                if not self.isCoordinator(applet.get('_id', applet), user):
+                    return([])
 
             userDict = {
                 'active': [
-                    Profile().displayProfileFields(p, user) for p in list(
+                    Profile().displayProfileFields(
+                        p,
+                        user,
+                        forceManager=True
+                    ) for p in list(
                         Profile().find(
                             query={'appletId': applet['_id']}
                         )
                     )
                 ],
                 'pending': [
-                    Profile().displayProfileFields(p, user) for p in list(
+                    Profile().displayProfileFields(
+                        p,
+                        user,
+                        forceManager=True
+                    ) for p in list(
                         Invitation().find(query={'appletId': applet['_id']})
                     )
                 ]
             }
 
+            missing = threading.Thread(
+                target=Profile().generateMissing,
+                args=(applet,)
+            )
+            missing.start()
+
             if len(userDict['active']):
-                missing = threading.Thread(
-                    target=Profile().generateMissing,
-                    args=(applet,)
-                )
-                missing.start()
                 return(userDict)
 
             else:
-                return(Profile().generateMissing(applet))
+                return({
+                    **userDict,
+                    "message": "cache updating"
+                })
         except:
             import sys, traceback
             print(sys.exc_info())
             return({traceback.print_tb(sys.exc_info()[2])})
-
-
-    def importUrl(self, url, user=None, refreshCache=False):
-        """
-        Gets an applet from a given URL, checks against the database, stores
-        and returns that applet.
-
-        Deprecated.
-        """
-        return(self.getFromUrl(url, 'applet', user, refreshCache)[0])
 
     def load(self, id, level=AccessType.ADMIN, user=None, objectId=True,
              force=False, fields=None, exc=False):
