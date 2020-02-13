@@ -104,12 +104,20 @@ class IDCode(acl_mixin.AccessControlMixin, Model):
         return doc
 
     def findIdCodes(self, profileId):
-        return([
+        from .profile import Profile
+
+        idCodes = [
             i['code'] for i in list(self.find({'profileId': {'$in': [
                 str(profileId),
                 ObjectId(profileId)
             ]}})) if isinstance(i, dict) and 'code' in i
-        ])
+        ]
+
+        if not len(idCodes):
+            self.createIdCode(Profile().load(profileId, force=True))
+            return(self.findIdCodes(profileId))
+
+        return(idCodes)
 
     def removeCode(self, profileId, code):
         from .profile import Profile
@@ -164,7 +172,6 @@ class IDCode(acl_mixin.AccessControlMixin, Model):
             import sys, traceback
             raise e
             print(sys.exc_info())
-
 
     def findProfile(self, idCode):
         """
