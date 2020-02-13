@@ -9,8 +9,15 @@ Changes
 Unreleased
 ==========
 
+2020-02-13: v0.11.1
+^^^^^^^^^^^^^^^^^^
+:racehorse: Improve response time on ``GET /applet/users``
 
-2019-01-17: v0.10.1
+2020-02-13: v0.10.2
+^^^^^^^^^^^^^^^^^^
+:tractor: :racehorse: Simplify setting schedules
+
+2019-02-13: v0.10.1
 ^^^^^^^^^^^^^^^^^^
 * :lock: Stop exposing sensitive data in deprecated `PUT /user/{:id}`
 
