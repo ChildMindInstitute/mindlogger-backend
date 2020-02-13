@@ -176,6 +176,120 @@ def _deeperContextualize(ldObj, context):
     return(context, newObj)
 
 
+def childByParent(parent, applet, parentProfile=None):
+    from girderformindlogger.models.profile import Profile
+
+    parentProfile = Profile().getProfile(
+        Profile().createProfile(
+            applet['applet']['_id'].split('applet/')[-1],
+            parent,
+            "user"
+        ).get('_id'),
+        user=parent
+    ) if parentProfile is None else parentProfile
+    parentKnows = parentProfile.get('schema:knows', {})
+    children = [Profile().displayProfileFields(
+        Profile().load(
+            p,
+            force=True
+        ),
+        parent
+    ) for p in list(
+            set(parentKnows.get('rel:parentOf', {})).union(
+                set(parentKnows.get('schema:children', {}))
+            )
+        )
+    ]
+    return([
+        formatChildApplet(child, deepcopy(applet)) for child in children
+    ])
+
+
+def formatChildApplet(child, applet):
+    applet['applet'] = _formatChildLabel(
+        applet['applet'],
+        child['displayName']
+    )
+    for act in applet['activities']:
+        applet['activities'][act] = _formatChildLabel(
+            applet['activities'][act],
+            child['displayName']
+        )
+    return(_formatSubjectDocument(applet, child))
+
+
+def _formatChildLabel(obj, label):
+    for i, pl in enumerate(obj.get(
+        "http://www.w3.org/2004/02/skos/core#prefLabel",
+        []
+    )):
+        obj["http://www.w3.org/2004/02/skos/core#prefLabel"][i][
+            "@value"
+        ] = ": ".join([
+            label,
+            obj["http://www.w3.org/2004/02/skos/core#prefLabel"][
+                i
+            ].get("@value", "")
+        ])
+    return(obj)
+
+
+def _formatSubjectDocument(obj, child):
+    if isinstance(obj, str):
+        return("?subjectId=".join([obj, str(child['_id'])]) if (
+            obj.startswith("reprolib:") and not (
+                obj.startswith("reprolib:terms") or obj.split(":")[-1].isupper()
+            )
+        ) else obj)
+    elif isinstance(obj, list):
+        return([_formatSubjectDocument(i, child) for i in obj])
+    elif isinstance(obj, dict):
+        n = {}
+        for k in obj.keys():
+            nk = "?subjectId=".join([k, str(child['_id'])]) if (
+                k.startswith("reprolib:") and not (
+                    k.startswith("reprolib:terms") or k.split(":")[-1].isupper()
+                )
+            ) else k
+            n[nk] = (
+                "?subjectId=".join([
+                    obj[k],
+                    str(child['_id'])
+                ]) if isinstance(obj[k], str) else [
+                    "?subjectId=".join([
+                        o,
+                        str(child['_id'])
+                    ]) for o in obj[k]
+                ] if isinstance(obj[k], list) else obj[k]
+            ) if k in [
+                "@index",
+                "order"
+            ] else {
+                "?subjectId=".join([
+                    adnK,
+                    str(child['_id'])
+                ]): ": ".join([
+                    child['displayName'],
+                    obj[k][adnK]
+                ]) for adnK in obj[k]
+            } if k=="activity_display_name" else {
+                "?subjectId=".join([
+                    vizK,
+                    str(child['_id'])
+                ]): (
+                "?subjectId=".join([
+                    obj[k][vizK],
+                    str(child['_id'])
+                ]) if isinstance(obj[k][vizK], str) else obj[k][vizK]
+            ) for vizK in obj[k]
+            } if k=="visibility" else obj[
+                k
+            ] if k=="@type" else _formatSubjectDocument(obj[k], child)
+        return(n)
+    else:
+        return(obj)
+
+
 def inferRelationships(person):
     from girderformindlogger.models.invitation import Invitation
     from girderformindlogger.models.profile import Profile
