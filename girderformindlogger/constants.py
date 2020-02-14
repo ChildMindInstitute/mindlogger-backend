@@ -59,7 +59,7 @@ DEFINED_RELATIONS = {
     },
     "rel:parentOf": {
         "owl:inverseOf": ["rel:childOf"],
-        "owl:equivalentProperty": ["schema:children"],
+        "owl:equivalentProperty": ["schema:parent"],
         "rdfs:subPropertyOf": ["schema:knows"],
         "rdfs:comment": [
             "A person who has given birth to or nurtured and raised this "
@@ -68,7 +68,7 @@ DEFINED_RELATIONS = {
     },
     "schema:parent": {
         "owl:inverseOf": ["schema:children"],
-        "owl:equivalentProperty": ["rel:parentOf"],
+        "owl:equivalentProperty": ["rel:childOf"],
         "rdfs:subPropertyOf": ["schema:knows"],
         "rdfs:comment": ["A parent of this person."]
     },
@@ -88,7 +88,7 @@ DEFINED_RELATIONS = {
     },
     "rel:childOf": {
         "owl:inverseOf": ["rel:parentOf"],
-        "owl:equivalentProperty": ["schema:parent"],
+        "owl:equivalentProperty": ["schema:children"],
         "rdfs:comment": [
             "A person who was given birth to or nurtured and raised by this "
             "person."

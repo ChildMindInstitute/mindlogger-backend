@@ -456,24 +456,13 @@ class Applet(Folder):
         ]
         postformatted = []
         for applet in formatted:
-            if role=='user' and applet['applet'].get(
-                'informantRelationship'
-            )=='parent':
-                parentProfile = Profile().getProfile(
-                    Profile().createProfile(
-                        applet['applet']['_id'].split('applet/')[-1],
-                        user,
-                        "user"
-                    ).get('_id'),
-                    user=user
-                )
+            if applet['applet'].get('informantRelationship')=='parent':
                 [
                     postformatted.append(
                         a
                     ) for a in jsonld_expander.childByParent(
                         user,
-                        applet,
-                        parentProfile
+                        applet
                     )
                 ]
             else:
@@ -484,7 +473,7 @@ class Applet(Folder):
             args=(user,)
         )
         thread.start()
-        return(postformatted)
+        return(formatted)
 
     def getAppletsForUser(self, role, user, active=True):
         """

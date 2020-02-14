@@ -9,6 +9,10 @@ Changes
 Unreleased
 ==========
 
+2019-02-14: v0.13.1
+^^^^^^^^^^^^^^^^^^
+* Revert changes in v0.9.1
+
 2019-02-13: v0.12.1
 ^^^^^^^^^^^^^^^^^^
 * Add getSchedule endpoint to get schedule information for an applet
