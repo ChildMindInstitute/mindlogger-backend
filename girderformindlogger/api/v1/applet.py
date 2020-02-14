@@ -173,24 +173,31 @@ class Applet(Resource):
     )
     def createApplet(self, protocolUrl=None, name=None, informant=None):
         thisUser = self.getCurrentUser()
-        thread = threading.Thread(
-            target=AppletModel().createAppletFromUrl,
-            kwargs={
-                'name': name,
-                'protocolUrl': protocolUrl,
-                'user': thisUser,
-                'constraints': {
-                    'informantRelationship': informant
-                } if informant is not None else None
-            }
-        )
-        thread.start()
-        return({
-            "message": "The applet is being created. Please check back in "
-                       "several mintutes to see it. If you have an email "
-                       "address associated with your account, you will receive "
-                       "an email when your applet is ready."
+        existingApplet = AppletModel().findOne({
+            'name': name
         })
+        if existingApplet is None:
+            thread = threading.Thread(
+                target=AppletModel().createAppletFromUrl,
+                kwargs={
+                    'name': name,
+                    'protocolUrl': protocolUrl,
+                    'user': thisUser,
+                    'constraints': {
+                        'informantRelationship': informant
+                    } if informant is not None else None
+                }
+            )
+            thread.start()
+            return({
+                "message": "The applet is being created. Please check back in "
+                        "several mintutes to see it. If you have an email "
+                        "address associated with your account, you will receive "
+                        "an email when your applet is ready."
+            })
+        else:
+            raise ValidationException('An applet with that name already exists.', 'name')
+
 
     @access.user(scope=TokenScope.DATA_WRITE)
     @autoDescribeRoute(
