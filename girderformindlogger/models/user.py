@@ -1,710 +1,1081 @@
 # -*- coding: utf-8 -*-
+import base64
+import cherrypy
 import datetime
-import os
-import re
-from passlib.context import CryptContext
-from passlib.totp import TOTP, TokenError
-import six
+import itertools
 
-from girderformindlogger import events
-from girderformindlogger.constants import AccessType, CoreEventHandler, TokenScope
-from girderformindlogger.exceptions import AccessException, ValidationException
+from ..describe import Description, autoDescribeRoute
+from girderformindlogger.api import access
+from girderformindlogger.api.rest import Resource, filtermodel, setCurrentUser
+from girderformindlogger.constants import AccessType, SortDir, TokenScope,     \
+    USER_ROLES
+from girderformindlogger.exceptions import RestException, AccessException
+from girderformindlogger.models.applet import Applet as AppletModel
+from girderformindlogger.models.collection import Collection as CollectionModel
+from girderformindlogger.models.folder import Folder as FolderModel
+from girderformindlogger.models.group import Group as GroupModel
+from girderformindlogger.models.ID_code import IDCode
+from girderformindlogger.models.profile import Profile as ProfileModel
+from girderformindlogger.models.setting import Setting
+from girderformindlogger.models.token import Token
+from girderformindlogger.models.user import User as UserModel
 from girderformindlogger.settings import SettingKey
-from girderformindlogger.utility import config, mail_utils
-from girderformindlogger.utility._cache import rateLimitBuffer
-from .model_base import AccessControlledModel
-from .setting import Setting
+from girderformindlogger.utility import jsonld_expander, mail_utils
+from sys import exc_info
 
 
-class User(AccessControlledModel):
-    """
-    This model represents the users of the system.
-    """
+class User(Resource):
+    """API Endpoint for users in the system."""
 
-    def initialize(self):
-        self.name = 'user'
-        self.ensureIndices(['login', 'email', 'groupInvites.groupId', 'size',
-                            'created'])
-        self.prefixSearchFields = (
-            'login', ('firstName', 'i'), ('displayName', 'i'), 'email')
-        self.ensureTextIndex({
-            'login': 1,
-            'displayName': 1,
-            'email': 1,
-        }, language='none')
-        self.exposeFields(level=AccessType.READ, fields=(
-            '_id', 'login', 'public', 'displayName', 'firstName', 'lastName',
-            'admin', 'email', 'created')) # 🔥 delete firstName, lastName and email once fully deprecated
-        self.exposeFields(level=AccessType.ADMIN, fields=(
-            'size', 'status', 'emailVerified', 'creatorId'))
+    def __init__(self):
+        super(User, self).__init__()
+        self.resourceName = 'user'
+        self._model = UserModel()
 
-        # To ensure compatibility with authenticator apps, other defaults shouldn't be changed
-        self._TotpFactory = TOTP.using(
-            # An application secret could be set here, if it existed
-            wallet=None
+        self.route('DELETE', ('authentication',), self.logout)
+        self.route('DELETE', (':id',), self.deleteUser)
+        self.route('GET', (), self.find)
+        self.route('GET', ('me',), self.getMe)
+        self.route('GET', ('authentication',), self.login)
+        self.route('GET', (':id',), self.getUserByID)
+        self.route('GET', (':id', 'access'), self.getUserAccess)
+        self.route('PUT', (':id', 'access'), self.updateUserAccess)
+        self.route('PUT', (':id', 'code'), self.updateIDCode)
+        self.route('DELETE', (':id', 'code'), self.removeIDCode)
+        self.route('GET', ('applets',), self.getOwnApplets)
+        self.route('GET', (':id', 'details'), self.getUserDetails)
+        self.route('GET', ('invites',), self.getGroupInvites)
+        self.route('PUT', (':id', 'knows'), self.setUserRelationship)
+        self.route('GET', ('details',), self.getUsersDetails)
+        self.route('POST', (), self.createUser)
+        self.route('PUT', (':id',), self.updateUser)
+        self.route('PUT', (':id','update'), self.changeUsername)
+        self.route('PUT', ('password',), self.changePassword)
+        self.route('PUT', (':id', 'password'), self.changeUserPassword)
+        self.route('GET', ('password', 'temporary', ':id'),
+                   self.checkTemporaryPassword)
+        self.route('PUT', ('password', 'temporary'),
+                   self.generateTemporaryPassword)
+        self.route('POST', (':id', 'otp'), self.initializeOtp)
+        self.route('PUT', (':id', 'otp'), self.finalizeOtp)
+        self.route('DELETE', (':id', 'otp'), self.removeOtp)
+        self.route('PUT', ('profile',), self.updateProfile)
+        self.route('PUT', (':id', 'verification'), self.verifyEmail)
+        self.route('POST', ('verification',), self.sendVerificationEmail)
+
+
+    @access.user
+    @autoDescribeRoute(
+        Description('Get all pending invites for the logged-in user.')
+        .deprecated()
+    )
+    def getGroupInvites(self):
+        pending = self.getCurrentUser().get("groupInvites")
+        output = []
+        userfields = [
+            'firstName',
+            '_id',
+            'email',
+            'gravatar_baseUrl',
+            'login'
+        ]
+        for p in pending:
+            groupId = p.get('groupId')
+            applets = list(AppletModel().find(
+                query={
+                    "roles.user.groups.id": groupId
+                },
+                fields=[
+                    'cached.applet.skos:prefLabel',
+                    'cached.applet.schema:description',
+                    'cached.applet.schema:image',
+                    'roles'
+                ]
+            ))
+            for applet in applets:
+                for role in ['manager', 'reviewer']:
+                    applet[''.join([role, 's'])] = [{
+                        (
+                            'image' if userKey=='gravatar_baseUrl' else userKey
+                        ): user.get(
+                            userKey
+                        ) for userKey in user.keys()
+                    } for user in list(UserModel().find(
+                            query={
+                                "groups": {
+                                    "$in": [
+                                        group.get('id') for group in applet.get(
+                                            'roles',
+                                            {}
+                                        ).get(role, {}).get('groups', [])
+                                    ]
+                                }
+                            },
+                            fields=userfields
+                        ))
+                    ]
+                appletC = jsonld_expander.loadCache(
+                    applet.get('cached')
+                ) if 'cached' in applet else applet
+                output.append({
+                    '_id': groupId,
+                    'applets': [{
+                        'name': appletC.get('applet', {}).get(
+                            'skos:prefLabel',
+                            ''
+                        ),
+                        'image': appletC.get('applet', {}).get(
+                            'schema:image',
+                            ''
+                        ),
+                        'description': appletC.get('applet', {
+                        }).get(
+                            'schema:description',
+                            ''
+                        ),
+                        'managers': applet.get('managers'),
+                        'reviewers': applet.get('reviewers')
+                    } for applet in applets]
+                })
+        return(output)
+
+    @access.user
+    @filtermodel(model=UserModel)
+    @autoDescribeRoute(
+        Description('List or search for users.')
+        .responseClass('User', array=True)
+        .param('text', 'Pass this to perform a full text search for items.', required=False)
+        .pagingParams(defaultSort='firstName')
+        .deprecated()
+    )
+    def find(self, text, limit, offset, sort):
+        return list(self._model.search(
+            text=text, user=self.getCurrentUser(), offset=offset, limit=limit, sort=sort))
+
+    @access.public(scope=TokenScope.USER_INFO_READ)
+    @autoDescribeRoute(
+        Description('Get a user by ID.')
+        .param('id', 'Profile ID or ID code', required=True)
+        .errorResponse('ID was invalid.')
+        .errorResponse('You do not have permission to see this user.', 403)
+    )
+    def getUserByID(self, id):
+        from bson.objectid import ObjectId
+        user = self.getCurrentUser()
+        return(ProfileModel().getProfile(id, user))
+
+    @access.public(scope=TokenScope.USER_INFO_READ)
+    @autoDescribeRoute(
+        Description('Add a relationship between users.')
+        .param(
+            'id',
+            'ID or ID code of user to add relationship to',
+            required=True
         )
-
-        self._cryptContext = CryptContext(
-            schemes=['bcrypt']
+        .param('rel', 'Relationship to add', required=True)
+        .param('otherId', 'ID or ID code of related individual.', required=True)
+        .param(
+            'otherName',
+            'Name to display for related individual',
+            required=True
         )
+        .errorResponse('ID was invalid.')
+        .errorResponse('You do not have permission to see this user.', 403)
+    )
+    def setUserRelationship(self, id, rel, otherId, otherName):
+        from girderformindlogger.models.invitation import Invitation
+        from girderformindlogger.utility.jsonld_expander import                \
+            inferRelationships, oidIffHex
 
-        events.bind('model.user.save.created',
-                    CoreEventHandler.USER_SELF_ACCESS, self._grantSelfAccess)
-        events.bind('model.user.save.created',
-                    CoreEventHandler.USER_DEFAULT_FOLDERS,
-                    self._addDefaultFolders)
-
-    def validate(self, doc):
-        """
-        Validate the user every time it is stored in the database.
-        """
-        doc['login'] = doc.get('login', '').lower().strip()
-        doc['email'] = doc.get('email', '').lower().strip()
-        doc['displayName'] = doc.get(
-            'displayName',
-            doc.get('firstName', '')
-        ).strip()
-        doc['firstName'] = doc.get('firstName', '').strip()
-        doc['status'] = doc.get('status', 'enabled')
-
-        if 'salt' not in doc:
-            # Internal error, this should not happen
-            raise Exception('Tried to save user document with no salt.')
-
-        if not doc['displayName']:
-            raise ValidationException('Display name must not be empty.',
-                                      'displayName')
-
-        if doc['status'] not in ('pending', 'enabled', 'disabled'):
-            raise ValidationException(
-                'Status must be pending, enabled, or disabled.', 'status')
-
-        if 'hashAlg' in doc:
-            # This is a legacy field; hash algorithms are now inline with the password hash
-            del doc['hashAlg']
-
-        self._validateLogin(doc['login'])
-
-        if len(doc['email']) and not mail_utils.validateEmailAddress(
-            doc['email']
+        user = self.getCurrentUser()
+        grammaticalSubject = ProfileModel().getProfile(id, user)
+        gsp = ProfileModel().load(
+            grammaticalSubject['_id'],
+            force=True
+        )
+        grammaticalSubject = Invitation().load(
+            grammaticalSubject['_id'],
+            force=True
+        ) if gsp is None else gsp
+        print(grammaticalSubject)
+        if grammaticalSubject is None or not AppletModel().isCoordinator(
+            grammaticalSubject['appletId'], user
         ):
-            raise ValidationException('Invalid email address.', 'email')
+            raise AccessException(
+                'You do not have permission to update this user.'
+            )
 
-        # Ensure unique logins
-        q = {'login': doc['login']}
-        if '_id' in doc:
-            q['_id'] = {'$ne': doc['_id']}
-        existing = self.findOne(q)
-        if existing is not None:
-            raise ValidationException('That login is already registered.',
-                                      'login')
-
-        # If this is the first user being created, make it an admin
-        existing = self.findOne({})
-        if existing is None:
-            doc['admin'] = True
-            # Ensure settings don't stop this user from logging in
-            doc['emailVerified'] = True
-            doc['status'] = 'enabled'
-
-        return doc
-
-    def _validateLogin(self, login):
-        if '@' in login:
-            # Hard-code this constraint so we can always easily distinguish
-            # an email address from a login
-            raise ValidationException('Login may not contain "@".', 'login')
-
-        if not re.match(r'^[a-z][\da-z\-\.]{3,}$', login):
-            raise ValidationException(
-                'Login must be at least 4 characters, start with a letter, and may only contain '
-                'letters, numbers, dashes, and dots.', 'login')
-
-    def filter(self, doc, user, additionalKeys=None):
-        filteredDoc = super(User, self).filter(doc, user, additionalKeys)
-
-        level = self.getAccessLevel(doc, user)
-        if level >= AccessType.ADMIN:
-            filteredDoc['otp'] = doc.get('otp', {})
-            filteredDoc['otp'] = filteredDoc['otp'].get(
-                'enabled',
-                False
-            ) if isinstance(filteredDoc['otp'], dict) else False
-
-        return filteredDoc
-
-    def authenticate(self, login, password, otpToken=None):
-        """
-        Validate a user login via username and password. If authentication
-        fails, an ``AccessException`` is raised.
-
-        :param login: The user's login or email.
-        :type login: str
-        :param password: The user's password.
-        :type password: str
-        :param otpToken: A one-time password for the user. If "True", then the
-                         one-time password (if required) is assumed to be
-                         concatenated to the password.
-        :type otpToken: str or bool or None
-        :returns: The corresponding user if the login was successful.
-        :rtype: dict
-        """
-        user = None
-        event = events.trigger('model.user.authenticate', {
-            'login': login,
-            'password': password
-        })
-
-        if event.defaultPrevented and len(event.responses):
-            return event.responses[-1]
-
-        login = login.lower().strip()
-        loginField = 'email' if '@' in login else 'login'
-
-        if loginField=='login':
-            user = self.findOne({loginField: login})
+        appletId = grammaticalSubject['appletId']
+        grammaticalObject = ProfileModel().getSubjectProfile(
+            otherId,
+            otherName,
+            user
+        )
+        if grammaticalObject is None:
+            grammaticalObject = ProfileModel().getProfile(
+                ProfileModel().createPassiveProfile(
+                    appletId,
+                    otherId,
+                    otherName,
+                    user
+                )['_id'],
+                grammaticalSubject
+            )
+        if 'schema:knows' in grammaticalSubject:
+            if rel in grammaticalSubject['schema:knows'] and grammaticalObject[
+                '_id'
+            ] not in grammaticalSubject['schema:knows'][rel]:
+                grammaticalSubject['schema:knows'][rel].append(
+                    grammaticalObject['_id']
+                )
+            else:
+                grammaticalSubject['schema:knows'][rel] = [
+                    grammaticalObject['_id']
+                ]
         else:
+            grammaticalSubject['schema:knows'] = {
+                rel: [grammaticalObject['_id']]
+            }
+        ProfileModel().save(grammaticalSubject, validate=False)
+        inferRelationships(grammaticalSubject)
+        return(ProfileModel().getProfile(id, user))
+
+
+    @access.public(scope=TokenScope.USER_INFO_READ)
+    @autoDescribeRoute(
+        Description('Update a user\'s ID Code.')
+        .param('id', 'Profile ID', required=True)
+        .param('code', 'ID code to add to profile', required=True)
+        .errorResponse('ID was invalid.')
+        .errorResponse('You do not have permission to see this user.', 403)
+    )
+    def updateIDCode(self, id, code):
+        from bson.objectid import ObjectId
+        user = self.getCurrentUser()
+        try:
+            p = ProfileModel().findOne({'_id': ObjectId(id)})
+        except:
+            p = None
+        if p is None or not AppletModel().isCoordinator(p['appletId'], user):
             raise AccessException(
-                'Please log in with your username rather than your email '
-                'address.'
+                'You do not have permission to update this user\'s ID code.'
             )
-        if user is None:
-            raise AccessException('Login failed. Username not found.')
-
-        # Handle users with no password
-        if not self.hasPassword(user):
-            e = events.trigger('no_password_login_attempt', {
-                'user': user,
-                'password': password
-            })
-
-            if len(e.responses):
-                return e.responses[-1]
-
-            raise ValidationException(
-                'This user does not have a password. You must log in with an '
-                'external service, or reset your password.')
-
-        # Handle OTP token concatenation
-        if otpToken is True and self.hasOtpEnabled(user):
-            # Assume the last (typically 6) characters are the OTP, so split at
-            # that point
-            otpTokenLength = self._TotpFactory.digits
-            otpToken = password[-otpTokenLength:]
-            password = password[:-otpTokenLength]
-
-        self._verify_password(password, user)
-
-        # Verify OTP
-        if self.hasOtpEnabled(user):
-            if otpToken is None:
-                raise AccessException(
-                    'User authentication must include a one-time password '
-                    '(typically in the "Girder-OTP" header).')
-            self.verifyOtp(user, otpToken)
-        elif isinstance(otpToken, six.string_types):
-            raise AccessException(
-                'The user has not enabled one-time passwords.'
+        else:
+            IDCode().createIdCode(p, code)
+        return(
+            ProfileModel().profileAsUser(
+                ProfileModel().load(p['_id'], force=True),
+                user
             )
-
-        # This has the same behavior as User.canLogin, but returns more
-        # detailed error messages
-        if user.get('status', 'enabled') == 'disabled':
-            return { 'exception' : 'Account is disabled.' }
-
-        if self.emailVerificationRequired(user):
-            return { 'exception' : 'Email verification is required.' }
-
-        if self.adminApprovalRequired(user):
-            return { 'exception' : 'Admin approval required' }
-
-        return user
-
-    def remove(self, user, progress=None, **kwargs):
-        """
-        Delete a user, and all references to it in the database.
-
-        :param user: The user document to delete.
-        :type user: dict
-        :param progress: A progress context to record progress on.
-        :type progress: girderformindlogger.utility.progress.ProgressContext or None.
-        """
-        from .folder import Folder
-        from .group import Group
-        from .token import Token
-
-        # Delete all authentication tokens owned by this user
-        Token().removeWithQuery({'userId': user['_id']})
-
-        # Delete all pending group invites for this user
-        Group().update(
-            {'requests': user['_id']},
-            {'$pull': {'requests': user['_id']}}
         )
 
-        # Delete all of the folders under this user
-        folderModel = Folder()
-        folders = folderModel.find({
-            'parentId': user['_id'],
-            'parentCollection': 'user'
-        })
-        for folder in folders:
-            folderModel.remove(folder, progress=progress, **kwargs)
-
-        # Finally, delete the user document itself
-        AccessControlledModel.remove(self, user)
-        if progress:
-            progress.update(increment=1, message='Deleted user ' + user['login'])
-
-    def getAdmins(self):
-        """
-        Helper to return a cursor of all site-admin users. The number of site
-        admins is assumed to be small enough that we will not need to page the
-        results for now.
-        """
-        return self.find({'admin': True})
-
-    def search(self, text=None, user=None, limit=0, offset=0, sort=None):
-        """
-        List all users. Since users are access-controlled, this will filter
-        them by access policy.
-
-        :param text: Pass this to perform a full-text search for users.
-        :param user: The user running the query. Only returns users that this
-                     user can see.
-        :param limit: Result limit.
-        :param offset: Result offset.
-        :param sort: The sort structure to pass to pymongo.
-        :returns: Iterable of users.
-        """
-        # Perform the find; we'll do access-based filtering of the result set
-        # afterward.
-        if text is not None:
-            cursor = self.textSearch(text, sort=sort)
+    @access.public(scope=TokenScope.USER_INFO_READ)
+    @autoDescribeRoute(
+        Description('Remove an ID Code from a user.')
+        .param('id', 'Profile ID', required=True)
+        .param(
+            'code',
+            'ID code to remove from profile. If the ID code to remove is the '
+            'only ID code for that profile, a new one will be auto-generated.',
+            required=True
+        )
+        .errorResponse('ID was invalid.')
+        .errorResponse('You do not have permission to see this user.', 403)
+    )
+    def removeIDCode(self, id, code):
+        from bson.objectid import ObjectId
+        user = self.getCurrentUser()
+        try:
+            p = ProfileModel().findOne({'_id': ObjectId(id)})
+        except:
+            p = None
+        if p is None or not AppletModel().isCoordinator(p['appletId'], user):
+            raise AccessException(
+                'You do not have permission to update this user\'s ID code.'
+            )
         else:
-            cursor = self.find({}, sort=sort)
+            IDCode().removeCode(p['_id'], code)
+        return(
+            ProfileModel().profileAsUser(
+                ProfileModel().load(p['_id'], force=True),
+                user
+            )
+        )
 
-        return self.filterResultsByPermission(
-            cursor=cursor, user=user, level=AccessType.READ, limit=limit,
-            offset=offset)
+    @access.user(scope=TokenScope.USER_INFO_READ)
+    @autoDescribeRoute(
+        Description('Get the access control list for a user.')
+        .responseClass('User')
+        .modelParam('id', model=UserModel, level=AccessType.READ)
+        .errorResponse('ID was invalid.')
+        .errorResponse('You do not have permission to see this user.', 403)
+        .deprecated()
+    )
+    def getUserAccess(self, user):
+        return self._model.getFullAccessList(user)
 
-    def hasPassword(self, user):
-        """
-        Returns whether or not the given user has a password stored in the
-        database. If not, it is expected that the user will be authenticated by
-        an external service.
+    @access.user(scope=TokenScope.DATA_OWN)
+    @filtermodel(model=UserModel, addFields={'access'})
+    @autoDescribeRoute(
+        Description('Update the access control list for a user.')
+        .modelParam('id', model=UserModel, level=AccessType.WRITE)
+        .jsonParam(
+            'access',
+            'The JSON-encoded access control list.',
+            requireObject=True
+        )
+        .errorResponse('ID was invalid.')
+        .errorResponse('Admin access was denied for the user.', 403)
+        .deprecated()
+    )
+    def updateUserAccess(self, user, access):
+        return self._model.setAccessList(
+            user,
+            access,
+            save=True
+        )
 
-        :param user: The user to test.
-        :type user: dict
-        :returns: bool
-        """
-        return user['salt'] is not None
+    @access.public(scope=TokenScope.DATA_READ)
+    @autoDescribeRoute(
+        Description('Get all your applets by role.')
+        .param(
+            'role',
+            'One of ' + str(USER_ROLES.keys()),
+            required=False,
+            default='user'
+        )
+        .param(
+            'ids_only',
+            'If true, only returns an Array of the IDs of assigned applets. '
+            'Otherwise, returns an Array of Objects keyed with "applet" '
+            '"protocol", "activities" and "items" with expanded JSON-LD as '
+            'values. This parameter takes precedence over `unexpanded`.',
+            required=False,
+            dataType='boolean'
+        )
+        .param(
+            'unexpanded',
+            'If true, only returns an Array of assigned applets, but only the '
+            'applet-level information. Otherwise, returns an Array of Objects '
+            'keyed with "applet", "protocol", "activities" and "items" with '
+            'expanded JSON-LD as values.',
+            required=False,
+            dataType='boolean'
+        )
+        .param(
+            'refreshCache',
+            'If true, refresh user cache.',
+            required=False,
+            dataType='boolean'
+        )
+        .errorResponse('ID was invalid.')
+        .errorResponse(
+            'You do not have permission to see any of this user\'s applets.',
+            403
+        )
+    )
+    def getOwnApplets(
+        self,
+        role,
+        ids_only=False,
+        unexpanded=False,
+        refreshCache=False
+    ):
+        import threading
+        from bson import json_util
+        from bson.objectid import ObjectId
 
-    def setPassword(self, user, password, save=True):
-        """
-        Change a user's password.
+        reviewer = self.getCurrentUser()
+        if reviewer is None:
+            raise AccessException("You must be logged in to get user applets.")
+        role = role.lower()
+        if role not in USER_ROLES.keys():
+            raise RestException(
+                'Invalid user role.',
+                'role'
+            )
+        if ids_only or unexpanded:
+            applets = AppletModel().getAppletsForUser(
+                role,
+                reviewer,
+                active=True
+            )
+            if len(applets)==0:
+                return([])
+            if ids_only==True:
+                return([applet.get('_id') for applet in applets])
+            elif unexpanded==True:
+                return([{
+                    'applet': AppletModel().unexpanded(applet)
+                } for applet in applets])
+        if refreshCache:
+            thread = threading.Thread(
+                target=AppletModel().updateUserCache,
+                args=(role, reviewer),
+                kwargs={"active": True, "refreshCache": refreshCache}
+            )
+            thread.start()
+            return({
+                "message": "The user cache is being updated. Please check back "
+                           "in several mintutes to see it."
+            })
+        try:
+            if 'cached' in reviewer:
+                reviewer['cached'] = json_util.loads(
+                    reviewer['cached']
+                ) if isinstance(reviewer['cached'], str) else reviewer['cached']
+            else:
+                reviewer['cached'] = {}
+            if 'applets' in reviewer[
+                'cached'
+            ] and role in reviewer['cached']['applets'] and isinstance(
+                reviewer['cached']['applets'][role],
+                list
+            ) and len(reviewer['cached']['applets'][role]):
+                applets = reviewer['cached']['applets'][role]
+                thread = threading.Thread(
+                    target=AppletModel().updateUserCache,
+                    args=(role, reviewer),
+                    kwargs={"active": True, "refreshCache": refreshCache}
+                )
+                thread.start()
+            else:
+                applets = AppletModel().updateUserCache(
+                    role,
+                    reviewer,
+                    active=True,
+                    refreshCache=refreshCache
+                )
+            for applet in applets:
+                try:
+                    applet["applet"]["responseDates"] = responseDateList(
+                        applet['applet'].get(
+                            '_id',
+                            ''
+                        ).split('applet/')[-1],
+                        user.get('_id'),
+                        user
+                    )
+                except:
+                    applet["applet"]["responseDates"] = []
 
-        :param user: The user whose password to change.
-        :param password: The new password. If set to None, no password will
-                         be stored for this user. This should be done in cases
-                         where an external system is responsible for
-                         authenticating the user.
-        """
-        if password is None:
-            user['salt'] = None
-        else:
-            cur_config = config.getConfig()
+            return(applets)
+        except Exception as e:
+            import sys, traceback
+            print(sys.exc_info())
+            return([])
 
-            # Normally this would go in validate() but password is a special case.
-            if not re.match(cur_config['users']['password_regex'], password):
-                raise ValidationException(cur_config['users']['password_description'], 'password')
 
-            user['salt'] = self._cryptContext.hash(password)
+    @access.public(scope=TokenScope.USER_INFO_READ)
+    @filtermodel(model=UserModel)
+    @autoDescribeRoute(
+        Description('Retrieve the currently logged-in user information.')
+        .responseClass('User')
+    )
+    def getMe(self):
+        return self.getCurrentUser()
 
-        if save:
-            self.save(user)
+    @access.public
+    @autoDescribeRoute(
+        Description('Log in to the system.')
+        .notes('Pass your username and password using HTTP Basic Auth. Sends'
+               ' a cookie that should be passed back in future requests.')
+        .param('Girder-OTP', 'A one-time password for this user',
+               paramType='header', required=False)
+        .errorResponse('Missing Authorization header.', 401)
+        .errorResponse('Invalid login or password.', 403)
+    )
+    def login(self):
+        import threading
+        from girderformindlogger.utility.mail_utils import validateEmailAddress
 
-    def initializeOtp(self, user):
-        """
-        Initialize the use of one-time passwords with this user.
+        if not Setting().get(SettingKey.ENABLE_PASSWORD_LOGIN):
+            raise RestException('Password login is disabled on this instance.')
 
-        This does not save the modified user model.
+        user, token = self.getCurrentUser(returnToken=True)
 
-        :param user: The user to modify.
-        :return: The new OTP keys, each in KeyUriFormat.
-        :rtype: dict
-        """
-        totp = self._TotpFactory.new()
 
-        user['otp'] = {
-            'enabled': False,
-            'totp': totp.to_dict()
-        }
+        # Only create and send new cookie if user isn't already sending a valid
+        # one.
+        if not user:
+            authHeader = cherrypy.request.headers.get('Authorization')
 
-        # Use the brand name as the OTP issuer if it's non-default (since that's prettier and more
-        # meaningful for users), but fallback to the site hostname if the brand name isn't set
-        # (to disambiguate otherwise identical "Girder" issuers)
-        # Prevent circular import
-        from girderformindlogger.api.rest import getUrlParts
-        brandName = Setting().get(SettingKey.BRAND_NAME)
-        defaultBrandName = Setting().getDefault(SettingKey.BRAND_NAME)
-        # OTP URIs ( https://github.com/google/google-authenticator/wiki/Key-Uri-Format ) do not
-        # allow colons, so use only the hostname component
-        serverHostname = getUrlParts().netloc.partition(':')[0]
-        # Normally, the issuer would be set when "self._TotpFactory" is instantiated, but that
-        # happens during model initialization, when there's no current request, so the server
-        # hostname is not known then
-        otpIssuer = brandName if brandName != defaultBrandName else serverHostname
+            if not authHeader:
+                authHeader = cherrypy.request.headers.get(
+                    'Girder-Authorization'
+                )
+
+            if not authHeader or not authHeader[0:6] == 'Basic ':
+                raise RestException('Use HTTP Basic Authentication', 401)
+
+            try:
+                credentials = base64.b64decode(authHeader[6:]).decode('utf8')
+                if ':' not in credentials:
+                    raise TypeError
+            except Exception:
+                raise RestException('Invalid HTTP Authorization header', 401)
+
+            login, password = credentials.split(':', 1)
+            if validateEmailAddress(login):
+                raise AccessException(
+                    "Please log in with a username, not an email address."
+                )
+            otpToken = cherrypy.request.headers.get('Girder-OTP')
+            try:
+                user = self._model.authenticate(login, password, otpToken)
+            except:
+                raise AccessException(
+                    "Incorrect password for {} if that user exists".format(
+                        login
+                    )
+                )
+
+            thread = threading.Thread(
+                target=AppletModel().updateUserCacheAllRoles,
+                args=(user,)
+            )
+
+            setCurrentUser(user)
+            token = self.sendAuthTokenCookie(user)
 
         return {
-            'totpUri': totp.to_uri(label=user['login'], issuer=otpIssuer)
+            'user': self._model.filter(user, user),
+            'authToken': {
+                'token': token['_id'],
+                'expires': token['expires'],
+                'scope': token['scope']
+            },
+            'message': 'Login succeeded.'
         }
 
-    def hasOtpEnabled(self, user):
-        return 'otp' in user and user['otp']['enabled']
+    @access.public
+    @autoDescribeRoute(
+        Description('Log out of the system.')
+        .responseClass('Token')
+        .notes('Attempts to delete your authentication cookie.')
+    )
+    def logout(self):
+        token = self.getCurrentToken()
+        if token:
+            Token().remove(token)
+        self.deleteAuthTokenCookie()
+        return {'message': 'Logged out.'}
 
-    def verifyOtp(self, user, otpToken):
-        lastCounterKey = 'girderformindlogger.models.user.%s.otp.totp.counter' % user['_id']
+    @access.public
+    @filtermodel(model=UserModel, addFields={'authToken'})
+    @autoDescribeRoute(
+        Description('Create a new user.')
+        .responseClass('User')
+        .param('login', "The user's requested login.")
+        .param('password', "The user's requested password")
+        .param(
+            'displayName',
+            "The user's display name, usually just their first name.",
+            default="",
+            required=False
+        )
+        .param('email', "The user's email address.", required=False)
+        .param('admin', 'Whether this user should be a site administrator.',
+               required=False, dataType='boolean', default=False)
+        .param(
+            'lastName',
+            'Deprecated. Do not use.',
+            required=False
+        )
+        .param(
+            'firstName',
+            'Deprecated. Do not use.',
+            required=False
+        )
+        .errorResponse('A parameter was invalid, or the specified login or'
+                       ' email already exists in the system.')
+    )
+    def createUser(
+        self,
+        login,
+        password,
+        displayName="",
+        email="",
+        admin=False,
+        lastName=None,
+        firstName=None
+    ): # 🔥 delete lastName once fully deprecated
+        currentUser = self.getCurrentUser()
 
-        # The last successfully-authenticated key (which is blacklisted from reuse)
-        lastCounter = rateLimitBuffer.get(lastCounterKey) or None
+        regPolicy = Setting().get(SettingKey.REGISTRATION_POLICY)
 
-        try:
-            totpMatch = self._TotpFactory.verify(
-                otpToken, user['otp']['totp'], last_counter=lastCounter)
-        except TokenError as e:
-            raise AccessException('One-time password validation failed: %s' % e)
+        if not currentUser or not currentUser['admin']:
+            admin = False
+            if regPolicy == 'closed':
+                raise RestException(
+                    'Registration on this instance is closed. Contact an '
+                    'administrator to create an account for you.')
 
-        # The totpMatch.cache_seconds tells us prospectively how long the counter needs to be cached
-        # for, but dogpile.cache expiration times work retrospectively (on "get"), so there's no
-        # point to using it (over-caching just wastes cache resources, but does not impact
-        # "totp.verify" security)
-        rateLimitBuffer.set(lastCounterKey, totpMatch.counter)
-
-    def createUser(self, login, password, displayName="", email="",
-                   admin=False, public=False, currentUser=None,
-                   firstName="", lastName=""): # 🔥 delete firstName and lastName once fully deprecated
-        """
-        Create a new user with the given information.
-
-        :param admin: Whether user is global administrator.
-        :type admin: bool
-        :param public: Whether user is publicly visible.
-        :type public: bool
-        :returns: The user document that was created.
-        """
-        from .group import Group
-        from .setting import Setting
-        requireApproval = Setting(
-        ).get(SettingKey.REGISTRATION_POLICY) == 'approve'
-        email = "" if not email else email
-        if admin:
-            requireApproval = False
-        user = {
-            'login': login,
-            'email': email,
-            'displayName': displayName if len(
+        user = self._model.createUser(
+            login=login, password=password, email=email,
+            firstName=displayName if len(
                 displayName
             ) else firstName if firstName is not None else "",
-            'firstName': firstName,
-            'created': datetime.datetime.utcnow(),
-            'emailVerified': False,
-            'status': 'pending' if requireApproval else 'enabled',
-            'admin': admin,
-            'size': 0,
-            'groups': [],
-            'groupInvites': [
-                {
-                    "groupId": gi.get('_id'),
-                    "level": 0
-                } for gi in list(Group().find(query={"queue": email}))
-            ] if len(email) else []
-        }
+            lastName=lastName, admin=admin, currentUser=currentUser) # 🔥 delete firstName and lastName once fully deprecated
 
-        self.setPassword(user, password, save=False)
-        self.setPublic(user, public, save=False)
+        if not currentUser and self._model.canLogin(user):
+            setCurrentUser(user)
+            token = self.sendAuthTokenCookie(user)
+            user['authToken'] = {
+                'token': token['_id'],
+                'expires': token['expires']
+            }
 
-        if currentUser:
-            self.setUserAccess(
-                user, user=currentUser, level=AccessType.WRITE, save=False
-            )
-            user['creatorId'] = currentUser['_id']
-
-        user = self.save(user)
-
-        if currentUser:
-            User().setUserAccess(
-                doc=currentUser, user=user, level=AccessType.READ, save=True
-            )
-        else:
-            user['creatorId'] = user['_id']
-            user = self.save(user)
-
-        verifyEmail = Setting().get(SettingKey.EMAIL_VERIFICATION) != 'disabled'
-        if verifyEmail:
-            self._sendVerificationEmail(user)
-
-        if requireApproval:
-            self._sendApprovalEmail(user)
-        Group().update(
-            query={"queue": email},
-            update={"$pull": {"queue": email}},
-            multi=True
+        # Assign all new users to a "New Users" Group
+        newUserGroup = GroupModel().findOne({'name': 'New Users'})
+        newUserGroup = newUserGroup if (
+            newUserGroup is not None and bool(newUserGroup)
+        ) else GroupModel(
+        ).createGroup(
+            name="New Users",
+            creator=UserModel().findOne(
+                query={'admin': True},
+                sort=[('created', SortDir.ASCENDING)]
+            ),
+            public=False
         )
-        user = self._getGroupInvitesFromProtoUser(user)
-        self._deleteProtoUser(user)
+        group = GroupModel().addUser(
+            newUserGroup,
+            user,
+            level=AccessType.READ
+        )
+        group['access'] = GroupModel().getFullAccessList(group)
+        group['requests'] = list(GroupModel().getFullRequestList(group))
+
         return(user)
 
-    def canLogin(self, user):
-        """
-        Returns True if the user is allowed to login, e.g. email verification
-        is not needed and admin approval is not needed.
-        """
-        if user.get('status', 'enabled') == 'disabled':
-            return False
-        if self.emailVerificationRequired(user):
-            return False
-        if self.adminApprovalRequired(user):
-            return False
-        return True
+    @access.user
+    @autoDescribeRoute(
+        Description('Delete a user by ID.')
+        .modelParam('id', model=UserModel, level=AccessType.ADMIN)
+        .errorResponse('ID was invalid.')
+        .errorResponse('You do not have permission to delete this user.', 403)
+    )
+    def deleteUser(self, user):
+        self._model.remove(user)
+        return {'message': 'Deleted user %s.' % user['login']}
 
-    def emailVerificationRequired(self, user):
-        """
-        Returns True if email verification is required and this user has not
-        yet verified their email address.
-        """
-        from .setting import Setting
-        return (not user['emailVerified']) and \
-            Setting().get(SettingKey.EMAIL_VERIFICATION) == 'required'
+    @access.user
+    @autoDescribeRoute(
+        Description('Get detailed information of accessible users.')
+    )
+    def getUsersDetails(self):
+        nUsers = self._model.findWithPermissions(user=self.getCurrentUser(
+        )).count()
+        return {'nUsers': nUsers}
 
-    def adminApprovalRequired(self, user):
-        """
-        Returns True if the registration policy requires admin approval and
-        this user is pending approval.
-        """
-        from .setting import Setting
-        return user.get('status', 'enabled') == 'pending' and \
-            Setting().get(SettingKey.REGISTRATION_POLICY) == 'approve'
+    @access.user
+    @filtermodel(model=UserModel)
+    @autoDescribeRoute(
+        Description("Update a user's information.")
+        .modelParam('id', model=UserModel, level=AccessType.WRITE)
+        .param(
+            'displayName',
+            'Display name of the user, usually just their first name.',
+            default="",
+            required=False
+        )
+        .param(
+            'login',
+            'login username, Deprecated. Do not use.',
+            deprecated=True,
+            required=False
+        )
+        .param('admin', 'Is the user a site admin (admin access required)',
+               required=False, dataType='boolean')
+        .param('status', 'The account status (admin access required)',
+               required=False, enum=('pending', 'enabled', 'disabled'))
+        .param(
+             'email',
+             'Deprecated. Do not use.',
+             required=False,
+             dataType='string'
+        )
+        .param(
+            'firstName',
+            'Deprecated. Do not use.',
+            deprecated=True,
+            required=False
+        )
+        .param(
+            'lastName',
+            'Deprecated. Do not use.',
+            deprecated=True,
+            required=False
+        )
+        .errorResponse()
+        .errorResponse(('You do not have write access for this user.',
+                        'Must be an admin to create an admin.'), 403)
+    )
+    def updateUser(
+        self,
+        user,
+        login=None,
+        displayName="",
+        email="",
+        admin=False,
+        status=None,
+        firstName=None,
+        lastName=None
+    ): # 🔥 delete firstName and lastName once fully deprecated
+        users = UserModel().findOne({'login': login})
+        if users is not None:
+            raise RestException('Username already exists.')
+            
+        user['firstName'] = displayName if len(
+            displayName
+        ) else firstName if firstName is not None else ""
 
-    def _sendApprovalEmail(self, user):
-        url = '%s#user/%s' % (
-            mail_utils.getEmailUrlPrefix(), str(user['_id']))
-        text = mail_utils.renderTemplate('accountApproval.mako', {
-            'user': user,
-            'url': url
-        })
-        mail_utils.sendMailToAdmins(
-            'Girder: Account pending approval',
-            text)
+        user['email'] = email
 
-    def _sendApprovedEmail(self, user):
-        text = mail_utils.renderTemplate('accountApproved.mako', {
-            'user': user,
-            'url': mail_utils.getEmailUrlPrefix()
-        })
-        mail_utils.sendMail(
-            'Girder: Account approved',
-            text,
-            [user.get('email')])
+        user['login'] = login
 
-    def _sendVerificationEmail(self, user):
-        from .token import Token
+        # Only admins can change admin state
+        if admin is not None:
+            if self.getCurrentUser()['admin']:
+                user['admin'] = admin
+            elif user['admin'] is not admin:
+                raise AccessException('Only admins may change admin status.')
 
-        token = Token().createToken(
-            user, days=1, scope=TokenScope.EMAIL_VERIFICATION)
-        url = '%s#useraccount/%s/verification/%s' % (
+        # Only admins can change status
+        if status is not None and status != user.get('status', 'enabled'):
+            if not self.getCurrentUser()['admin']:
+                raise AccessException('Only admins may change status.')
+            if user['status'] == 'pending' and status == 'enabled':
+                # Send email on the 'pending' -> 'enabled' transition
+                self._model._sendApprovedEmail(user)
+            user['status'] = status
+
+        return self._model.save(user)
+
+    @access.user
+    @filtermodel(model=UserModel)
+    @autoDescribeRoute(
+        Description("Update a user's information.")
+        .modelParam('id', model=UserModel, level=AccessType.WRITE)
+        .param(
+            'login',
+            'Login username',
+            default="",
+            required=True
+        )
+        .param(
+             'email',
+             'Email Address of user',
+             required=True,
+             dataType='string'
+        )
+        .param(
+            'firstName',
+            'First Name of user',
+            required=True,
+            dataType='string'
+        )
+        .param('admin', 'Is the user a site admin (admin access required)',
+               required=False, dataType='boolean')
+
+        .errorResponse()
+        .errorResponse(('You do not have write access for this user.',
+                        'Must be an admin to create an admin.'), 403)
+    )
+    def changeUsername(
+        self,
+        user,
+        login=None,
+        email=None,
+        firstName=None,
+        admin=False
+    ): # 🔥 change username, email, first_name and admin role
+        if not login:
+            raise RestException('Username must not be empty.')
+
+        users = UserModel().findOne({'login': login})
+        if users is not None:
+            raise RestException('Username already exists.')
+        user['login'] = login
+
+        if not email:
+            raise RestException('Email must not be empty.')
+        user['email'] = email
+
+        if not firstName:
+            raise RestException('First name must not be empty.')
+        user['firstName'] = firstName
+
+        # Only admins can change admin state
+        if admin is not None:
+            if self.getCurrentUser()['admin']:
+                user['admin'] = admin
+            elif user['admin'] is not admin:
+                raise AccessException('Only admins may change admin status.')
+        
+        return self._model.save(user)
+
+    @access.admin
+    @autoDescribeRoute(
+        Description("Change a user's password.")
+        .notes('Only administrators may use this endpoint.')
+        .modelParam('id', model=UserModel, level=AccessType.ADMIN)
+        .param('password', "The user's new password.")
+        .errorResponse('You are not an administrator.', 403)
+        .errorResponse('The new password is invalid.')
+    )
+    def changeUserPassword(self, user, password):
+        self._model.setPassword(user, password)
+        return {'message': 'Password changed.'}
+
+    @access.user
+    @autoDescribeRoute(
+        Description('Change your password.')
+        .param('old', 'Your current password or a temporary access token.')
+        .param('new', 'Your new password.')
+        .errorResponse(('You are not logged in.',
+                        'Your old password is incorrect.'), 401)
+        .errorResponse('Your new password is invalid.')
+    )
+    def changePassword(self, old, new):
+        user = self.getCurrentUser()
+        token = None
+
+        if not old:
+            raise RestException('Old password must not be empty.')
+
+        if (not self._model.hasPassword(user)
+                or not self._model._cryptContext.verify(old, user['salt'])):
+            # If not the user's actual password, check for temp access token
+            token = Token().load(old, force=True, objectId=False, exc=False)
+            if (not token or not token.get('userId')
+                    or token['userId'] != user['_id']
+                    or not Token().hasScope(token, TokenScope.TEMPORARY_USER_AUTH)):
+                raise AccessException('Old password is incorrect.')
+
+        self._model.setPassword(user, new)
+
+        if token:
+            # Remove the temporary access token if one was used
+            Token().remove(token)
+
+        return {'message': 'Password changed.'}
+
+    @access.public
+    @autoDescribeRoute(
+        Description("Create a temporary access token for a user.  The user's "
+                    'password is not changed.')
+        .param('email', 'Your email address.', strip=True)
+        .errorResponse('That email does not exist in the system.')
+    ) ## TODO: recreate by login
+    def generateTemporaryPassword(self, email):
+        user = self._model.findOne({'email': email.lower()})
+
+        if not user:
+            raise RestException('That email is not registered.')
+
+        token = Token().createToken(user, days=1, scope=TokenScope.TEMPORARY_USER_AUTH)
+
+        url = '%s#useraccount/%s/token/%s' % (
             mail_utils.getEmailUrlPrefix(), str(user['_id']), str(token['_id']))
-        text = mail_utils.renderTemplate('emailVerification.mako', {
-            'url': url
+
+        html = mail_utils.renderTemplate('temporaryAccess.mako', {
+            'url': url,
+            'token': str(token['_id'])
         })
         mail_utils.sendMail(
-            'Girder: Email verification',
-            text,
-            [user.get('email')])
+            '%s: Temporary access' % Setting().get(SettingKey.BRAND_NAME),
+            html,
+            [email]
+        )
+        return {'message': 'Sent temporary access email.'}
 
-    def _grantSelfAccess(self, event):
-        """
-        This callback grants a user admin access to itself.
+    @access.public
+    @autoDescribeRoute(
+        Description('Check if a specified token is a temporary access token '
+                    'for the specified user.  If the token is valid, returns '
+                    'information on the token and user.')
+        .modelParam('id', 'The user ID to check.', model=UserModel, force=True)
+        .param('token', 'The token to check.')
+        .errorResponse('The token does not grant temporary access to the specified user.', 401)
+    )
+    def checkTemporaryPassword(self, user, token):
+        token = Token().load(
+            token, user=user, level=AccessType.ADMIN, objectId=False, exc=True)
+        delta = (token['expires'] - datetime.datetime.utcnow()).total_seconds()
+        hasScope = Token().hasScope(token, TokenScope.TEMPORARY_USER_AUTH)
 
-        This generally should not be called or overridden directly, but it may
-        be unregistered from the `model.user.save.created` event.
-        """
-        user = event.info
+        if token.get('userId') != user['_id'] or delta <= 0 or not hasScope:
+            raise AccessException('The token does not grant temporary access to this user.')
 
-        self.setUserAccess(user, user, level=AccessType.ADMIN, save=True)
+        # Temp auth is verified, send an actual auth token now. We keep the
+        # temp token around since it can still be used on a subsequent request
+        # to change the password
+        authToken = self.sendAuthTokenCookie(user)
 
-    def _addDefaultFolders(self, event):
-        """
-        This callback creates "Public" and "Private" folders on a user, after
-        it is first created.
+        return {
+            'user': self._model.filter(user, user),
+            'authToken': {
+                'token': authToken['_id'],
+                'expires': authToken['expires'],
+                'temporary': True
+            },
+            'message': 'Temporary access token is valid.'
+        }
 
-        This generally should not be called or overridden directly, but it may
-        be unregistered from the `model.user.save.created` event.
-        """
-        from .folder import Folder
-        from .setting import Setting
+    @access.public
+    @autoDescribeRoute(
+        Description('Get detailed information about a user.')
+        .modelParam('id', model=UserModel, level=AccessType.READ)
+        .errorResponse()
+        .errorResponse('Read access was denied on the user.', 403)
+        .deprecated()
+    )
+    def getUserDetails(self, user):
+        return {
+            'nFolders': self._model.countFolders(
+                user, filterUser=self.getCurrentUser(), level=AccessType.READ)
+        }
 
-        if Setting().get(SettingKey.USER_DEFAULT_FOLDERS) == 'public_private':
-            user = event.info
+    @access.user
+    @autoDescribeRoute(
+        Description('Initiate the enablement of one-time passwords for this user.')
+        .modelParam('id', model=UserModel, level=AccessType.ADMIN)
+        .errorResponse()
+        .errorResponse('Admin access was denied on the user.', 403)
+    )
+    def initializeOtp(self, user):
+        if self._model.hasOtpEnabled(user):
+            raise RestException('The user has already enabled one-time passwords.')
 
-            publicFolder = Folder().createFolder(
-                user, 'Public', parentType='user', public=True, creator=user)
-            privateFolder = Folder().createFolder(
-                user, 'Private', parentType='user', public=False, creator=user)
-            # Give the user admin access to their own folders
-            Folder().setUserAccess(publicFolder, user, AccessType.ADMIN, save=True)
-            Folder().setUserAccess(privateFolder, user, AccessType.ADMIN, save=True)
+        otpUris = self._model.initializeOtp(user)
+        self._model.save(user)
 
-    def fileList(self, doc, user=None, path='', includeMetadata=False, subpath=True, data=True):
-        """
-        This function generates a list of 2-tuples whose first element is the
-        relative path to the file from the user's folders root and whose second
-        element depends on the value of the `data` flag. If `data=True`, the
-        second element will be a generator that will generate the bytes of the
-        file data as stored in the assetstore. If `data=False`, the second
-        element is the file document itself.
+        return otpUris
 
-        :param doc: the user to list.
-        :param user: a user used to validate data that is returned.
-        :param path: a path prefix to add to the results.
-        :param includeMetadata: if True and there is any metadata, include a
-                                result which is the JSON string of the
-                                metadata.  This is given a name of
-                                metadata[-(number).json that is distinct from
-                                any file within the item.
-        :param subpath: if True, add the user's name to the path.
-        :param data: If True return raw content of each file as stored in the
-            assetstore, otherwise return file document.
-        :type data: bool
-        """
-        from .folder import Folder
+    @access.user
+    @autoDescribeRoute(
+        Description('Finalize the enablement of one-time passwords for this user.')
+        .modelParam('id', model=UserModel, level=AccessType.ADMIN)
+        .param('Girder-OTP', 'A one-time password for this user', paramType='header')
+        .errorResponse()
+        .errorResponse('Admin access was denied on the user.', 403)
+    )
+    def finalizeOtp(self, user):
+        otpToken = cherrypy.request.headers.get('Girder-OTP')
+        if not otpToken:
+            raise RestException('The "Girder-OTP" header must be provided.')
 
-        if subpath:
-            path = os.path.join(path, doc['login'])
-        folderModel = Folder()
-        # Eagerly evaluate this list, as the MongoDB cursor can time out on long requests
-        childFolders = list(folderModel.childFolders(
-            parentType='user', parent=doc, user=user,
-            fields=['name'] + (['meta'] if includeMetadata else [])
-        ))
-        for folder in childFolders:
-            for (filepath, file) in folderModel.fileList(
-                    folder, user, path, includeMetadata, subpath=True, data=data):
-                yield (filepath, file)
+        if 'otp' not in user:
+            raise RestException('The user has not initialized one-time passwords.')
+        if self._model.hasOtpEnabled(user):
+            raise RestException('The user has already enabled one-time passwords.')
 
-    def subtreeCount(self, doc, includeItems=True, user=None, level=None):
-        """
-        Return the size of the user's folders.  The user is counted as well.
+        user['otp']['enabled'] = True
+        # This will raise an exception if the verification fails, so the user will not be saved
+        self._model.verifyOtp(user, otpToken)
 
-        :param doc: The user.
-        :param includeItems: Whether to include items in the subtree count, or
-            just folders.
-        :type includeItems: bool
-        :param user: If filtering by permission, the user to filter against.
-        :param level: If filtering by permission, the required permission level.
-        :type level: AccessLevel
-        """
-        from .folder import Folder
+        self._model.save(user)
 
-        count = 1
-        folderModel = Folder()
-        folders = folderModel.findWithPermissions({
-            'parentId': doc['_id'],
-            'parentCollection': 'user'
-        }, fields='access', user=user, level=level)
+    @access.user
+    @autoDescribeRoute(
+        Description('Disable one-time passwords for this user.')
+        .modelParam('id', model=UserModel, level=AccessType.ADMIN)
+        .errorResponse()
+        .errorResponse('Admin access was denied on the user.', 403)
+    )
+    def removeOtp(self, user):
+        if not self._model.hasOtpEnabled(user):
+            raise RestException('The user has not enabled one-time passwords.')
 
-        count += sum(folderModel.subtreeCount(
-            folder, includeItems=includeItems, user=user, level=level)
-            for folder in folders)
-        return count
+        del user['otp']
+        self._model.save(user)
 
-    def countFolders(self, user, filterUser=None, level=None):
-        """
-        Returns the number of top level folders under this user. Access
-        checking is optional; to circumvent access checks, pass ``level=None``.
-
-        :param user: The user whose top level folders to count.
-        :type collection: dict
-        :param filterUser: If performing access checks, the user to check
-            against.
-        :type filterUser: dict or None
-        :param level: The required access level, or None to return the raw
-            top-level folder count.
-        """
-        from .folder import Folder
-
-        fields = () if level is None else ('access', 'public')
-
-        folderModel = Folder()
-        folders = folderModel.findWithPermissions({
-            'parentId': user['_id'],
-            'parentCollection': 'user'
-        }, fields=fields, user=filterUser, level=level)
-
-        return folders.count()
-
-    def updateSize(self, doc):
-        """
-        Recursively recomputes the size of this user and its underlying
-        folders and fixes the sizes as needed.
-
-        :param doc: The user.
-        :type doc: dict
-        """
-        from .folder import Folder
-
-        size = 0
-        fixes = 0
-        folderModel = Folder()
-        folders = folderModel.find({
-            'parentId': doc['_id'],
-            'parentCollection': 'user'
-        })
-        for folder in folders:
-            # fix folder size if needed
-            _, f = folderModel.updateSize(folder)
-            fixes += f
-            # get total recursive folder size
-            folder = folderModel.load(folder['_id'], force=True)
-            size += folderModel.getSizeRecursive(folder)
-        # fix value if incorrect
-        if size != doc.get('size'):
-            self.update({'_id': doc['_id']}, update={'$set': {'size': size}})
-            fixes += 1
-        return size, fixes
-
-    def _getGroupInvitesFromProtoUser(self, doc):
-        """
-
-        """
-        from girderformindlogger.models.protoUser import ProtoUser
-
-        # Ensure unique emails
-        q = {'email': doc['email']}
-        if '_id' in doc:
-            q['_id'] = {'$ne': doc['_id']}
-        existing = ProtoUser().findOne(q)
-        if existing is not None:
-            doc['groupInvites'] = existing['groupInvites']
-        return(doc)
-
-    def _deleteProtoUser(self, doc):
-        """
-
-        """
-        from girderformindlogger.models.protoUser import ProtoUser
-
-        # Ensure unique emails
-        q = {'email': doc['email']}
-        if '_id' in doc:
-            q['_id'] = {'$ne': doc['_id']}
-        existing = ProtoUser().findOne(q)
-        if existing is not None:
-            ProtoUser().remove(existing)
-
-    def _verify_password(self, password, user):
-        # Verify password
-        if not self._cryptContext.verify(password, user['salt']):
-            raise AccessException('Login failed.')
+    @access.public
+    @autoDescribeRoute(
+        Description(
+            'Update a user profile. Requires either profile ID __OR__ applet '
+            'ID and ID code.'
+        )
+        .jsonParam(
+            'update',
+            'A JSON Object with values to update, overriding existing values.',
+            required=True
+        )
+        .param('id', 'Profile ID.', required=False)
+        .param('applet', 'Applet ID.', required=False)
+        .param('idCode', 'ID code.', required=False)
+    )
+    def updateProfile(self, update={}, id=None, applet=None, idCode=None):
+        if (id is not None) and (applet is not None or idCode is not None):
+            raise RestException(
+                'Pass __either__ profile ID __OR__ (applet ID and ID code), '
+                'not both.'
+            )
+        elif (id is None) and (applet is None or idCode is None):
+            raise RestException(
+                'Either profile ID __OR__ (applet ID and ID code) required.'
+            )
         else:
-            return(True)
+            currentUser = self.getCurrentUser()
+            id = id if id is not None else Profile().getProfile(
+                applet=AppletModel().load(applet, force=True),
+                idCode=idCode,
+                user=currentUser
+            )
+        return(ProfileModel().updateProfile(id, currentUser, update))
+
+    @access.public
+    @autoDescribeRoute(
+        Description('Verify an email address using a token.')
+        .modelParam('id', 'The user ID to check.', model=UserModel, force=True)
+        .param('token', 'The token to check.')
+        .errorResponse('The token is invalid or expired.', 401)
+    )
+    def verifyEmail(self, user, token):
+        token = Token().load(
+            token, user=user, level=AccessType.ADMIN, objectId=False, exc=True)
+        delta = (token['expires'] - datetime.datetime.utcnow()).total_seconds()
+        hasScope = Token().hasScope(token, TokenScope.EMAIL_VERIFICATION)
+
+        if token.get('userId') != user['_id'] or delta <= 0 or not hasScope:
+            raise AccessException('The token is invalid or expired.')
+
+        user['emailVerified'] = True
+        Token().remove(token)
+        user = self._model.save(user)
+
+        if self._model.canLogin(user):
+            setCurrentUser(user)
+            authToken = self.sendAuthTokenCookie(user)
+            return {
+                'user': self._model.filter(user, user),
+                'authToken': {
+                    'token': authToken['_id'],
+                    'expires': authToken['expires'],
+                    'scope': authToken['scope']
+                },
+                'message': 'Email verification succeeded.'
+            }
+        else:
+            return {
+                'user': self._model.filter(user, user),
+                'message': 'Email verification succeeded.'
+            }
+
+    @access.public
+    @autoDescribeRoute(
+        Description('Send verification email.')
+        .param('login', 'Your login.', strip=True)
+        .errorResponse('That login is not registered.', 401)
+    )
+    def sendVerificationEmail(self, login):
+        loginField = 'email' if '@' in login else 'login'
+        user = self._model.findOne({loginField: login.lower()})
+
+        if not user:
+            raise RestException('That login is not registered.', 401)
+
+        self._model._sendVerificationEmail(user)
+        return {'message': 'Sent verification email.'}
