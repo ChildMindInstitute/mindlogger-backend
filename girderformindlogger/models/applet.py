@@ -484,7 +484,7 @@ class Applet(Folder):
             args=(user,)
         )
         thread.start()
-        return(postformatted)
+        return(formatted)
 
     def getAppletsForUser(self, role, user, active=True):
         """
