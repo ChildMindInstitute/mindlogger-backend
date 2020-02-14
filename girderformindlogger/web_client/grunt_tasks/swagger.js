@@ -17,6 +17,14 @@ module.exports = function (grunt) {
                     dest: builtPath
                 }]
             },
+            'alternative-swagger': {
+                files: [{
+                    expand: true,
+                    cwd: path.resolve(path.resolve('node_modules'), 'swagger-ui/dist'),
+                    src: ['lib/**', 'css/**', 'images/**', 'swagger-ui.min.js'],
+                    dest: builtPath
+                }]
+            },
             'girder-swagger': {
                 files: [{
                     expand: true,
@@ -39,6 +47,7 @@ module.exports = function (grunt) {
 
         default: {
             'copy:swagger': {},
+            'copy:alternative-swagger': {},
             'copy:girder-swagger': {},
             'stylus:swagger': {}
         }
