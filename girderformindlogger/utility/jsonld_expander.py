@@ -744,6 +744,11 @@ def formatLdObject(
                     obj.get('meta', {}).get('protocol', {}).get("url", "")
                 ])
             }
+            
+            from girderformindlogger.models.protocol import Protocol
+            preferredName = Protocol().preferredName(protocol)
+            applet['name'] = preferredName if len(preferredName) else obj.get('name')
+
             createCache(obj, applet, 'applet', user)
             if responseDates:
                 try:
