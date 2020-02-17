@@ -22,6 +22,7 @@ import re
 import threading
 import uuid
 import requests
+import datetime
 from ..describe import Description, autoDescribeRoute
 from ..rest import Resource, rawResponse
 from bson.objectid import ObjectId
@@ -170,6 +171,8 @@ class Applet(Resource):
         .errorResponse('Write access was denied for this applet.', 403)
     )
     def createApplet(self, protocolUrl=None, name=None, informant=None):
+        print(datetime.datetime.now())
+        print("Stop__Start")
         thisUser = self.getCurrentUser()
         thread = threading.Thread(
             target=AppletModel().createAppletFromUrl,

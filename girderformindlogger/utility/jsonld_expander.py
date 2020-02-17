@@ -1,6 +1,6 @@
 from bson import json_util
 from copy import deepcopy
-from datetime import datetime
+from datetime import datetime, timedelta
 from girderformindlogger.constants import AccessType, DEFINED_RELATIONS,       \
     HIERARCHY, KEYS_TO_DELANGUAGETAG, KEYS_TO_DEREFERENCE, KEYS_TO_EXPAND,     \
     MODELS, NONES, REPROLIB_CANONICAL, REPROLIB_PREFIXES
@@ -44,6 +44,7 @@ def getModelCollection(modelType):
 
 def importAndCompareModelType(model, url, user, modelType):
     import threading
+    import datetime
     from girderformindlogger.utility import firstLower
 
     if model is None:
@@ -65,8 +66,16 @@ def importAndCompareModelType(model, url, user, modelType):
     modelClass = MODELS()[modelType]()
     prefName = modelClass.preferredName(model)
     cachedDocObj = {}
+    print("Start")
+    print(datetime.datetime.now())
     model = expand(url)
+    print(datetime.datetime.now())
+    print("Stop")
     print("Loaded {}".format(": ".join([modelType, prefName])))
+
+    print("Start_1")
+    print(datetime.datetime.now())
+
     docCollection=getModelCollection(modelType)
     if modelClass.name in ['folder', 'item']:
         docFolder = FolderModel().createFolder(
@@ -114,13 +123,23 @@ def importAndCompareModelType(model, url, user, modelType):
                     }
                 }
             )
+    print(datetime.datetime.now())
+    print("Stop_1")
+    print("Start__fix_format")        
+    print(datetime.datetime.now())
     formatted = _fixUpFormat(formatLdObject(
         newModel,
         mesoPrefix=modelType,
         user=user,
         refreshCache=True
-    ))
+    ))               
+    print(datetime.datetime.now())
+    print("Stop_fix_format")
+    print("Start__create_cache")        
+    print(datetime.datetime.now())
     createCache(newModel, formatted, modelType, user)
+    print(datetime.datetime.now())
+    print("Stop_create_cache")
     return(formatted, modelType)
 
 
@@ -392,9 +411,19 @@ def reprolibCanonize(s):
     """
     if isinstance(s, str):
         s = reprolibPrefix(s).replace('reprolib:', REPROLIB_CANONICAL)
+        return(s)
+
+        print("Start_check_url")
+        print(datetime.now())
+
         if checkURL(s):
+
+            print(datetime.now())
+            print("Stop_check_url")
             return(s)
         else:
+            print(datetime.now())
+            print("Stop_check_url")
             return(None)
     elif isinstance(s, list):
         return([reprolibCanonize(ls) for ls in s])
@@ -428,8 +457,14 @@ def expandOneLevel(obj):
         # We only want to catch `None`s here, not other falsy objects
         return(obj)
     try:
+        print("q1")
+        print(datetime.now())
         newObj = jsonld.expand(obj)
+        print("q2")
+        print(datetime.now())
     except jsonld.JsonLdError as e: # 👮 Catch illegal JSON-LD
+        print("q3")
+        print(datetime.now())
         if e.type == "jsonld.InvalidUrl":
             try:
                 newObj = jsonld.expand(reprolibCanonize(obj))
@@ -462,29 +497,73 @@ def expandOneLevel(obj):
                             ))
             return(expandOneLevel(obj))
         return(obj)
+    print("q4")
+    print(datetime.now())
     newObj = newObj[0] if (
         isinstance(newObj, list) and len(newObj)==1
     ) else newObj
+    print("q5")
+    print(datetime.now())
     if isinstance(
         newObj,
         dict
     ):
         if not isinstance(obj, dict):
             obj={}
+        print("q6")
+        print(datetime.now())
+        print(deepcopy(newObj).items())
+        a = timedelta(0)
+        b = timedelta(0)
+        c = timedelta(0)
+        temp = datetime.now()
         for k, v in deepcopy(newObj).items():
             if not bool(v):
+                temp = datetime.now()
                 newObj.pop(k)
+                a += datetime.now() - temp
             else:
+                temp = datetime.now()
                 prefix_key = reprolibPrefix(k)
+                b +=  datetime.now() - temp
                 if prefix_key != k:
                     newObj.pop(k)
+                temp = datetime.now()
                 newObj[prefix_key] = reprolibPrefix(
                     v
                 ) if prefix_key not in KEYS_TO_DEREFERENCE else dereference(v)
+                c +=  datetime.now() - temp
+                print("Start_dereference")
+                print("Start_dereference")
+                print("Start_dereference")
+                print("Start_dereference")
+                print("Start_dereference")
+                print("Start_dereference")
+                print(datetime.now())
+                print(v)
+                print(" ")
+                print(" ")
+                print(dereference(v))
+                print(datetime.now())
+                print("Stop_dereference")
+                print("Stop_dereference")
+                print("Stop_dereference")
+                print("Stop_dereference")
+                print("Stop_dereference")
+        print("a")
+        print(a)
+        print("b")
+        print(b)
+        print("c")
+        print(c)
+        print("q7")
+        print(datetime.now())
         for k in KEYS_TO_DELANGUAGETAG:
             if k in newObj.keys(
             ) and isinstance(newObj[k], list):
                 newObj[k] = delanguageTag(newObj[k])
+        print("q8")
+        print(datetime.now())
         newObj.update({
             k: reprolibPrefix(obj.get(k)) for k in obj.keys() if (
                 bool(obj.get(k)) and k not in keyExpansion(
@@ -492,10 +571,16 @@ def expandOneLevel(obj):
                 )
             )
         })
+        print("q9")
+        print(datetime.now())
         newObj.update({
             k: dereference(newObj[k]) for k in newObj.keys(
             ) if k in KEYS_TO_DEREFERENCE
         })
+        print("q10")
+        print(datetime.now())
+    print("q100")
+    print(datetime.now())
     return(newObj)
 
 
@@ -532,7 +617,11 @@ def expand(obj, keepUndefined=False):
     """
     if obj is None:
         return(obj)
+    print("Start_expandOneLevel")
+    print(datetime.now())
     newObj = expandOneLevel(obj)
+    print(datetime.now())
+    print("Stop_expandOneLevel")
     if isinstance(newObj, dict):
         for k in KEYS_TO_EXPAND:
             if k in newObj.keys():
@@ -769,9 +858,12 @@ def formatLdObject(
 
     refreshCache = False if refreshCache is None else refreshCache
 
+    print("Start_ltd_object")
+    print(datetime.now())
     try:
         if obj is None:
             return(None)
+        print(1)
         if isinstance(obj, dict):
             oc = obj.get("cached")
             if all([
@@ -781,7 +873,9 @@ def formatLdObject(
                 return(loadCache(oc))
             if 'meta' not in obj.keys():
                 return(_fixUpFormat(obj))
+        print(2)
         mesoPrefix = camelCase(mesoPrefix)
+        print(3)
         if type(obj)==list:
             return(_fixUpFormat([
                 formatLdObject(
@@ -791,27 +885,38 @@ def formatLdObject(
                     user=user
                 ) for o in obj if o is not None
             ]))
+        print(4)
         if not type(obj)==dict and not dropErrors:
             raise TypeError("JSON-LD must be an Object or Array.")
         newObj = obj.get('meta', obj)
         newObj = newObj.get(mesoPrefix, newObj)
+        print("Start_expand")
+        print(datetime.now())
         newObj = expand(newObj, keepUndefined=keepUndefined)
+        print(datetime.now())
+        print("Stop_expand")
+        print(5)
         if type(newObj)==list and len(newObj)==1:
             try:
                 newObj = newObj[0]
             except:
                 raise ValidationException(str(newObj))
+        print(6)
         if type(newObj)!=dict:
             newObj = {}
         objID = str(obj.get('_id', 'undefined'))
         if objID=='undefined':
             raise ResourcePathNotFound()
+        print(7)
         newObj['_id'] = "/".join([snake_case(mesoPrefix), objID])
+        print(8)
         if mesoPrefix=='applet':
+            print(9)
             protocolUrl = obj.get('meta', {}).get('protocol', obj).get(
                 'http://schema.org/url',
                 obj.get('meta', {}).get('protocol', obj).get('url')
             )
+            print(10)
             protocol = ProtocolModel().getFromUrl(
                 protocolUrl,
                 'protocol',
@@ -825,9 +930,11 @@ def formatLdObject(
                 user,
                 refreshCache=refreshCache
             )
+            print(11)
             applet = {}
             applet['activities'] = protocol.pop('activities', {})
             applet['items'] = protocol.pop('items', {})
+            print(12)
             applet['protocol'] = {
                 key: protocol.get(
                     'protocol',
@@ -845,6 +952,7 @@ def formatLdObject(
                     'url'
                 ] if key in list(protocol.get('protocol', {}).keys())
             }
+            print(13)
             applet['applet'] = {
                 **protocol.pop('protocol', {}),
                 **obj.get('meta', {}).get(mesoPrefix, {}),
@@ -853,7 +961,9 @@ def formatLdObject(
                     obj.get('meta', {}).get('protocol', {}).get("url", "")
                 ])
             }
+            print(14)
             createCache(obj, applet, 'applet', user)
+            print(15)
             if responseDates:
                 try:
                     applet["applet"]["responseDates"] = responseDateList(
@@ -863,22 +973,30 @@ def formatLdObject(
                     )
                 except:
                     applet["applet"]["responseDates"] = []
+            print(16)
             return(applet)
         elif mesoPrefix=='protocol':
+            print(17)
             protocol = {
                 'protocol': newObj,
                 'activities': {},
                 "items": {}
             }
+            print(18)
             activitiesNow = set()
             itemsNow = set()
+            print(19)
             try:
+                print("Start_component_import")
+                print(datetime.now())
                 protocol = componentImport(
                     newObj,
                     deepcopy(protocol),
                     user,
                     refreshCache=refreshCache
                 )
+                print(datetime.now())
+                print("Stop_component_import")
             except:
                 print("636")
                 protocol = componentImport(
@@ -895,6 +1013,8 @@ def formatLdObject(
                 i for i in protocol.get('items', {}).keys(
                 ) if i not in itemsNow
             ]
+            print("Start_while")
+            print(datetime.now())
             while(any([len(newActivities), len(newItems)])):
                 activitiesNow = set(
                     protocol.get('activities', {}).keys()
@@ -952,6 +1072,8 @@ def formatLdObject(
                         protocol.get('items', {}).keys()
                     ) - itemsNow
                 )
+            print(datetime.now())
+            print("Stop_while")
             return(_fixUpFormat(protocol))
         else:
             return(_fixUpFormat(newObj))

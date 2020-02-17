@@ -135,11 +135,15 @@ class Applet(Folder):
                 currentUser=user,
                 force=False
             )
+        print("Start_122")
+        print(datetime.datetime.now())
         return(jsonld_expander.formatLdObject(
             applet,
             'applet',
             user
         ))
+        print(datetime.datetime.now())
+        print("Stop_122")
 
     def createAppletFromUrl(
         self,
@@ -152,6 +156,9 @@ class Applet(Folder):
     ):
         from girderformindlogger.models.protocol import Protocol
         # get a protocol from a URL
+
+        print("Start_12225")
+        print(datetime.datetime.now())
         protocol = Protocol().getFromUrl(
             protocolUrl,
             'protocol',
@@ -159,6 +166,9 @@ class Applet(Folder):
             thread=False,
             refreshCache=True
         )
+
+        print(datetime.datetime.now())
+        print("Stop_12225")
         protocol = protocol[0].get('protocol', protocol[0])
         name = name if name is not None and len(name) else Protocol(
         ).preferredName(

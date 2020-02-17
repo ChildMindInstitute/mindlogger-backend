@@ -5,6 +5,7 @@ import itertools
 import pymongo
 import re
 import six
+import datetime
 
 from bson.objectid import ObjectId
 from bson.errors import InvalidId
@@ -244,7 +245,8 @@ class Model(object):
         from girderformindlogger.utility.jsonld_expander import camelCase,     \
             expand, importAndCompareModelType, loadCache, reprolibCanonize,    \
             snake_case
-
+        print("Start_516")        
+        print(datetime.datetime.now())
         refreshCache = False if refreshCache is None else refreshCache
 
         primary = [modelType] if isinstance(modelType, str) else [
@@ -292,15 +294,21 @@ class Model(object):
                     },
                     self.getModelType(compact)
                 )
+            print("Start__compare")        
+            print(datetime.datetime.now())
             model, modelType = importAndCompareModelType(
                 compact,
                 url=url,
                 user=user,
                 modelType=modelType
             )
+            print(datetime.datetime.now())
+            print("Stop__compare")
         else:
             model = cachedDoc
             modelType = self.getModelType(model)
+        print(datetime.datetime.now())
+        print("Stop_516")
         if "cached" in model:
             r = loadCache(model["cached"])
             return(r, self.getModelType(r))
