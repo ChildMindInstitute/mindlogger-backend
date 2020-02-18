@@ -43,6 +43,7 @@ pytest==3.6.1
 pytest-cov==2.7.1
 python-dateutil==2.6.1
 pytz==2019.2
+pyfcm==1.4.7
 PyYAML==5.1.2
 qrcode==6.1
 requests==2.22.0
