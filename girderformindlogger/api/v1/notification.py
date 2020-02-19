@@ -2,13 +2,19 @@
 import cherrypy
 import json
 import time
+
+from pyfcm import FCMNotification
 from datetime import datetime
 
 from ..describe import Description, autoDescribeRoute
 from ..rest import Resource, disableAuditLog, setResponseHeader
+from girderformindlogger.models.applet import Applet as AppletModel
 from girderformindlogger.constants import SortDir
 from girderformindlogger.exceptions import RestException
 from girderformindlogger.models.notification import Notification as NotificationModel
+from girderformindlogger.models.user import User as UserModel
+from girderformindlogger.models.profile import Profile as ProfileModel
+from girderformindlogger.models.pushNotification import PushNotification as PushNotificationModel, ProgressState
 from girderformindlogger.models.setting import Setting
 from girderformindlogger.settings import SettingKey
 from girderformindlogger.utility import JsonEncoder
@@ -39,6 +45,7 @@ class Notification(Resource):
         super(Notification, self).__init__()
         self.resourceName = 'notification'
         self.route('GET', ('stream',), self.stream)
+        self.route('GET', ('send-push-notifications',), self.sendPushNotifications)
         self.route('GET', (), self.listNotifications)
 
     @disableAuditLog
@@ -106,3 +113,52 @@ class Notification(Resource):
         user, token = self.getCurrentUser(returnToken=True)
         return list(NotificationModel().get(
             user, since, token=token, sort=[('updated', SortDir.ASCENDING)]))
+
+    @disableAuditLog
+    @access.public
+    @autoDescribeRoute(
+        Description('Send push notifications')
+        .errorResponse()
+        .errorResponse('You are not logged in.', 403)
+    )
+    def sendPushNotifications(self):
+        success = 0
+        error = 0
+        now = datetime.utcnow().strftime('%Y/%m/%d %H:%M')
+        notifications = PushNotificationModel().find(query={'sendTime':{ "$lt": now }, 'progress':ProgressState.ACTIVE})
+        for notification in notifications:
+            users = [
+                    UserModel().findOne({
+                        '_id':p['userId']
+                    }) for p in list(
+                        ProfileModel().find(
+                            query={'appletId': notification['applet'], }
+                        )
+                    )
+            ]
+            deviceIds = [ user['deviceId'] for user in users if 'deviceId' in user ]
+            proxy_dict = {
+            }
+            test_api_key = 'AAAAJOyOEz4:APA91bFudM5Cc1Qynqy7QGxDBa-2zrttoRw6ZdvE9PQbfIuAB9SFvPje7DcFMmPuX1IizR1NAa7eHC3qXmE6nmOpgQxXbZ0sNO_n1NITc1sE5NH3d8W9ld-cfN7sXNr6IAOuodtEwQy-'
+            push_service = FCMNotification(api_key=test_api_key, proxy_dict=proxy_dict)
+            registration_ids = deviceIds
+            message_title = notification['head']
+            message_body = notification['content']
+            result = push_service.notify_multiple_devices(registration_ids=registration_ids, 
+                                                message_title=message_title, 
+                                                message_body=message_body)
+            notification['attempts'] += 1
+
+            if result['failure']:
+                notification['progress'] = ProgressState.ERROR
+                error += result['failure']
+                print(result['results'])
+
+            if result['success']:
+                notification['progress'] = ProgressState.SUCCESS
+                success += result['success']
+
+            PushNotificationModel().save(notification, validate=False)
+
+
+        return {'successed':success, 'errors':error}

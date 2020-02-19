@@ -682,6 +682,8 @@ class User(Resource):
                ' a cookie that should be passed back in future requests.')
         .param('Girder-OTP', 'A one-time password for this user',
                paramType='header', required=False)
+        .param('deviceId', 'device id for push notifications',
+               paramType='header', required=False)
         .errorResponse('Missing Authorization header.', 401)
         .errorResponse('Invalid login or password.', 403)
     )
@@ -694,6 +696,7 @@ class User(Resource):
 
         user, token = self.getCurrentUser(returnToken=True)
 
+        deviceId = cherrypy.request.headers.get('deviceId', '')
 
         # Only create and send new cookie if user isn't already sending a valid
         # one.
@@ -730,6 +733,10 @@ class User(Resource):
                     )
                 )
 
+            if deviceId:
+                user['deviceId'] = deviceId
+                self._model.save(user)
+
             thread = threading.Thread(
                 target=AppletModel().updateUserCacheAllRoles,
                 args=(user,)
@@ -747,7 +754,6 @@ class User(Resource):
             },
             'message': 'Login succeeded.'
         }
-
     @access.public
     @autoDescribeRoute(
         Description('Log out of the system.')

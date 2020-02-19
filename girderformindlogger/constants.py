@@ -147,6 +147,7 @@ def MODELS():
     from girderformindlogger.models.protocol import Protocol as ProtocolModel
     from girderformindlogger.models.screen import Screen as ScreenModel
     from girderformindlogger.models.user import User as UserModel
+    from girderformindlogger.models.pushNotification import PushNotification as PushNotificationModel
     return({
         'activity': ActivityModel,
         'activitySet': ProtocolModel,
@@ -157,7 +158,8 @@ def MODELS():
         'item': ItemModel,
         'protocol': ProtocolModel,
         'screen': ScreenModel,
-        'user': UserModel
+        'user': UserModel,
+        'pushNotification': PushNotificationModel
     })
 
 NONES = {"None", None, "none", ""}

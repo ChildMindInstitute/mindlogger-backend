@@ -22,6 +22,7 @@ import re
 import threading
 import uuid
 import requests
+from datetime import datetime
 from ..describe import Description, autoDescribeRoute
 from ..rest import Resource, rawResponse
 from bson.objectid import ObjectId
@@ -38,6 +39,7 @@ from girderformindlogger.models.item import Item as ItemModel
 from girderformindlogger.models.protocol import Protocol as ProtocolModel
 from girderformindlogger.models.roles import getCanonicalUser, getUserCipher
 from girderformindlogger.models.user import User as UserModel
+from girderformindlogger.models.pushNotification import PushNotification as PushNotificationModel
 from girderformindlogger.utility import config, jsonld_expander
 from pyld import jsonld
 
@@ -541,6 +543,25 @@ class Applet(Resource):
             raise AccessException(
                 "Only coordinators and managers can update applet schedules."
             )
+        if 'events' in schedule:
+            for event in schedule['events']:
+                if event['data']['useNotifications']:
+                    if event['data']['notifications'][0]['start']:
+                        sendTime = event['data']['notifications'][0]['start']
+                    else:
+                        sendTime = '09:00'
+                    sendTime = (str(event['schedule']['year'][0]) + '/' + 
+                                ('0' + str(event['schedule']['month'][0] + 1))[-2:] + '/' + 
+                                ('0' + str(event['schedule']['dayOfMonth'][0]))[-2:] + ' ' + 
+                                sendTime)
+                    existNotification = PushNotificationModel().findOne(query={'applet':applet['_id'],
+                                                                                'creator_id':thisUser['_id'],
+                                                                                'sendTime':str(sendTime)})
+                    if not existNotification:
+                        PushNotificationModel().createNotification( applet['_id'], 1, 
+                                                                    event['data']['title'], event['data']['description'], 
+                                                                    str(sendTime), thisUser['_id'])
+
         appletMeta = applet['meta'] if 'meta' in applet else {'applet': {}}
         if 'applet' not in appletMeta:
             appletMeta['applet'] = {}
