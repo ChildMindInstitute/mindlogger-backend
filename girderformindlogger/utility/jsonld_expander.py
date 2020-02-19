@@ -759,6 +759,7 @@ def createCache(obj, formatted, modelType, user):
 
 
 def loadCache(obj, user=None):
+    print(281878)
     if isinstance(obj, dict):
         if 'applet' in obj:
             try:
@@ -789,8 +790,11 @@ def loadCache(obj, user=None):
 
 
 def _fixUpFormat(obj):
+    print("def _fixUpFormat")
     if isinstance(obj, dict):
         newObj = {}
+        print("dict")
+        print(obj.keys())
         for k in obj.keys():
             rk = reprolibPrefix(k)
             if k in KEYS_TO_DELANGUAGETAG:
@@ -818,8 +822,11 @@ def _fixUpFormat(obj):
                 newObj["url"] = newObj["schema:url"] = newObj[k]
         return(newObj)
     elif isinstance(obj, str):
+        print("str")
+        print("obj")
         return(reprolibPrefix(obj))
     else:
+        print("else")
         return(obj)
 
 
@@ -877,6 +884,7 @@ def formatLdObject(
         mesoPrefix = camelCase(mesoPrefix)
         print(3)
         if type(obj)==list:
+            print(555444339993344)
             return(_fixUpFormat([
                 formatLdObject(
                     o,
@@ -1079,6 +1087,7 @@ def formatLdObject(
             return(_fixUpFormat(newObj))
     except:
         if refreshCache==False:
+            print(2333444555)
             return(_fixUpFormat(formatLdObject(
                 obj,
                 mesoPrefix,
@@ -1155,14 +1164,18 @@ def componentImport(
                                 activityComponent
                             ) if activityComponent != 'screen' else 'items'
                         )
-                        updatedProtocol[activityComponents][
-                            canonicalIRI
-                        ] = deepcopy(formatLdObject(
+                        print(555444333344)
+                        tempFormatLdObject = formatLdObject(
                             activityContent,
                             activityComponent,
                             user,
                             refreshCache=refreshCache
-                        ))
+                        )
+                        print(52112333344)
+                        updatedProtocol[activityComponents][
+                            canonicalIRI
+                        ] = deepcopy(tempFormatLdObject)
+                        print(555433344333344)
         return(updatedProtocol.get(
             'meta',
             updatedProtocol
