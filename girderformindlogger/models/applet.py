@@ -199,14 +199,12 @@ class Applet(Folder):
 
     def formatThenUpdate(self, applet, user):
         from girderformindlogger.utility import jsonld_expander
-        print(1111122222222)
         jsonld_expander.formatLdObject(
             applet,
             'applet',
             user,
             refreshCache=True
         )
-        print(111112222224)
         self.updateUserCacheAllRoles(user)
 
     def getResponseData(self, appletId, reviewer, filter={}):
@@ -410,7 +408,6 @@ class Applet(Folder):
             role,
             {}
         )
-        print(55522222)
         formatted = [
             {
                 **jsonld_expander.formatLdObject(
@@ -457,7 +454,6 @@ class Applet(Folder):
                 ).get('deleted')
             )
         ]
-        print(1555552222224)
         postformatted = []
         for applet in formatted:
             if applet['applet'].get('informantRelationship')=='parent':

@@ -314,16 +314,6 @@ class Applet(Resource):
     )
     def getApplet(self, applet, refreshCache=False):
         user = self.getCurrentUser()
-        jsonld_expander.formatLdObject(
-            applet,
-            'applet',
-            user,
-            refreshCache=refreshCache
-        )
-        return({
-            "message": "The applet is being refreshed. Please check back "
-                       "in several mintutes to see it."
-        })
         if refreshCache:
             thread = threading.Thread(
                 target=jsonld_expander.formatLdObject,
