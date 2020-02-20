@@ -13,8 +13,8 @@ Contents
 6. `Contributing <./CONTRIBUTING.rst>`_
 7. `Girder Source <#girder-source>`_
 
-Reqirements
------------
+Requirements
+------------
 
 - MongoDB >= 3.6
 - Python >= 3.5
