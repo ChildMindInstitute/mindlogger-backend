@@ -138,7 +138,8 @@ class Applet(Folder):
         return(jsonld_expander.formatLdObject(
             applet,
             'applet',
-            user
+            user,
+            refreshCache=True
         ))
 
     def createAppletFromUrl(
