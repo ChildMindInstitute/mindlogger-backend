@@ -476,7 +476,7 @@ class Folder(AccessControlledModel):
         return iter(cursor)
 
     def createFolder(self, parent, name, description='', parentType='folder',
-                     public=None, creator=None, allowRename=False, reuseExisting=False):
+                     public=None, creator=None, allowRename=False, reuseExisting=False, displayName=None):
         """
         Create a new folder under the given parent.
 
@@ -547,6 +547,9 @@ class Folder(AccessControlledModel):
             'size': 0,
             'meta': {}
         }
+
+        if displayName != None:
+            folder['displayName'] = displayName
 
         if parentType in ('folder', 'collection') and (parent['name'] not in [
             "Activities", "Volumes", "Activitysets", "Applets", "Assignments",

@@ -52,7 +52,8 @@ class Applet(Folder):
         protocol={},
         user=None,
         roles=None,
-        constraints=None
+        constraints=None,
+        displayName=None
     ):
         """
         Method to create an Applet.
@@ -80,6 +81,11 @@ class Applet(Folder):
             CollectionModel().createCollection('Applets')
             appletsCollection = CollectionModel().findOne({"name": "Applets"})
 
+        if displayName == None:
+            displayName = 'applet'
+        
+        displayName = self.validateAppletDisplayName(displayName, appletsCollection)
+
         # create new applet
         applet = self.setMetadata(
             folder=self.createFolder(
@@ -88,7 +94,8 @@ class Applet(Folder):
                 parentType='collection',
                 public=True,
                 creator=user,
-                allowRename=True
+                allowRename=True,
+                displayName=displayName
             ),
             metadata={
                 'protocol': protocol,
@@ -141,6 +148,24 @@ class Applet(Folder):
             user
         ))
 
+    def validateAppletDisplayName(self, displayName, appletsCollection):
+        name = displayName
+        found = False
+        n = 0
+        while found == False:
+            found = True
+            existing = self.findOne({
+                'parentId': appletsCollection['_id'],
+                'displayName': name,
+                'parentCollection': 'collection'
+            })
+            if existing:
+                found = False
+                n = n + 1
+                name = '%s (%d)' % (displayName, n)
+
+        return name
+
     def createAppletFromUrl(
         self,
         name,
@@ -160,10 +185,16 @@ class Applet(Folder):
             refreshCache=True
         )
         protocol = protocol[0].get('protocol', protocol[0])
-        name = name if name is not None and len(name) else Protocol(
+
+        displayName = Protocol(
         ).preferredName(
             protocol
         )
+
+        name = name if name is not None and len(name) else displayName
+        if len(displayName) == 0:
+            displayName = name if len(name) else "activity"
+
         applet = self.createApplet(
             name=name,
             protocol={
@@ -180,7 +211,8 @@ class Applet(Folder):
             },
             user=user,
             roles=roles,
-            constraints=constraints
+            constraints=constraints,
+            displayName=displayName
         )
         emailMessage = "Your applet, {}, has been successfully created. The "  \
             "applet's ID is {}".format(
