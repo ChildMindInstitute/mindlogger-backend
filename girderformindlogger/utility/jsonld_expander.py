@@ -1,7 +1,7 @@
 from bson import json_util
 from copy import deepcopy
 from datetime import datetime
-from girderformindlogger.constants import AccessType, DEFINED_RELATIONS,       \
+from girderformindlogger.constants import AccessType, PREFERRED_NAMES, DEFINED_RELATIONS,       \
     HIERARCHY, KEYS_TO_DELANGUAGETAG, KEYS_TO_DEREFERENCE, KEYS_TO_EXPAND,     \
     MODELS, NONES, REPROLIB_CANONICAL, REPROLIB_PREFIXES
 from girderformindlogger.exceptions import AccessException,                    \
@@ -853,6 +853,12 @@ def formatLdObject(
                     obj.get('meta', {}).get('protocol', {}).get("url", "")
                 ])
             }
+
+            if (obj['displayName']):
+                for key in applet['applet']:
+                    if str(key).endswith('#prefLabel') or str(key).endswith('#altLabel'):
+                        applet['applet'][key] = [{"@language": "en", "@value": obj['displayName']}]
+
             createCache(obj, applet, 'applet', user)
             if responseDates:
                 try:
