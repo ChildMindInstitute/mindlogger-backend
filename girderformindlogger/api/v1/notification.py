@@ -132,11 +132,11 @@ class Notification(Resource):
                         '_id':p['userId']
                     }) for p in list(
                         ProfileModel().find(
-                            query={'appletId': notification['applet'], }
+                            query={'appletId': notification['applet'], 'userId':{'$exists':True}}
                         )
                     )
             ]
-            deviceIds = [ user['deviceId'] for user in users if 'deviceId' in user ]
+            deviceIds = [ user['deviceId'] for user in users if ('deviceId' in user) and (user.get('timezone', 0) == notification.get('timezone', 0))]
             proxy_dict = {
             }
             test_api_key = 'AAAAJOyOEz4:APA91bFudM5Cc1Qynqy7QGxDBa-2zrttoRw6ZdvE9PQbfIuAB9SFvPje7DcFMmPuX1IizR1NAa7eHC3qXmE6nmOpgQxXbZ0sNO_n1NITc1sE5NH3d8W9ld-cfN7sXNr6IAOuodtEwQy-'
@@ -148,7 +148,7 @@ class Notification(Resource):
                                                 message_title=message_title, 
                                                 message_body=message_body)
             notification['attempts'] += 1
-
+            notification['progress'] = ProgressState.EMPTY
             if result['failure']:
                 notification['progress'] = ProgressState.ERROR
                 error += result['failure']

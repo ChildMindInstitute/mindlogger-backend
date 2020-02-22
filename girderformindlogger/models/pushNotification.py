@@ -14,6 +14,7 @@ class ProgressState(object):
     ACTIVE = 'active'
     SUCCESS = 'success'
     ERROR = 'error'
+    EMPTY = 'empty'
 
     @classmethod
     def isComplete(cls, state):
@@ -34,7 +35,7 @@ class PushNotification(Model):
     def initialize(self):
         self.name = 'pushNotification'
         self.ensureIndices(('assetId', 'notification_type', 'head', 'content', 
-                            'sendTime', 'creator_id', 'created', 'updated', 'progress', 'attempts'))
+                            'sendTime', 'creator_id', 'created', 'updated', 'progress', 'timezone', 'attempts'))
 
     def validate(self, doc):
         return doc
@@ -54,21 +55,25 @@ class PushNotification(Model):
             instead of a user.
         :type token: dict
         """
-        now = datetime.datetime.utcnow().strftime('%Y/%m/%d %H:%M')
-        doc = {
-            'applet': applet,
-            'notification_type': notification_type,
-            'head': head,
-            'content': content,
-            'sendTime': sendTime,
-            'creator_id': creator_id,
-            'created': now,
-            'updated': now,
-            'progress': ProgressState.ACTIVE,
-            'attempts': 0
-        }
+        timezone_range = range(-12, 15)
+        currentTime = time.time()
+        for delta in timezone_range:
+            doc = {
+                'applet': applet,
+                'notification_type': notification_type,
+                'head': head,
+                'content': content,
+                'sendTime': (sendTime + datetime.timedelta(hours = delta)).strftime('%Y/%m/%d %H:%M'),
+                'creator_id': creator_id,
+                'created': currentTime,
+                'updated': currentTime,
+                'progress': ProgressState.ACTIVE,
+                'timezone': delta,
+                'attempts': 0
+            }
+            result = self.save(doc)
 
-        return self.save(doc)
+        return result
 
     def updateProgress(self, record, save=True, **kwargs):
         """

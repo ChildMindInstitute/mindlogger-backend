@@ -556,11 +556,13 @@ class Applet(Resource):
                                 sendTime)
                     existNotification = PushNotificationModel().findOne(query={'applet':applet['_id'],
                                                                                 'creator_id':thisUser['_id'],
+                                                                                'timezone':0,
                                                                                 'sendTime':str(sendTime)})
                     if not existNotification:
+                        sendTime = datetime.strptime(sendTime, '%Y/%m/%d %H:%M')
                         PushNotificationModel().createNotification( applet['_id'], 1, 
                                                                     event['data']['title'], event['data']['description'], 
-                                                                    str(sendTime), thisUser['_id'])
+                                                                    sendTime, thisUser['_id'])
 
         appletMeta = applet['meta'] if 'meta' in applet else {'applet': {}}
         if 'applet' not in appletMeta:
