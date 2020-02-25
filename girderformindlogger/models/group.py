@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 import datetime
 
-from .model_base import AccessControlledModel
+from girderformindlogger.models.model_base import AccessControlledModel
 from girderformindlogger import events
 from girderformindlogger.constants import AccessType, CoreEventHandler
 from girderformindlogger.exceptions import ValidationException
@@ -77,7 +77,7 @@ class Group(AccessControlledModel):
         """
         List members of the group.
         """
-        from .user import User
+        from girderformindlogger.models.user import User
         return User().find({
             'groups': group['_id']
         }, limit=limit, offset=offset, sort=sort)
@@ -90,7 +90,7 @@ class Group(AccessControlledModel):
         :type group: dict
         """
         # Remove references to this group from user group membership lists
-        from .user import User
+        from girderformindlogger.models.user import User
         User().update({
             'groups': group['_id']
         }, {
@@ -110,7 +110,7 @@ class Group(AccessControlledModel):
         :param sort: Sort parameter for the find query.
         :returns: List of user documents.
         """
-        from .user import User
+        from girderformindlogger.models.user import User
         return User().find(
             {'groups': group['_id']},
             offset=offset, limit=limit, sort=sort)
@@ -123,7 +123,7 @@ class Group(AccessControlledModel):
         the group. If the user already belongs to the group, this method can
         be used to change their access level within it.
         """
-        from .user import User
+        from girderformindlogger.models.user import User
 
         if 'groups' not in user:
             user['groups'] = []
@@ -154,7 +154,7 @@ class Group(AccessControlledModel):
         given user has not been invited to the group, this will create an
         invitation request that moderators and admins may grant or deny later.
         """
-        from .user import User
+        from girderformindlogger.models.user import User
 
         if 'groupInvites' not in user:
             user['groupInvites'] = []
@@ -191,7 +191,7 @@ class Group(AccessControlledModel):
         will accept their request and add them to the group at the access
         level specified.
         """
-        from .user import User
+        from girderformindlogger.models.user import User
 
         if group['_id'] in user.get('groups', []):
             raise ValidationException('User is already in this group.')
@@ -226,7 +226,7 @@ class Group(AccessControlledModel):
         :param offset: Offset into the results.
         :param sort: The sort field.
         """
-        from .user import User
+        from girderformindlogger.models.user import User
         return User().find(
             {'groupInvites.groupId': group['_id']},
             limit=limit, offset=offset, sort=sort)
@@ -238,10 +238,10 @@ class Group(AccessControlledModel):
         revoked. If the user has requested an invitation, calling this will
         deny that request, thereby deleting it.
         """
-        from .applet import Applet
-        from .folder import Folder
-        from .item import Item
-        from .user import User
+        from girderformindlogger.models.applet import Applet
+        from girderformindlogger.models.folder import Folder
+        from girderformindlogger.models.item import Item
+        from girderformindlogger.models.user import User
         # Remove group membership for this user.
         if delete:
             # Get applets for group and delete data for applets
@@ -361,7 +361,7 @@ class Group(AccessControlledModel):
         This generally should not be called or overridden directly, but it may
         be unregistered from the `model.group.save.created` event.
         """
-        from .user import User
+        from girderformindlogger.models.user import User
         group = event.info
         creator = User().load(group['creatorId'], force=True, exc=True)
 
@@ -388,7 +388,7 @@ class Group(AccessControlledModel):
         :param group: The group to get requests for.
         :type group: dict
         """
-        from .user import User
+        from girderformindlogger.models.user import User
         userModel = User()
         for userId in group.get('requests', []):
             user = userModel.load(userId, force=True, fields=['firstName', 'login'])
@@ -412,8 +412,8 @@ class Group(AccessControlledModel):
         :returns: Whether the access is granted.
         """
         import itertools
-        from .applet import Applet
-        from .user import User
+        from girderformindlogger.models.applet import Applet
+        from girderformindlogger.models.user import User
         from girderformindlogger.constants import USER_ROLES
 
         if user is None:

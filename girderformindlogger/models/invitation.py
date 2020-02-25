@@ -6,7 +6,7 @@ import os
 import six
 
 from bson.objectid import ObjectId
-from .model_base import AccessControlledModel
+from girderformindlogger.models.model_base import AccessControlledModel
 from girderformindlogger import events
 from girderformindlogger.constants import AccessType
 from girderformindlogger.exceptions import ValidationException, GirderException
@@ -107,8 +107,8 @@ class Invitation(AccessControlledModel):
         :type idCode: string or None
         :returns: The invitation document that was created.
         """
-        from .applet import Applet
-        from .profile import Profile
+        from girderformindlogger.models.applet import Applet
+        from girderformindlogger.models.profile import Profile
 
         if not(Applet().isCoordinator(applet['_id'], coordinator)):
             raise AccessException(
@@ -156,9 +156,9 @@ class Invitation(AccessControlledModel):
         })
 
     def acceptInvitation(self, invitation, user):
-        from .applet import Applet
-        from .ID_code import IDCode
-        from .profile import Profile
+        from girderformindlogger.models.applet import Applet
+        from girderformindlogger.models.ID_code import IDCode
+        from girderformindlogger.models.profile import Profile
 
         applet = Applet().load(invitation['appletId'], force=True)
         profiles = None
@@ -219,11 +219,11 @@ class Invitation(AccessControlledModel):
 
         :returns: html document
         """
-        from .applet import Applet
-        from .profile import Profile
-        from .protocol import Protocol
-        from .token import Token
-        from .user import User
+        from girderformindlogger.models.applet import Applet
+        from girderformindlogger.models.profile import Profile
+        from girderformindlogger.models.protocol import Protocol
+        from girderformindlogger.models.token import Token
+        from girderformindlogger.models.user import User
         from girderformindlogger.exceptions import GirderException
         from girderformindlogger.api.rest import getApiUrl
         from girderformindlogger.utility import context as contextUtil,        \
@@ -421,7 +421,7 @@ class Invitation(AccessControlledModel):
                   data or file object).
         :rtype: generator(str, func)
         """
-        from .item import Item
+        from girderformindlogger.models.item import Item
 
         itemModel = Item()
         if subpath:

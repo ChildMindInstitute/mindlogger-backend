@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 import datetime
 
-from .model_base import AccessControlledModel
+from girderformindlogger.models.model_base import AccessControlledModel
 from girderformindlogger.constants import AccessType, TokenScope
 from girderformindlogger.exceptions import ValidationException
 from girderformindlogger.settings import SettingKey
@@ -23,8 +23,8 @@ class ApiKey(AccessControlledModel):
         })
 
     def validate(self, doc):
-        from .token import Token
-        from .user import User
+        from girderformindlogger.models.token import Token
+        from girderformindlogger.models.user import User
 
         if doc['tokenDuration']:
             doc['tokenDuration'] = float(doc['tokenDuration'])
@@ -55,7 +55,7 @@ class ApiKey(AccessControlledModel):
 
     def remove(self, doc):
         # Clear tokens corresponding to this API key.
-        from .token import Token
+        from girderformindlogger.models.token import Token
         Token().clearForApiKey(doc)
         super(ApiKey, self).remove(doc)
 
@@ -115,9 +115,9 @@ class ApiKey(AccessControlledModel):
             of the API key itself, or pass None to use the API key duration.
         :type days: float or None
         """
-        from .setting import Setting
-        from .token import Token
-        from .user import User
+        from girderformindlogger.models.setting import Setting
+        from girderformindlogger.models.token import Token
+        from girderformindlogger.models.user import User
 
         apiKey = self.findOne({
             'key': key

@@ -13,8 +13,8 @@ from girderformindlogger.models.user import User
 from girderformindlogger.settings import SettingKey
 from girderformindlogger.utility import config, mail_utils
 from girderformindlogger.utility._cache import rateLimitBuffer
-from .model_base import AccessControlledModel
-from .setting import Setting
+from girderformindlogger.models.model_base import AccessControlledModel
+from girderformindlogger.models.setting import Setting
 
 
 class ProtoUser(User):
@@ -87,8 +87,8 @@ class ProtoUser(User):
 
         :returns: The user document that was created.
         """
-        from .group import Group
-        from .setting import Setting
+        from girderformindlogger.models.group import Group
+        from girderformindlogger.models.setting import Setting
         protoUser = self.findOne(query={"email": email}, force=True)
         if protoUser:
             protoUser['groupInvites'] = [
@@ -114,7 +114,7 @@ class ProtoUser(User):
         return(protoUser)
 
     def _sendCreateAccountEmail(self, user):
-        # from .token import Token
+        # from girderformindlogger.models.token import Token
         #
         # token = Token().createToken(
         #     user, days=1, scope=TokenScope.EMAIL_VERIFICATION)
@@ -138,9 +138,9 @@ class ProtoUser(User):
         :param progress: A progress context to record progress on.
         :type progress: girderformindlogger.utility.progress.ProgressContext or None.
         """
-        from .folder import Folder
-        from .group import Group
-        from .token import Token
+        from girderformindlogger.models.folder import Folder
+        from girderformindlogger.models.group import Group
+        from girderformindlogger.models.token import Token
 
         # Delete all authentication tokens owned by this user
         # Token().removeWithQuery({'userId': user['_id']})

@@ -25,7 +25,7 @@ import os
 import six
 
 from bson.objectid import ObjectId
-from .folder import Folder
+from girderformindlogger.models.folder import Folder
 from girderformindlogger import events
 from girderformindlogger.api.rest import getCurrentUser
 from girderformindlogger.constants import AccessType, SortDir

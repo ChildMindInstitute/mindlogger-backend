@@ -26,7 +26,7 @@ import six
 import threading
 
 from bson.objectid import ObjectId
-from .folder import Folder
+from girderformindlogger.models.folder import Folder
 from girderformindlogger import events
 from girderformindlogger.api.rest import getCurrentUser
 from girderformindlogger.constants import AccessType, SortDir, USER_ROLES
@@ -220,10 +220,10 @@ class Applet(Folder):
         :type filter: dict
         :reutrns: TBD
         """
-        from .ID_code import IDCode
-        from .profile import Profile
-        from .response_folder import ResponseItem
-        from .user import User
+        from girderformindlogger.models.ID_code import IDCode
+        from girderformindlogger.models.profile import Profile
+        from girderformindlogger.models.response_folder import ResponseItem
+        from girderformindlogger.models.user import User
         from pymongo import DESCENDING
 
         if not self._hasRole(appletId, reviewer, 'reviewer'):
@@ -327,7 +327,7 @@ class Applet(Folder):
         )
 
     def isCoordinator(self, appletId, user):
-        from .profile import Profile
+        from girderformindlogger.models.profile import Profile
 
         try:
             user = Profile()._canonicalUser(appletId, user)
@@ -342,7 +342,7 @@ class Applet(Folder):
         return(self._hasRole(appletId, user, 'manager'))
 
     def _hasRole(self, appletId, user, role):
-        from .profile import Profile
+        from girderformindlogger.models.profile import Profile
 
         user = Profile()._canonicalUser(appletId, user)
         return(bool(
@@ -375,7 +375,7 @@ class Applet(Folder):
         return(applets if isinstance(applets, list) else [applets])
 
     def updateUserCacheAllUsersAllRoles(self, applet, coordinator):
-        from .profile import Profile as ProfileModel
+        from girderformindlogger.models.profile import Profile as ProfileModel
 
         [self.updateUserCacheAllRoles(
             UserModel().load(
@@ -547,7 +547,7 @@ class Applet(Folder):
         return(applets)
 
     def listUsers(self, applet, role, user=None, force=False):
-        from .profile import Profile
+        from girderformindlogger.models.profile import Profile
         if not force:
             if not any([
                 self.isCoordinator(applet['_id'], user),
@@ -586,8 +586,8 @@ class Applet(Folder):
         :type user: dict
         :returns: list of dicts
         """
-        from .invitation import Invitation
-        from .profile import Profile
+        from girderformindlogger.models.invitation import Invitation
+        from girderformindlogger.models.profile import Profile
 
         profileFields = ["_id", "coordinatorDefined", "userDefined"]
 
