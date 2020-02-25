@@ -4,9 +4,9 @@ import six
 
 from girderformindlogger.constants import AccessType, TokenScope
 from girderformindlogger.exceptions import AccessException
+from girderformindlogger.models.model_base import AccessControlledModel
 from girderformindlogger.settings import SettingKey
 from girderformindlogger.utility import genToken
-from girderformindlogger.models.model_base import AccessControlledModel
 
 
 class Token(AccessControlledModel):

@@ -26,7 +26,6 @@ import six
 import threading
 
 from bson.objectid import ObjectId
-from girderformindlogger.models.folder import Folder
 from girderformindlogger import events
 from girderformindlogger.api.rest import getCurrentUser
 from girderformindlogger.constants import AccessType, SortDir, USER_ROLES
@@ -41,7 +40,7 @@ from girderformindlogger.utility.progress import noProgress,                   \
     setResponseTimeLimit
 
 
-class Applet(Folder):
+class Applet(FolderModel):
     """
     Applets are access-controlled Folders, each of which links to an
     Protocol and contains any relevant constraints.
@@ -669,11 +668,11 @@ class Applet(Folder):
         extraFields = {'baseParentId', 'baseParentType', 'parentId',
                        'parentCollection', 'name', 'lowerName'}
         loadFields = self._supplementFields(fields, extraFields)
-        doc = super(Folder, self).load(
+        doc = super(FolderModel, self).load(
             id=id, level=level, user=user, objectId=objectId, force=force,
             fields=loadFields, exc=exc)
         if doc is not None:
-            pathFromRoot = Folder().parentsToRoot(doc, user=user, force=True)
+            pathFromRoot = FolderModel().parentsToRoot(doc, user=user, force=True)
             if 'baseParentType' not in doc:
                 baseParent = pathFromRoot[0]
                 doc['baseParentId'] = baseParent['object']['_id']

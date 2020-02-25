@@ -3,9 +3,9 @@ import datetime
 import os
 import six
 
-from girderformindlogger.models.model_base import AccessControlledModel
 from girderformindlogger.constants import AccessType
 from girderformindlogger.exceptions import ValidationException
+from girderformindlogger.models.model_base import AccessControlledModel
 from girderformindlogger.settings import SettingKey
 from girderformindlogger.utility.progress import noProgress
 

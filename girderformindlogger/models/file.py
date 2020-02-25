@@ -4,10 +4,10 @@ import datetime
 import os
 import six
 
-from girderformindlogger.models.model_base import Model, AccessControlledModel
 from girderformindlogger import auditLogger, events
 from girderformindlogger.constants import AccessType, CoreEventHandler
 from girderformindlogger.exceptions import FilePathException, ValidationException
+from girderformindlogger.models.model_base import Model, AccessControlledModel
 from girderformindlogger.models.setting import Setting
 from girderformindlogger.settings import SettingKey
 from girderformindlogger.utility import acl_mixin, path as path_util

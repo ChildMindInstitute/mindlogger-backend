@@ -6,12 +6,12 @@ import os
 import six
 
 from bson.objectid import ObjectId
-from girderformindlogger.models.model_base import Model
 from girderformindlogger import events
 from girderformindlogger import logger
 from girderformindlogger.constants import AccessType
 from girderformindlogger.exceptions import ValidationException, GirderException
 from girderformindlogger.models.item import Item
+from girderformindlogger.models.model_base import Model
 from girderformindlogger.utility import acl_mixin
 from girderformindlogger.utility.model_importer import ModelImporter
 

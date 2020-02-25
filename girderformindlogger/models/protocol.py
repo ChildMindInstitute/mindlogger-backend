@@ -25,7 +25,6 @@ import os
 import six
 
 from bson.objectid import ObjectId
-from girderformindlogger.models.folder import Folder
 from girderformindlogger import events
 from girderformindlogger.api.rest import getCurrentUser
 from girderformindlogger.constants import AccessType, SortDir
@@ -35,7 +34,7 @@ from girderformindlogger.models.user import User as UserModel
 from girderformindlogger.utility.progress import noProgress, setResponseTimeLimit
 
 
-class Protocol(Folder):
+class Protocol(FolderModel):
     def importUrl(self, url, user=None, refreshCache=False):
         """
         Gets an activity set from a given URL, checks against the database,
@@ -70,11 +69,11 @@ class Protocol(Folder):
         extraFields = {'baseParentId', 'baseParentType', 'parentId',
                        'parentCollection', 'name', 'lowerName'}
         loadFields = self._supplementFields(fields, extraFields)
-        doc = super(Folder, self).load(
+        doc = super(FolderModel, self).load(
             id=id, level=level, user=user, objectId=objectId, force=force,
             fields=loadFields, exc=exc)
         if doc is not None:
-            pathFromRoot = Folder().parentsToRoot(doc, user=user, force=True)
+            pathFromRoot = FolderModel().parentsToRoot(doc, user=user, force=True)
             if 'baseParentType' not in doc:
                 baseParent = pathFromRoot[0]
                 doc['baseParentId'] = baseParent['object']['_id']

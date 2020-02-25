@@ -1,10 +1,10 @@
 # -*- coding: utf-8 -*-
 import datetime
 
-from girderformindlogger.models.model_base import AccessControlledModel
 from girderformindlogger import events
 from girderformindlogger.constants import AccessType, CoreEventHandler
 from girderformindlogger.exceptions import ValidationException
+from girderformindlogger.models.model_base import AccessControlledModel
 
 
 class Group(AccessControlledModel):

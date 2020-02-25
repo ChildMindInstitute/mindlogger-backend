@@ -5,8 +5,8 @@ from bson.objectid import ObjectId
 
 from girderformindlogger import events, logger
 from girderformindlogger.api import rest
-from girderformindlogger.models.model_base import Model
 from girderformindlogger.exceptions import GirderException, ValidationException
+from girderformindlogger.models.model_base import Model
 from girderformindlogger.settings import SettingKey
 from girderformindlogger.utility import RequestBodyStream
 from girderformindlogger.utility.progress import noProgress

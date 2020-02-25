@@ -1,9 +1,9 @@
 # -*- coding: utf-8 -*-
 import pymongo
 
-from girderformindlogger.models.model_base import Model
 from girderformindlogger import logprint
 from girderformindlogger.exceptions import ValidationException
+from girderformindlogger.models.model_base import Model
 from girderformindlogger.settings import SettingDefault
 from girderformindlogger.utility import setting_utilities
 from girderformindlogger.utility._cache import cache

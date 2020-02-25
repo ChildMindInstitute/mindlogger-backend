@@ -6,12 +6,12 @@ import os
 import six
 
 from bson.objectid import ObjectId
-from girderformindlogger.models.folder import Folder
-from girderformindlogger.models.model_base import AccessControlledModel
 from girderformindlogger import events
 from girderformindlogger.constants import AccessType, DEFINED_RELATIONS,       \
     PROFILE_FIELDS
 from girderformindlogger.exceptions import ValidationException, GirderException
+from girderformindlogger.models.folder import Folder
+from girderformindlogger.models.model_base import AccessControlledModel
 from girderformindlogger.utility.model_importer import ModelImporter
 from girderformindlogger.utility.progress import noProgress, \
     setResponseTimeLimit

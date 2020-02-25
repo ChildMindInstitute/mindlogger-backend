@@ -6,10 +6,10 @@ import os
 import six
 
 from bson.objectid import ObjectId
-from girderformindlogger.models.model_base import AccessControlledModel
 from girderformindlogger import events
 from girderformindlogger.constants import AccessType
 from girderformindlogger.exceptions import ValidationException, GirderException
+from girderformindlogger.models.model_base import AccessControlledModel
 from girderformindlogger.utility.model_importer import ModelImporter
 from girderformindlogger.utility.progress import noProgress, setResponseTimeLimit
 

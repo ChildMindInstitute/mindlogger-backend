@@ -9,11 +9,11 @@ import six
 from girderformindlogger import events
 from girderformindlogger.constants import AccessType, CoreEventHandler, TokenScope
 from girderformindlogger.exceptions import AccessException, ValidationException
+from girderformindlogger.models.model_base import AccessControlledModel
+from girderformindlogger.models.setting import Setting
 from girderformindlogger.settings import SettingKey
 from girderformindlogger.utility import config, mail_utils
 from girderformindlogger.utility._cache import rateLimitBuffer
-from girderformindlogger.models.model_base import AccessControlledModel
-from girderformindlogger.models.setting import Setting
 
 
 class User(AccessControlledModel):

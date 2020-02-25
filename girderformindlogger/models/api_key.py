@@ -1,9 +1,9 @@
 # -*- coding: utf-8 -*-
 import datetime
 
-from girderformindlogger.models.model_base import AccessControlledModel
 from girderformindlogger.constants import AccessType, TokenScope
 from girderformindlogger.exceptions import ValidationException
+from girderformindlogger.models.model_base import AccessControlledModel
 from girderformindlogger.settings import SettingKey
 from girderformindlogger.utility import genToken
 
