@@ -66,7 +66,10 @@ def main(dev, mode, watch, watch_plugin, npm, reinstall):
         installCommand = [npm, 'install']
         if mode == ServerMode.PRODUCTION:
             installCommand.append('--production')
-        check_call(installCommand, cwd=staging)
+        try:
+            check_call(installCommand, cwd=staging)
+        except FileNotFoundError:
+            check_call(installCommand, cwd=staging, shell=True)   
 
     quiet = '--no-progress=false' if sys.stdout.isatty() else '--no-progress=true'
     buildCommand = [
@@ -87,7 +90,10 @@ def main(dev, mode, watch, watch_plugin, npm, reinstall):
         buildCommand.append('--env=dev')
     else:
         buildCommand.append('--env=prod')
-    check_call(buildCommand, cwd=staging)
+    try:
+        check_call(buildCommand, cwd=staging)
+    except FileNotFoundError:
+        check_call(buildCommand, cwd=staging, shell=True)
 
 
 def _collectPluginDependencies():
