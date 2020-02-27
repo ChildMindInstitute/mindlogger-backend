@@ -684,7 +684,7 @@ class User(Resource):
                paramType='header', required=False)
         .param('deviceId', 'device id for push notifications',
                paramType='header', required=False)
-        .param('timezone', 'device id for push notifications',
+        .param('timezone', 'timezone of user mobile',
                paramType='header', required=False)
         .errorResponse('Missing Authorization header.', 401)
         .errorResponse('Invalid login or password.', 403)
