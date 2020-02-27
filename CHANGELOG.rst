@@ -9,6 +9,12 @@ Changes
 Unreleased
 ==========
 
+2019-02-14: v0.13.2
+^^^^^^^^^^^^^^^^^^
+* Temporarily fixed applet caching issue
+* Added timezone field in `/user/authentication` endpoint
+* Document README for project setup in Windows
+
 2019-02-14: v0.13.1
 ^^^^^^^^^^^^^^^^^^
 * Revert changes in v0.9.1
@@ -29,6 +35,10 @@ Unreleased
 ^^^^^^^^^^^^^^^^^^
 * :lock: Stop exposing sensitive data in deprecated `PUT /user/{:id}`
 
+2020-1-28: v0.9.2
+^^^^^^^^^^^^^^^^^^
+* :pencil: Change parameter type for `PUT /user/{id}/code` & `DELETE /user/{id}/code`
+
 2020-02-13: v0.9.1
 ^^^^^^^^^^^^^^^^^^
 * :sparkles: Returns one applet per child for parent-report applets
@@ -36,10 +46,6 @@ Unreleased
 2020-02-10: v0.8.2
 ^^^^^^^^^^^^^^^^^^
 * Fixed issue with Pandas version in CI test
-
-2020-1-28: v0.9.2
-^^^^^^^^^^^^^^^^^^
-* :pencil: Change parameter type for `PUT /user/{id}/code` & `DELETE /user/{id}/code`
 
 2019-12-20: v0.8.1
 ^^^^^^^^^^^^^^^^^^
