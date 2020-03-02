@@ -59,7 +59,7 @@ class Applet(Resource):
         self.route('PUT', (':id', 'assign'), self.assignGroup)
         self.route('PUT', (':id', 'constraints'), self.setConstraints)
         self.route('PUT', (':id', 'schedule'), self.setSchedule)
-        self.route('GET', (':id',), self.getSchedule)
+        self.route('GET', (':id', 'schedule'), self.getSchedule)
         self.route('POST', (':id', 'invite'), self.invite)
         self.route('GET', (':id', 'roles'), self.getAppletRoles)
         self.route('GET', (':id', 'users'), self.getAppletUsers)
@@ -510,14 +510,16 @@ class Applet(Resource):
                 "message": "The applet is being refreshed. Please check back "
                            "in several mintutes to see it."
             })
-        return(
-            jsonld_expander.formatLdObject(
-                applet,
-                'applet',
-                user,
-                refreshCache=refreshCache
-            )
+
+        model = AppletModel()
+        filterRequired = model._hasRole(applet['_id'], user, 'user') if not model.isCoordinator(applet['_id'], user) else False
+        schedule = model.filterScheduleEvents(
+            applet.get('meta', {}).get('applet', {}).get('schedule', {}),
+            user,
+            filterRequired
         )
+
+        return schedule
 
     @access.user(scope=TokenScope.DATA_WRITE)
     @autoDescribeRoute(
