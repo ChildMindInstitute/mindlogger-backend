@@ -546,7 +546,7 @@ class Applet(Resource):
         if 'events' in schedule:
             for event in schedule['events']:
                 if event['data']['useNotifications']:
-                    if event['data']['notifications'][0]['start']:
+                    if 'data' in event and 'useNotifications' in event['data'] and event['data']['useNotifications']:
                         sendTime = event['data']['notifications'][0]['start']
                     else:
                         sendTime = '09:00'
