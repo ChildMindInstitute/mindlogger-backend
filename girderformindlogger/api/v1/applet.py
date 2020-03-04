@@ -552,17 +552,23 @@ class Applet(Resource):
                         sendTime = event['data']['notifications'][0]['start']
                     else:
                         sendTime = '09:00'
-                    sendTime = (str(event['schedule']['year'][0]) + '/' + 
-                                ('0' + str(event['schedule']['month'][0] + 1))[-2:] + '/' + 
-                                ('0' + str(event['schedule']['dayOfMonth'][0]))[-2:] + ' ' + 
-                                sendTime)
-                    existNotification = PushNotificationModel().findOne(query={'applet':applet['_id'],
-                                                                                'creator_id':thisUser['_id'],
-                                                                                'sendTime':str(sendTime)})
-                    if not existNotification:
-                        PushNotificationModel().createNotification( applet['_id'], 1, 
-                                                                    event['data']['title'], event['data']['description'], 
-                                                                    str(sendTime), thisUser['_id'])
+                    
+
+                    # in case of sigle event with exact year, month, day
+                    if 'year' in event['schedule'] and 'month' in event['schedule'] and 'dayOfMonth' in event['schedule']:
+                        sendTime = (str(event['schedule']['year'][0]) + '/' + 
+                                    ('0' + str(event['schedule']['month'][0] + 1))[-2:] + '/' + 
+                                    ('0' + str(event['schedule']['dayOfMonth'][0]))[-2:] + ' ' + 
+                                    sendTime)
+                        existNotification = PushNotificationModel().findOne(query={'applet':applet['_id'],
+                                                                                    'creator_id':thisUser['_id'],
+                                                                                    'sendTime':str(sendTime)})
+                        if not existNotification:
+                            PushNotificationModel().createNotification( applet['_id'], 1, 
+                                                                        event['data']['title'], event['data']['description'], 
+                                                                        str(sendTime), thisUser['_id'])
+
+                    # in case of daily event
 
         appletMeta = applet['meta'] if 'meta' in applet else {'applet': {}}
         if 'applet' not in appletMeta:
