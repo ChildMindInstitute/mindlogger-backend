@@ -498,7 +498,7 @@ class Applet(Folder):
 
             for event in schedule['events']:
                 notForCurrentUser = 'users' in event
-
+ 
                 if 'users' in event:
                     for appletUser in event['users']:
                         if appletUser not in profilesCache:
