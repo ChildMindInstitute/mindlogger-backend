@@ -502,9 +502,10 @@ class Applet(Folder):
                 if 'users' in event:
                     for appletUser in event['users']:
                         if appletUser not in profilesCache:
-                            userData = Profile().findOne(query={'_id': ObjectId(appletUser)})
-                            if 'userId' in userData:
-                                profilesCache[appletUser] = userData
+                            userData = Profile().findOne(query={'_id': ObjectId(appletUser)}, fields=['userId'])
+
+                            if userData and 'userId' in userData:
+                                profilesCache[appletUser] = userData['userId']
                         if profilesCache.get(appletUser, '') == user['_id']:
                             notForCurrentUser = False
                             break
