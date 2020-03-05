@@ -392,7 +392,7 @@ class Applet(Folder):
     def updateUserCacheAllRoles(self, user):
         [self.updateUserCache(role, user) for role in list(USER_ROLES.keys())]
 
-    def updateUserCache(self, role, user, active=True, refreshCache=False):
+    def updateUserCache(self, role, user, active=True, refreshCache=True):
         import threading
         from bson import json_util
         from girderformindlogger.models.profile import Profile
@@ -421,7 +421,8 @@ class Applet(Folder):
                 "groups": self.getAppletGroups(
                     applet,
                     arrayOfObjects=True
-                )
+                ),
+                "appletId": applet['_id']
             } if role in ["coordinator", "manager"] else {
                 **jsonld_expander.formatLdObject(
                     applet,
@@ -443,7 +444,8 @@ class Applet(Folder):
                             *user.get('declinedInvites', [])
                         ]]
                     ]
-                ]
+                ],
+                "appletId": applet['_id']
             } for applet in applets if (
                 applet is not None and not applet.get(
                     'meta',
@@ -454,6 +456,18 @@ class Applet(Folder):
                 ).get('deleted')
             )
         ]
+
+        profilesCache = {}
+        for applet in formatted:
+            if 'schedule' in applet['applet']:
+                filterRequired = (role == 'user') if not self.isCoordinator(applet['appletId'], user) else False
+                schedule = self.filterScheduleEvents(applet['applet']['schedule'], user, filterRequired, profilesCache)
+                if 'events' in schedule:
+                    applet['applet']['schedule'] = schedule
+                else:
+                    del applet['applet']['schedule']
+            del applet['appletId']
+
         postformatted = []
         for applet in formatted:
             if applet['applet'].get('informantRelationship')=='parent':
@@ -474,6 +488,36 @@ class Applet(Folder):
         )
         thread.start()
         return(formatted)
+
+
+    def filterScheduleEvents(self, schedule, user, filterRequired, profilesCache = {}):
+        from girderformindlogger.models.profile import Profile
+
+        if filterRequired and 'events' in schedule:
+            events = []
+
+            for event in schedule['events']:
+                notForCurrentUser = 'users' in event
+
+                if 'users' in event:
+                    for appletUser in event['users']:
+                        if appletUser not in profilesCache:
+                            userData = Profile().findOne(query={'_id': ObjectId(appletUser)})
+                            if 'userId' in userData:
+                                profilesCache[appletUser] = userData
+                        if profilesCache.get(appletUser, '') == user['_id']:
+                            notForCurrentUser = False
+                            break
+                if not notForCurrentUser:
+                    events.append(event)
+
+            if len(events):
+                newSchedule = schedule.copy()
+                newSchedule['events'] = events
+                return newSchedule
+            else:
+                return {}
+        return schedule
 
     def getAppletsForUser(self, role, user, active=True):
         """
@@ -603,31 +647,40 @@ class Applet(Folder):
                 if not self.isCoordinator(applet.get('_id', applet), user):
                     return([])
 
+            profileModel = Profile()
             userDict = {
                 'active': [
-                    Profile().displayProfileFields(
+                    profileModel.displayProfileFields(
                         p,
                         user,
                         forceManager=True
                     ) for p in list(
-                        Profile().find(
-                            query={'appletId': applet['_id']}
+                        profileModel.find(
+                            query={'appletId': applet['_id'], 'userId': {'$exists': True}, 'profile': True}
                         )
                     )
                 ],
                 'pending': [
-                    Profile().displayProfileFields(
-                        p,
-                        user,
-                        forceManager=True
-                    ) for p in list(
-                        Invitation().find(query={'appletId': applet['_id']})
-                    )
+
                 ]
             }
 
+            for p in list(Invitation().find(query={'appletId': applet['_id']})):
+                profile = profileModel.findOne(query={'_id': p['_id']})
+                userDict['pending'].append(
+                    profileModel.displayProfileFields(
+                        profile,
+                        user,
+                        forceManager=True
+                    ) if profile else {
+                        "_id": p["_id"],
+                        "invitedBy": p["invitedBy"]
+                    }
+                )
+
+
             missing = threading.Thread(
-                target=Profile().generateMissing,
+                target=profileModel.generateMissing,
                 args=(applet,)
             )
             missing.start()
