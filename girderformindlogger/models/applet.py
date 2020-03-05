@@ -392,7 +392,7 @@ class Applet(Folder):
     def updateUserCacheAllRoles(self, user):
         [self.updateUserCache(role, user) for role in list(USER_ROLES.keys())]
 
-    def updateUserCache(self, role, user, active=True, refreshCache=False):
+    def updateUserCache(self, role, user, active=True, refreshCache=True):
         import threading
         from bson import json_util
         from girderformindlogger.models.profile import Profile
@@ -647,31 +647,40 @@ class Applet(Folder):
                 if not self.isCoordinator(applet.get('_id', applet), user):
                     return([])
 
+            profileModel = Profile()
             userDict = {
                 'active': [
-                    Profile().displayProfileFields(
+                    profileModel.displayProfileFields(
                         p,
                         user,
                         forceManager=True
                     ) for p in list(
-                        Profile().find(
-                            query={'appletId': applet['_id']}
+                        profileModel.find(
+                            query={'appletId': applet['_id'], 'userId': {'$exists': True}, 'profile': True}
                         )
                     )
                 ],
                 'pending': [
-                    Profile().displayProfileFields(
-                        p,
-                        user,
-                        forceManager=True
-                    ) for p in list(
-                        Invitation().find(query={'appletId': applet['_id']})
-                    )
+
                 ]
             }
 
+            for p in list(Invitation().find(query={'appletId': applet['_id']})):
+                profile = profileModel.findOne(query={'_id': p['_id']})
+                userDict['pending'].append(
+                    profileModel.displayProfileFields(
+                        profile,
+                        user,
+                        forceManager=True
+                    ) if profile else {
+                        "_id": p["_id"],
+                        "invitedBy": p["invitedBy"]
+                    }
+                )
+
+
             missing = threading.Thread(
-                target=Profile().generateMissing,
+                target=profileModel.generateMissing,
                 args=(applet,)
             )
             missing.start()

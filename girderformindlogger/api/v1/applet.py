@@ -439,7 +439,7 @@ class Applet(Resource):
                 idCode=idCode
             )
 
-            return(Profile().displayProfileFields(invitation, user))
+            return(Profile().displayProfileFields(invitation, user, forceManager=True))
         except:
             import sys, traceback
             print(sys.exc_info())
