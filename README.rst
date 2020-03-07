@@ -13,8 +13,8 @@ Contents
 6. `Contributing <./CONTRIBUTING.rst>`_
 7. `Girder Source <#girder-source>`_
 
-Reqirements
------------
+Requirements
+------------
 
 - MongoDB >= 3.6
 - Python >= 3.5
@@ -23,6 +23,9 @@ Reqirements
 
 Installation
 ------------
+
+Linux/Mac
+#########
 
 1. Create and activate a virtual environment (replace ``~/girder_env`` if you want your virtual environment somewhere else). On launches after the first, only the line beginning with ``source`` is necessary.
 
@@ -64,6 +67,53 @@ Installation
       .. code-block:: shell
 
          fg
+
+      ``<Ctrl>`` + ``c``
+
+   3. deactivate your virtual environment.
+
+   .. code-block:: shell
+
+      deactivate
+
+Windows
+#######
+
+1. In Windows Powershell, create and activate a virtual environment (replace ``$HOME\girder_env`` if you want your virtual environment somewhere else). On launches after the first, only the line ending with ``Activate.ps1`` is necessary.
+
+   .. code-block:: shell
+
+      python3 -m venv $HOME\girder_env
+      $HOME\girder_env\Scripts\Activate.ps1
+      pip install -U pip setuptools
+
+2. Start MongoDB.
+
+   .. code-block:: shell
+
+      mongod
+
+3. Open a new PowerShell terminal and navigate to the root of this repository. Reactivate the virtual environment and then install and build Girder for MindLogger.
+
+   .. code-block:: shell
+
+      $HOME\girder_env\Scripts\Activate.ps1
+      pip install -e .
+      girderformindlogger build
+
+4. Start Girder for MindLogger.
+
+   .. code-block:: shell
+
+      girderformindlogger serve
+
+5. When you're finished
+
+   1. kill Girder for MindLogger
+
+      ``<Ctrl>`` + ``c``
+
+   2. kill MongoDB
 
       ``<Ctrl>`` + ``c``
 
