@@ -9,7 +9,7 @@ Changes
 Unreleased
 ==========
 
-2019-02-14: v0.13.2
+2019-03-7: v0.13.2
 ^^^^^^^^^^^^^^^^^^
 * Temporarily fixed applet caching issue
 * Added timezone field in `/user/authentication` endpoint
