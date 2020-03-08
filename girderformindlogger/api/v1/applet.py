@@ -59,7 +59,7 @@ class Applet(Resource):
         self.route('PUT', (':id', 'assign'), self.assignGroup)
         self.route('PUT', (':id', 'constraints'), self.setConstraints)
         self.route('PUT', (':id', 'schedule'), self.setSchedule)
-        self.route('GET', (':id',), self.getSchedule)
+        self.route('GET', (':id', 'schedule'), self.getSchedule)
         self.route('POST', (':id', 'invite'), self.invite)
         self.route('GET', (':id', 'roles'), self.getAppletRoles)
         self.route('GET', (':id', 'users'), self.getAppletUsers)
@@ -439,7 +439,7 @@ class Applet(Resource):
                 idCode=idCode
             )
 
-            return(Profile().displayProfileFields(invitation, user))
+            return(Profile().displayProfileFields(invitation, user, forceManager=True))
         except:
             import sys, traceback
             print(sys.exc_info())
@@ -510,14 +510,16 @@ class Applet(Resource):
                 "message": "The applet is being refreshed. Please check back "
                            "in several mintutes to see it."
             })
-        return(
-            jsonld_expander.formatLdObject(
-                applet,
-                'applet',
-                user,
-                refreshCache=refreshCache
-            )
+
+        model = AppletModel()
+        filterRequired = model._hasRole(applet['_id'], user, 'user') if not model.isCoordinator(applet['_id'], user) else False
+        schedule = model.filterScheduleEvents(
+            applet.get('meta', {}).get('applet', {}).get('schedule', {}),
+            user,
+            filterRequired
         )
+
+        return schedule
 
     @access.user(scope=TokenScope.DATA_WRITE)
     @autoDescribeRoute(
@@ -545,24 +547,28 @@ class Applet(Resource):
             )
         if 'events' in schedule:
             for event in schedule['events']:
-                if event['data']['useNotifications']:
+                if 'data' in event and 'useNotifications' in event['data'] and event['data']['useNotifications']:
                     if event['data']['notifications'][0]['start']:
                         sendTime = event['data']['notifications'][0]['start']
                     else:
                         sendTime = '09:00'
-                    sendTime = (str(event['schedule']['year'][0]) + '/' + 
-                                ('0' + str(event['schedule']['month'][0] + 1))[-2:] + '/' + 
-                                ('0' + str(event['schedule']['dayOfMonth'][0]))[-2:] + ' ' + 
-                                sendTime)
-                    existNotification = PushNotificationModel().findOne(query={'applet':applet['_id'],
-                                                                                'creator_id':thisUser['_id'],
-                                                                                'timezone':0,
-                                                                                'sendTime':str(sendTime)})
-                    if not existNotification:
-                        sendTime = datetime.strptime(sendTime, '%Y/%m/%d %H:%M')
-                        PushNotificationModel().createNotification( applet['_id'], 1, 
-                                                                    event['data']['title'], event['data']['description'], 
-                                                                    sendTime, thisUser['_id'])
+                    
+
+                    # in case of sigle event with exact year, month, day
+                    if 'year' in event['schedule'] and 'month' in event['schedule'] and 'dayOfMonth' in event['schedule']:
+                        sendTime = (str(event['schedule']['year'][0]) + '/' + 
+                                    ('0' + str(event['schedule']['month'][0] + 1))[-2:] + '/' + 
+                                    ('0' + str(event['schedule']['dayOfMonth'][0]))[-2:] + ' ' + 
+                                    sendTime)
+                        existNotification = PushNotificationModel().findOne(query={'applet':applet['_id'],
+                                                                                    'creator_id':thisUser['_id'],
+                                                                                    'sendTime':str(sendTime)})
+                        if not existNotification:
+                            PushNotificationModel().createNotification( applet['_id'], 1, 
+                                                                        event['data']['title'], event['data']['description'], 
+                                                                        str(sendTime), thisUser['_id'])
+
+                    # in case of daily event
 
         appletMeta = applet['meta'] if 'meta' in applet else {'applet': {}}
         if 'applet' not in appletMeta:
