@@ -684,6 +684,8 @@ class User(Resource):
                paramType='header', required=False)
         .param('deviceId', 'device id for push notifications',
                paramType='header', required=False)
+        .param('timezone', 'timezone of user mobile',
+               paramType='header', required=False)
         .errorResponse('Missing Authorization header.', 401)
         .errorResponse('Invalid login or password.', 403)
     )
@@ -697,6 +699,7 @@ class User(Resource):
         user, token = self.getCurrentUser(returnToken=True)
 
         deviceId = cherrypy.request.headers.get('deviceId', '')
+        timezone = cherrypy.request.headers.get('timezone', 0)
 
         # Only create and send new cookie if user isn't already sending a valid
         # one.
@@ -735,6 +738,7 @@ class User(Resource):
 
             if deviceId:
                 user['deviceId'] = deviceId
+                user['timezone'] = timezone
                 self._model.save(user)
 
             thread = threading.Thread(

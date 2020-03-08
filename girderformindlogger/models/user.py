@@ -24,7 +24,7 @@ class User(AccessControlledModel):
     def initialize(self):
         self.name = 'user'
         self.ensureIndices(['login', 'email', 'groupInvites.groupId', 'size',
-                            'created', 'deviceId'])
+                            'created', 'deviceId', 'timezone'])
         self.prefixSearchFields = (
             'login', ('firstName', 'i'), ('displayName', 'i'), 'email')
         self.ensureTextIndex({
@@ -70,6 +70,7 @@ class User(AccessControlledModel):
         doc['firstName'] = doc.get('firstName', '').strip()
         doc['status'] = doc.get('status', 'enabled')
         doc['deviceId'] = doc.get('deviceId', '')
+        doc['timezone'] = doc.get('timezone', 0)
 
         if 'salt' not in doc:
             # Internal error, this should not happen
@@ -137,7 +138,7 @@ class User(AccessControlledModel):
 
         return filteredDoc
 
-    def authenticate(self, login, password, otpToken=None, deviceId=None):
+    def authenticate(self, login, password, otpToken=None, deviceId=None, timezone=0):
         """
         Validate a user login via username and password. If authentication
         fails, an ``AccessException`` is raised.
@@ -417,6 +418,7 @@ class User(AccessControlledModel):
             'admin': admin,
             'size': 0,
             'deviceId': '',
+            'timezone': 0,
             'groups': [],
             'groupInvites': [
                 {

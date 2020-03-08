@@ -392,10 +392,14 @@ def reprolibCanonize(s):
     """
     if isinstance(s, str):
         s = reprolibPrefix(s).replace('reprolib:', REPROLIB_CANONICAL)
-        if checkURL(s):
-            return(s)
-        else:
-            return(None)
+        return(s)
+        ##
+        ##Temporary disabled
+        ##
+        #if checkURL(s):
+        #    return(s)
+        #else:
+        #    return(None)
     elif isinstance(s, list):
         return([reprolibCanonize(ls) for ls in s])
     elif isinstance(s, dict):
