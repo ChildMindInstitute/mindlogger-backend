@@ -9,11 +9,11 @@ import six
 from girderformindlogger import events
 from girderformindlogger.constants import AccessType, CoreEventHandler, TokenScope
 from girderformindlogger.exceptions import AccessException, ValidationException
+from girderformindlogger.models.model_base import AccessControlledModel
+from girderformindlogger.models.setting import Setting
 from girderformindlogger.settings import SettingKey
 from girderformindlogger.utility import config, mail_utils
 from girderformindlogger.utility._cache import rateLimitBuffer
-from .model_base import AccessControlledModel
-from .setting import Setting
 
 
 class User(AccessControlledModel):
@@ -234,9 +234,9 @@ class User(AccessControlledModel):
         :param progress: A progress context to record progress on.
         :type progress: girderformindlogger.utility.progress.ProgressContext or None.
         """
-        from .folder import Folder
-        from .group import Group
-        from .token import Token
+        from girderformindlogger.models.folder import Folder
+        from girderformindlogger.models.group import Group
+        from girderformindlogger.models.token import Token
 
         # Delete all authentication tokens owned by this user
         Token().removeWithQuery({'userId': user['_id']})
@@ -398,8 +398,8 @@ class User(AccessControlledModel):
         :type public: bool
         :returns: The user document that was created.
         """
-        from .group import Group
-        from .setting import Setting
+        from girderformindlogger.models.group import Group
+        from girderformindlogger.models.setting import Setting
         requireApproval = Setting(
         ).get(SettingKey.REGISTRATION_POLICY) == 'approve'
         email = "" if not email else email
@@ -480,7 +480,7 @@ class User(AccessControlledModel):
         Returns True if email verification is required and this user has not
         yet verified their email address.
         """
-        from .setting import Setting
+        from girderformindlogger.models.setting import Setting
         return (not user['emailVerified']) and \
             Setting().get(SettingKey.EMAIL_VERIFICATION) == 'required'
 
@@ -489,7 +489,7 @@ class User(AccessControlledModel):
         Returns True if the registration policy requires admin approval and
         this user is pending approval.
         """
-        from .setting import Setting
+        from girderformindlogger.models.setting import Setting
         return user.get('status', 'enabled') == 'pending' and \
             Setting().get(SettingKey.REGISTRATION_POLICY) == 'approve'
 
@@ -515,7 +515,7 @@ class User(AccessControlledModel):
             [user.get('email')])
 
     def _sendVerificationEmail(self, user):
-        from .token import Token
+        from girderformindlogger.models.token import Token
 
         token = Token().createToken(
             user, days=1, scope=TokenScope.EMAIL_VERIFICATION)
@@ -548,8 +548,8 @@ class User(AccessControlledModel):
         This generally should not be called or overridden directly, but it may
         be unregistered from the `model.user.save.created` event.
         """
-        from .folder import Folder
-        from .setting import Setting
+        from girderformindlogger.models.folder import Folder
+        from girderformindlogger.models.setting import Setting
 
         if Setting().get(SettingKey.USER_DEFAULT_FOLDERS) == 'public_private':
             user = event.info
@@ -584,7 +584,7 @@ class User(AccessControlledModel):
             assetstore, otherwise return file document.
         :type data: bool
         """
-        from .folder import Folder
+        from girderformindlogger.models.folder import Folder
 
         if subpath:
             path = os.path.join(path, doc['login'])
@@ -611,7 +611,7 @@ class User(AccessControlledModel):
         :param level: If filtering by permission, the required permission level.
         :type level: AccessLevel
         """
-        from .folder import Folder
+        from girderformindlogger.models.folder import Folder
 
         count = 1
         folderModel = Folder()
@@ -638,7 +638,7 @@ class User(AccessControlledModel):
         :param level: The required access level, or None to return the raw
             top-level folder count.
         """
-        from .folder import Folder
+        from girderformindlogger.models.folder import Folder
 
         fields = () if level is None else ('access', 'public')
 
@@ -658,7 +658,7 @@ class User(AccessControlledModel):
         :param doc: The user.
         :type doc: dict
         """
-        from .folder import Folder
+        from girderformindlogger.models.folder import Folder
 
         size = 0
         fixes = 0

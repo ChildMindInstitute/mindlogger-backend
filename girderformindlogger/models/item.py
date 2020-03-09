@@ -6,11 +6,11 @@ import os
 import six
 
 from bson.objectid import ObjectId
-from .model_base import Model
 from girderformindlogger import events
 from girderformindlogger import logger
 from girderformindlogger.constants import AccessType
 from girderformindlogger.exceptions import ValidationException, GirderException
+from girderformindlogger.models.model_base import Model
 from girderformindlogger.utility import acl_mixin
 from girderformindlogger.utility.model_importer import ModelImporter
 
@@ -64,7 +64,7 @@ class Item(acl_mixin.AccessControlMixin, Model):
         return value.strip()
 
     def validate(self, doc):
-        from .folder import Folder
+        from girderformindlogger.models.folder import Folder
 
         doc['name'] = self._validateString(doc.get('name', ''))
         doc['description'] = self._validateString(doc.get('description', ''))
@@ -172,7 +172,7 @@ class Item(acl_mixin.AccessControlMixin, Model):
         return self.save(item)
 
     def propagateSizeChange(self, item, inc):
-        from .folder import Folder
+        from girderformindlogger.models.folder import Folder
 
         Folder().increment(query={
             '_id': item['folderId']
@@ -214,7 +214,7 @@ class Item(acl_mixin.AccessControlMixin, Model):
         :param offset: Result offset.
         :param sort: The sort structure to pass to pymongo.
         """
-        from .file import File
+        from girderformindlogger.models.file import File
         q = {
             'itemId': item['_id']
         }
@@ -228,8 +228,8 @@ class Item(acl_mixin.AccessControlMixin, Model):
         :param item: The item document to delete.
         :type item: dict
         """
-        from .file import File
-        from .upload import Upload
+        from girderformindlogger.models.file import File
+        from girderformindlogger.models.upload import Upload
 
         # Delete all files in this item
         fileModel = File()
@@ -402,7 +402,7 @@ class Item(acl_mixin.AccessControlMixin, Model):
         :type force: bool
         :returns: an ordered list of dictionaries from root to the current item
         """
-        from .folder import Folder
+        from girderformindlogger.models.folder import Folder
 
         folderModel = Folder()
         curFolder = folderModel.load(
@@ -434,8 +434,8 @@ class Item(acl_mixin.AccessControlMixin, Model):
         :type description: str
         :returns: the new item.
         """
-        from .file import File
-        from .folder import Folder
+        from girderformindlogger.models.file import File
+        from girderformindlogger.models.folder import Folder
 
         if name is None:
             name = srcItem['name']
@@ -504,7 +504,7 @@ class Item(acl_mixin.AccessControlMixin, Model):
                   data or file object).
         :rtype: generator(str, func)
         """
-        from .file import File
+        from girderformindlogger.models.file import File
 
         if subpath:
             files = list(self.childFiles(item=doc, limit=2))
@@ -549,7 +549,7 @@ class Item(acl_mixin.AccessControlMixin, Model):
         :param item: The item to check.
         :type item: dict
         """
-        from .folder import Folder
+        from girderformindlogger.models.folder import Folder
         return not Folder().load(item.get('folderId'), force=True)
 
     def updateSize(self, doc):
@@ -560,7 +560,7 @@ class Item(acl_mixin.AccessControlMixin, Model):
         :param doc: The item.
         :type doc: dict
         """
-        from .file import File
+        from girderformindlogger.models.file import File
         # get correct size from child files
         size = 0
         fixes = 0

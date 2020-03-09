@@ -1,9 +1,9 @@
 # -*- coding: utf-8 -*-
 import datetime
 
-from .model_base import Model
 from girderformindlogger.constants import AssetstoreType, SortDir
 from girderformindlogger.exceptions import ValidationException, GirderException, NoAssetstoreAdapter
+from girderformindlogger.models.model_base import Model
 from girderformindlogger.utility import assetstore_utilities
 from girderformindlogger.utility.abstract_assetstore_adapter import AbstractAssetstoreAdapter
 
@@ -56,7 +56,7 @@ class Assetstore(Model):
         :param assetstore: The assetstore document to delete.
         :type assetstore: dict
         """
-        from .file import File
+        from girderformindlogger.models.file import File
 
         files = File().findOne({'assetstoreId': assetstore['_id']})
         if files is not None:
@@ -100,7 +100,7 @@ class Assetstore(Model):
         :param assetstore: The assetstore object.
         :type assetstore: dict
         """
-        from .file import File
+        from girderformindlogger.models.file import File
 
         try:
             adapter = assetstore_utilities.getAssetstoreAdapter(assetstore)

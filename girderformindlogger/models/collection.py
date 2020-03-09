@@ -3,9 +3,9 @@ import datetime
 import os
 import six
 
-from .model_base import AccessControlledModel
 from girderformindlogger.constants import AccessType
 from girderformindlogger.exceptions import ValidationException
+from girderformindlogger.models.model_base import AccessControlledModel
 from girderformindlogger.settings import SettingKey
 from girderformindlogger.utility.progress import noProgress
 
@@ -69,7 +69,7 @@ class Collection(AccessControlledModel):
         :param progress: A progress context to record progress on.
         :type progress: girderformindlogger.utility.progress.ProgressContext or None.
         """
-        from .folder import Folder
+        from girderformindlogger.models.folder import Folder
 
         folderModel = Folder()
         folders = folderModel.find({
@@ -260,7 +260,7 @@ class Collection(AccessControlledModel):
             assetstore, otherwise return file document.
         :type data: bool
         """
-        from .folder import Folder
+        from girderformindlogger.models.folder import Folder
 
         if subpath:
             path = os.path.join(path, doc['name'])
@@ -289,7 +289,7 @@ class Collection(AccessControlledModel):
         :param level: If filtering by permission, the required permission level.
         :type level: AccessLevel
         """
-        from .folder import Folder
+        from girderformindlogger.models.folder import Folder
 
         count = 1
         folderModel = Folder()
@@ -345,7 +345,7 @@ class Collection(AccessControlledModel):
             self, doc, access, user=user, save=save, force=force)
 
         if recurse:
-            from .folder import Folder
+            from girderformindlogger.models.folder import Folder
 
             folderModel = Folder()
             folders = folderModel.findWithPermissions({
@@ -369,7 +369,7 @@ class Collection(AccessControlledModel):
         :param user: The user to test.
         :returns: bool
         """
-        from .setting import Setting
+        from girderformindlogger.models.setting import Setting
 
         if user['admin']:
             return True
@@ -399,7 +399,7 @@ class Collection(AccessControlledModel):
         :param level: The required access level, or None to return the raw
             top-level folder count.
         """
-        from .folder import Folder
+        from girderformindlogger.models.folder import Folder
 
         fields = () if level is None else ('access', 'public')
 
@@ -419,7 +419,7 @@ class Collection(AccessControlledModel):
         :param doc: The collection.
         :type doc: dict
         """
-        from .folder import Folder
+        from girderformindlogger.models.folder import Folder
 
         size = 0
         fixes = 0

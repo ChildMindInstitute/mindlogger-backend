@@ -6,10 +6,10 @@ import os
 import six
 
 from bson.objectid import ObjectId
-from .model_base import AccessControlledModel
 from girderformindlogger import events
 from girderformindlogger.constants import AccessType
 from girderformindlogger.exceptions import ValidationException, GirderException
+from girderformindlogger.models.model_base import AccessControlledModel
 from girderformindlogger.utility.model_importer import ModelImporter
 from girderformindlogger.utility.progress import noProgress, setResponseTimeLimit
 
@@ -64,7 +64,7 @@ class Folder(AccessControlledModel):
                             name, rename the folder so that it is unique.
         :returns: `the validated folder document`
         """
-        from .item import Item
+        from girderformindlogger.models.item import Item
 
         doc['name'] = doc['name'].strip()
         doc['lowerName'] = doc['name'].lower()
@@ -256,7 +256,7 @@ class Folder(AccessControlledModel):
         the folder.
         :type updateQuery: dict
         """
-        from .item import Item
+        from girderformindlogger.models.item import Item
 
         self.update(query={
             'parentId': folderId,
@@ -352,7 +352,7 @@ class Folder(AccessControlledModel):
         :param progress: A progress context to record progress on.
         :type progress: girderformindlogger.utility.progress.ProgressContext or None.
         """
-        from .item import Item
+        from girderformindlogger.models.item import Item
 
         setResponseTimeLimit()
         # Delete all child items
@@ -387,7 +387,7 @@ class Folder(AccessControlledModel):
         :type progress: girderformindlogger.utility.progress.ProgressContext or None.
         """
         # Remove the contents underneath this folder recursively.
-        from .upload import Upload
+        from girderformindlogger.models.upload import Upload
 
         self.clean(folder, progress, **kwargs)
 
@@ -419,7 +419,7 @@ class Folder(AccessControlledModel):
         :param sort: The sort structure to pass to pymongo.
         :param filters: Additional query operators.
         """
-        from .item import Item
+        from girderformindlogger.models.item import Item
 
         q = {
             'folderId': folder['_id']
@@ -716,7 +716,7 @@ class Folder(AccessControlledModel):
                   data or file object).
         :rtype: generator(str, func)
         """
-        from .item import Item
+        from girderformindlogger.models.item import Item
 
         itemModel = Item()
         if subpath:
@@ -828,7 +828,7 @@ class Folder(AccessControlledModel):
                             folders.
         :returns: the new folder document.
         """
-        from .item import Item
+        from girderformindlogger.models.item import Item
 
         # copy metadata and other extension values
         updated = False
@@ -937,7 +937,7 @@ class Folder(AccessControlledModel):
         :param doc: The folder.
         :type doc: dict
         """
-        from .item import Item
+        from girderformindlogger.models.item import Item
 
         size = 0
         fixes = 0

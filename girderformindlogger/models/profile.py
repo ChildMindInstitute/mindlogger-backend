@@ -6,12 +6,12 @@ import os
 import six
 
 from bson.objectid import ObjectId
-from .folder import Folder
-from .model_base import AccessControlledModel
 from girderformindlogger import events
 from girderformindlogger.constants import AccessType, DEFINED_RELATIONS,       \
     PROFILE_FIELDS
 from girderformindlogger.exceptions import ValidationException, GirderException
+from girderformindlogger.models.folder import Folder
+from girderformindlogger.models.model_base import AccessControlledModel
 from girderformindlogger.utility.model_importer import ModelImporter
 from girderformindlogger.utility.progress import noProgress, \
     setResponseTimeLimit
@@ -97,7 +97,7 @@ class Profile(AccessControlledModel, dict):
         return doc
 
     def coordinatorProfile(self, appletId, coordinator):
-        from .applet import Applet
+        from girderformindlogger.models.applet import Applet
 
         if isinstance(coordinator, dict) and "userId" not in coordinator:
             coordinator = self.createProfile(
@@ -114,7 +114,7 @@ class Profile(AccessControlledModel, dict):
         ) else {})
 
     def _canonicalUser(self, appletId, user):
-        from .user import User
+        from girderformindlogger.models.user import User
 
         if isinstance(user, dict):
             userId = str(user['_id'])
@@ -163,7 +163,7 @@ class Profile(AccessControlledModel, dict):
         displayProfile.update(userProfile.get("userDefined", {}))
 
         if showIDCode:
-            from .ID_code import IDCode
+            from girderformindlogger.models.ID_code import IDCode
 
             profileFields.append('idCodes')
             profileFields.append('idCode')
@@ -184,7 +184,7 @@ class Profile(AccessControlledModel, dict):
         })
 
     def profileAsUser(self, profile, requester):
-        from .applet import Applet as AppletModel
+        from girderformindlogger.models.applet import Applet as AppletModel
         return(self.cycleDefinitions(
             profile,
             showEmail=any([
@@ -248,7 +248,7 @@ class Profile(AccessControlledModel, dict):
         forceManager=False,
         forceReviewer=False
     ):
-        from .applet import Applet
+        from girderformindlogger.models.applet import Applet
         profileDefinitions = self.cycleDefinitions(
             profile,
             showEmail=forceManager if forceManager else Applet(
@@ -273,8 +273,8 @@ class Profile(AccessControlledModel, dict):
         return(profileDefinitions)
 
     def getProfile(self, id, user):
-        from .applet import Applet as AppletModel
-        from .ID_code import IDCode
+        from girderformindlogger.models.applet import Applet as AppletModel
+        from girderformindlogger.models.ID_code import IDCode
         from bson.errors import InvalidId
 
         if not isinstance(id, ObjectId):
@@ -292,7 +292,7 @@ class Profile(AccessControlledModel, dict):
                 ]
                 return(ps[0] if len(ps)==1 and ps[0] is not None else ps)
             else:
-                from .invitation import Invitation
+                from girderformindlogger.models.invitation import Invitation
                 from girderformindlogger.utility.jsonld_expander import        \
                     oidIffHex
                 inv = Invitation().findOne({'$or': [
@@ -308,8 +308,8 @@ class Profile(AccessControlledModel, dict):
         return(self.profileAsUser(self.load(p['_id'], force=True), user))
 
     def getSubjectProfile(self, id, displayName, user):
-        from .applet import Applet as AppletModel
-        from .ID_code import IDCode
+        from girderformindlogger.models.applet import Applet as AppletModel
+        from girderformindlogger.models.ID_code import IDCode
 
         p = None
         ps = IDCode().findProfile(id)
@@ -374,7 +374,7 @@ class Profile(AccessControlledModel, dict):
         the profile.
         :type updateQuery: dict
         """
-        from .item import Item
+        from girderformindlogger.models.item import Item
 
         self.update(query={
             'appletId': folderId,
@@ -425,7 +425,7 @@ class Profile(AccessControlledModel, dict):
             None.
         """
         # Remove the contents underneath this folder recursively.
-        from .upload import Upload
+        from girderformindlogger.models.upload import Upload
 
         self.clean(folder, progress, **kwargs)
 
@@ -457,7 +457,7 @@ class Profile(AccessControlledModel, dict):
         :param sort: The sort structure to pass to pymongo.
         :param filters: Additional query operators.
         """
-        from .item import Item
+        from girderformindlogger.models.item import Item
 
         q = {
             'folderId': folder['_id']
@@ -619,8 +619,8 @@ class Profile(AccessControlledModel, dict):
         :type applet: dict
         :returns: list of dicts
         """
-        from .applet import Applet
-        from .user import User as UserModel
+        from girderformindlogger.models.applet import Applet
+        from girderformindlogger.models.user import User as UserModel
 
         # get groups for applet
         appletGroups = Applet().getAppletGroups(applet)
@@ -689,8 +689,8 @@ class Profile(AccessControlledModel, dict):
         :type user: dict
         :returns: The profile document that was created.
         """
-        from .applet import Applet
-        from .group import Group
+        from girderformindlogger.models.applet import Applet
+        from girderformindlogger.models.group import Group
 
         if not isinstance(applet, dict):
             applet = Applet().load(applet, force=True)
@@ -772,7 +772,7 @@ class Profile(AccessControlledModel, dict):
         :type displayName: str
         :returns: The profile document that was created.
         """
-        from .ID_code import IDCode
+        from girderformindlogger.models.ID_code import IDCode
         returnFields=["_id", "appletId", "coordinatorDefined", "userDefined"]
 
         now = datetime.datetime.utcnow()
@@ -891,7 +891,7 @@ class Profile(AccessControlledModel, dict):
                   data or file object).
         :rtype: generator(str, func)
         """
-        from .item import Item
+        from girderformindlogger.models.item import Item
 
         itemModel = Item()
         if subpath:
