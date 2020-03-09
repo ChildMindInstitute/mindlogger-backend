@@ -9,6 +9,9 @@ Changes
 Unreleased
 ==========
 
+2020-2-9: v0.13.3
+* fixed 500 error which happens whenever inserting notification
+
 2019-03-7: v0.13.2
 ^^^^^^^^^^^^^^^^^^
 * Temporarily fixed applet caching issue
