@@ -392,7 +392,7 @@ class Applet(FolderModel):
     def updateUserCacheAllRoles(self, user):
         [self.updateUserCache(role, user) for role in list(USER_ROLES.keys())]
 
-    def updateUserCache(self, role, user, active=True, refreshCache=True):
+    def updateUserCache(self, role, user, active=True, refreshCache=False):
         import threading
         from bson import json_util
         from girderformindlogger.models.profile import Profile
