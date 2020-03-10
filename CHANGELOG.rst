@@ -8,6 +8,8 @@ Changes
 -------
 Unreleased
 ==========
+2019-03-10: v0.13.3
+fixed issue 243 - insert api to update username
 
 2019-03-7: v0.13.2
 ^^^^^^^^^^^^^^^^^^
