@@ -293,6 +293,25 @@ class User(AccessControlledModel):
             cursor=cursor, user=user, level=AccessType.READ, limit=limit,
             offset=offset)
 
+    def setUserName(self, user, userName, save=True):
+        """
+        Change a user's username
+        
+        :param user: The user whose username to change.
+        :param userName: the new userName to be stored
+        """
+
+        oldUserName = user['login']
+
+        if len(userName) > 0:
+            user['login'] = userName
+        else:
+            raise Exception('username can\'t be empty')
+        self.save(user)
+
+        return oldUserName
+
+
     def hasPassword(self, user):
         """
         Returns whether or not the given user has a password stored in the
