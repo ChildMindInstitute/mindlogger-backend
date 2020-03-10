@@ -8,6 +8,9 @@ Changes
 -------
 Unreleased
 ==========
+2019-03-10: v0.13.4
+fixed issue 609 - Applet names should not be able to be duplicated
+
 2019-03-10: v0.13.3
 fixed issue 243 - insert api to update username
 
