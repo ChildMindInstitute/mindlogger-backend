@@ -1245,4 +1245,7 @@ class User(Resource):
 
         old = self._model.setUserName(user, username)
 
+        for p in list(ProfileModel().find(query={'userId': user['_id'], 'profile': True})):
+            ProfileModel()._cacheProfileDisplay(p, user, forceManager=True)
+
         return {'message': 'username changed from {} to {}'.format(old, username)}
