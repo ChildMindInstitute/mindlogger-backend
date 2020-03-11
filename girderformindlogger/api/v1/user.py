@@ -1233,7 +1233,7 @@ class User(Resource):
 
         self._model._sendVerificationEmail(user)
         return {'message': 'Sent verification email.'}
-    
+
     @access.user
     @autoDescribeRoute(
         Description('Change your username.')

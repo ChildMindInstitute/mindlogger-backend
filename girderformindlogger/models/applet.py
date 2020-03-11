@@ -408,18 +408,22 @@ class Applet(FolderModel):
     def updateUserCacheAllUsersAllRoles(self, applet, coordinator):
         from girderformindlogger.models.profile import Profile as ProfileModel
 
-        [self.updateUserCacheAllRoles(
-            UserModel().load(
-                id=ProfileModel().load(
-                    user['_id'],
-                    force=True
-                ).get('userId'),
-                force=True
-            )
-        ) for user in self.getAppletUsers(
+        active_user_applets = self.getAppletUsers(
             applet,
             coordinator
-        ).get('active', [])]
+        )
+
+        if active_user_applets:
+            for user in active_user_applets:
+                self.updateUserCacheAllRoles(
+                    UserModel().load(
+                        id=ProfileModel().load(
+                            user['_id'],
+                            force=True
+                        ).get('userId'),
+                        force=True
+                    )
+                )
 
     def updateUserCacheAllRoles(self, user):
         [self.updateUserCache(role, user) for role in list(USER_ROLES.keys())]
