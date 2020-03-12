@@ -82,7 +82,7 @@ class Applet(FolderModel):
 
         if displayName == None:
             displayName = 'applet'
-        
+
         displayName = self.validateAppletDisplayName(displayName, appletsCollection)
 
         # create new applet
@@ -414,7 +414,7 @@ class Applet(FolderModel):
         )
 
         if active_user_applets:
-            for user in active_user_applets:
+            for user in active_user_applets.get('active', []):
                 self.updateUserCacheAllRoles(
                     UserModel().load(
                         id=ProfileModel().load(
