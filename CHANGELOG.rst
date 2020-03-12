@@ -8,6 +8,9 @@ Changes
 -------
 Unreleased
 ==========
+2019-03-12: v0.13.5
+fixed 500 error - fix an issue in pushNotification model which cause 500 error
+
 2019-03-10: v0.13.4
 fixed issue 609 - Applet names should not be able to be duplicated
 
