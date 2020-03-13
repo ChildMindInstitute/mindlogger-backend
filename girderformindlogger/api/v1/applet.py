@@ -78,7 +78,8 @@ class Applet(Resource):
     def getAppletUsers(self, applet):
         thisUser=self.getCurrentUser()
         if AppletModel().isCoordinator(applet['_id'], thisUser):
-            return(AppletModel().getAppletUsers(applet, thisUser, force=True))
+            appletUsers = AppletModel().getAppletUsers(applet, thisUser, force=True)
+            return appletUsers
         else:
             raise AccessException(
                 "Only coordinators and managers can see user lists."

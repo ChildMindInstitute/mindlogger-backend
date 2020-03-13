@@ -8,6 +8,8 @@ Changes
 -------
 Unreleased
 ==========
+2019-03-13: v0.13.6
+update getAppletUsers function to return userId not only profile_id
 2019-03-12: v0.13.5
 fixed 500 error - fix an issue in pushNotification model which cause 500 error
 
