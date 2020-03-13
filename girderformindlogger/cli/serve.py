@@ -1,4 +1,5 @@
 # -*- coding: utf-8 -*-
+import cherrypy_cors
 import cherrypy
 import click
 import six
@@ -34,8 +35,11 @@ def main(dev, mode, database, host, port):
         # Keep this conversion explicitly for Python 2 only, so it can be removed when Python 2
         # support is dropped
         host = str(host)
+
+    cherrypy_cors.install()
     cherrypy.config['server.socket_host'] = host
     cherrypy.config['server.socket_port'] = port
+    cherrypy.config['cors.expose.on'] = True
 
     _attachFileLogHandlers()
     server.setup(mode)

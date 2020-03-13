@@ -549,7 +549,7 @@ class Applet(Resource):
             for event in schedule['events']:
                 if 'data' in event and 'useNotifications' in event['data'] and event['data'].get('useNotifications', None):
                     sendTime = '09:00'
-                    if event['data'].get('notifications', None) and event['data'][0]['start']:
+                    if event['data'].get('notifications', None) and event['data']['notifications'][0]['start']:
                         sendTime = event['data']['notifications'][0]['start']
 
                     # in case of sigle event with exact year, month, day
