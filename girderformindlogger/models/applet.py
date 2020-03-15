@@ -683,11 +683,14 @@ class Applet(FolderModel):
             profileModel = Profile()
             userDict = {
                 'active': [
-                    profileModel.displayProfileFields(
-                        p,
-                        user,
-                        forceManager=True
-                    ) for p in list(
+                    {
+                        **profileModel.displayProfileFields(
+                            p,
+                            user,
+                            forceManager=True
+                        ),
+                        'userId': p['userId']
+                    } for p in list(
                         profileModel.find(
                             query={'appletId': applet['_id'], 'userId': {'$exists': True}, 'profile': True}
                         )
@@ -706,8 +709,8 @@ class Applet(FolderModel):
                         user,
                         forceManager=True
                     ) if profile else {
-                        "_id": p["_id"],
-                        "invitedBy": p["invitedBy"]
+                        '_id': p['_id'],
+                        'invitedBy': p['invitedBy'],
                     }
                 )
 
