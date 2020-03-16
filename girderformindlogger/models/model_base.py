@@ -261,10 +261,13 @@ class Model(object):
             raise ResourcePathNotFound("Document not found: {}".format(str(
                 passedUrl
             )))
-        cachedDoc = cycleModels(
-            {url, passedUrl},
-            modelType=primary
-        )[1] if not refreshCache else None # modelType, None
+
+        cachedDoc = None
+        if not refreshCache:
+            cachedDoc = cycleModels(
+                {url, passedUrl},
+                modelType=primary
+            )[1]
         if cachedDoc is None:
             if user==None:
                 raise AccessException(
