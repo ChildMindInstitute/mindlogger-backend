@@ -8,6 +8,8 @@ Changes
 -------
 Unreleased
 ==========
+2019-03-16: v0.13.8
+update individualized scheduling functionality
 2019-03-15: v0.13.7
 make cached data updated automatically whenever source data changes
 2019-03-13: v0.13.6
