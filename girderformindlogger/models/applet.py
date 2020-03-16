@@ -145,7 +145,7 @@ class Applet(FolderModel):
             applet,
             'applet',
             user,
-            refreshCache=True
+            refreshCache=False
         ))
 
     def validateAppletDisplayName(self, displayName, appletsCollection):
@@ -176,14 +176,16 @@ class Applet(FolderModel):
         sendEmail=True
     ):
         from girderformindlogger.models.protocol import Protocol
-        # get a protocol from a URL
+
+        # get a protocol from a URL (do not load if we already have it in the database)
         protocol = Protocol().getFromUrl(
             protocolUrl,
             'protocol',
             user,
             thread=False,
-            refreshCache=True
+            refreshCache=False
         )
+
         protocol = protocol[0].get('protocol', protocol[0])
 
         displayName = Protocol(
@@ -407,6 +409,10 @@ class Applet(FolderModel):
 
     def updateUserCacheAllUsersAllRoles(self, applet, coordinator):
         from girderformindlogger.models.profile import Profile as ProfileModel
+
+        if 'cached' in applet:
+            applet.pop('cached')
+            self.save(applet, validate=False)
 
         [self.updateUserCacheAllRoles(
             UserModel().load(

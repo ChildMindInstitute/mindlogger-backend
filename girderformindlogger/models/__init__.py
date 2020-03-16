@@ -147,6 +147,7 @@ def cycleModels(IRIset, modelType=None):
                                     ),
                                     'reproschema:{}'.format(suffix),
                                     'reprolib:{}'.format(suffix),
+                                    'reprolib:schemas/{}'.format(suffix),
                                     suffix
                                 ] if t is not None
                             ] for suffix in [
