@@ -535,18 +535,19 @@ class Applet(FolderModel):
             events = []
 
             for event in schedule['events']:
-                notForCurrentUser = 'users' in event
+                notForCurrentUser = 'data' in event and 'users' in event['data']
 
-                if 'users' in event:
-                    for appletUser in event['users']:
-                        if appletUser not in profilesCache:
-                            userData = Profile().findOne(query={'_id': ObjectId(appletUser)}, fields=['userId'])
+                if 'data' in event and 'users' in event['data']:
+                    for appletUser in event['data']['users']:
+                        if isinstance(appletUser, str):
+                            if appletUser not in profilesCache:
+                                userData = Profile().findOne(query={'_id': ObjectId(appletUser)}, fields=['userId'])
 
-                            if userData and 'userId' in userData:
-                                profilesCache[appletUser] = userData['userId']
-                        if profilesCache.get(appletUser, '') == user['_id']:
-                            notForCurrentUser = False
-                            break
+                                if userData and 'userId' in userData:
+                                    profilesCache[appletUser] = userData['userId']
+                            if profilesCache.get(appletUser, '') == user['_id']:
+                                notForCurrentUser = False
+                                break
                 if not notForCurrentUser:
                     events.append(event)
 
@@ -689,14 +690,12 @@ class Applet(FolderModel):
             profileModel = Profile()
             userDict = {
                 'active': [
-                    {
-                        **profileModel.displayProfileFields(
-                            p,
-                            user,
-                            forceManager=True
-                        ),
-                        'userId': p['userId']
-                    } for p in list(
+                    profileModel.displayProfileFields(
+                        p,
+                        user,
+                        forceManager=True
+                    )
+                    for p in list(
                         profileModel.find(
                             query={'appletId': applet['_id'], 'userId': {'$exists': True}, 'profile': True}
                         )

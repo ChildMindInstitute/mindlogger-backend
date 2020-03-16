@@ -520,6 +520,11 @@ class Applet(Resource):
             filterRequired
         )
 
+        if 'events' in schedule and filterRequired:
+            for event in schedule['events']:
+                if 'data' in event and 'users' in event['data']:
+                    event['data'].pop('users')
+
         return schedule
 
     @access.user(scope=TokenScope.DATA_WRITE)
