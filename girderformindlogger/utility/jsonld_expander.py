@@ -818,13 +818,15 @@ def formatLdObject(
             )
 
             # get protocol data from url (load from database unless refreshCache is set to True)
-            protocol = ProtocolModel().getFromUrl(
-                protocolUrl,
-                'protocol',
-                user,
-                thread=False,
-                refreshCache=refreshCache
-            )[0] if protocolUrl is not None else {}
+            protocol = {}
+            if protocolUrl is not None:
+                protocol = ProtocolModel().getFromUrl(
+                            protocolUrl,
+                            'protocol',
+                            user,
+                            thread=False,
+                            refreshCache=refreshCache
+                        )[0]
 
             # format protocol data
             protocol = formatLdObject(
