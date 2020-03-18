@@ -137,7 +137,7 @@ def cycleModels(IRIset, modelType=None):
     if len(primary):
         query = {
             '$and': [
-                {
+                { # search by type
                     '$or': [{
                         'meta.{}.@type'.format(modelType): {
                             "$in": [
@@ -147,6 +147,7 @@ def cycleModels(IRIset, modelType=None):
                                     ),
                                     'reproschema:{}'.format(suffix),
                                     'reprolib:{}'.format(suffix),
+                                    'reprolib:schemas/{}'.format(suffix),
                                     suffix
                                 ] if t is not None
                             ] for suffix in [
@@ -155,7 +156,7 @@ def cycleModels(IRIset, modelType=None):
                         }
                     } for modelType in primary if modelType in REPROLIB_TYPES]
                 },
-                {
+                { # search by url
                     '$or': [{
                         'meta.{}.url'.format(modelType): {
                             '$in': list(IRIset)
@@ -181,6 +182,7 @@ def cycleModels(IRIset, modelType=None):
                                     ),
                                     'reproschema:{}'.format(suffix),
                                     'reprolib:{}'.format(suffix),
+                                    'reprolib:schemas/{}'.format(suffix),
                                     suffix
                                 ] if t is not None
                             ] for suffix in [

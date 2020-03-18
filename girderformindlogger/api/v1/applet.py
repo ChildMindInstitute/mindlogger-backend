@@ -78,7 +78,8 @@ class Applet(Resource):
     def getAppletUsers(self, applet):
         thisUser=self.getCurrentUser()
         if AppletModel().isCoordinator(applet['_id'], thisUser):
-            return(AppletModel().getAppletUsers(applet, thisUser, force=True))
+            appletUsers = AppletModel().getAppletUsers(applet, thisUser, force=True)
+            return appletUsers
         else:
             raise AccessException(
                 "Only coordinators and managers can see user lists."
@@ -518,6 +519,11 @@ class Applet(Resource):
             user,
             filterRequired
         )
+
+        if 'events' in schedule and filterRequired:
+            for event in schedule['events']:
+                if 'data' in event and 'users' in event['data']:
+                    event['data'].pop('users')
 
         return schedule
 

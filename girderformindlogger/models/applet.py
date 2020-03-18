@@ -145,7 +145,7 @@ class Applet(FolderModel):
             applet,
             'applet',
             user,
-            refreshCache=True
+            refreshCache=False
         ))
 
     def validateAppletDisplayName(self, displayName, appletsCollection):
@@ -176,14 +176,16 @@ class Applet(FolderModel):
         sendEmail=True
     ):
         from girderformindlogger.models.protocol import Protocol
-        # get a protocol from a URL
+
+        # get a protocol from a URL (do not load if we already have it in the database)
         protocol = Protocol().getFromUrl(
             protocolUrl,
             'protocol',
             user,
             thread=False,
-            refreshCache=True
+            refreshCache=False
         )
+
         protocol = protocol[0].get('protocol', protocol[0])
 
         displayName = Protocol(
@@ -408,6 +410,10 @@ class Applet(FolderModel):
     def updateUserCacheAllUsersAllRoles(self, applet, coordinator):
         from girderformindlogger.models.profile import Profile as ProfileModel
 
+        if 'cached' in applet:
+            applet.pop('cached')
+            self.save(applet, validate=False)
+
         [self.updateUserCacheAllRoles(
             UserModel().load(
                 id=ProfileModel().load(
@@ -529,18 +535,19 @@ class Applet(FolderModel):
             events = []
 
             for event in schedule['events']:
-                notForCurrentUser = 'users' in event
+                notForCurrentUser = 'data' in event and 'users' in event['data']
 
-                if 'users' in event:
-                    for appletUser in event['users']:
-                        if appletUser not in profilesCache:
-                            userData = Profile().findOne(query={'_id': ObjectId(appletUser)}, fields=['userId'])
+                if 'data' in event and 'users' in event['data']:
+                    for appletUser in event['data']['users']:
+                        if isinstance(appletUser, str):
+                            if appletUser not in profilesCache:
+                                userData = Profile().findOne(query={'_id': ObjectId(appletUser)}, fields=['userId'])
 
-                            if userData and 'userId' in userData:
-                                profilesCache[appletUser] = userData['userId']
-                        if profilesCache.get(appletUser, '') == user['_id']:
-                            notForCurrentUser = False
-                            break
+                                if userData and 'userId' in userData:
+                                    profilesCache[appletUser] = userData['userId']
+                            if profilesCache.get(appletUser, '') == user['_id']:
+                                notForCurrentUser = False
+                                break
                 if not notForCurrentUser:
                     events.append(event)
 
@@ -687,7 +694,8 @@ class Applet(FolderModel):
                         p,
                         user,
                         forceManager=True
-                    ) for p in list(
+                    )
+                    for p in list(
                         profileModel.find(
                             query={'appletId': applet['_id'], 'userId': {'$exists': True}, 'profile': True}
                         )
@@ -706,8 +714,8 @@ class Applet(FolderModel):
                         user,
                         forceManager=True
                     ) if profile else {
-                        "_id": p["_id"],
-                        "invitedBy": p["invitedBy"]
+                        '_id': p['_id'],
+                        'invitedBy': p['invitedBy'],
                     }
                 )
 
