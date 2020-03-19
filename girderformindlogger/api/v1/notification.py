@@ -151,7 +151,7 @@ class Notification(Resource):
                                                 message_title=message_title,
                                                 message_body=message_body)
             notification['attempts'] += 1
-            notification['progress'] = ProgressState.EMPTY
+            notification['progress'] = ProgressState.ACTIVE if len(deviceIds) else ProgressState.EMPTY
             if result['failure']:
                 notification['progress'] = ProgressState.ERROR
                 error += result['failure']
