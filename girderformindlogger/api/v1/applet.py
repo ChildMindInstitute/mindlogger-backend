@@ -554,7 +554,7 @@ class Applet(Resource):
         if 'events' in schedule:
             for event in schedule['events']:
                 if 'data' in event and 'useNotifications' in event['data'] and event['data'].get('useNotifications', None):
-                    sendTime = '09:00'
+                    sendTime = datetime.utcnow().strftime('%H:%M')
                     if event['data'].get('notifications', None) and event['data']['notifications'][0]['start']:
                         sendTime = event['data']['notifications'][0]['start']
 
