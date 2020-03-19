@@ -553,7 +553,7 @@ class Applet(Resource):
             )
         if 'events' in schedule:
             # this should fix in frontend side
-            events = [schedule['events'][-1] if len(schedule['events']) > 1 else schedule['events']]
+            events = [schedule['events'][-1]] if len(schedule['events']) > 1 else schedule['events']
             for event in events:
                 if 'data' in event and 'useNotifications' in event['data'] and event['data'].get('useNotifications', None):
                     sendTime = datetime.utcnow().strftime('%H:%M')
