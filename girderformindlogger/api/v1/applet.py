@@ -552,7 +552,9 @@ class Applet(Resource):
                 "Only coordinators and managers can update applet schedules."
             )
         if 'events' in schedule:
-            for event in schedule['events']:
+            # this should fix in frontend side
+            events = [schedule['events'][-1] if len(schedule['events']) > 1 else schedule['events']]
+            for event in events:
                 if 'data' in event and 'useNotifications' in event['data'] and event['data'].get('useNotifications', None):
                     sendTime = datetime.utcnow().strftime('%H:%M')
                     if event['data'].get('notifications', None) and event['data']['notifications'][0]['start']:
@@ -565,8 +567,8 @@ class Applet(Resource):
                                     ('0' + str(event['schedule']['dayOfMonth'][0]))[-2:] + ' ' +
                                     sendTime)
                         existNotification = PushNotificationModel().findOne(query={'applet':applet['_id'],
-                                                                                    'creator_id':thisUser['_id'],
-                                                                                    'sendTime':str(sendTime)})
+                                                                                    'creator_id':thisUser['_id']
+                                                                                   })
                         if not existNotification:
                             PushNotificationModel().createNotification( applet['_id'], 1,
                                                                         event['data']['title'], event['data']['description'],
