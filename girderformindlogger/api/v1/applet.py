@@ -317,6 +317,10 @@ class Applet(Resource):
     )
     def getApplet(self, applet, refreshCache=False):
         user = self.getCurrentUser()
+
+        # we don't need to refreshCache here (cached data is automatically updated whenever original data changes).
+        refreshCache = False
+
         if refreshCache:
             thread = threading.Thread(
                 target=jsonld_expander.formatLdObject,

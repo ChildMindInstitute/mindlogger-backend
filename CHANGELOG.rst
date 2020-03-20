@@ -8,6 +8,8 @@ Changes
 -------
 Unreleased
 ==========
+2019-03-20: v0.13.9
+fix memory issue which cause CORS error
 2019-03-16: v0.13.8
 update individualized scheduling functionality
 2019-03-15: v0.13.7
