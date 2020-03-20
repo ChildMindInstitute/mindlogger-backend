@@ -556,26 +556,26 @@ class Applet(Resource):
                 "Only coordinators and managers can update applet schedules."
             )
         if 'events' in schedule:
-            for event in schedule['events']:
-                if 'data' in event and 'useNotifications' in event['data'] and event['data']['useNotifications']:
-                    if event['data']['notifications'][0]['start']:
+            # this should fix in frontend side
+            events = [schedule['events'][-1]] if len(schedule['events']) > 1 else schedule['events']
+            for event in events:
+                if 'data' in event and 'useNotifications' in event['data'] and event['data'].get('useNotifications', None):
+                    sendTime = datetime.utcnow().strftime('%H:%M')
+                    if event['data'].get('notifications', None) and event['data']['notifications'][0]['start']:
                         sendTime = event['data']['notifications'][0]['start']
-                    else:
-                        sendTime = '09:00'
-
 
                     # in case of sigle event with exact year, month, day
                     if 'year' in event['schedule'] and 'month' in event['schedule'] and 'dayOfMonth' in event['schedule']:
-                        sendTime = (str(event['schedule']['year'][0]) + '/' + 
-                                    ('0' + str(event['schedule']['month'][0] + 1))[-2:] + '/' + 
-                                    ('0' + str(event['schedule']['dayOfMonth'][0]))[-2:] + ' ' + 
+                        sendTime = (str(event['schedule']['year'][0]) + '/' +
+                                    ('0' + str(event['schedule']['month'][0] + 1))[-2:] + '/' +
+                                    ('0' + str(event['schedule']['dayOfMonth'][0]))[-2:] + ' ' +
                                     sendTime)
                         existNotification = PushNotificationModel().findOne(query={'applet':applet['_id'],
-                                                                                    'creator_id':thisUser['_id'],
-                                                                                    'sendTime':str(sendTime)})
+                                                                                    'creator_id':thisUser['_id']
+                                                                                   })
                         if not existNotification:
-                            PushNotificationModel().createNotification( applet['_id'], 1, 
-                                                                        event['data']['title'], event['data']['description'], 
+                            PushNotificationModel().createNotification( applet['_id'], 1,
+                                                                        event['data']['title'], event['data']['description'],
                                                                         str(sendTime), thisUser['_id'])
 
                     # in case of daily event

@@ -4,7 +4,7 @@ import json
 import time
 
 from pyfcm import FCMNotification
-from datetime import datetime
+import datetime
 
 from ..describe import Description, autoDescribeRoute
 from ..rest import Resource, disableAuditLog, setResponseHeader
@@ -78,7 +78,7 @@ class Notification(Resource):
         setResponseHeader('Cache-Control', 'no-cache')
         since = params.get('since')
         if since is not None:
-            since = datetime.utcfromtimestamp(since)
+            since = datetime.datetime.utcfromtimestamp(since)
 
         def streamGen():
             lastUpdate = since
@@ -124,8 +124,8 @@ class Notification(Resource):
     def sendPushNotifications(self):
         success = 0
         error = 0
-        now = datetime.utcnow().strftime('%Y/%m/%d %H:%M')
-        notifications = PushNotificationModel().find(query={'sendTime':{ "$lt": now }, 'progress':ProgressState.ACTIVE})
+        now = datetime.datetime.utcnow().strftime('%Y/%m/%d %H:%M')
+        notifications = PushNotificationModel().find(query={'progress': ProgressState.ACTIVE})
         for notification in notifications:
             users = [
                     UserModel().findOne({
@@ -136,19 +136,22 @@ class Notification(Resource):
                         )
                     )
             ]
-            deviceIds = [ user['deviceId'] for user in users if ('deviceId' in user) and (user.get('timezone', 0) == notification.get('timezone', 0))]
+            deviceIds = [user['deviceId'] for user in users
+                 if ('deviceId' in user)
+                 and int(user.get('timezone', 0)) == int(notification.get('timezone', 0))
+                 and datetime.datetime.strptime(notification['sendTime'], '%Y/%m/%d %H:%M')
+                 <= datetime.datetime.strptime(now, '%Y/%m/%d %H:%M') + datetime.timedelta(hours=int(user['timezone']))]
             proxy_dict = {
             }
             test_api_key = 'AAAAJOyOEz4:APA91bFudM5Cc1Qynqy7QGxDBa-2zrttoRw6ZdvE9PQbfIuAB9SFvPje7DcFMmPuX1IizR1NAa7eHC3qXmE6nmOpgQxXbZ0sNO_n1NITc1sE5NH3d8W9ld-cfN7sXNr6IAOuodtEwQy-'
             push_service = FCMNotification(api_key=test_api_key, proxy_dict=proxy_dict)
-            registration_ids = deviceIds
             message_title = notification['head']
             message_body = notification['content']
-            result = push_service.notify_multiple_devices(registration_ids=registration_ids, 
-                                                message_title=message_title, 
+            result = push_service.notify_multiple_devices(registration_ids=deviceIds,
+                                                message_title=message_title,
                                                 message_body=message_body)
             notification['attempts'] += 1
-            notification['progress'] = ProgressState.EMPTY
+            notification['progress'] = ProgressState.ACTIVE
             if result['failure']:
                 notification['progress'] = ProgressState.ERROR
                 error += result['failure']
