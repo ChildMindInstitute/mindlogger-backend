@@ -140,7 +140,7 @@ class Notification(Resource):
                  if ('deviceId' in user)
                  and int(user.get('timezone', 0)) == int(notification.get('timezone', 0))
                  and datetime.datetime.strptime(notification['sendTime'], '%Y/%m/%d %H:%M')
-                 <= datetime.datetime.strptime(now, '%Y/%m/%d %H:%M') + datetime.timedelta(hours=str(user['timezone']))]
+                 <= datetime.datetime.strptime(now, '%Y/%m/%d %H:%M') + datetime.timedelta(hours=int(user['timezone']))]
             proxy_dict = {
             }
             test_api_key = 'AAAAJOyOEz4:APA91bFudM5Cc1Qynqy7QGxDBa-2zrttoRw6ZdvE9PQbfIuAB9SFvPje7DcFMmPuX1IizR1NAa7eHC3qXmE6nmOpgQxXbZ0sNO_n1NITc1sE5NH3d8W9ld-cfN7sXNr6IAOuodtEwQy-'
