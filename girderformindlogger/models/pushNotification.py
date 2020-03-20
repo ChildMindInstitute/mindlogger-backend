@@ -34,7 +34,7 @@ class PushNotification(Model):
 
     def initialize(self):
         self.name = 'pushNotification'
-        self.ensureIndices(('assetId', 'notification_type', 'head', 'content', 
+        self.ensureIndices(('assetId', 'notification_type', 'head', 'content',
                             'sendTime', 'creator_id', 'created', 'updated', 'progress', 'timezone', 'attempts'))
 
     def validate(self, doc):
@@ -55,6 +55,7 @@ class PushNotification(Model):
             instead of a user.
         :type token: dict
         """
+        result = []
         timezone_range = range(-12, 15)
         currentTime = time.time()
         for delta in timezone_range:
@@ -63,7 +64,7 @@ class PushNotification(Model):
                 'notification_type': notification_type,
                 'head': head,
                 'content': content,
-                'sendTime': (datetime.datetime.strptime(sendTime, '%Y/%m/%d %H:%M') + datetime.timedelta(hours = delta)).strftime('%Y/%m/%d %H:%M'),
+                'sendTime': datetime.datetime.strptime(sendTime, '%Y/%m/%d %H:%M').strftime('%Y/%m/%d %H:%M'),
                 'creator_id': creator_id,
                 'created': currentTime,
                 'updated': currentTime,
@@ -71,7 +72,7 @@ class PushNotification(Model):
                 'timezone': delta,
                 'attempts': 0
             }
-            result = self.save(doc)
+            result.append(self.save(doc))
 
         return result
 
