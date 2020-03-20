@@ -82,7 +82,7 @@ class Applet(FolderModel):
 
         if displayName == None:
             displayName = 'applet'
-        
+
         displayName = self.validateAppletDisplayName(displayName, appletsCollection)
 
         # create new applet
