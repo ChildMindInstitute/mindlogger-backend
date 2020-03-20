@@ -317,6 +317,10 @@ class Applet(Resource):
     )
     def getApplet(self, applet, refreshCache=False):
         user = self.getCurrentUser()
+
+        # we don't need to refreshCache here (cached data is automatically updated whenever original data changes).
+        refreshCache = False
+
         if refreshCache:
             thread = threading.Thread(
                 target=jsonld_expander.formatLdObject,
@@ -558,7 +562,7 @@ class Applet(Resource):
                         sendTime = event['data']['notifications'][0]['start']
                     else:
                         sendTime = '09:00'
-                    
+
 
                     # in case of sigle event with exact year, month, day
                     if 'year' in event['schedule'] and 'month' in event['schedule'] and 'dayOfMonth' in event['schedule']:
