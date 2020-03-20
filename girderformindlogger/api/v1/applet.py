@@ -78,7 +78,8 @@ class Applet(Resource):
     def getAppletUsers(self, applet):
         thisUser=self.getCurrentUser()
         if AppletModel().isCoordinator(applet['_id'], thisUser):
-            return(AppletModel().getAppletUsers(applet, thisUser, force=True))
+            appletUsers = AppletModel().getAppletUsers(applet, thisUser, force=True)
+            return appletUsers
         else:
             raise AccessException(
                 "Only coordinators and managers can see user lists."
@@ -314,6 +315,10 @@ class Applet(Resource):
     )
     def getApplet(self, applet, refreshCache=False):
         user = self.getCurrentUser()
+
+        # we don't need to refreshCache here (cached data is automatically updated whenever original data changes).
+        refreshCache = False
+
         if refreshCache:
             thread = threading.Thread(
                 target=jsonld_expander.formatLdObject,
@@ -516,6 +521,11 @@ class Applet(Resource):
             user,
             filterRequired
         )
+
+        if 'events' in schedule and filterRequired:
+            for event in schedule['events']:
+                if 'data' in event and 'users' in event['data']:
+                    event['data'].pop('users')
 
         return schedule
 
