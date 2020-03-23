@@ -64,6 +64,7 @@ class PushNotification(Model):
             'content': content,
             'startTime': start_time,
             'endTime': end_time,
+            'lastRandomTime': None,
             'creator_id': creator_id,
             'created': current_time,
             'updated': current_time,

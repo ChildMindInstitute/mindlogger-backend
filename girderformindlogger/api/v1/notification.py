@@ -148,9 +148,6 @@ class Notification(Resource):
                     'progress': ProgressState.ACTIVE,
                     'startTime': {
                         '$lte': user_timezone_time.strftime('%Y/%m/%d %H:%M')
-                    },
-                    'endTime': {
-                        '$gte': user_timezone_time.strftime('%Y/%m/%d %H:%M')
                     }
                 })
 
