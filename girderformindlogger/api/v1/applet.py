@@ -563,7 +563,6 @@ class Applet(Resource):
             # the front-end
             # frontend fix can be removed above
 
-
             for event in events:
                 if 'data' in event and 'useNotifications' in event['data'] and event['data'].get('useNotifications', None):
                     start_time = datetime.utcnow().strftime('%H:%M')
@@ -600,8 +599,8 @@ class Applet(Resource):
                             PushNotificationModel().createNotification(applet['_id'], 1,
                                                                        event['data']['title'],
                                                                        event['data']['description'],
-                                                                       str(start_time),
-                                                                       str(end_time),
+                                                                       start_time,
+                                                                       end_time,
                                                                        thisUser['_id'])
 
                     # in case of daily event
