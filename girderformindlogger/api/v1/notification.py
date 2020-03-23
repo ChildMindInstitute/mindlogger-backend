@@ -41,6 +41,8 @@ def sseMessage(event):
 
 
 class Notification(Resource):
+    api_key = 'AAAAJOyOEz4:APA91bFudM5Cc1Qynqy7QGxDBa-2zrttoRw6ZdvE9PQbfIuAB9SFvPje7DcFMmPuX1IizR1NAa7eHC3qXmE6nmOpgQxXbZ0sNO_n1NITc1sE5NH3d8W9ld-cfN7sXNr6IAOuodtEwQy-'
+
     def __init__(self):
         super(Notification, self).__init__()
         self.resourceName = 'notification'
@@ -125,43 +127,54 @@ class Notification(Resource):
         success = 0
         error = 0
         now = datetime.datetime.utcnow().strftime('%Y/%m/%d %H:%M')
-        notifications = PushNotificationModel().find(query={'progress': ProgressState.ACTIVE})
-        for notification in list(notifications):
-            users = [
-                    UserModel().findOne({
-                        '_id':p['userId']
-                    }) for p in list(
-                        ProfileModel().find(
-                            query={'appletId': notification['applet'], 'userId':{'$exists':True}}
-                        )
-                    )
-            ]
-            deviceIds = [user['deviceId'] for user in users
-                 if ('deviceId' in user)
-                 and int(user.get('timezone', 0)) == int(notification.get('timezone', 0))
-                 and datetime.datetime.strptime(notification['sendTime'], '%Y/%m/%d %H:%M')
-                 <= datetime.datetime.strptime(now, '%Y/%m/%d %H:%M') + datetime.timedelta(hours=int(user['timezone']))]
-            proxy_dict = {
-            }
-            test_api_key = 'AAAAJOyOEz4:APA91bFudM5Cc1Qynqy7QGxDBa-2zrttoRw6ZdvE9PQbfIuAB9SFvPje7DcFMmPuX1IizR1NAa7eHC3qXmE6nmOpgQxXbZ0sNO_n1NITc1sE5NH3d8W9ld-cfN7sXNr6IAOuodtEwQy-'
-            push_service = FCMNotification(api_key=test_api_key, proxy_dict=proxy_dict)
-            message_title = notification['head']
-            message_body = notification['content']
-            result = push_service.notify_multiple_devices(registration_ids=deviceIds,
-                                                message_title=message_title,
-                                                message_body=message_body)
-            notification['attempts'] += 1
-            notification['progress'] = ProgressState.ACTIVE
-            if result['failure']:
-                notification['progress'] = ProgressState.ERROR
-                error += result['failure']
-                print(result['results'])
 
-            if result['success']:
-                notification['progress'] = ProgressState.SUCCESS
-                success += result['success']
+        users = [
+            UserModel().findOne({
+                '_id': p['userId']
+            }) for p in list(
+                ProfileModel().find(
+                    query={'userId': {'$exists': True}}
+                )
+            )
+        ]
 
-            PushNotificationModel().save(notification, validate=False)
+        for user in users:
+            user_timezone_time = datetime.datetime.strptime(now, '%Y/%m/%d %H:%M') \
+                                 + datetime.timedelta(hours=int(user['timezone']))
 
+            notifications = PushNotificationModel().find(
+                query={
+                    'creator_id': user['_id'],
+                    'progress': ProgressState.ACTIVE,
+                    'startTime': {
+                        '$lte': user_timezone_time.strftime('%Y/%m/%d %H:%M')
+                    },
+                    'endTime': {
+                        '$gte': user_timezone_time.strftime('%Y/%m/%d %H:%M')
+                    }
+                })
+
+            if notifications:
+                for notification in notifications:
+                    proxy_dict = {
+                    }
+                    push_service = FCMNotification(api_key=self.api_key, proxy_dict=proxy_dict)
+                    message_title = notification['head']
+                    message_body = notification['content']
+                    result = push_service.notify_multiple_devices(registration_ids=[user['deviceId']],
+                                                                  message_title=message_title,
+                                                                  message_body=message_body)
+                    notification['attempts'] += 1
+                    notification['progress'] = ProgressState.ACTIVE
+                    if result['failure']:
+                        notification['progress'] = ProgressState.ERROR
+                        error += result['failure']
+                        print(result['results'])
+
+                    if result['success']:
+                        notification['progress'] = ProgressState.SUCCESS
+                        success += result['success']
+
+                    PushNotificationModel().save(notification, validate=False)
 
         return {'successed':success, 'errors':error}

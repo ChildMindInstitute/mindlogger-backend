@@ -77,6 +77,10 @@ class PushNotification(Model):
         # will be logic for update schedule
         pass
 
+    def delete_notification(self):
+        # will be logic for delete schedule
+        pass
+
     def updateProgress(self, record, save=True, **kwargs):
         """
         Update an existing progress record.
