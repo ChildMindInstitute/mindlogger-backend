@@ -139,38 +139,49 @@ class Notification(Resource):
         ]
 
         for user in users:
-            user_timezone_time = datetime.datetime.strptime(now, '%Y/%m/%d %H:%M') \
-                                 + datetime.timedelta(hours=int(user['timezone']))
+            if 'timezone' in user:
+                user_timezone_time = datetime.datetime.strptime(now, '%Y/%m/%d %H:%M') + datetime.timedelta(hours=int(user['timezone']))
 
-            notifications = PushNotificationModel().find(
-                query={
-                    'creator_id': user['_id'],
-                    'progress': ProgressState.ACTIVE,
-                    'startTime': {
-                        '$lte': user_timezone_time.strftime('%Y/%m/%d %H:%M')
+                notifications = PushNotificationModel().find(
+                    query={
+                        'creator_id': user['_id'],
+                        'progress': ProgressState.ACTIVE,
+                        'startTime': {
+                            '$lte': user_timezone_time.strftime('%Y/%m/%d %H:%M')
+                        }
+                    })
+
+                for notification in notifications:
+                    proxy_dict = {
                     }
-                })
+                    push_service = FCMNotification(api_key=self.api_key, proxy_dict=proxy_dict)
+                    message_title = notification['head']
+                    message_body = notification['content']
+                    result = push_service.notify_multiple_devices(registration_ids=[user['deviceId']],
+                                                                  message_title=message_title,
+                                                                  message_body=message_body)
+                    notification['attempts'] += 1
+                    notification['progress'] = ProgressState.ACTIVE
+                    if result['failure']:
+                        notification['progress'] = ProgressState.ERROR
+                        error += result['failure']
+                        print(result['results'])
 
-            for notification in notifications:
-                proxy_dict = {
-                }
-                push_service = FCMNotification(api_key=self.api_key, proxy_dict=proxy_dict)
-                message_title = notification['head']
-                message_body = notification['content']
-                result = push_service.notify_multiple_devices(registration_ids=[user['deviceId']],
-                                                              message_title=message_title,
-                                                              message_body=message_body)
-                notification['attempts'] += 1
-                notification['progress'] = ProgressState.ACTIVE
-                if result['failure']:
-                    notification['progress'] = ProgressState.ERROR
-                    error += result['failure']
-                    print(result['results'])
+                    if result['success']:
+                        notification['progress'] = ProgressState.SUCCESS
+                        success += result['success']
 
-                if result['success']:
-                    notification['progress'] = ProgressState.SUCCESS
-                    success += result['success']
-
-                PushNotificationModel().save(notification, validate=False)
+                    PushNotificationModel().save(notification, validate=False)
 
         return {'successed':success, 'errors':error}
+
+    # def send_random_notifications(self, current_time, notifications, user):
+    #     notifications = [notification for notification in notifications if notification['endTime']]
+    #
+    #     for notification in notifications:
+    #         if not notification['lastRandomTime']:
+    #             # set random time
+    #             # notification['lastRandomTime'] =
+    #
+    #             current_time.strftime('%Y/%m/%d %H:%M')
+
