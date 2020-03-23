@@ -576,16 +576,16 @@ class Applet(Resource):
 
                     # in case of sigle event with exact year, month, day
                     if 'year' in event['schedule'] and 'month' in event['schedule'] and 'dayOfMonth' in event['schedule']:
-                        start_time = (str(event['schedule']['year'][0]) + '/' +
-                                      ('0' + str(event['schedule']['month'][0] + 1))[-2:] + '/' +
-                                      ('0' + str(event['schedule']['dayOfMonth'][0]))[-2:] + ' ' +
-                                      start_time)
+                        start_time = str(str(event['schedule']['year'][0]) + '/' +
+                                         ('0' + str(event['schedule']['month'][0] + 1))[-2:] + '/' +
+                                         ('0' + str(event['schedule']['dayOfMonth'][0]))[-2:] + ' ' +
+                                         start_time)
 
                         if event['data'].get('notifications', None) and event['data']['notifications'][0]['random']:
-                            end_time = (str(event['schedule']['year'][0]) + '/' +
-                                        ('0' + str(event['schedule']['month'][0] + 1))[-2:] + '/' +
-                                        ('0' + str(event['schedule']['dayOfMonth'][0]))[-2:] + ' ' +
-                                        end_time)
+                            end_time = str(str(event['schedule']['year'][0]) + '/' +
+                                           ('0' + str(event['schedule']['month'][0] + 1))[-2:] + '/' +
+                                           ('0' + str(event['schedule']['dayOfMonth'][0]))[-2:] + ' ' +
+                                           end_time)
 
                         exist_notification = PushNotificationModel().findOne(
                             query={'applet': applet['_id'],
