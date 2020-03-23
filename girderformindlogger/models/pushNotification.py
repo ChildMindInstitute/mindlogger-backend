@@ -40,7 +40,7 @@ class PushNotification(Model):
     def validate(self, doc):
         return doc
 
-    def createNotification(self, applet, notification_type, head, content, sendTime, creator_id):
+    def createNotification(self, applet, notification_type, head, content, start_time, end_time, creator_id):
         """
         Create a generic notification.
 
@@ -55,26 +55,27 @@ class PushNotification(Model):
             instead of a user.
         :type token: dict
         """
-        result = []
-        timezone_range = range(-12, 15)
-        currentTime = time.time()
-        for delta in timezone_range:
-            doc = {
-                'applet': applet,
-                'notification_type': notification_type,
-                'head': head,
-                'content': content,
-                'sendTime': datetime.datetime.strptime(sendTime, '%Y/%m/%d %H:%M').strftime('%Y/%m/%d %H:%M'),
-                'creator_id': creator_id,
-                'created': currentTime,
-                'updated': currentTime,
-                'progress': ProgressState.ACTIVE,
-                'timezone': delta,
-                'attempts': 0
-            }
-            result.append(self.save(doc))
+        current_time = time.time()
 
-        return result
+        push_notification = {
+            'applet': applet,
+            'notification_type': notification_type,
+            'head': head,
+            'content': content,
+            'startTime': start_time,
+            'endTime': end_time,
+            'creator_id': creator_id,
+            'created': current_time,
+            'updated': current_time,
+            'progress': ProgressState.ACTIVE,
+            'attempts': 0
+        }
+
+        return self.save(push_notification)
+
+    def update_notification(self):
+        # will be logic for update schedule
+        pass
 
     def updateProgress(self, record, save=True, **kwargs):
         """

@@ -45,6 +45,7 @@ from pyld import jsonld
 
 USER_ROLE_KEYS = USER_ROLES.keys()
 
+
 class Applet(Resource):
 
     def __init__(self):
@@ -553,42 +554,64 @@ class Applet(Resource):
             raise AccessException(
                 "Only coordinators and managers can update applet schedules."
             )
+
         if 'events' in schedule:
-            # this should fix in frontend side
             events = [schedule['events'][-1]] if len(schedule['events']) > 1 else schedule['events']
+
             for event in events:
                 if 'data' in event and 'useNotifications' in event['data'] and event['data'].get('useNotifications', None):
-                    sendTime = datetime.utcnow().strftime('%H:%M')
+                    start_time = datetime.utcnow().strftime('%H:%M')
+                    end_time = None
+
                     if event['data'].get('notifications', None) and event['data']['notifications'][0]['start']:
-                        sendTime = event['data']['notifications'][0]['start']
+                        start_time = event['data']['notifications'][0]['start']
+
+                    if event['data'].get('notifications', None) and event['data']['notifications'][0]['random']:
+                        end_time = event['data']['notifications'][0]['end']
 
                     # in case of sigle event with exact year, month, day
                     if 'year' in event['schedule'] and 'month' in event['schedule'] and 'dayOfMonth' in event['schedule']:
-                        sendTime = (str(event['schedule']['year'][0]) + '/' +
-                                    ('0' + str(event['schedule']['month'][0] + 1))[-2:] + '/' +
-                                    ('0' + str(event['schedule']['dayOfMonth'][0]))[-2:] + ' ' +
-                                    sendTime)
-                        existNotification = PushNotificationModel().findOne(query={'applet':applet['_id'],
-                                                                                    'creator_id':thisUser['_id']
-                                                                                   })
-                        if not existNotification:
-                            PushNotificationModel().createNotification( applet['_id'], 1,
-                                                                        event['data']['title'], event['data']['description'],
-                                                                        str(sendTime), thisUser['_id'])
+                        start_time = (str(event['schedule']['year'][0]) + '/' +
+                                      ('0' + str(event['schedule']['month'][0] + 1))[-2:] + '/' +
+                                      ('0' + str(event['schedule']['dayOfMonth'][0]))[-2:] + ' ' +
+                                      start_time)
+
+                        if event['data'].get('notifications', None) and event['data']['notifications'][0]['random']:
+                            end_time = (str(event['schedule']['year'][0]) + '/' +
+                                        ('0' + str(event['schedule']['month'][0] + 1))[-2:] + '/' +
+                                        ('0' + str(event['schedule']['dayOfMonth'][0]))[-2:] + ' ' +
+                                        end_time)
+
+                        exist_notification = PushNotificationModel().findOne(
+                            query={'applet': applet['_id'],
+                                   'creator_id': thisUser['_id']
+                                   })
+                        # should be update it
+                        # logic for updating
+
+                        print(exist_notification)
+
+                        if not exist_notification:
+                            PushNotificationModel().createNotification(applet['_id'], 1,
+                                                                       event['data']['title'],
+                                                                       event['data']['description'],
+                                                                       str(start_time),
+                                                                       str(end_time),
+                                                                       thisUser['_id'])
 
                     # in case of daily event
 
-        appletMeta = applet['meta'] if 'meta' in applet else {'applet': {}}
-        if 'applet' not in appletMeta:
-            appletMeta['applet'] = {}
-        appletMeta['applet']['schedule'] = schedule
-        AppletModel().setMetadata(applet, appletMeta)
+        applet_meta = applet['meta'] if 'meta' in applet else {'applet': {}}
+        if 'applet' not in applet_meta:
+            applet_meta['applet'] = {}
+        applet_meta['applet']['schedule'] = schedule
+        AppletModel().setMetadata(applet, applet_meta)
         thread = threading.Thread(
             target=AppletModel().updateUserCacheAllUsersAllRoles,
             args=(applet, thisUser)
         )
         thread.start()
-        return(appletMeta)
+        return(applet_meta)
 
 
 def authorizeReviewer(applet, reviewer, user):

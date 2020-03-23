@@ -126,7 +126,7 @@ class Notification(Resource):
         error = 0
         now = datetime.datetime.utcnow().strftime('%Y/%m/%d %H:%M')
         notifications = PushNotificationModel().find(query={'progress': ProgressState.ACTIVE})
-        for notification in notifications:
+        for notification in list(notifications):
             users = [
                     UserModel().findOne({
                         '_id':p['userId']
