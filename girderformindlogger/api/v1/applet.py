@@ -592,6 +592,7 @@ class Applet(Resource):
                                    'creator_id': thisUser['_id']
                                    })
 
+                        event['id'] = exist_notification['_id']
                         # should be the logic to update existing event
                         # PushNotificationModel().update_notification
 
@@ -602,7 +603,7 @@ class Applet(Resource):
                                                                        start_time,
                                                                        end_time,
                                                                        thisUser['_id'])
-                            event['_id'] = created_notification['_id']
+                            event['id'] = created_notification['_id']
 
                     # in case of daily event
 
