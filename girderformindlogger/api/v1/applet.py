@@ -60,6 +60,7 @@ class Applet(Resource):
         self.route('PUT', (':id', 'assign'), self.assignGroup)
         self.route('PUT', (':id', 'constraints'), self.setConstraints)
         self.route('PUT', (':id', 'schedule'), self.setSchedule)
+        self.route('PUT', (':id', 'refresh'), self.refresh)
         self.route('GET', (':id', 'schedule'), self.getSchedule)
         self.route('POST', (':id', 'invite'), self.invite)
         self.route('GET', (':id', 'roles'), self.getAppletRoles)
@@ -339,6 +340,39 @@ class Applet(Resource):
                 refreshCache=refreshCache
             )
         )
+
+    @access.user(scope=TokenScope.DATA_WRITE)
+    @autoDescribeRoute(
+        Description('reload protocol into database and refresh cache.')
+        .modelParam(
+            'id',
+            model=AppletModel,
+            level=AccessType.READ,
+            destName='applet'
+        )
+        .errorResponse('Invalid applet ID.')
+        .errorResponse('Write access was denied for this applet.', 403)
+    )
+    def refresh(self, applet):
+        user = self.getCurrentUser()
+
+        if not AppletModel().isCoordinator(applet['_id'], user):
+            raise AccessException(
+                "Only coordinators and managers can update applet."
+            )
+
+        thread = threading.Thread(
+            target=AppletModel().reloadAndUpdateCache,
+            args=(applet, user)
+        )
+
+        thread.start()
+
+        return({
+            "message": "The protocol is being reloaded and cached data is being updated. Please check back "
+                        "in several mintutes to see it."
+        })
+
 
     @access.user(scope=TokenScope.DATA_READ)
     @autoDescribeRoute(
