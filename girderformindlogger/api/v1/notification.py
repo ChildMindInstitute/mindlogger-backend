@@ -171,7 +171,6 @@ class Notification(Resource):
     def __send_random_notifications(self, current_time, notifications, user):
         notifications_with_end = [notification for notification in notifications if notification['endTime']]
 
-        print(notifications_with_end)
         for notification in notifications_with_end:
             if not notification['lastRandomTime']:
                 # set random time
