@@ -555,13 +555,10 @@ class Applet(Resource):
                 "Only coordinators and managers can update applet schedules."
             )
 
-        if 'events' in schedule:
-            events = [schedule['events'][-1]] if len(schedule['events']) > 1 else schedule['events']
+        assigned = {}
 
-            # need logic for deleting
-            # intersection of of data from the database for the current user and data received from
-            # the front-end
-            # frontend fix can be removed above
+        if 'events' in schedule:
+            events = schedule['events'] #[schedule['events'][-1]] if len(schedule['events']) > 1 else schedule['events']
 
             for event in events:
                 if 'data' in event and 'useNotifications' in event['data'] and event['data'].get('useNotifications', None):
@@ -587,23 +584,45 @@ class Applet(Resource):
                                            ('0' + str(event['schedule']['dayOfMonth'][0]))[-2:] + ' ' +
                                            end_time)
 
-                        exist_notification = PushNotificationModel().findOne(
-                            query={'applet': applet['_id'],
-                                   'creator_id': thisUser['_id']
-                                   })
+                        existing_notification = None
+                        if event['data'].get('id'):
+                            assigned[event['data'].get('id')] = True
 
-                        # should be the logic to update existing event
-                        # PushNotificationModel().update_notification
+                            existing_notification = PushNotificationModel().findOne(
+                                query={'applet': applet['_id'],
+                                        'creator_id': thisUser['_id'],
+                                        'event_id': event['data'].get('id')
+                                        })
+                        if existing_notification:
 
-                        if not exist_notification:
+                            PushNotificationModel().update_notification(
+                                existing_notification,
+                                1, 
+                                event['data']['title'],
+                                event['data']['description'], 
+                                start_time,
+                                end_time
+                            )
+                        else:
                             PushNotificationModel().createNotification(applet['_id'], 1,
                                                                        event['data']['title'],
                                                                        event['data']['description'],
                                                                        start_time,
                                                                        end_time,
-                                                                       thisUser['_id'])
+                                                                       thisUser['_id'],
+                                                                       event['data'].get('id'))
 
                     # in case of daily event
+
+        original_schedule = applet.get('meta', {}).get('applet', {}).get('schedule', {})
+
+        if 'events' in original_schedule:
+            for event in original_schedule['events']:
+                if 'data' in event and 'id' in event['data']:
+                    original_id = event['data']['id']
+                    if original_id not in assigned:
+                        PushNotificationModel().delete_notification(applet['_id'], thisUser['_id'], original_id)
+
 
         applet_meta = applet['meta'] if 'meta' in applet else {'applet': {}}
         if 'applet' not in applet_meta:

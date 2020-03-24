@@ -40,7 +40,33 @@ class PushNotification(Model):
     def validate(self, doc):
         return doc
 
-    def createNotification(self, applet, notification_type, head, content, start_time, end_time, creator_id):
+    def update_notification(self, existing_notification, notification_type, head, content, start_time, end_time):
+        current_time = time.time()
+
+        if start_time > datetime.datetime.utcnow().strftime('%Y/%m/%d %H:%M'):
+            existing_notification.update({
+                'progress': ProgressState.ACTIVE
+            })
+
+        existing_notification.update({
+            'notification_type': notification_type,
+            'head': head,
+            'content': content,
+            'startTime': start_time,
+            'endTime': end_time,
+            'lastRandomTime': None,
+            'created': current_time,
+            'updated': current_time, 
+        })
+        return self.save(existing_notification)
+
+    def delete_notification(self, applet, creator_id, event_id):
+        self.removeWithQuery(query={'applet': applet,
+                                   'creator_id': creator_id,
+                                   'event_id': event_id
+                                   })
+
+    def createNotification(self, applet, notification_type, head, content, start_time, end_time, creator_id, event_id):
         """
         Create a generic notification.
 
@@ -69,18 +95,11 @@ class PushNotification(Model):
             'created': current_time,
             'updated': current_time,
             'progress': ProgressState.ACTIVE,
-            'attempts': 0
+            'attempts': 0,
+            'event_id': event_id
         }
 
         return self.save(push_notification)
-
-    def update_notification(self):
-        # will be logic for update schedule
-        pass
-
-    def delete_notification(self):
-        # will be logic for delete schedule
-        pass
 
     def updateProgress(self, record, save=True, **kwargs):
         """
