@@ -134,9 +134,9 @@ class Notification(Resource):
         now = datetime.datetime.utcnow().strftime('%Y/%m/%d %H:%M')
 
         users = [
-            UserModel().findOne({
+            dict(UserModel().findOne({
                 '_id': p['userId']
-            }) for p in list(
+            })) for p in list(
                 ProfileModel().find(
                     query={'userId': {'$exists': True}}
                 )
