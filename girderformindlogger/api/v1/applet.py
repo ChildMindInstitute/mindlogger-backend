@@ -556,53 +556,49 @@ class Applet(Resource):
             )
 
         if 'events' in schedule:
-            # events = [schedule['events'][-1]] if len(schedule['events']) > 1 else schedule['events']
-
             # need logic for deleting
             # intersection of of data from the database for the current user and data received from
             # the front-end
-            # frontend fix can be removed above
 
             for event in list(schedule['events']):
-                if 'data' in event and 'useNotifications' in event['data'] and event['data'].get('useNotifications', None):
-                    start_time = datetime.utcnow().strftime('%H:%M')
-                    end_time = None
-
-                    if event['data'].get('notifications', None) and event['data']['notifications'][0]['start']:
+                if 'data' in event and 'useNotifications' in event['data'] and event['data']['useNotifications']:
+                    if 'notifications' in event['data'] and event['data']['notifications'][0]['start']:
                         start_time = event['data']['notifications'][0]['start']
-
-                    if event['data'].get('notifications', None) and event['data']['notifications'][0]['random']:
-                        end_time = event['data']['notifications'][0]['end']
-
-                    # in case of sigle event with exact year, month, day
-                    if 'year' in event['schedule'] and 'month' in event['schedule'] and 'dayOfMonth' in event['schedule']:
-                        start_time = str(str(event['schedule']['year'][0]) + '/' +
-                                         ('0' + str(event['schedule']['month'][0] + 1))[-2:] + '/' +
-                                         ('0' + str(event['schedule']['dayOfMonth'][0]))[-2:] + ' ' +
-                                         start_time)
+                        end_time = None
 
                         if event['data'].get('notifications', None) and event['data']['notifications'][0]['random']:
-                            end_time = str(str(event['schedule']['year'][0]) + '/' +
-                                           ('0' + str(event['schedule']['month'][0] + 1))[-2:] + '/' +
-                                           ('0' + str(event['schedule']['dayOfMonth'][0]))[-2:] + ' ' +
-                                           end_time)
+                            end_time = event['data']['notifications'][0]['end']
 
-                        exist_notification = PushNotificationModel().findOne(
-                            query={'applet': applet['_id'],
-                                   'creator_id': thisUser['_id']
-                                   })
+                        # in case of sigle event with exact year, month, day
+                        if 'year' in event['schedule'] and 'month' in event['schedule'] and 'dayOfMonth' in event['schedule']:
+                            start_time = str(str(event['schedule']['year'][0]) + '/' +
+                                             ('0' + str(event['schedule']['month'][0] + 1))[-2:] + '/' +
+                                             ('0' + str(event['schedule']['dayOfMonth'][0]))[-2:] + ' ' +
+                                             start_time)
 
-                        # should be the logic to update existing event
-                        # PushNotificationModel().update_notification
+                            if event['data']['notifications'] and event['data']['notifications'][0]['random']:
+                                end_time = str(str(event['schedule']['year'][0]) + '/' +
+                                               ('0' + str(event['schedule']['month'][0] + 1))[-2:] + '/' +
+                                               ('0' + str(event['schedule']['dayOfMonth'][0]))[-2:] + ' ' +
+                                               end_time)
 
-                        if not exist_notification:
-                            created_notification = PushNotificationModel().createNotification(applet['_id'], 1,
-                                                                       event['data']['title'],
-                                                                       event['data']['description'],
-                                                                       start_time,
-                                                                       end_time,
-                                                                       thisUser['_id'])
-                            event['id'] = created_notification['_id']
+                            exist_notification = PushNotificationModel().findOne(
+                                query={'applet': applet['_id'],
+                                       'creator_id': thisUser['_id']
+                                       })
+
+                            # should be the logic to update existing event
+                            # PushNotificationModel().update_notification
+
+                            if not exist_notification:
+                                created_notification = PushNotificationModel().createNotification(
+                                    applet['_id'], 1,
+                                    event['data']['title'],
+                                    event['data']['description'],
+                                    start_time,
+                                    end_time,
+                                    thisUser['_id'])
+                                event['id'] = created_notification['_id']
 
                     # in case of daily event
 
