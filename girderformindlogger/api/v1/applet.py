@@ -582,24 +582,23 @@ class Applet(Resource):
                                                ('0' + str(event['schedule']['dayOfMonth'][0]))[-2:] + ' ' +
                                                end_time)
 
-                            exist_notification = PushNotificationModel().findOne(
-                                query={'applet': applet['_id'],
-                                       'creator_id': thisUser['_id']
-                                       })
+                        # in case of daily event
+                        exist_notification = PushNotificationModel().findOne(
+                            query={'applet': applet['_id'],
+                                   'creator_id': thisUser['_id']
+                                   })
 
-                            # should be the logic to update existing event
-                            # PushNotificationModel().update_notification
+                        # should be the logic to update existing event
+                        # PushNotificationModel().update_notification
 
-                            if not exist_notification:
-                                created_notification = PushNotificationModel().createNotification(
-                                    applet['_id'], 1,
-                                    event,
-                                    start_time,
-                                    end_time,
-                                    thisUser['_id'])
-                                event['id'] = created_notification['_id']
-
-                    # in case of daily event
+                        if not exist_notification:
+                            created_notification = PushNotificationModel().createNotification(
+                                applet['_id'], 1,
+                                event,
+                                start_time,
+                                end_time,
+                                thisUser['_id'])
+                            event['id'] = created_notification['_id']
 
         applet_meta = applet['meta'] if 'meta' in applet else {'applet': {}}
         if 'applet' not in applet_meta:

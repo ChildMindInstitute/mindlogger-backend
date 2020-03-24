@@ -45,6 +45,7 @@ def sseMessage(event):
 class Notification(Resource):
     api_key = 'AAAAJOyOEz4:APA91bFudM5Cc1Qynqy7QGxDBa-2zrttoRw6ZdvE9PQbfIuAB9SFvPje7DcFMmPuX1IizR1NAa7eHC3qXmE6nmOpgQxXbZ0sNO_n1NITc1sE5NH3d8W9ld-cfN7sXNr6IAOuodtEwQy-'
     push_service = FCMNotification(api_key=api_key, proxy_dict={})
+    user_timezone_time = None
     success = 0
     error = 0
 
@@ -143,64 +144,113 @@ class Notification(Resource):
             )
         ]
 
-        print(len(users))
-
         if users:
             for user in list(users):
                 print('user type - ' + str(type(user)))
 
                 if user.get('timezone', None):
-                    user_timezone_time = datetime.datetime.strptime(now, '%Y/%m/%d %H:%M') \
-                                         + datetime.timedelta(hours=int(user['timezone']))
+                    self.user_timezone_time = datetime.datetime.strptime(now, '%Y/%m/%d %H:%M') \
+                                              + datetime.timedelta(hours=int(user['timezone']))
 
                     notifications = list(PushNotificationModel().find(
                         query={
                             'creator_id': user['_id'],
                             'progress': ProgressState.ACTIVE,
+                            'notification_type': 1,
                             'startTime': {
-                                '$lte': user_timezone_time.strftime('%Y/%m/%d %H:%M')
+                                '$lte': self.user_timezone_time.strftime('%Y/%m/%d %H:%M')
                             }
                         }))
 
-                    self.__send_random_notifications(user_timezone_time, notifications, user)
+                    self.__send_random_notifications(notifications, user)
 
-                    notifications = [notification for notification in notifications if not notification['endTime']]
+                    notifications = [notification for notification in notifications if
+                                     not notification['endTime']]
 
                     for notification in notifications:
                         self.__send_notification(notification, user)
                         PushNotificationModel().save(notification, validate=False)
 
+                    self.__send_daily_notifications(user)
+
         return {'successed': self.success, 'errors': self.error}
 
-    def __send_random_notifications(self, current_time, notifications, user):
-        notifications_with_end = [notification for notification in notifications if notification['endTime']]
+    def __send_daily_notifications(self, user):
+        notifications = list(PushNotificationModel().find(
+            query={
+                'creator_id': user['_id'],
+                'notification_type': 2,
+                'schedule.start': {
+                    '$lte': self.user_timezone_time.strftime('%Y/%m/%d')
+                },
+                'schedule.end': {
+                    '$gt': self.user_timezone_time.strftime('%Y/%m/%d')
+                }
+            }
+        ))
+
+        self.__send_random_notifications(notifications, user)
+
+        notifications = [notification for notification in notifications if
+                         not notification['endTime']]
+
+        for notification in notifications:
+            user_time = self.user_timezone_time.strftime('%H:%M')
+            notification_time = notification['startTime']
+
+            user_data_send = self.user_timezone_time.strftime('%Y/%m/%d')
+            notification_date_send = notification['dateSend']
+
+            to_send = user_time > notification_time and not notification_date_send \
+                      or user_data_send > notification_date_send
+
+            print(to_send)
+            if to_send:
+                self.__send_notification(notification, user)
+                notification['dateSend'] = self.user_timezone_time.strftime('%Y/%m/%d')
+                PushNotificationModel().save(notification, validate=False)
+
+    def __send_random_notifications(self, notifications, user):
+        notifications_with_end = [notification for notification in notifications if
+                                  notification['endTime']]
 
         for notification in notifications_with_end:
+            notification['dateSend'] = self.user_timezone_time.strftime('%Y/%m/%d')
+            format_str = '%H:%M' if 'schedule' in notification else '%Y/%m/%d %H:%M'
+
             if not notification['lastRandomTime']:
                 # set random time
                 notification['lastRandomTime'] = self.__random_date(
                     notification['startTime'],
-                    notification['endTime']
-                ).strftime('%Y/%m/%d %H:%M')
+                    notification['endTime'],
+                    format_str
+                ).strftime(format_str)
 
-            user_timezone_time = current_time > self.date_formating(notification['lastRandomTime'])
+            user_time = self.user_timezone_time.strftime(format_str)
+            notification_time = notification['lastRandomTime']
 
-            if user_timezone_time:
+            user_data_send = self.user_timezone_time.strftime('%Y/%m/%d')
+            notification_date_send = notification['dateSend']
+
+            to_send = user_time > notification_time and not notification_date_send \
+                      or user_data_send > notification_date_send
+
+            if to_send:
                 self.__send_notification(notification, user)
 
             PushNotificationModel().save(notification, validate=False)
 
-    def __random_date(self, start, end):
-        start_date = datetime.datetime.strptime(start, '%Y/%m/%d %H:%M')
-        end_date = datetime.datetime.strptime(end, '%Y/%m/%d %H:%M')
+    def __random_date(self, start, end, format_str='%Y/%m/%d %H:%M'):
+        start_date = datetime.datetime.strptime(start, format_str)
+        end_date = datetime.datetime.strptime(end, format_str)
 
         time_between_dates = end_date - start_date
         days_between_dates = time_between_dates.seconds
         random_number_of_seconds = random.randrange(days_between_dates)
         return start_date + datetime.timedelta(seconds=random_number_of_seconds)
 
-    def date_formating(self, date):
-        return datetime.datetime.strptime(date, '%Y/%m/%d %H:%M')
+    def date_formating(self, date, format_str='%Y/%m/%d %H:%M'):
+        return datetime.datetime.strptime(date, format_str)
 
     def __send_notification(self, notification, user):
         message_title = notification['head']

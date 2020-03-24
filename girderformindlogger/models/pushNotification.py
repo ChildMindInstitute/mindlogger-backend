@@ -57,30 +57,33 @@ class PushNotification(Model):
         """
         current_time = time.time()
 
-        daily = None
-        weekly = None
-        day_of_week = None
+        schedule = {}
 
-        if 'schedule' in event:
+        if 'schedule' in event and 'start' in event['schedule'] and 'end' in event['schedule']:
             if 'dayOfWeek' in event['schedule']:
                 notification_type = 3
-                weekly = datetime.datetime.fromtimestamp(float(event['schedule']['start']) / 1000)
-                day_of_week = event['schedule'][0]
+                schedule['start'] = datetime.datetime.fromtimestamp(
+                    float(event['schedule']['start']) / 1000).strftime('%Y/%m/%d')
+                schedule['end'] = datetime.datetime.fromtimestamp(
+                    float(event['schedule']['end']) / 1000).strftime('%Y/%m/%d')
+                schedule['dayOfWeek'] = event['schedule'][0]
             else:
                 notification_type = 2
-                daily = datetime.datetime.fromtimestamp(float(event['schedule']['end']) / 1000)
+                schedule['start'] = datetime.datetime.fromtimestamp(
+                    float(event['schedule']['start']) / 1000).strftime('%Y/%m/%d')
+                schedule['end'] = datetime.datetime.fromtimestamp(
+                    float(event['schedule']['end']) / 1000).strftime('%Y/%m/%d')
 
         push_notification = {
             'applet': applet,
             'notification_type': notification_type,
             'head': event['data']['title'],
             'content': event['data']['description'],
-            'daily': daily,
-            'weekly': weekly,
-            'dayOfWeek': day_of_week,
+            'schedule': schedule,
             'startTime': start_time,
             'endTime': end_time,
             'lastRandomTime': None,
+            'dateSend': None,
             'creator_id': creator_id,
             'created': current_time,
             'updated': current_time,
