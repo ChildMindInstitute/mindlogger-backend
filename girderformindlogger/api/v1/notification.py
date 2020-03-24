@@ -134,19 +134,22 @@ class Notification(Resource):
         now = datetime.datetime.utcnow().strftime('%Y/%m/%d %H:%M')
 
         users = [
-            UserModel().findOne({
-                '_id': p['userId'],
-                'timezone': {'$exists': True}
-            }) for p in list(
+            dict(UserModel().findOne({
+                '_id': p['userId']
+            })) for p in list(
                 ProfileModel().find(
                     query={'userId': {'$exists': True}}
                 )
             )
         ]
 
+        print(len(users))
+
         if users:
             for user in list(users):
-                if dict(user).get('timezone', None):
+                print('user type - ' + str(type(user)))
+
+                if user.get('timezone', None):
                     user_timezone_time = datetime.datetime.strptime(now, '%Y/%m/%d %H:%M') \
                                          + datetime.timedelta(hours=int(user['timezone']))
 
