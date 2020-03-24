@@ -556,14 +556,14 @@ class Applet(Resource):
             )
 
         if 'events' in schedule:
-            events = [schedule['events'][-1]] if len(schedule['events']) > 1 else schedule['events']
+            # events = [schedule['events'][-1]] if len(schedule['events']) > 1 else schedule['events']
 
             # need logic for deleting
             # intersection of of data from the database for the current user and data received from
             # the front-end
             # frontend fix can be removed above
 
-            for event in events:
+            for event in list(schedule['events']):
                 if 'data' in event and 'useNotifications' in event['data'] and event['data'].get('useNotifications', None):
                     start_time = datetime.utcnow().strftime('%H:%M')
                     end_time = None
@@ -592,7 +592,6 @@ class Applet(Resource):
                                    'creator_id': thisUser['_id']
                                    })
 
-                        event['id'] = exist_notification['_id']
                         # should be the logic to update existing event
                         # PushNotificationModel().update_notification
 
