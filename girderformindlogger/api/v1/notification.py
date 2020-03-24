@@ -135,7 +135,8 @@ class Notification(Resource):
 
         users = [
             UserModel().findOne({
-                '_id': p['userId']
+                '_id': p['userId'],
+                'timezone': {'$exists': True}
             }) for p in list(
                 ProfileModel().find(
                     query={'userId': {'$exists': True}}
@@ -145,7 +146,7 @@ class Notification(Resource):
 
         if users:
             for user in list(users):
-                if 'timezone' in user:
+                if dict(user).get('timezone', None):
                     user_timezone_time = datetime.datetime.strptime(now, '%Y/%m/%d %H:%M') \
                                          + datetime.timedelta(hours=int(user['timezone']))
 

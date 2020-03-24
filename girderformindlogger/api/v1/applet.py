@@ -593,8 +593,7 @@ class Applet(Resource):
                             if not exist_notification:
                                 created_notification = PushNotificationModel().createNotification(
                                     applet['_id'], 1,
-                                    event['data']['title'],
-                                    event['data']['description'],
+                                    event,
                                     start_time,
                                     end_time,
                                     thisUser['_id'])

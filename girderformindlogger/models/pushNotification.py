@@ -40,7 +40,7 @@ class PushNotification(Model):
     def validate(self, doc):
         return doc
 
-    def createNotification(self, applet, notification_type, head, content, start_time, end_time, creator_id):
+    def createNotification(self, applet, notification_type, event, start_time, end_time, creator_id):
         """
         Create a generic notification.
 
@@ -57,11 +57,27 @@ class PushNotification(Model):
         """
         current_time = time.time()
 
+        daily = None
+        weekly = None
+        day_of_week = None
+
+        if 'schedule' in event:
+            if 'dayOfWeek' in event['schedule']:
+                notification_type = 3
+                weekly = datetime.datetime.fromtimestamp(float(event['schedule']['start']) / 1000)
+                day_of_week = event['schedule'][0]
+            else:
+                notification_type = 2
+                daily = datetime.datetime.fromtimestamp(float(event['schedule']['end']) / 1000)
+
         push_notification = {
             'applet': applet,
             'notification_type': notification_type,
-            'head': head,
-            'content': content,
+            'head': event['data']['title'],
+            'content': event['data']['description'],
+            'daily': daily,
+            'weekly': weekly,
+            'dayOfWeek': day_of_week,
             'startTime': start_time,
             'endTime': end_time,
             'lastRandomTime': None,
