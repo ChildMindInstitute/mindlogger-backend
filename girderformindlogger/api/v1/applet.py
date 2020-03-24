@@ -596,12 +596,13 @@ class Applet(Resource):
                         # PushNotificationModel().update_notification
 
                         if not exist_notification:
-                            PushNotificationModel().createNotification(applet['_id'], 1,
+                            created_notification = PushNotificationModel().createNotification(applet['_id'], 1,
                                                                        event['data']['title'],
                                                                        event['data']['description'],
                                                                        start_time,
                                                                        end_time,
                                                                        thisUser['_id'])
+                            event['_id'] = created_notification['_id']
 
                     # in case of daily event
 
