@@ -143,6 +143,8 @@ class Notification(Resource):
                 )
             )
         ]
+        # filter not null
+        users = [user for user in users if user]
 
         if users:
             for user in list(users):
