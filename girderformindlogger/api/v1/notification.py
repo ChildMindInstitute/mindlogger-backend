@@ -134,44 +134,38 @@ class Notification(Resource):
     def sendPushNotifications(self):
         now = datetime.datetime.utcnow().strftime('%Y/%m/%d %H:%M')
 
-        users = [
-            dict(UserModel().findOne({
-                '_id': p['userId']
-            })) for p in list(
-                ProfileModel().find(
-                    query={'userId': {'$exists': True}}
-                )
-            )
-        ]
-        # filter to remove empty values
-        users = [user for user in users if user]
+        users = [dict(UserModel().findOne({
+                    '_id': p['userId'],
+                    'timezone': {
+                        '$exists': True
+                    }}
+        )) for p in list(ProfileModel().find(query={'userId': {'$exists': True}}))]
 
         for user in users:
-            if user.get('timezone', None):
-                self.user_timezone_time = datetime.datetime.strptime(now, '%Y/%m/%d %H:%M') \
-                                          + datetime.timedelta(hours=int(user['timezone']))
+            self.user_timezone_time = datetime.datetime.strptime(now, '%Y/%m/%d %H:%M') \
+                                      + datetime.timedelta(hours=int(user['timezone']))
 
-                notifications = list(PushNotificationModel().find(
-                    query={
-                        'creator_id': user['_id'],
-                        'progress': ProgressState.ACTIVE,
-                        'notification_type': 1,
-                        'startTime': {
-                            '$lte': self.user_timezone_time.strftime('%Y/%m/%d %H:%M')
-                        }
-                    }))
+            notifications = list(PushNotificationModel().find(
+                query={
+                    'progress': ProgressState.ACTIVE,
+                    'notification_type': 1,
+                    'startTime': {
+                        '$lte': self.user_timezone_time.strftime('%Y/%m/%d %H:%M')
+                    }
+                }))
 
-                self.__send_random_notifications(notifications, user)
+            self.__send_random_notifications(notifications, user)
 
-                notifications = [notification for notification in notifications if
-                                 not notification['endTime']]
+            notifications = [notification for notification in notifications if
+                             not notification['endTime']]
 
-                for notification in notifications:
+            for notification in notifications:
+                if self.__does_profile_exists(notification, user):
                     self.__send_notification(notification, user)
-                    PushNotificationModel().save(notification, validate=False)
+                PushNotificationModel().save(notification, validate=False)
 
-                self.__send_daily_notifications(user)
-                self.__send_weekly_notifications(user)
+            self.__send_daily_notifications(user)
+            self.__send_weekly_notifications(user)
 
         return {'successed': self.success, 'errors': self.error}
 
@@ -183,7 +177,6 @@ class Notification(Resource):
         """
         notifications = list(PushNotificationModel().find(
             query={
-                'creator_id': user['_id'],
                 'notification_type': 3,
                 'schedule.start': {
                     '$lte': self.user_timezone_time.strftime('%Y/%m/%d')
@@ -200,20 +193,21 @@ class Notification(Resource):
                          not notification['endTime']]
 
         for notification in notifications:
-            user_time = self.user_timezone_time.strftime('%H:%M')
-            notification_time = notification['startTime']
-            day_of_week = int(self.user_timezone_time.weekday()) + 1
-            notification_day_of_week = int(notification['schedule']['dayOfWeek'])
-            user_data_send = self.user_timezone_time.strftime('%Y/%m/%d')
-            notification_date_send = notification['dateSend']
+            if self.__does_profile_exists(notification, user):
+                user_time = self.user_timezone_time.strftime('%H:%M')
+                notification_time = notification['startTime']
+                day_of_week = int(self.user_timezone_time.weekday()) + 1
+                notification_day_of_week = int(notification['schedule']['dayOfWeek'])
+                user_data_send = self.user_timezone_time.strftime('%Y/%m/%d')
+                notification_date_send = notification['dateSend']
 
-            to_send = day_of_week == notification_day_of_week and user_time > notification_time and (
-                not notification_date_send or user_data_send > notification_date_send)
+                to_send = day_of_week == notification_day_of_week and user_time > notification_time and (
+                    not notification_date_send or user_data_send > notification_date_send)
 
-            if to_send:
-                self.__send_notification(notification, user)
-                notification['dateSend'] = self.user_timezone_time.strftime('%Y/%m/%d')
-                PushNotificationModel().save(notification, validate=False)
+                if to_send:
+                    self.__send_notification(notification, user)
+                    notification['dateSend'] = self.user_timezone_time.strftime('%Y/%m/%d')
+                    PushNotificationModel().save(notification, validate=False)
 
     def __send_daily_notifications(self, user):
         """
@@ -223,7 +217,6 @@ class Notification(Resource):
         """
         notifications = list(PushNotificationModel().find(
             query={
-                'creator_id': user['_id'],
                 'notification_type': 2,
                 'schedule.start': {
                     '$lte': self.user_timezone_time.strftime('%Y/%m/%d')
@@ -240,19 +233,20 @@ class Notification(Resource):
                          not notification['endTime']]
 
         for notification in notifications:
-            user_time = self.user_timezone_time.strftime('%H:%M')
-            notification_time = notification['startTime']
+            if self.__does_profile_exists(notification, user):
+                user_time = self.user_timezone_time.strftime('%H:%M')
+                notification_time = notification['startTime']
 
-            user_data_send = self.user_timezone_time.strftime('%Y/%m/%d')
-            notification_date_send = notification['dateSend']
+                user_data_send = self.user_timezone_time.strftime('%Y/%m/%d')
+                notification_date_send = notification['dateSend']
 
-            to_send = user_time > notification_time and (not notification_date_send
-                                                         or user_data_send > notification_date_send)
+                to_send = user_time > notification_time and (not notification_date_send
+                                                             or user_data_send > notification_date_send)
 
-            if to_send:
-                self.__send_notification(notification, user)
-                notification['dateSend'] = self.user_timezone_time.strftime('%Y/%m/%d')
-                PushNotificationModel().save(notification, validate=False)
+                if to_send:
+                    self.__send_notification(notification, user)
+                    notification['dateSend'] = self.user_timezone_time.strftime('%Y/%m/%d')
+                    PushNotificationModel().save(notification, validate=False)
 
     def __send_random_notifications(self, notifications, user):
         """
@@ -266,29 +260,30 @@ class Notification(Resource):
                                   notification['endTime']]
 
         for notification in notifications_with_end:
-            format_str = '%Y/%m/%d %H:%M' if notification['notification_type'] == 1 else '%H:%M'
+            if self.__does_profile_exists(notification, user):
+                format_str = '%Y/%m/%d %H:%M' if notification['notification_type'] == 1 else '%H:%M'
 
-            if not notification['lastRandomTime'] or notification['dateSend']:
-                # set random time
-                notification['lastRandomTime'] = self.__random_date(
-                    notification['startTime'],
-                    notification['endTime'],
-                    format_str
-                ).strftime(format_str)
+                if not notification['lastRandomTime'] or notification['dateSend']:
+                    # set random time
+                    notification['lastRandomTime'] = self.__random_date(
+                        notification['startTime'],
+                        notification['endTime'],
+                        format_str
+                    ).strftime(format_str)
 
-            user_time = self.user_timezone_time.strftime(format_str)
-            notification_time = notification['lastRandomTime']
+                user_time = self.user_timezone_time.strftime(format_str)
+                notification_time = notification['lastRandomTime']
 
-            user_data_send = self.user_timezone_time.strftime('%Y/%m/%d')
-            notification_date_send = notification['dateSend']
+                user_data_send = self.user_timezone_time.strftime('%Y/%m/%d')
+                notification_date_send = notification['dateSend']
 
-            to_send = user_time > notification_time and (not notification_date_send
-                                                         or user_data_send > notification_date_send)
+                to_send = user_time > notification_time and (not notification_date_send
+                                                             or user_data_send > notification_date_send)
 
-            if to_send:
-                notification['dateSend'] = self.user_timezone_time.strftime('%Y/%m/%d')
-                self.__send_notification(notification, user)
-            PushNotificationModel().save(notification, validate=False)
+                if to_send:
+                    notification['dateSend'] = self.user_timezone_time.strftime('%Y/%m/%d')
+                    self.__send_notification(notification, user)
+                PushNotificationModel().save(notification, validate=False)
 
     def __random_date(self, start, end, format_str='%Y/%m/%d %H:%M'):
         """
@@ -331,3 +326,14 @@ class Notification(Resource):
         if result['success']:
             notification['progress'] = ProgressState.SUCCESS
             self.success += result['success']
+
+    def __does_profile_exists(self, notification, user):
+        return user['_id'] in [
+            profile['userId'] for profile in list(ProfileModel().find(
+                query={
+                    '_id': {
+                        '$in': notification['users']
+                    }
+                }
+            ))
+        ]

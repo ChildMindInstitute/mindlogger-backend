@@ -2,6 +2,7 @@
 import datetime
 import six
 import time
+import bson
 
 from girderformindlogger.models.model_base import Model
 
@@ -62,11 +63,13 @@ class PushNotification(Model):
 
         schedule = {}
 
-        print('creation')
+        users = []
+        if 'users' in event['data']:
+            users = [bson.ObjectId(oid=user['_id']) for user in event['data']['users'] if user]
+
         if 'schedule' in event:
-            print('schedule exists')
             if 'start' in event['schedule'] and 'end' in event['schedule']:
-                if 'dayOfWeek' in event['schedule'] :
+                if 'dayOfWeek' in event['schedule']:
                     """
                     Weekly configuration in case of weekly event
                     """
@@ -118,6 +121,7 @@ class PushNotification(Model):
                 'notification_type': notification_type,
                 'head': event['data']['title'],
                 'content': event['data']['description'],
+                'users': users,
                 'schedule': schedule,
                 'startTime': start_time,
                 'endTime': end_time,
