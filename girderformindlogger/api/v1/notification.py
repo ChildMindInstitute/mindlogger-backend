@@ -147,8 +147,6 @@ class Notification(Resource):
         users = [user for user in users if user]
 
         for user in users:
-            print('user type - ' + str(type(user)))
-
             if user.get('timezone', None):
                 self.user_timezone_time = datetime.datetime.strptime(now, '%Y/%m/%d %H:%M') \
                                           + datetime.timedelta(hours=int(user['timezone']))

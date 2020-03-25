@@ -577,7 +577,8 @@ class Applet(Resource):
                                 applet['_id'],
                                 event,
                                 thisUser['_id'])
-                            event['id'] = created_notification['_id']
+                            if created_notification:
+                                event['id'] = created_notification['_id']
 
         applet_meta = applet['meta'] if 'meta' in applet else {'applet': {}}
         if 'applet' not in applet_meta:
