@@ -563,26 +563,7 @@ class Applet(Resource):
             for event in list(schedule['events']):
                 if 'data' in event and 'useNotifications' in event['data'] and event['data']['useNotifications']:
                     if 'notifications' in event['data'] and event['data']['notifications'][0]['start']:
-                        start_time = event['data']['notifications'][0]['start']
-                        end_time = None
-
-                        if event['data'].get('notifications', None) and event['data']['notifications'][0]['random']:
-                            end_time = event['data']['notifications'][0]['end']
-
-                        # in case of sigle event with exact year, month, day
-                        if 'year' in event['schedule'] and 'month' in event['schedule'] and 'dayOfMonth' in event['schedule']:
-                            start_time = str(str(event['schedule']['year'][0]) + '/' +
-                                             ('0' + str(event['schedule']['month'][0] + 1))[-2:] + '/' +
-                                             ('0' + str(event['schedule']['dayOfMonth'][0]))[-2:] + ' ' +
-                                             start_time)
-
-                            if event['data']['notifications'] and event['data']['notifications'][0]['random']:
-                                end_time = str(str(event['schedule']['year'][0]) + '/' +
-                                               ('0' + str(event['schedule']['month'][0] + 1))[-2:] + '/' +
-                                               ('0' + str(event['schedule']['dayOfMonth'][0]))[-2:] + ' ' +
-                                               end_time)
-
-                        # in case of daily event
+                        # in case of daily/weekly event
                         exist_notification = PushNotificationModel().findOne(
                             query={'applet': applet['_id'],
                                    'creator_id': thisUser['_id']
@@ -593,10 +574,8 @@ class Applet(Resource):
 
                         if not exist_notification:
                             created_notification = PushNotificationModel().createNotification(
-                                applet['_id'], 1,
+                                applet['_id'],
                                 event,
-                                start_time,
-                                end_time,
                                 thisUser['_id'])
                             event['id'] = created_notification['_id']
 
