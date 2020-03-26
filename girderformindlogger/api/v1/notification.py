@@ -176,7 +176,7 @@ class Notification(Resource):
             self.__send_weekly_notifications(user)
 
         result = {'successed': self.success, 'errors': self.error}
-        
+
         self.success = 0
         self.error = 0
 
