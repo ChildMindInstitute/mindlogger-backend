@@ -141,9 +141,13 @@ class PushNotification(Model):
         # will be logic for update schedule
         pass
 
-    def delete_notification(self):
-        # will be logic for delete schedule
-        pass
+    def delete_notification(self, applet, creator_id):
+        self.removeWithQuery(
+            query={
+                'applet': applet,
+                'creator_id': creator_id,
+             }
+        )
 
     def updateProgress(self, record, save=True, **kwargs):
         """

@@ -559,26 +559,27 @@ class Applet(Resource):
             # need logic for deleting
             # intersection of of data from the database for the current user and data received from
             # the front-end
+            PushNotificationModel().delete_notification(applet['_id'], thisUser['_id'])
 
             for event in list(schedule['events']):
                 if 'data' in event and 'useNotifications' in event['data'] and event['data']['useNotifications']:
                     if 'notifications' in event['data'] and event['data']['notifications'][0]['start']:
                         # in case of daily/weekly event
-                        exist_notification = PushNotificationModel().findOne(
-                            query={'applet': applet['_id'],
-                                   'creator_id': thisUser['_id']
-                                   })
+                        # exist_notification = PushNotificationModel().findOne(
+                        #     query={'applet': applet['_id'],
+                        #            'creator_id': thisUser['_id']
+                        #            })
 
                         # should be the logic to update existing event
                         # PushNotificationModel().update_notification
 
-                        if not exist_notification:
-                            created_notification = PushNotificationModel().createNotification(
-                                applet['_id'],
-                                event,
-                                thisUser['_id'])
-                            if created_notification:
-                                event['id'] = created_notification['_id']
+                        # if not exist_notification:
+                        created_notification = PushNotificationModel().createNotification(
+                            applet['_id'],
+                            event,
+                            thisUser['_id'])
+                        if created_notification:
+                            event['id'] = created_notification['_id']
 
         applet_meta = applet['meta'] if 'meta' in applet else {'applet': {}}
         if 'applet' not in applet_meta:
