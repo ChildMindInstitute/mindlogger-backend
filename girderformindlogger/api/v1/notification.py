@@ -175,7 +175,12 @@ class Notification(Resource):
             self.__send_daily_notifications(user)
             self.__send_weekly_notifications(user)
 
-        return {'successed': self.success, 'errors': self.error}
+        result = {'successed': self.success, 'errors': self.error}
+        
+        self.success = 0
+        self.error = 0
+
+        return result
 
     def __send_weekly_notifications(self, user):
         """
