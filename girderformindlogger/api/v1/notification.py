@@ -163,7 +163,12 @@ class Notification(Resource):
                              not notification['endTime']]
 
             for notification in notifications:
-                if self.__does_profile_exists(notification, user):
+                user_data_send = self.user_timezone_time.strftime('%Y/%m/%d')
+                notification_date_send = notification['dateSend']
+                profile_exists = self.__does_profile_exists(notification, user)
+
+                if profile_exists and (
+                    not notification_date_send or user_data_send > notification_date_send):
                     self.__send_notification(notification, user)
                 PushNotificationModel().save(notification, validate=False)
 
@@ -209,7 +214,6 @@ class Notification(Resource):
 
                 if to_send:
                     self.__send_notification(notification, user)
-                    notification['dateSend'] = self.user_timezone_time.strftime('%Y/%m/%d')
                     PushNotificationModel().save(notification, validate=False)
 
     def __send_daily_notifications(self, user):
@@ -248,7 +252,6 @@ class Notification(Resource):
 
                 if to_send:
                     self.__send_notification(notification, user)
-                    notification['dateSend'] = self.user_timezone_time.strftime('%Y/%m/%d')
                     PushNotificationModel().save(notification, validate=False)
 
     def __send_random_notifications(self, notifications, user):
@@ -284,7 +287,6 @@ class Notification(Resource):
                                                              or user_data_send > notification_date_send)
 
                 if to_send:
-                    notification['dateSend'] = self.user_timezone_time.strftime('%Y/%m/%d')
                     self.__send_notification(notification, user)
                 PushNotificationModel().save(notification, validate=False)
 
@@ -314,6 +316,7 @@ class Notification(Resource):
         :params user: User to send the notification to.
         :params user: dict
         """
+        notification['dateSend'] = self.user_timezone_time.strftime('%Y/%m/%d')
         message_title = notification['head']
         message_body = notification['content']
         result = self.push_service.notify_multiple_devices(registration_ids=[user['deviceId']],
