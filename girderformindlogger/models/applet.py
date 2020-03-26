@@ -407,6 +407,23 @@ class Applet(FolderModel):
         ))
         return(applets if isinstance(applets, list) else [applets])
 
+    def reloadAndUpdateCache(self, applet, coordinator):
+        from girderformindlogger.models.protocol import Protocol
+
+        protocolUrl = applet.get('meta', {}).get('protocol', applet).get(
+            'http://schema.org/url',
+            applet.get('meta', {}).get('protocol', applet).get('url')
+        )
+        if protocolUrl is not None:
+            Protocol().getFromUrl(
+                    protocolUrl,
+                    'protocol',
+                    coordinator,
+                    thread=False,
+                    refreshCache=True
+                )
+            self.updateUserCacheAllUsersAllRoles(applet, coordinator)
+
     def updateUserCacheAllUsersAllRoles(self, applet, coordinator):
         from girderformindlogger.models.profile import Profile as ProfileModel
 
