@@ -41,7 +41,7 @@ class PushNotification(Model):
     def validate(self, doc):
         return doc
 
-    def createNotification(self, applet, event, creator_id):
+    def replaceNotification(self, applet, event, creator_id, original = None):
         """
         Create a generic notification.
 
@@ -65,7 +65,7 @@ class PushNotification(Model):
 
         users = []
         if 'users' in event['data']:
-            users = [bson.ObjectId(oid=user['_id']) for user in event['data']['users'] if user]
+            users = [bson.ObjectId(oid=user) for user in event['data']['users'] if user]
 
         if 'schedule' in event:
             if 'start' in event['schedule'] and 'end' in event['schedule']:
@@ -131,19 +131,30 @@ class PushNotification(Model):
                 'created': current_time,
                 'updated': current_time,
                 'progress': ProgressState.ACTIVE,
-                'attempts': 0
+                'attempts': 0,
+                'event_id': event['data'].get('id')
             }
+
+            if original:
+                push_notification.update({
+                    '_id': original.get('_id'),
+                    'progress': original.get('progress'),
+                    'attempts': original.get('attempts'),
+                })
+                
+                if start_time > datetime.datetime.utcnow().strftime('%Y/%m/%d %H:%M'):
+                    push_notification.update({
+                        'progress': ProgressState.ACTIVE
+                    })
 
             return self.save(push_notification)
         return None
 
-    def update_notification(self):
-        # will be logic for update schedule
-        pass
-
-    def delete_notification(self):
-        # will be logic for delete schedule
-        pass
+    def delete_notification(self, applet, creator_id, event_id):
+        self.removeWithQuery(query={'applet': applet,
+                                   'creator_id': creator_id,
+                                   'event_id': event_id
+                                   })
 
     def updateProgress(self, record, save=True, **kwargs):
         """
