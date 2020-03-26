@@ -141,6 +141,9 @@ class Notification(Resource):
                     }}
         )) for p in list(ProfileModel().find(query={'userId': {'$exists': True}}))]
 
+        # filter for users
+        users = [user for user in users if user]
+
         for user in users:
             self.user_timezone_time = datetime.datetime.strptime(now, '%Y/%m/%d %H:%M') \
                                       + datetime.timedelta(hours=int(user['timezone']))
