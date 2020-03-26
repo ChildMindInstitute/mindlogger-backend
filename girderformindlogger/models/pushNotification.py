@@ -56,65 +56,75 @@ class PushNotification(Model):
             instead of a user.
         :type token: dict
         """
+        current_date = datetime.datetime.utcnow()
         current_time = time.time()
         notification_type = 1
         start_time = event['data']['notifications'][0]['start']
         end_time = None
+        date_send = None
 
-        schedule = {}
+        schedule = {
+            "start": (current_date - datetime.timedelta(days=1)).strftime('%Y/%m/%d'),
+            "end": '2045/12/30'
+        }
 
         users = []
         if 'users' in event['data']:
             users = [bson.ObjectId(oid=user['_id']) for user in event['data']['users'] if user]
 
         if 'schedule' in event:
-            if 'start' in event['schedule'] and 'end' in event['schedule']:
-                if 'dayOfWeek' in event['schedule']:
-                    """
-                    Weekly configuration in case of weekly event
-                    """
-                    notification_type = 3
-                    schedule['start'] = datetime.datetime.fromtimestamp(
-                        float(event['schedule']['start']) / 1000).strftime('%Y/%m/%d')
-                    schedule['end'] = datetime.datetime.fromtimestamp(
-                        float(event['schedule']['end']) / 1000).strftime('%Y/%m/%d')
-                    schedule['dayOfWeek'] = event['schedule']['dayOfWeek'][0]
-                else:
-                    """
-                    Daily configuration in case of daily event
-                    """
-                    notification_type = 2
-                    schedule['start'] = datetime.datetime.fromtimestamp(
-                        float(event['schedule']['start']) / 1000).strftime('%Y/%m/%d')
-                    schedule['end'] = datetime.datetime.fromtimestamp(
-                        float(event['schedule']['end']) / 1000).strftime('%Y/%m/%d')
-            else:
-                if 'dayOfMonth' in event['schedule']:
-                    """
-                    Does not repeat configuration in case of sigle event with exact year, month, day
-                    """
-                    print('day of month')
-                    if event['data'].get('notifications', None) and \
-                        event['data']['notifications'][0][
-                            'random']:
-                        end_time = event['data']['notifications'][0]['end']
-                    if 'year' in event['schedule'] and 'month' in event[
-                        'schedule'] and 'dayOfMonth' in \
-                        event['schedule']:
-                        start_time = str(str(event['schedule']['year'][0]) + '/' +
-                                         ('0' + str(event['schedule']['month'][0] + 1))[-2:] + '/' +
-                                         ('0' + str(event['schedule']['dayOfMonth'][0]))[
-                                         -2:] + ' ' +
-                                         start_time)
+            if 'dayOfMonth' in event['schedule']:
+                """
+                Does not repeat configuration in case of sigle event with exact year, month, day
+                """
+                print('day of month')
+                schedule = {}
+                if event['data'].get('notifications', None) and \
+                    event['data']['notifications'][0][
+                        'random']:
+                    end_time = event['data']['notifications'][0]['end']
+                if 'year' in event['schedule'] and 'month' in event[
+                    'schedule'] and 'dayOfMonth' in \
+                    event['schedule']:
+                    start_time = str(str(event['schedule']['year'][0]) + '/' +
+                                     ('0' + str(event['schedule']['month'][0] + 1))[-2:] + '/' +
+                                     ('0' + str(event['schedule']['dayOfMonth'][0]))[
+                                     -2:] + ' ' +
+                                     start_time)
 
-                        if event['data']['notifications'] and event['data']['notifications'][0][
-                            'random']:
-                            end_time = str(str(event['schedule']['year'][0]) + '/' +
-                                           ('0' + str(event['schedule']['month'][0] + 1))[
-                                           -2:] + '/' +
-                                           ('0' + str(event['schedule']['dayOfMonth'][0]))[
-                                           -2:] + ' ' +
-                                           end_time)
+                    if event['data']['notifications'] and event['data']['notifications'][0][
+                        'random']:
+                        end_time = str(str(event['schedule']['year'][0]) + '/' +
+                                       ('0' + str(event['schedule']['month'][0] + 1))[
+                                       -2:] + '/' +
+                                       ('0' + str(event['schedule']['dayOfMonth'][0]))[
+                                       -2:] + ' ' +
+                                       end_time)
+            elif 'dayOfWeek' in event['schedule']:
+                """
+                Weekly configuration in case of weekly event
+                """
+
+                notification_type = 3
+                if 'start' in event['schedule'] and event['schedule']['start']:
+                    schedule['start'] = datetime.datetime.fromtimestamp(
+                        float(event['schedule']['start']) / 1000).strftime('%Y/%m/%d')
+                if 'end' in event['schedule'] and event['schedule']['end']:
+                    schedule['end'] = datetime.datetime.fromtimestamp(
+                        float(event['schedule']['end']) / 1000).strftime('%Y/%m/%d')
+                schedule['dayOfWeek'] = event['schedule']['dayOfWeek'][0]
+                date_send = (current_date - datetime.timedelta(days=1)).strftime('%Y/%m/%d')
+            else:
+                """
+                Daily configuration in case of daily event
+                """
+                notification_type = 2
+                if 'start' in event['schedule'] and event['schedule']['start']:
+                    schedule['start'] = datetime.datetime.fromtimestamp(
+                        float(event['schedule']['start']) / 1000).strftime('%Y/%m/%d')
+                if 'end' in event['schedule'] and event['schedule']['end']:
+                    schedule['end'] = datetime.datetime.fromtimestamp(
+                        float(event['schedule']['end']) / 1000).strftime('%Y/%m/%d')
 
             push_notification = {
                 'applet': applet,
@@ -126,7 +136,7 @@ class PushNotification(Model):
                 'startTime': start_time,
                 'endTime': end_time,
                 'lastRandomTime': None,
-                'dateSend': None,
+                'dateSend': date_send,
                 'creator_id': creator_id,
                 'created': current_time,
                 'updated': current_time,
