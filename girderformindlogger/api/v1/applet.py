@@ -560,17 +560,13 @@ class Applet(Resource):
             for event in list(schedule['events']):
                 if 'data' in event and 'useNotifications' in event['data'] and event['data']['useNotifications']:
                     if 'notifications' in event['data'] and event['data']['notifications'][0]['start']:
+
                         # in case of daily/weekly event
                         exist_notification = None
 
-                        if 'id' in event['data']:
-                            assigned[event['data']['id']] = True
-
-                            exist_notification = PushNotificationModel().findOne(
-                                query={'applet': applet['_id'],
-                                    'creator_id': thisUser['_id'],
-                                    'event_id': event['data']['id']
-                                })
+                        if 'id' in event:
+                            event['id'] = ObjectId(event['id'])
+                            exist_notification = PushNotificationModel().findOne(query={'_id': event['id']})
 
                         if exist_notification:
                             PushNotificationModel().replaceNotification(
@@ -578,22 +574,24 @@ class Applet(Resource):
                                 event,
                                 thisUser['_id'],
                                 exist_notification)
+                            assigned[event['id']] = True
                         else:
                             created_notification = PushNotificationModel().replaceNotification(
                                 applet['_id'],
                                 event,
                                 thisUser['_id'])
+
                             if created_notification:
                                 event['id'] = created_notification['_id']
+                                assigned[event['id']] = True
 
         original_schedule = applet.get('meta', {}).get('applet', {}).get('schedule', {})
 
         if 'events' in original_schedule:
             for event in original_schedule['events']:
-                if 'data' in event and 'id' in event['data']:
-                    original_id = event['data']['id']
+                    original_id = event.get('id')
                     if original_id not in assigned:
-                        PushNotificationModel().delete_notification(applet['_id'], thisUser['_id'], original_id)
+                        PushNotificationModel().delete_notification(original_id)
 
         applet_meta = applet['meta'] if 'meta' in applet else {'applet': {}}
         if 'applet' not in applet_meta:

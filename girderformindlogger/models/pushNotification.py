@@ -132,7 +132,6 @@ class PushNotification(Model):
                 'updated': current_time,
                 'progress': ProgressState.ACTIVE,
                 'attempts': 0,
-                'event_id': event['data'].get('id')
             }
 
             if original:
@@ -150,11 +149,8 @@ class PushNotification(Model):
             return self.save(push_notification)
         return None
 
-    def delete_notification(self, applet, creator_id, event_id):
-        self.removeWithQuery(query={'applet': applet,
-                                   'creator_id': creator_id,
-                                   'event_id': event_id
-                                   })
+    def delete_notification(self, event_id):
+        self.removeWithQuery(query={'_id': event_id})
 
     def updateProgress(self, record, save=True, **kwargs):
         """
