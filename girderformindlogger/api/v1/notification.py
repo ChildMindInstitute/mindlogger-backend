@@ -48,6 +48,7 @@ class Notification(Resource):
     user_timezone_time = None
     success = 0
     error = 0
+    log = '[Single] '
 
     def __init__(self):
         super(Notification, self).__init__()
@@ -148,6 +149,7 @@ class Notification(Resource):
             self.user_timezone_time = datetime.datetime.strptime(now, '%Y/%m/%d %H:%M') \
                                       + datetime.timedelta(hours=int(user['timezone']))
 
+            self.log = '[Single] '
             notifications = list(PushNotificationModel().find(
                 query={
                     'progress': ProgressState.ACTIVE,
@@ -167,9 +169,14 @@ class Notification(Resource):
                 notification_date_send = notification['dateSend']
                 profile_exists = self.__does_profile_exists(notification, user)
 
-                if profile_exists and (
-                    not notification_date_send or user_data_send > notification_date_send):
-                    self.__send_notification(notification, user)
+                if profile_exists:
+                    self.logging_notification_user(notification, '')
+
+                    to_send = not notification_date_send or user_data_send > notification_date_send
+
+                    self.logging_send(to_send, '')
+                    if to_send:
+                        self.__send_notification(notification, user)
                 PushNotificationModel().save(notification, validate=False)
 
             self.__send_daily_notifications(user)
@@ -188,6 +195,7 @@ class Notification(Resource):
         :param user: User to send the notification to.
         :type user: dict
         """
+        self.log = '[Weekly] '
         notifications = list(PushNotificationModel().find(
             query={
                 'notification_type': 3,
@@ -207,6 +215,8 @@ class Notification(Resource):
 
         for notification in notifications:
             if self.__does_profile_exists(notification, user):
+                self.logging_notification_user(notification)
+
                 user_time = self.user_timezone_time.strftime('%H:%M')
                 notification_time = notification['startTime']
                 day_of_week = int(self.user_timezone_time.weekday()) + 1
@@ -217,6 +227,7 @@ class Notification(Resource):
                 to_send = day_of_week == notification_day_of_week and user_time > notification_time and (
                     not notification_date_send or user_data_send > notification_date_send)
 
+                self.logging_send(to_send)
                 if to_send:
                     self.__send_notification(notification, user)
                     PushNotificationModel().save(notification, validate=False)
@@ -227,6 +238,7 @@ class Notification(Resource):
         :param user: User to send the notification to.
         :type user: dict
         """
+        self.log = '[Daily] '
         notifications = list(PushNotificationModel().find(
             query={
                 'notification_type': 2,
@@ -246,6 +258,7 @@ class Notification(Resource):
 
         for notification in notifications:
             if self.__does_profile_exists(notification, user):
+                self.logging_notification_user(notification)
                 user_time = self.user_timezone_time.strftime('%H:%M')
                 notification_time = notification['startTime']
 
@@ -255,6 +268,7 @@ class Notification(Resource):
                 to_send = user_time > notification_time and (not notification_date_send
                                                              or user_data_send > notification_date_send)
 
+                self.logging_send(to_send)
                 if to_send:
                     self.__send_notification(notification, user)
                     PushNotificationModel().save(notification, validate=False)
@@ -272,6 +286,7 @@ class Notification(Resource):
 
         for notification in notifications_with_end:
             if self.__does_profile_exists(notification, user):
+                self.logging_notification_user(notification, 'random ')
                 format_str = '%Y/%m/%d %H:%M' if notification['notification_type'] == 1 else '%H:%M'
 
                 if not notification['lastRandomTime'] or notification['dateSend']:
@@ -291,6 +306,7 @@ class Notification(Resource):
                 to_send = user_time > notification_time and (not notification_date_send
                                                              or user_data_send > notification_date_send)
 
+                self.logging_send(to_send, 'random ')
                 if to_send:
                     self.__send_notification(notification, user)
                 PushNotificationModel().save(notification, validate=False)
@@ -348,3 +364,9 @@ class Notification(Resource):
                 }
             ))
         ]
+
+    def logging_notification_user(self, notification, extra_text=''):
+        print('{}{}notification - {} has user!'.format(self.log, extra_text, notification["_id"]))
+
+    def logging_send(self, to_send, extra_text=''):
+        print('{}{}Will be sent? - {}'.format(self.log, extra_text, str(to_send)))
