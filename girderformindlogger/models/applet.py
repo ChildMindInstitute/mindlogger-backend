@@ -559,7 +559,11 @@ class Applet(FolderModel):
                                 notForCurrentUser = False
                                 break
                 if not notForCurrentUser:
-                    events.append(event)
+                    eventData = copy.deepcopy(event)
+                    if 'data' in eventData and 'users' in eventData['data']:
+                        eventData['data'].pop('users')
+
+                    events.append(eventData)
 
             if len(events):
                 newSchedule = schedule.copy()
