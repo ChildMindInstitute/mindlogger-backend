@@ -8,6 +8,9 @@ Changes
 -------
 Unreleased
 ==========
+2019-03-21: v0.13.11
+fix issue 838: Display name bug for new applets
+
 2019-03-20: v0.13.9
 fix memory issue which cause CORS error
 2019-03-16: v0.13.8
