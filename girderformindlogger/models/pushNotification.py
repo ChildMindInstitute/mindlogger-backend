@@ -75,9 +75,8 @@ class PushNotification(Model):
         if 'schedule' in event:
             if 'dayOfMonth' in event['schedule']:
                 """
-                Does not repeat configuration in case of sigle event with exact year, month, day
+                Does not repeat configuration in case of single event with exact year, month, day
                 """
-                print('day of month')
                 schedule = {}
                 if event['data'].get('notifications', None) and \
                     event['data']['notifications'][0][

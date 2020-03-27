@@ -170,14 +170,9 @@ class Notification(Resource):
                 profile_exists = self.__does_profile_exists(notification, user)
 
                 if profile_exists:
-                    self.logging_notification_user(notification, '')
-
                     to_send = not notification_date_send or user_data_send > notification_date_send
-
-                    self.logging_send(to_send, '')
                     if to_send:
                         self.__send_notification(notification, user)
-                PushNotificationModel().save(notification, validate=False)
 
             self.__send_daily_notifications(user)
             self.__send_weekly_notifications(user)
@@ -215,7 +210,6 @@ class Notification(Resource):
 
         for notification in notifications:
             if self.__does_profile_exists(notification, user):
-                self.logging_notification_user(notification)
 
                 user_time = self.user_timezone_time.strftime('%H:%M')
                 notification_time = notification['startTime']
@@ -227,10 +221,8 @@ class Notification(Resource):
                 to_send = day_of_week == notification_day_of_week and user_time > notification_time and (
                     not notification_date_send or user_data_send > notification_date_send)
 
-                self.logging_send(to_send)
                 if to_send:
                     self.__send_notification(notification, user)
-                    PushNotificationModel().save(notification, validate=False)
 
     def __send_daily_notifications(self, user):
         """
@@ -258,7 +250,6 @@ class Notification(Resource):
 
         for notification in notifications:
             if self.__does_profile_exists(notification, user):
-                self.logging_notification_user(notification)
                 user_time = self.user_timezone_time.strftime('%H:%M')
                 notification_time = notification['startTime']
 
@@ -268,10 +259,8 @@ class Notification(Resource):
                 to_send = user_time > notification_time and (not notification_date_send
                                                              or user_data_send > notification_date_send)
 
-                self.logging_send(to_send)
                 if to_send:
                     self.__send_notification(notification, user)
-                    PushNotificationModel().save(notification, validate=False)
 
     def __send_random_notifications(self, notifications, user):
         """
@@ -286,7 +275,6 @@ class Notification(Resource):
 
         for notification in notifications_with_end:
             if self.__does_profile_exists(notification, user):
-                self.logging_notification_user(notification, 'random ')
                 format_str = '%Y/%m/%d %H:%M' if notification['notification_type'] == 1 else '%H:%M'
 
                 if not notification['lastRandomTime'] or notification['dateSend']:
@@ -306,7 +294,6 @@ class Notification(Resource):
                 to_send = user_time > notification_time and (not notification_date_send
                                                              or user_data_send > notification_date_send)
 
-                self.logging_send(to_send, 'random ')
                 if to_send:
                     self.__send_notification(notification, user)
                 PushNotificationModel().save(notification, validate=False)
@@ -354,8 +341,10 @@ class Notification(Resource):
             notification['progress'] = ProgressState.SUCCESS
             self.success += result['success']
 
+        PushNotificationModel().save(notification, validate=False)
+
     def __does_profile_exists(self, notification, user):
-        return user['_id'] in [
+        user_list = [
             profile['userId'] for profile in list(ProfileModel().find(
                 query={
                     '_id': {
@@ -363,10 +352,12 @@ class Notification(Resource):
                     }
                 }
             ))
+        ] if len(notification['users']) else [
+            profile['userId'] for profile in list(ProfileModel().find(
+                query={
+                    'appletId': notification['applet']
+                }
+            ))
         ]
 
-    def logging_notification_user(self, notification, extra_text=''):
-        print('{}{}notification - {} has user!'.format(self.log, extra_text, notification["_id"]))
-
-    def logging_send(self, to_send, extra_text=''):
-        print('{}{}Will be sent? - {}'.format(self.log, extra_text, str(to_send)))
+        return user['_id'] in user_list
