@@ -70,7 +70,7 @@ class PushNotification(Model):
 
         users = []
         if 'users' in event['data']:
-            users = [bson.ObjectId(oid=user['_id']) for user in event['data']['users'] if user]
+            users = [bson.ObjectId(oid=user) for user in event['data']['users'] if user]
 
         if 'schedule' in event:
             if 'dayOfMonth' in event['schedule']:
