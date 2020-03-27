@@ -194,8 +194,17 @@ class Applet(FolderModel):
         )
 
         name = name if name is not None and len(name) else displayName
-        if len(displayName) == 0:
-            displayName = name if len(name) else "activity"
+
+        displayName = None
+        candidates = ['prefLabel', 'altLabel']
+
+        for candidate in candidates:
+            for key in protocol:
+                if str(key).endswith(candidate) and len(protocol[key]) and len(protocol[key][0].get('@value', '')) and displayName is None:
+                    displayName = protocol[key][0]['@value']
+
+        if displayName is None or len(displayName) == 0:
+            displayName = name if len(name) else 'applet'
 
         applet = self.createApplet(
             name=name,
