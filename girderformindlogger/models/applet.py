@@ -83,7 +83,7 @@ class Applet(FolderModel):
         if displayName == None:
             displayName = 'applet'
 
-        displayName = self.validateAppletDisplayName(displayName, appletsCollection)
+        displayName = self.validateAppletDisplayName(displayName, appletsCollection, user)
 
         # create new applet
         applet = self.setMetadata(
@@ -148,7 +148,7 @@ class Applet(FolderModel):
             refreshCache=False
         ))
 
-    def validateAppletDisplayName(self, displayName, appletsCollection):
+    def validateAppletDisplayName(self, displayName, appletsCollection, user):
         name = displayName
         found = False
         n = 0
@@ -157,7 +157,8 @@ class Applet(FolderModel):
             existing = self.findOne({
                 'parentId': appletsCollection['_id'],
                 'displayName': name,
-                'parentCollection': 'collection'
+                'parentCollection': 'collection',
+                'creatorId': user['_id']
             })
             if existing:
                 found = False
