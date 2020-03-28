@@ -80,6 +80,240 @@ def nightyNight(timer):
         timer = timer - 1
 
 
+def updateUser(user):
+    return(UserModel().load(user['_id'], user=user))
+
+
+def getExpandedApplets(user):
+    """
+    get the fully expanded applet for a user
+
+    inputs
+    ------
+    user: a user object
+    """
+    currentUser = authenticate(user)
+    applets = AppletModel().getAppletsForUser(
+        role='user',
+        user=currentUser
+    )
+    try:
+        expandedApplets = [
+            jsonld_expander.formatLdObject(
+                applet,
+                'applet',
+                currentUser
+            ) for applet in applets
+        ]
+    except:
+        return(applets)
+    # TODO: add some checks to the structure of expandedApplets to make sure
+    # the mobile app can parse it.
+    testObjectLanguageEncoding(expandedApplets)
+    return expandedApplets
+
+
+# def refreshApplet(user, appletObject):
+#     """
+#     refresh an applet
+#
+#     inputs
+#     ------
+#     user: a user object
+#     appletObject: appletObject.
+#     """
+#     currentUser = authenticate(user)
+#     appletId = appletObject['_id']
+#     refreshResp = {} #girder.get('applet/{}?refreshCache=true'.format(appletId))
+#     # TODO: somehow check that the refresh actually worked?
+#     return refreshResp
+
+
+def addSchedule(user, appletObject):
+    """
+    add a schedule to an applet
+
+    inputs
+    ------
+
+    user: a user object
+    appletObject: appletObject.
+    """
+    from girderformindlogger.api.v1.applet import _setConstraints
+    activityURL = "".join([
+        REPROLIB_CANONICAL,
+        "activities/MindLoggerDemo/MindLoggerDemo_schema"
+    ])
+    scheduleString = json.dumps({
+        "type":2,
+        "size":1,
+        "fill":True,
+        "minimumSize":0,
+        "repeatCovers":True,
+        "listTimes":False,
+        "eventsOutside":False,
+        "updateRows":False,
+        "updateColumns":False,
+        "around":1567321200000,
+        "events":[{
+            "data":{
+                "title":"MindLogger Demo activity",
+                "description":"",
+                "location":"",
+                "color":"#673AB7",
+                "forecolor":"#ffffff",
+                "calendar":"",
+                "busy":True,
+                "icon":"",
+                "URI":activityURL,
+                "notifications":[{
+                    "start":"09:00",
+                    "end":None,
+                    "random":False,
+                    "notifyIfIncomplete":False
+                }],
+                "useNotifications":True
+            },
+            "schedule":{}
+        }]
+    })
+    schedule = json.loads(scheduleString)
+    putResp = _setConstraints(appletObject, None, schedule, user).get(
+        'meta',
+        {'applet': {'schedule': None}}
+    )
+    assert putResp['applet']['schedule'] == schedule
+
+
+def inviteUserToApplet(user, appletObject, userB):
+    """
+    invite a user to an applet
+
+    inputs
+    ------
+    user: a user object
+    appletObject:
+    userB: a user object of a user you want to invite. If they aren't
+    defined yet, it should be a dict(email="emailaddress")
+    """
+
+    groupId = appletObject['roles']['user']['groups'][0]['id']
+    currentUser = authenticate(user)
+    group = Group().load(id=ObjectId(groupId), force=True)
+
+    Invitation().createInvitation(
+        appletObject,
+        currentUser,
+        role="user",
+        profile=Profile().createProfile(appletObject, userB),
+        idCode=None
+    )
+    return Group().inviteUser(group, userB, level=AccessType.READ)
+    # inviteResp = girder.post('group/{}/invitation'.format(groupId), {
+    #     "email": userB['email']
+    # })
+    # assert inviteResp['public'] == False, 'invite is public!'
+    # assert len(inviteResp['access']['users']), 'ths user was not added'
+    # return inviteResp
+
+
+def getUserTable(user, appletObject):
+    """
+    returns a table of users/reviewers/managers for an applet
+    for a user that's a manager
+
+    inputs
+    ------
+    user: admin user object
+    appletObject: appletObject
+    """
+    authenticate(user)
+    appletUsers = girder.get('applet/{}/users'.format(appletObject['_id']))
+    return appletUsers
+
+
+def getLast7Days(user, appletObject):
+    currentUser = authenticate(user)
+    appletId = appletObject['_id']
+    appletInfo = AppletModel().findOne({'_id': ObjectId(appletId)})
+    return(last7Days(appletId, appletInfo, currentUser.get('_id'), currentUser))
+
+
+def makeAReviewer(user, appletObject, userB):
+    """
+    give a user reviewer priveleges
+
+    inputs
+    ------
+    user: admin user object
+    appletObject: appletObject
+    userB: user to make a reviewer
+    """
+    currentUser = authenticate(user)
+    reviewerGroupId = appletObject['roles']['reviewer']['groups'][0]['id']
+    group = Group().load(id=ObjectId(reviewerGroupId), force=True)
+    return Group().addUser(group, currentUser, level=AccessType.READ)
+
+
+def acceptReviewerInvite(user, appletObject):
+    """
+    accept a reviewer invite for an applet
+
+    inputs
+    ------
+    user: non-manager, non-reviewer user object
+    appletObject: appletObject
+    """
+    authenticate(user)
+    reviewerGroupId = appletObject['roles']['reviewer']['groups'][0]['id']
+    userCReviewerInvite = girder.post('group/{}/member'.format(reviewerGroupId))
+    return userCReviewerInvite
+
+
+def removeApplet(user, appletObject):
+    """
+    remove an applet from a user without deleting their data
+
+    inputs
+    ------
+    user: admin user object
+    appletObject: appletObject
+    """
+    currentUser = authenticate(user)
+    groupId = appletObject['roles']['user']['groups'][0]['id']
+    Group().removeUser(Group().load(id=groupId, force=True), user=currentUser)
+
+
+def deleteApplet(user, appletObject):
+    """
+    remove an applet from a user and also delete the user's data.
+
+    inputs
+    ------
+    user: admin user object
+    appletObject: appletObject
+    """
+    currentUser = authenticate(user)
+    groupId = appletObject['roles']['user']['groups'][0]['id']
+    Group().removeUser(
+        Group().load(id=groupId, force=True),
+        user=currentUser,
+        delete=True
+    )
+
+
+def deactivateApplet(user, appletObject):
+    """
+
+    inputs
+    ------
+    user: admin user object
+    appletObject: appletObject
+    """
+    authenticate(user)
+    return girder.delete('applet/{}'.format(appletObject['_id']))
+
+
 def testCreateUser(email=None, admin=False):
     """
     Create a test user
@@ -315,139 +549,6 @@ def testObjectLanguageEncoding(obj):
     return(None)
 
 
-def getExpandedApplets(user):
-    """
-    get the fully expanded applet for a user
-
-    inputs
-    ------
-    user: a user object
-    """
-    currentUser = authenticate(user)
-    applets = AppletModel().getAppletsForUser(
-        role='user',
-        user=currentUser
-    )
-    try:
-        expandedApplets = [
-            jsonld_expander.formatLdObject(
-                applet,
-                'applet',
-                currentUser
-            ) for applet in applets
-        ]
-    except:
-        return(applets)
-    # TODO: add some checks to the structure of expandedApplets to make sure
-    # the mobile app can parse it.
-    testObjectLanguageEncoding(expandedApplets)
-    return expandedApplets
-
-
-# def refreshApplet(user, appletObject):
-#     """
-#     refresh an applet
-#
-#     inputs
-#     ------
-#     user: a user object
-#     appletObject: appletObject.
-#     """
-#     currentUser = authenticate(user)
-#     appletId = appletObject['_id']
-#     refreshResp = {} #girder.get('applet/{}?refreshCache=true'.format(appletId))
-#     # TODO: somehow check that the refresh actually worked?
-#     return refreshResp
-
-
-def addSchedule(user, appletObject):
-    """
-    add a schedule to an applet
-
-    inputs
-    ------
-
-    user: a user object
-    appletObject: appletObject.
-    """
-    from girderformindlogger.api.v1.applet import _setConstraints
-    activityURL = "".join([
-        REPROLIB_CANONICAL,
-        "activities/MindLoggerDemo/MindLoggerDemo_schema"
-    ])
-    scheduleString = json.dumps({
-        "type":2,
-        "size":1,
-        "fill":True,
-        "minimumSize":0,
-        "repeatCovers":True,
-        "listTimes":False,
-        "eventsOutside":False,
-        "updateRows":False,
-        "updateColumns":False,
-        "around":1567321200000,
-        "events":[{
-            "data":{
-                "title":"MindLogger Demo activity",
-                "description":"",
-                "location":"",
-                "color":"#673AB7",
-                "forecolor":"#ffffff",
-                "calendar":"",
-                "busy":True,
-                "icon":"",
-                "URI":activityURL,
-                "notifications":[{
-                    "start":"09:00",
-                    "end":None,
-                    "random":False,
-                    "notifyIfIncomplete":False
-                }],
-                "useNotifications":True
-            },
-            "schedule":{}
-        }]
-    })
-    schedule = json.loads(scheduleString)
-    putResp = _setConstraints(appletObject, None, schedule, user).get(
-        'meta',
-        {'applet': {'schedule': None}}
-    )
-    assert putResp['applet']['schedule'] == schedule
-
-
-def inviteUserToApplet(user, appletObject, userB):
-    """
-    invite a user to an applet
-
-    inputs
-    ------
-    user: a user object
-    appletObject:
-    userB: a user object of a user you want to invite. If they aren't
-    defined yet, it should be a dict(email="emailaddress")
-    """
-
-    groupId = appletObject['roles']['user']['groups'][0]['id']
-    currentUser = authenticate(user)
-    group = Group().load(id=ObjectId(groupId), force=True)
-
-    Invitation().createInvitation(
-        appletObject,
-        currentUser,
-        role="user",
-        profile=Profile().createProfile(appletObject, userB),
-        idCode=None
-    )
-    return Group().inviteUser(group, userB, level=AccessType.READ)
-    # inviteResp = girder.post('group/{}/invitation'.format(groupId), {
-    #     "email": userB['email']
-    # })
-    # assert inviteResp['public'] == False, 'invite is public!'
-    # assert len(inviteResp['access']['users']), 'ths user was not added'
-    # return inviteResp
-
-
 def testUserInviteFromManager(user, appletObject, userB):
     """
     check that a user's list of invites has our applet
@@ -546,21 +647,6 @@ def testAcceptAppletInvite(user, appletObject, role):
         'lowerName'
     ], "group name does not include \"{}\"".format(role)
     return 1
-
-
-def getUserTable(user, appletObject):
-    """
-    returns a table of users/reviewers/managers for an applet
-    for a user that's a manager
-
-    inputs
-    ------
-    user: admin user object
-    appletObject: appletObject
-    """
-    authenticate(user)
-    appletUsers = girder.get('applet/{}/users'.format(appletObject['_id']))
-    return appletUsers
 
 
 def testAppletUserTable(user, appletObject, userB):
@@ -669,13 +755,6 @@ def testPostResponse(user, actURI, itemURI, appletObject, password="password"):
     return resp
 
 
-def getLast7Days(user, appletObject):
-    currentUser = authenticate(user)
-    appletId = appletObject['_id']
-    appletInfo = AppletModel().findOne({'_id': ObjectId(appletId)})
-    return(last7Days(appletId, appletInfo, currentUser.get('_id'), currentUser))
-
-
 def testGetDataForApplet(user, appletObject):
     """
     get the data for an applet (as a manager or reviewer)
@@ -735,37 +814,6 @@ def testGetDataForApplet(user, appletObject):
     return formattedOutputResponse
 
 
-def makeAReviewer(user, appletObject, userB):
-    """
-    give a user reviewer priveleges
-
-    inputs
-    ------
-    user: admin user object
-    appletObject: appletObject
-    userB: user to make a reviewer
-    """
-    currentUser = authenticate(user)
-    reviewerGroupId = appletObject['roles']['reviewer']['groups'][0]['id']
-    group = Group().load(id=ObjectId(reviewerGroupId), force=True)
-    return Group().addUser(group, currentUser, level=AccessType.READ)
-
-
-def acceptReviewerInvite(user, appletObject):
-    """
-    accept a reviewer invite for an applet
-
-    inputs
-    ------
-    user: non-manager, non-reviewer user object
-    appletObject: appletObject
-    """
-    authenticate(user)
-    reviewerGroupId = appletObject['roles']['reviewer']['groups'][0]['id']
-    userCReviewerInvite = girder.post('group/{}/member'.format(reviewerGroupId))
-    return userCReviewerInvite
-
-
 def testPrivacyCheck(user, appletObject):
     """
     make sure the user cannot see private information
@@ -780,50 +828,6 @@ def testPrivacyCheck(user, appletObject):
         raise ValueError('User can see private data!!')
     except HttpError:
         return 1
-
-
-def removeApplet(user, appletObject):
-    """
-    remove an applet from a user without deleting their data
-
-    inputs
-    ------
-    user: admin user object
-    appletObject: appletObject
-    """
-    currentUser = authenticate(user)
-    groupId = appletObject['roles']['user']['groups'][0]['id']
-    Group().removeUser(Group().load(id=groupId, force=True), user=currentUser)
-
-
-def deleteApplet(user, appletObject):
-    """
-    remove an applet from a user and also delete the user's data.
-
-    inputs
-    ------
-    user: admin user object
-    appletObject: appletObject
-    """
-    currentUser = authenticate(user)
-    groupId = appletObject['roles']['user']['groups'][0]['id']
-    Group().removeUser(
-        Group().load(id=groupId, force=True),
-        user=currentUser,
-        delete=True
-    )
-
-
-def deactivateApplet(user, appletObject):
-    """
-
-    inputs
-    ------
-    user: admin user object
-    appletObject: appletObject
-    """
-    authenticate(user)
-    return girder.delete('applet/{}'.format(appletObject['_id']))
 
 
 def testDeleteUser(user):
@@ -861,10 +865,6 @@ def tryExceptTester(func, args, message, nreturn = 1):
         print(sys.exc_info())
         print(traceback.print_tb(sys.exc_info()[2]))
         raise(e)
-
-
-def updateUser(user):
-    return(UserModel().load(user['_id'], user=user))
 
 
 def testElses():
