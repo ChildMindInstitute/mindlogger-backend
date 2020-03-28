@@ -543,6 +543,8 @@ class Applet(FolderModel):
 
         if filterRequired and 'events' in schedule:
             events = []
+            valid = []
+            individualized = {}
 
             for event in schedule['events']:
                 notForCurrentUser = 'data' in event and 'users' in event['data']
@@ -558,12 +560,22 @@ class Applet(FolderModel):
                             if profilesCache.get(appletUser, '') == user['_id']:
                                 notForCurrentUser = False
                                 break
-                if not notForCurrentUser:
-                    eventData = copy.deepcopy(event)
-                    if 'data' in eventData and 'users' in eventData['data']:
-                        eventData['data'].pop('users')
+                if notForCurrentUser:
+                    valid.append(False)
+                else:
+                    valid.append(True)
+                    if 'data' in event and 'title' in event['data'] and 'users' in event['data']:
+                        individualized[event['data']['title']] = True
 
-                    events.append(eventData)
+            i = 0
+            for event in schedule['events']:
+                if 'data' in event and 'title' in event['data'] and valid[i]:
+                    if 'users' in event['data'] or event['data']['title'] not in individualized:
+                        eventData = copy.deepcopy(event)
+                        if 'users' in eventData['data']:
+                            eventData['data'].pop('users')
+                        events.append(eventData)
+                i = i + 1
 
             if len(events):
                 newSchedule = schedule.copy()
