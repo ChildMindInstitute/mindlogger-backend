@@ -30,6 +30,56 @@ from pymongo import DESCENDING
 girder = {} # TODO: Delete once all in Python
 sleepInterval = 5
 
+
+def authenticate(user, password="password"):
+    """
+    authenticate a user
+
+    inputs
+    ------
+    user: a user object
+    password: (optional) defaults to 'password'
+
+    returns
+    -------
+    user
+    """
+    return(
+        UserModel().authenticate(
+            login=user['login'] if isinstance(user, dict) else user,
+            password=password
+        )
+    )
+
+
+def authenticateWithEmailAddress(email, password="password"):
+    """
+    authenticate a user by email address
+
+    inputs
+    ------
+    email: string
+    password: (optional) defaults to 'password'
+
+    returns
+    -------
+    user
+    """
+    return(
+        UserModel().authenticate(
+            login=email,
+            password=password
+        )
+    )
+
+
+def nightyNight(timer):
+    while(timer > 0):
+        print("😴   {}".format(str(timer)))
+        time.sleep(1)
+        timer = timer - 1
+
+
 def testCreateUser(email=None, admin=False):
     """
     Create a test user
@@ -71,47 +121,8 @@ def testCreateUser(email=None, admin=False):
 
     return createUser
 
-def authenticate(user, password="password"):
-    """
-    authenticate a user
 
-    inputs
-    ------
-    user: a user object
-    password: (optional) defaults to 'password'
-
-    returns
-    -------
-    user
-    """
-    return(
-        UserModel().authenticate(
-            login=user['login'] if isinstance(user, dict) else user,
-            password=password
-        )
-    )
-
-def authenticateWithEmailAddress(email, password="password"):
-    """
-    authenticate a user by email address
-
-    inputs
-    ------
-    email: string
-    password: (optional) defaults to 'password'
-
-    returns
-    -------
-    user
-    """
-    return(
-        UserModel().authenticate(
-            login=email,
-            password=password
-        )
-    )
-
-def getAppletById(user, ar):
+def testGetAppletById(user, ar):
     """
     make sure the user has exactly one expected applet in its list
 
@@ -134,13 +145,21 @@ def getAppletById(user, ar):
     ))
 
 
-def checkActivitySequence(a, e):
+def testActivitySequence(a, e):
+    """
+    make sure two applet objects have the same order
+
+    inputs
+    ------
+    a: a user object
+    e: an applet
+    """
     assert a['applet'][
         'reprolib:terms/order'
     ]==e['applet']['reprolib:terms/order']
 
 
-def addApplet(new_user, protocolUrl):
+def testAddApplet(new_user, protocolUrl):
     """
     adds an applet for the user, where the user becomes a manager for it.
 
@@ -203,27 +222,21 @@ def addApplet(new_user, protocolUrl):
 
     assert ar['applet']['_id'], 'there is no ID!'
 
-    assert getAppletById(
+    assert testGetAppletById(
         new_user,
         ar
-    ) is not None, 'something wrong with getAppletById'
+    ) is not None, 'something wrong with testGetAppletById'
     return ar
 
 
-def nightyNight(timer):
-    while(timer > 0):
-        print("😴   {}".format(str(timer)))
-        time.sleep(1)
-        timer = timer - 1
-
-
-def getAppletsUser(user, n=1):
+def testNumberOfApplets(user, n=1):
     """
     count applets for the user, and assert the length is a given amount.
 
     inputs
     ------
     user: a user object
+    n: number of expected applets for the user
     """
     currentUser = authenticate(user)
     appletList = AppletModel().getAppletsForUser(role='user', user=currentUser)
@@ -249,7 +262,7 @@ def getAppletsUser(user, n=1):
     return appletList
 
 
-def checkForLanguageEncodedURL(obj):
+def testUrlLanguageEncoding(obj):
     """
     Checks if URL is language-encoded (URLs should not be)
 
@@ -273,7 +286,7 @@ def checkForLanguageEncodedURL(obj):
     return(False)
 
 
-def checkObjectForURLs(obj):
+def testObjectLanguageEncoding(obj):
     """
     Recursively checks if a dict is keyed with 'url'. If so, it checks for
     language encoding.
@@ -287,18 +300,18 @@ def checkObjectForURLs(obj):
     None
     """
     if isinstance(obj, list):
-        [checkObjectForURLs(o) for o in obj]
+        [testObjectLanguageEncoding(o) for o in obj]
     elif isinstance(obj, dict):
         languageEncodedURLs = [
             obj[k] for k in obj.keys(
             ) if k.split('/')[-1].split(':')[-1].lower(
-            )=="url" and checkForLanguageEncodedURL(obj[k])
+            )=="url" and testUrlLanguageEncoding(obj[k])
         ]
         if any(languageEncodedURLs):
             raise ValidationException(
                 "Language-encoded URL: {}".format(str(languageEncodedURLs))
             )
-        [checkObjectForURLs(obj[k]) for k in obj.keys()]
+        [testObjectLanguageEncoding(obj[k]) for k in obj.keys()]
     return(None)
 
 
@@ -327,7 +340,7 @@ def getExpandedApplets(user):
         return(applets)
     # TODO: add some checks to the structure of expandedApplets to make sure
     # the mobile app can parse it.
-    checkObjectForURLs(expandedApplets)
+    testObjectLanguageEncoding(expandedApplets)
     return expandedApplets
 
 
@@ -435,7 +448,7 @@ def inviteUserToApplet(user, appletObject, userB):
     # return inviteResp
 
 
-def checkInvitesForUser(user, appletObject, userB):
+def testUserInviteFromManager(user, appletObject, userB):
     """
     check that a user's list of invites has our applet
     from the perspective of the manager
@@ -458,7 +471,7 @@ def checkInvitesForUser(user, appletObject, userB):
     return 1
 
 
-def checkForInvite(user, appletObject):
+def testUserInviteFromUser(user, appletObject):
     """
     check that a user has an invite, from the perspective of the user
 
@@ -518,7 +531,7 @@ def checkForInvite(user, appletObject):
     return groupId
 
 
-def acceptAppletInvite(user, appletObject, role):
+def testAcceptAppletInvite(user, appletObject, role):
     """
     accept an applet invite
 
@@ -527,7 +540,7 @@ def acceptAppletInvite(user, appletObject, role):
     user: admin user object
     appletObject: appletObject
     """
-    groupId = checkForInvite(user, appletObject)
+    groupId = testUserInviteFromUser(user, appletObject)
     resp = Group().joinGroup(Group().load(groupId, force=True), user)
     assert role in resp[
         'lowerName'
@@ -550,7 +563,7 @@ def getUserTable(user, appletObject):
     return appletUsers
 
 
-def checkAppletUserTableForUser(user, appletObject, userB):
+def testAppletUserTable(user, appletObject, userB):
     """
     check the user table for a user (as a manager)
 
@@ -565,7 +578,7 @@ def checkAppletUserTableForUser(user, appletObject, userB):
     return ut
 
 
-def postResponse(user, actURI, itemURI, appletObject, password="password"):
+def testPostResponse(user, actURI, itemURI, appletObject, password="password"):
     """
 
     post a response as a user
@@ -664,7 +677,7 @@ def getLast7Days(user, appletObject):
     return(last7Days(appletId, appletInfo, currentUser.get('_id'), currentUser))
 
 
-def getDataForApplet(user, appletObject):
+def testGetDataForApplet(user, appletObject):
     """
     get the data for an applet (as a manager or reviewer)
 
@@ -738,6 +751,7 @@ def makeAReviewer(user, appletObject, userB):
     group = Group().load(id=ObjectId(reviewerGroupId), force=True)
     return Group().addUser(group, currentUser, level=AccessType.READ)
 
+
 def acceptReviewerInvite(user, appletObject):
     """
     accept a reviewer invite for an applet
@@ -763,10 +777,11 @@ def testPrivacyCheck(user, appletObject):
     appletObject: appletObject
     """
     try:
-        getDataForApplet(user, appletObject)
+        testGetDataForApplet(user, appletObject)
         raise ValueError('User can see private data!!')
     except HttpError:
         return 1
+
 
 def removeApplet(user, appletObject):
     """
@@ -822,6 +837,7 @@ def testDeleteUser(user):
 
     return 1
 
+
 def tryExceptTester(func, args, message, nreturn = 1):
     """
     a wrapper function to run a function and print a message in green if it succeeds
@@ -848,8 +864,10 @@ def tryExceptTester(func, args, message, nreturn = 1):
         raise(e)
         return [None] * nreturn
 
+
 def updateUser(user):
     return(UserModel().load(user['_id'], user=user))
+
 
 def testElses():
     from bson.errors import InvalidId
@@ -864,7 +882,7 @@ def testElses():
 
 def testTests():
     with pytest.raises(ValidationException) as excinfo:
-        checkObjectForURLs({"url": {
+        testObjectLanguageEncoding({"url": {
             "@language": "en",
             "@value": "https://mindlogger.org"
         }})
@@ -898,21 +916,21 @@ def fullTest(protocolUrl, act1, act2, act1Item, act2Item, expectedResults=None):
 
     # make sure the user has 0 applets
     def step02(user):
-        no_applets = getAppletsUser(user, 0)
+        no_applets = testNumberOfApplets(user, 0)
         return no_applets
 
-    no_applets = tryExceptTester(step02,
-                                 [user],
-                                 'Make sure the user has 0 applets')
+    tryExceptTester(step02,
+        [user],
+        'Make sure the user has 0 applets')
 
     # add an applet and make sure it was added
     def step03(user, protocolUrl):
-        appletObject = addApplet(user, protocolUrl)
-        appletList = getAppletsUser(user, 1)
-        checkItWasAdded = getAppletById(user, appletObject)
+        appletObject = testAddApplet(user, protocolUrl)
+        appletList = testNumberOfApplets(user, 1)
+        checkItWasAdded = testGetAppletById(user, appletObject)
         return appletObject, appletList, checkItWasAdded
 
-    appletObject, appletList, checkItWasAdded = tryExceptTester(
+    appletObject, _appletList, checkItWasAdded = tryExceptTester(
         step03,
         [user, protocolUrl],
         'add an applet and make sure it was added',
@@ -922,7 +940,7 @@ def fullTest(protocolUrl, act1, act2, act1Item, act2Item, expectedResults=None):
     appletObject = checkItWasAdded
 
     if expectedResults and expectedResults is not None:
-        checkActivitySequence(appletObject, expectedResults)
+        testActivitySequence(appletObject, expectedResults)
 
     # expand and refresh the applet
     # print('\033[1;37;40m expand and refresh the applet')
@@ -983,7 +1001,7 @@ def fullTest(protocolUrl, act1, act2, act1Item, act2Item, expectedResults=None):
     # check that the manager invited the user
     # print('check that the manager invited the user')
     # def step07(user, appletObject, userB):
-    #     checkInvitesForUser(user, appletObject, userB)
+    #     testUserInviteFromManager(user, appletObject, userB)
     #
     # tryExceptTester(
     #     step07,
@@ -994,7 +1012,7 @@ def fullTest(protocolUrl, act1, act2, act1Item, act2Item, expectedResults=None):
     # accept the applet invite
     # print('accept the applet invite')
     # def step08(userB, appletObject):
-    #     acceptAppletInvite(userB, appletObject, 'user')
+    #     testAcceptAppletInvite(userB, appletObject, 'user')
     #
     # tryExceptTester(step08, [userB, appletObject], 'accept the applet invite')
 
@@ -1004,7 +1022,7 @@ def fullTest(protocolUrl, act1, act2, act1Item, act2Item, expectedResults=None):
     # def step09(user, appletObject):
     #     userCemail = 'randomuserc{}@test.com'.format(np.random.randint(1000000))
     #     inviteC = {} # inviteUserToApplet(user, appletObject, {'email': userCemail})
-    #     appletUserTable = {} #checkAppletUserTableForUser(user, appletObject, {'email': userCemail})
+    #     appletUserTable = {} #testAppletUserTable(user, appletObject, {'email': userCemail})
     #     return userCemail, inviteC, appletUserTable
     #
     # userCemail, inviteC, appletUserTable = tryExceptTester(
@@ -1020,7 +1038,7 @@ def fullTest(protocolUrl, act1, act2, act1Item, act2Item, expectedResults=None):
     #
     # def step10(userCemail):
     #     userC = testCreateUser(userCemail)
-    #     userCApplets = getAppletsUser(userC, 0)
+    #     userCApplets = testNumberOfApplets(userC, 0)
     #     return userC, userCApplets
     #
     # userC, userCApplets = tryExceptTester(
@@ -1033,8 +1051,8 @@ def fullTest(protocolUrl, act1, act2, act1Item, act2Item, expectedResults=None):
     # # check from perspective of admin and user, if the invite exists.
     # # print('check from perspective of admin and user, if the invite exists.')
     # def step11(user, appletObject, userC):
-    #     checkInvitesForUser(user, appletObject, userC)
-    #     checkForInvite(userC, appletObject)
+    #     testUserInviteFromManager(user, appletObject, userC)
+    #     testUserInviteFromUser(userC, appletObject)
     #
     # tryExceptTester(
     #     step11,
@@ -1044,8 +1062,8 @@ def fullTest(protocolUrl, act1, act2, act1Item, act2Item, expectedResults=None):
     #
     # # accept user c's invitation
     # def step12(userC, appletObject):
-    #     acceptAppletInvite(userC, appletObject, 'user')
-    #     userCApplets = getAppletsUser(userC, 1)
+    #     testAcceptAppletInvite(userC, appletObject, 'user')
+    #     userCApplets = testNumberOfApplets(userC, 1)
     #     return userCApplets
     #
     # userCApplets = tryExceptTester(
@@ -1059,9 +1077,9 @@ def fullTest(protocolUrl, act1, act2, act1Item, act2Item, expectedResults=None):
     def step13(user, userB, userC, act1, act1Item, act2, act2Item, appletObject):
         for u in [user, userB]:
             for i in range(2):
-                postResponse(u, act1, act1Item, appletObject)
+                testPostResponse(u, act1, act1Item, appletObject)
                 time.sleep(1)
-                postResponse(u, act2, act2Item, appletObject)
+                testPostResponse(u, act2, act2Item, appletObject)
                 time.sleep(1)
             time.sleep(1)
 
@@ -1137,7 +1155,7 @@ def fullTest(protocolUrl, act1, act2, act1Item, act2Item, expectedResults=None):
 
     # # as a manager, see the data. make sure you see emails
     # def step15(user, appletObject):
-    #     appletData = getDataForApplet(user, appletObject)
+    #     appletData = testGetDataForApplet(user, appletObject)
     #     assert '@' in appletData[0]['userId'], 'manager cannot see emails'
     #     return appletData
     #
@@ -1164,7 +1182,7 @@ def fullTest(protocolUrl, act1, act2, act1Item, act2Item, expectedResults=None):
     # as a reviewer, see the data and make sure you don't see emails
     # print('as a reviewer, see the data and make sure you don\'t see emails')
     # def step17(userC, appletObject):
-    #     appletData = getDataForApplet(userC, appletObject)
+    #     appletData = testGetDataForApplet(userC, appletObject)
     #     assert '@' not in appletData[0]['userId'], 'reviewer can see emails'
     #     return appletData
     #
@@ -1192,8 +1210,8 @@ def fullTest(protocolUrl, act1, act2, act1Item, act2Item, expectedResults=None):
     #
     # def step19(userC, appletObject):
     #     removeApplet(userC, appletObject)
-    #     userCApplets = getAppletsUser(userC, 0)
-    #     appletData = getDataForApplet(user, appletObject)
+    #     userCApplets = testNumberOfApplets(userC, 0)
+    #     appletData = testGetDataForApplet(user, appletObject)
     #
     #     userCData = list(filter(lambda x: x['userId'] == userC['login'],
     #                         appletData))
@@ -1209,8 +1227,8 @@ def fullTest(protocolUrl, act1, act2, act1Item, act2Item, expectedResults=None):
     #
     # def step20(userB, appletObject):
     #     deleteApplet(userB, appletObject)
-    #     userBApplets = getAppletsUser(userB, 0)
-    #     appletData = getDataForApplet(user, appletObject)
+    #     userBApplets = testNumberOfApplets(userB, 0)
+    #     appletData = testGetDataForApplet(user, appletObject)
     #
     #     userBData = list(filter(lambda x: x['userId'] == userB['login'],
     #                             appletData))
