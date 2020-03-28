@@ -189,7 +189,7 @@ def testAddApplet(new_user, protocolUrl):
     userApplets = userAppletsToStart.copy()
 
     # for now, lets do the mindlogger demo
-    protocol = ProtocolModel().getFromUrl(
+    ProtocolModel().getFromUrl(
         protocolUrl,
         'protocol',
         currentUser
@@ -432,7 +432,7 @@ def inviteUserToApplet(user, appletObject, userB):
     currentUser = authenticate(user)
     group = Group().load(id=ObjectId(groupId), force=True)
 
-    invitation = Invitation().createInvitation(
+    Invitation().createInvitation(
         appletObject,
         currentUser,
         role="user",
@@ -459,7 +459,7 @@ def testUserInviteFromManager(user, appletObject, userB):
     appletObject: appletObject
     userB: user who you want to check you invited
     """
-    currentUser = authenticate(user)
+    authenticate(user)
     groupId = appletObject['roles']['user']['groups'][0]['id']
     pendingInvites = girder.get('group/{}/invitation'.format(groupId))
     value = False
@@ -558,7 +558,7 @@ def getUserTable(user, appletObject):
     user: admin user object
     appletObject: appletObject
     """
-    currentUser = authenticate(user)
+    authenticate(user)
     appletUsers = girder.get('applet/{}/users'.format(appletObject['_id']))
     return appletUsers
 
@@ -592,7 +592,6 @@ def testPostResponse(user, actURI, itemURI, appletObject, password="password"):
     password (optional): defaults to password
     """
     currentUser = authenticate(user, password)
-    appletId = appletObject['_id']
 
     expandedApplet = jsonld_expander.formatLdObject(
         appletObject,
@@ -761,7 +760,7 @@ def acceptReviewerInvite(user, appletObject):
     user: non-manager, non-reviewer user object
     appletObject: appletObject
     """
-    currentUser = authenticate(user)
+    authenticate(user)
     reviewerGroupId = appletObject['roles']['reviewer']['groups'][0]['id']
     userCReviewerInvite = girder.post('group/{}/member'.format(reviewerGroupId))
     return userCReviewerInvite
@@ -823,12 +822,12 @@ def deactivateApplet(user, appletObject):
     user: admin user object
     appletObject: appletObject
     """
-    currentUser = authenticate(user)
+    authenticate(user)
     return girder.delete('applet/{}'.format(appletObject['_id']))
 
 
 def testDeleteUser(user):
-    currentUser = authenticate(user)
+    authenticate(user)
 
     deleteUser = girder.delete('user/{}'.format(user['_id']))
 
@@ -862,7 +861,6 @@ def tryExceptTester(func, args, message, nreturn = 1):
         print(sys.exc_info())
         print(traceback.print_tb(sys.exc_info()[2]))
         raise(e)
-        return [None] * nreturn
 
 
 def updateUser(user):
@@ -899,14 +897,14 @@ def fullTest(protocolUrl, act1, act2, act1Item, act2Item, expectedResults=None):
         existingUser = UserModel().findOne({})
         if existingUser is None:
             # First user will be admin on a new image
-            admin = testCreateUser(admin=True)
+            testCreateUser(admin=True)
         user = testCreateUser()
         with pytest.raises(AccessException) as excinfo:
             authenticateWithEmailAddress(
                 user.get('email', 'test@mindlogger.org')
             )
         assert "your username rather than your email" in str(excinfo.value)
-        currentUser = authenticate(user)
+        authenticate(user)
         return user
 
     user = tryExceptTester(step01,
@@ -950,7 +948,7 @@ def fullTest(protocolUrl, act1, act2, act1Item, act2Item, expectedResults=None):
         appletRefreshed = appletsExpanded # refreshApplet(user, appletObject)
         return appletsExpanded, appletRefreshed
 
-    appletsExpanded, appletRefreshed = tryExceptTester(
+    tryExceptTester(
         step04,
         [user, appletObject],
         'expand and refresh the applet',
@@ -984,14 +982,14 @@ def fullTest(protocolUrl, act1, act2, act1Item, act2Item, expectedResults=None):
         userBInvite = inviteUserToApplet(user, appletObject, userB)
         return userB, userBInvite
 
-    userB, userBInvite = tryExceptTester(
+    userB, _userBInvite = tryExceptTester(
         step06,
         [user, appletObject],
         'create a new user and invite them to the applet',
         2
     )
 
-    userC, userCInvite = tryExceptTester(
+    userC, _userCInvite = tryExceptTester(
         step06,
         [user, appletObject],
         'create a new user and invite them to the applet',
@@ -1076,7 +1074,7 @@ def fullTest(protocolUrl, act1, act2, act1Item, act2Item, expectedResults=None):
     # each user posts a response for a single item in each activity.
     def step13(user, userB, userC, act1, act1Item, act2, act2Item, appletObject):
         for u in [user, userB]:
-            for i in range(2):
+            for _ in range(2):
                 testPostResponse(u, act1, act1Item, appletObject)
                 time.sleep(1)
                 testPostResponse(u, act2, act2Item, appletObject)
