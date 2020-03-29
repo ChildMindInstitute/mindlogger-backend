@@ -41,7 +41,7 @@ class PushNotification(Model):
     def validate(self, doc):
         return doc
 
-    def createNotification(self, applet, event, creator_id):
+    def replaceNotification(self, applet, event, creator_id, original = None):
         """
         Create a generic notification.
 
@@ -142,21 +142,24 @@ class PushNotification(Model):
                 'progress': ProgressState.ACTIVE,
                 'attempts': 0
             }
+            
+            if original:
+                push_notification.update({
+                    '_id': original.get('_id'),
+                    'progress': original.get('progress'),
+                    'attempts': original.get('attempts'),
+                })
+                
+                if start_time > datetime.datetime.utcnow().strftime('%Y/%m/%d %H:%M'):
+                    push_notification.update({
+                        'progress': ProgressState.ACTIVE
+                    })
 
             return self.save(push_notification)
         return None
 
-    def update_notification(self):
-        # will be logic for update schedule
-        pass
-
-    def delete_notification(self, applet, creator_id):
-        self.removeWithQuery(
-            query={
-                'applet': applet,
-                'creator_id': creator_id,
-             }
-        )
+    def delete_notification(self, event_id):
+        self.removeWithQuery(query={'_id': event_id})
 
     def updateProgress(self, record, save=True, **kwargs):
         """
