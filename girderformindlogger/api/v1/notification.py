@@ -349,6 +349,9 @@ class Notification(Resource):
                 query={
                     '_id': {
                         '$in': notification['users']
+                    },
+                    'userId': {
+                        '$exists': True
                     }
                 }
             ))
