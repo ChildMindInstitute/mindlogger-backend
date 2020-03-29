@@ -83,7 +83,7 @@ class Applet(FolderModel):
         if displayName == None:
             displayName = 'applet'
 
-        displayName = self.validateAppletDisplayName(displayName, appletsCollection)
+        displayName = self.validateAppletDisplayName(displayName, appletsCollection, user)
 
         # create new applet
         applet = self.setMetadata(
@@ -148,7 +148,7 @@ class Applet(FolderModel):
             refreshCache=False
         ))
 
-    def validateAppletDisplayName(self, displayName, appletsCollection):
+    def validateAppletDisplayName(self, displayName, appletsCollection, user):
         name = displayName
         found = False
         n = 0
@@ -157,7 +157,8 @@ class Applet(FolderModel):
             existing = self.findOne({
                 'parentId': appletsCollection['_id'],
                 'displayName': name,
-                'parentCollection': 'collection'
+                'parentCollection': 'collection',
+                'creatorId': user['_id']
             })
             if existing:
                 found = False
@@ -194,8 +195,17 @@ class Applet(FolderModel):
         )
 
         name = name if name is not None and len(name) else displayName
-        if len(displayName) == 0:
-            displayName = name if len(name) else "activity"
+
+        displayName = None
+        candidates = ['prefLabel', 'altLabel']
+
+        for candidate in candidates:
+            for key in protocol:
+                if str(key).endswith(candidate) and len(protocol[key]) and len(protocol[key][0].get('@value', '')) and displayName is None:
+                    displayName = protocol[key][0]['@value']
+
+        if displayName is None or len(displayName) == 0:
+            displayName = name if len(name) else 'applet'
 
         applet = self.createApplet(
             name=name,
@@ -550,6 +560,8 @@ class Applet(FolderModel):
 
         if filterRequired and 'events' in schedule:
             events = []
+            valid = []
+            individualized = {}
 
             for event in schedule['events']:
                 notForCurrentUser = 'data' in event and 'users' in event['data']
@@ -565,8 +577,22 @@ class Applet(FolderModel):
                             if profilesCache.get(appletUser, '') == user['_id']:
                                 notForCurrentUser = False
                                 break
-                if not notForCurrentUser:
-                    events.append(event)
+                if notForCurrentUser:
+                    valid.append(False)
+                else:
+                    valid.append(True)
+                    if 'data' in event and 'title' in event['data'] and 'users' in event['data']:
+                        individualized[event['data']['title']] = True
+
+            i = 0
+            for event in schedule['events']:
+                if 'data' in event and 'title' in event['data'] and valid[i]:
+                    if 'users' in event['data'] or event['data']['title'] not in individualized:
+                        eventData = copy.deepcopy(event)
+                        if 'users' in eventData['data']:
+                            eventData['data'].pop('users')
+                        events.append(eventData)
+                i = i + 1
 
             if len(events):
                 newSchedule = schedule.copy()
