@@ -135,10 +135,10 @@ class Notification(Resource):
     def sendPushNotifications(self):
         now = datetime.datetime.utcnow().strftime('%Y/%m/%d %H:%M')
 
-        users = [UserModel().find({
+        users = list(UserModel().find({
                     'timezone': {
                         '$exists': True
-                    }})]
+                    }}))
 
         # filter for users
         users = [dict(user) for user in users if user]
