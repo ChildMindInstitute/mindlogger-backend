@@ -41,7 +41,7 @@ class PushNotification(Model):
     def validate(self, doc):
         return doc
 
-    def replaceNotification(self, applet, event, creator_id, original = None):
+    def replaceNotification(self, applet, event, user, original = None):
         """
         Create a generic notification.
 
@@ -57,6 +57,7 @@ class PushNotification(Model):
         :type token: dict
         """
         current_date = datetime.datetime.utcnow()
+        current_user_date = current_date + datetime.timedelta(hours=int(user['timezone']))
         current_time = time.time()
         notification_type = 1
         start_time = event['data']['notifications'][0]['start']
@@ -77,28 +78,17 @@ class PushNotification(Model):
                 """
                 Does not repeat configuration in case of single event with exact year, month, day
                 """
-                schedule = {}
                 if event['data'].get('notifications', None) and \
-                    event['data']['notifications'][0][
-                        'random']:
+                    event['data']['notifications'][0]['random']:
                     end_time = event['data']['notifications'][0]['end']
-                if 'year' in event['schedule'] and 'month' in event[
-                    'schedule'] and 'dayOfMonth' in \
-                    event['schedule']:
-                    start_time = str(str(event['schedule']['year'][0]) + '/' +
+                if 'year' in event['schedule'] and 'month' in event['schedule'] \
+                    and 'dayOfMonth' in event['schedule']:
+                    current_date_schedule = str(str(event['schedule']['year'][0]) + '/' +
                                      ('0' + str(event['schedule']['month'][0] + 1))[-2:] + '/' +
-                                     ('0' + str(event['schedule']['dayOfMonth'][0]))[
-                                     -2:] + ' ' +
-                                     start_time)
+                                     ('0' + str(event['schedule']['dayOfMonth'][0]))[-2:])
+                    schedule['start'] = current_date_schedule
+                    schedule['end'] = current_date_schedule
 
-                    if event['data']['notifications'] and event['data']['notifications'][0][
-                        'random']:
-                        end_time = str(str(event['schedule']['year'][0]) + '/' +
-                                       ('0' + str(event['schedule']['month'][0] + 1))[
-                                       -2:] + '/' +
-                                       ('0' + str(event['schedule']['dayOfMonth'][0]))[
-                                       -2:] + ' ' +
-                                       end_time)
             elif 'dayOfWeek' in event['schedule']:
                 """
                 Weekly configuration in case of weekly event
@@ -124,6 +114,7 @@ class PushNotification(Model):
                 if 'end' in event['schedule'] and event['schedule']['end']:
                     schedule['end'] = datetime.datetime.fromtimestamp(
                         float(event['schedule']['end']) / 1000).strftime('%Y/%m/%d')
+                date_send = (current_date - datetime.timedelta(days=1)).strftime('%Y/%m/%d')
 
             push_notification = {
                 'applet': applet,
@@ -136,7 +127,7 @@ class PushNotification(Model):
                 'endTime': end_time,
                 'lastRandomTime': None,
                 'dateSend': date_send,
-                'creator_id': creator_id,
+                'creator_id': user['_id'],
                 'created': current_time,
                 'updated': current_time,
                 'progress': ProgressState.ACTIVE,
@@ -148,13 +139,15 @@ class PushNotification(Model):
                     '_id': original.get('_id'),
                     'progress': original.get('progress'),
                     'attempts': original.get('attempts'),
+                    'dateSend': original.get('dateSend'),
+                    'lastRandomTime': original.get('lastRandomTime')
                 })
 
-                if start_time > datetime.datetime.utcnow().strftime('%Y/%m/%d %H:%M'):
+                if start_time > current_user_date.strftime('%H:%M') \
+                    and schedule['start'] >= current_user_date.strftime('%Y/%m/%d'):
                     push_notification.update({
                         'progress': ProgressState.ACTIVE
                     })
-
             return self.save(push_notification)
         return None
 

@@ -599,17 +599,18 @@ class Applet(Resource):
                             exist_notification = PushNotificationModel().findOne(query={'_id': event['id']})
 
                         if exist_notification:
-                            PushNotificationModel().replaceNotification(
+                            notification = PushNotificationModel().replaceNotification(
                                 applet['_id'],
                                 event,
-                                thisUser['_id'],
+                                thisUser,
                                 exist_notification)
+                            event['id'] = notification['_id']
                             assigned[event['id']] = True
                         else:
                             created_notification = PushNotificationModel().replaceNotification(
                                 applet['_id'],
                                 event,
-                                thisUser['_id'])
+                                thisUser)
 
                             if created_notification:
                                 event['id'] = created_notification['_id']

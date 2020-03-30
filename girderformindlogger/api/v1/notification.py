@@ -147,13 +147,14 @@ class Notification(Resource):
             self.user_timezone_time = datetime.datetime.strptime(now, '%Y/%m/%d %H:%M') \
                                       + datetime.timedelta(hours=int(user['timezone']))
 
-            self.log = '[Single] '
             notifications = list(PushNotificationModel().find(
                 query={
                     'progress': ProgressState.ACTIVE,
                     'notification_type': 1,
+                    'schedule.start': self.user_timezone_time.strftime('%Y/%m/%d'),
+                    'schedule.end': self.user_timezone_time.strftime('%Y/%m/%d'),
                     'startTime': {
-                        '$lte': self.user_timezone_time.strftime('%Y/%m/%d %H:%M')
+                        '$lte': self.user_timezone_time.strftime('%H:%M')
                     }
                 }))
 
@@ -273,7 +274,7 @@ class Notification(Resource):
 
         for notification in notifications_with_end:
             if self.__does_profile_exists(notification, user):
-                format_str = '%Y/%m/%d %H:%M' if notification['notification_type'] == 1 else '%H:%M'
+                format_str = '%H:%M'
 
                 if not notification['lastRandomTime'] or notification['dateSend']:
                     # set random time
@@ -296,7 +297,7 @@ class Notification(Resource):
                     self.__send_notification(notification, user)
                 PushNotificationModel().save(notification, validate=False)
 
-    def __random_date(self, start, end, format_str='%Y/%m/%d %H:%M'):
+    def __random_date(self, start, end, format_str='%H:%M'):
         """
         Random date set between range of date
         :params start: Start date range
