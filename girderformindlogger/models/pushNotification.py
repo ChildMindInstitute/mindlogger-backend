@@ -60,7 +60,7 @@ class PushNotification(Model):
         current_time = time.time()
         notification_type = 1
         start_time = event['data']['notifications'][0]['start']
-        end_time = None
+        end_time = event['data']['notifications'][0]['end']
         date_send = None
 
         schedule = {
@@ -142,14 +142,14 @@ class PushNotification(Model):
                 'progress': ProgressState.ACTIVE,
                 'attempts': 0
             }
-            
+
             if original:
                 push_notification.update({
                     '_id': original.get('_id'),
                     'progress': original.get('progress'),
                     'attempts': original.get('attempts'),
                 })
-                
+
                 if start_time > datetime.datetime.utcnow().strftime('%Y/%m/%d %H:%M'):
                     push_notification.update({
                         'progress': ProgressState.ACTIVE
