@@ -353,13 +353,13 @@ class Notification(Resource):
                         '$exists': True
                     }
                 }
-            ))
+            )) if profile and 'userId' in profile
         ] if len(notification['users']) else [
             profile['userId'] for profile in list(ProfileModel().find(
                 query={
                     'appletId': notification['applet']
                 }
-            ))
+            )) if profile and 'userId' in profile
         ]
 
         return user['_id'] in user_list
