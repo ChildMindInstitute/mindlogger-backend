@@ -867,7 +867,7 @@ def formatLdObject(
 
             if 'displayName' in obj and obj['displayName']:
                 for key in applet['applet']:
-                    if str(key).endswith('#prefLabel') or str(key).endswith('#altLabel'):
+                    if str(key).endswith('prefLabel'):
                         applet['applet'][key] = [{"@language": "en", "@value": obj['displayName']}]
 
             createCache(obj, applet, 'applet', user)
