@@ -535,11 +535,7 @@ class Applet(FolderModel):
             else:
                 postformatted.append(applet)
         user['cached']['applets'].update({role: postformatted})
-        thread = threading.Thread(
-            target=UserModel().save,
-            args=(user,)
-        )
-        thread.start()
+        UserModel().save(user)
         return(formatted)
 
 
