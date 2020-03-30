@@ -52,7 +52,7 @@ class Applet(FolderModel):
         user=None,
         roles=None,
         constraints=None,
-        displayName=None
+        appletName=None
     ):
         """
         Method to create an Applet.
@@ -80,10 +80,7 @@ class Applet(FolderModel):
             CollectionModel().createCollection('Applets')
             appletsCollection = CollectionModel().findOne({"name": "Applets"})
 
-        if displayName == None:
-            displayName = 'applet'
-
-        displayName = self.validateAppletDisplayName(displayName, appletsCollection, user)
+        appletName = self.validateAppletName(appletName, appletsCollection, user)
 
         # create new applet
         applet = self.setMetadata(
@@ -94,7 +91,7 @@ class Applet(FolderModel):
                 public=True,
                 creator=user,
                 allowRename=True,
-                displayName=displayName
+                appletName=appletName
             ),
             metadata={
                 'protocol': protocol,
@@ -148,22 +145,22 @@ class Applet(FolderModel):
             refreshCache=False
         ))
 
-    def validateAppletDisplayName(self, displayName, appletsCollection, user):
-        name = displayName
+    def validateAppletName(self, appletName, appletsCollection, user):
+        name = appletName
         found = False
         n = 0
         while found == False:
             found = True
             existing = self.findOne({
                 'parentId': appletsCollection['_id'],
-                'displayName': name,
+                'appletName': name,
                 'parentCollection': 'collection',
                 'creatorId': user['_id']
             })
             if existing:
                 found = False
                 n = n + 1
-                name = '%s (%d)' % (displayName, n)
+                name = '%s(%d)' % (appletName, n)
 
         return name
 
@@ -178,13 +175,13 @@ class Applet(FolderModel):
     ):
         from girderformindlogger.models.protocol import Protocol
 
-        # get a protocol from a URL (do not load if we already have it in the database)
+        # get a protocol from a URL
         protocol = Protocol().getFromUrl(
             protocolUrl,
             'protocol',
             user,
             thread=False,
-            refreshCache=False
+            refreshCache=True
         )
 
         protocol = protocol[0].get('protocol', protocol[0])
@@ -196,16 +193,7 @@ class Applet(FolderModel):
 
         name = name if name is not None and len(name) else displayName
 
-        displayName = None
-        candidates = ['prefLabel', 'altLabel']
-
-        for candidate in candidates:
-            for key in protocol:
-                if str(key).endswith(candidate) and len(protocol[key]) and len(protocol[key][0].get('@value', '')) and displayName is None:
-                    displayName = protocol[key][0]['@value']
-
-        if displayName is None or len(displayName) == 0:
-            displayName = name if len(name) else 'applet'
+        appletName = '{}/'.format(protocolUrl)
 
         applet = self.createApplet(
             name=name,
@@ -224,7 +212,7 @@ class Applet(FolderModel):
             user=user,
             roles=roles,
             constraints=constraints,
-            displayName=displayName
+            appletName=appletName
         )
         emailMessage = "Your applet, {}, has been successfully created. The "  \
             "applet's ID is {}".format(
