@@ -817,9 +817,16 @@ def formatLdObject(
                 obj.get('meta', {}).get('protocol', obj).get('url')
             )
 
-            # get protocol data from url (load from database unless refreshCache is set to True)
-            protocol = {}
-            if protocolUrl is not None:
+            # get protocol data from id
+            protocol = None
+            protocolId = obj.get('meta', {}).get('protocol', {}).get('_id' ,'').split('/')[-1]
+            if protocolId:
+                cache = ProtocolModel().getCache(protocolId)
+                if cache and isinstance(cache, str) and len(cache):
+                    protocol = loadCache(cache)
+
+            if protocolUrl is not None and not protocol:
+                # get protocol from url
                 protocol = ProtocolModel().getFromUrl(
                             protocolUrl,
                             'protocol',

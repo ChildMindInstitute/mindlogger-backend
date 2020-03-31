@@ -412,14 +412,22 @@ class Applet(FolderModel):
             'http://schema.org/url',
             applet.get('meta', {}).get('protocol', applet).get('url')
         )
+
         if protocolUrl is not None:
-            Protocol().getFromUrl(
-                    protocolUrl,
-                    'protocol',
-                    coordinator,
-                    thread=False,
-                    refreshCache=True
-                )
+            protocol = Protocol().getFromUrl(
+                protocolUrl,
+                'protocol',
+                coordinator,
+                thread=False,
+                refreshCache=True
+            )
+
+            protocol = protocol[0].get('protocol', protocol[0])
+            if protocol.get('_id'):
+                self.update({'_id': ObjectId(applet['_id'])}, {'$set': {'meta.protocol._id': protocol['_id']}})
+                if 'meta' in applet and 'protocol' in applet['meta']:
+                    applet['meta']['protocol']['_id'] = protocol['_id']
+
             self.updateUserCacheAllUsersAllRoles(applet, coordinator)
 
     def updateUserCacheAllUsersAllRoles(self, applet, coordinator):
@@ -427,7 +435,7 @@ class Applet(FolderModel):
 
         if 'cached' in applet:
             applet.pop('cached')
-            self.save(applet, validate=False)
+            self.update({'_id': ObjectId(applet['_id'])}, {'$unset': {'cached': ''}})
 
         [self.updateUserCacheAllRoles(
             UserModel().load(
