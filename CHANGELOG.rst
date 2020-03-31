@@ -8,6 +8,12 @@ Changes
 -------
 Unreleased
 ==========
+
+2019-03-30: v0.13.12
+^^^^^^^^^^^^^^^^^^
+Update invitation html
+
+
 2019-03-21: v0.13.11
 fix issue 838: Display name bug for new applets
 
