@@ -8,6 +8,9 @@ Changes
 -------
 Unreleased
 ==========
+2019-03-31: v.0.13.14
+fix naming issue, caching issue
+
 2019-03-21: v0.13.11
 fix issue 838: Display name bug for new applets
 
