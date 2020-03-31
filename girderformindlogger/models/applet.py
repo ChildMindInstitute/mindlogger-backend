@@ -553,7 +553,7 @@ class Applet(FolderModel):
         if filterRequired and 'events' in schedule:
             events = []
             valid = []
-            individualized = {}
+            individualized = False
 
             for event in schedule['events']:
                 notForCurrentUser = 'data' in event and 'users' in event['data']
@@ -574,12 +574,12 @@ class Applet(FolderModel):
                 else:
                     valid.append(True)
                     if 'data' in event and 'title' in event['data'] and 'users' in event['data']:
-                        individualized[event['data']['title']] = True
+                        individualized = True
 
             i = 0
             for event in schedule['events']:
                 if 'data' in event and 'title' in event['data'] and valid[i]:
-                    if 'users' in event['data'] or event['data']['title'] not in individualized:
+                    if 'users' in event['data'] or not individualized:
                         eventData = copy.deepcopy(event)
                         if 'users' in eventData['data']:
                             eventData['data'].pop('users')
