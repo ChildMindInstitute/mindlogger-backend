@@ -817,9 +817,16 @@ def formatLdObject(
                 obj.get('meta', {}).get('protocol', obj).get('url')
             )
 
-            # get protocol data from url (load from database unless refreshCache is set to True)
-            protocol = {}
-            if protocolUrl is not None:
+            # get protocol data from id
+            protocol = None
+            protocolId = obj.get('meta', {}).get('protocol', {}).get('_id' ,'').split('/')[-1]
+            if protocolId:
+                cache = ProtocolModel().getCache(protocolId)
+                if cache and isinstance(cache, str) and len(cache):
+                    protocol = loadCache(cache)
+
+            if protocolUrl is not None and not protocol:
+                # get protocol from url
                 protocol = ProtocolModel().getFromUrl(
                             protocolUrl,
                             'protocol',
@@ -865,10 +872,17 @@ def formatLdObject(
                 ])
             }
 
-            if 'displayName' in obj and obj['displayName']:
-                for key in applet['applet']:
-                    if str(key).endswith('prefLabel'):
-                        applet['applet'][key] = [{"@language": "en", "@value": obj['displayName']}]
+            if 'appletName' in obj and obj['appletName']:
+                suffix = obj['appletName'].split('/')[-1]
+                inserted = False
+
+                candidates = ['prefLabel', 'altLabel']
+                if len(suffix):
+                    for candidate in candidates:
+                        for key in applet['applet']:
+                            if not inserted and str(key).endswith(candidate) and len(applet['applet'][key]) and len(applet['applet'][key][0].get('@value', '')):
+                                applet['applet'][key][0]['@value'] += (' ' + suffix)
+                                inserted = True
 
             createCache(obj, applet, 'applet', user)
             if responseDates:
