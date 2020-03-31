@@ -2,6 +2,7 @@
 import datetime
 import six
 import time
+import bson
 
 from girderformindlogger.models.model_base import Model
 
@@ -40,7 +41,7 @@ class PushNotification(Model):
     def validate(self, doc):
         return doc
 
-    def createNotification(self, applet, notification_type, head, content, sendTime, creator_id):
+    def replaceNotification(self, applet, event, user, original = None):
         """
         Create a generic notification.
 
@@ -55,26 +56,103 @@ class PushNotification(Model):
             instead of a user.
         :type token: dict
         """
-        result = []
-        timezone_range = range(-12, 15)
-        currentTime = time.time()
-        for delta in timezone_range:
-            doc = {
+        current_date = datetime.datetime.utcnow()
+        current_user_date = current_date + datetime.timedelta(hours=int(user['timezone']))
+        current_time = time.time()
+        notification_type = 1
+        start_time = event['data']['notifications'][0]['start']
+        end_time = event['data']['notifications'][0]['end']
+        date_send = None
+
+        schedule = {
+            "start": (current_date - datetime.timedelta(days=1)).strftime('%Y/%m/%d'),
+            "end": '2045/12/30'
+        }
+
+        users = []
+        if 'users' in event['data']:
+            users = [bson.ObjectId(oid=user) for user in event['data']['users'] if user]
+
+        if 'schedule' in event:
+            if 'dayOfMonth' in event['schedule']:
+                """
+                Does not repeat configuration in case of single event with exact year, month, day
+                """
+                if event['data'].get('notifications', None) and \
+                    event['data']['notifications'][0]['random']:
+                    end_time = event['data']['notifications'][0]['end']
+                if 'year' in event['schedule'] and 'month' in event['schedule'] \
+                    and 'dayOfMonth' in event['schedule']:
+                    current_date_schedule = str(str(event['schedule']['year'][0]) + '/' +
+                                     ('0' + str(event['schedule']['month'][0] + 1))[-2:] + '/' +
+                                     ('0' + str(event['schedule']['dayOfMonth'][0]))[-2:])
+                    schedule['start'] = current_date_schedule
+                    schedule['end'] = current_date_schedule
+
+            elif 'dayOfWeek' in event['schedule']:
+                """
+                Weekly configuration in case of weekly event
+                """
+
+                notification_type = 3
+                if 'start' in event['schedule'] and event['schedule']['start']:
+                    schedule['start'] = datetime.datetime.fromtimestamp(
+                        float(event['schedule']['start']) / 1000).strftime('%Y/%m/%d')
+                if 'end' in event['schedule'] and event['schedule']['end']:
+                    schedule['end'] = datetime.datetime.fromtimestamp(
+                        float(event['schedule']['end']) / 1000).strftime('%Y/%m/%d')
+                schedule['dayOfWeek'] = event['schedule']['dayOfWeek'][0]
+                date_send = (current_date - datetime.timedelta(days=1)).strftime('%Y/%m/%d')
+            else:
+                """
+                Daily configuration in case of daily event
+                """
+                notification_type = 2
+                if 'start' in event['schedule'] and event['schedule']['start']:
+                    schedule['start'] = datetime.datetime.fromtimestamp(
+                        float(event['schedule']['start']) / 1000).strftime('%Y/%m/%d')
+                if 'end' in event['schedule'] and event['schedule']['end']:
+                    schedule['end'] = datetime.datetime.fromtimestamp(
+                        float(event['schedule']['end']) / 1000).strftime('%Y/%m/%d')
+                date_send = (current_date - datetime.timedelta(days=1)).strftime('%Y/%m/%d')
+
+            push_notification = {
                 'applet': applet,
                 'notification_type': notification_type,
-                'head': head,
-                'content': content,
-                'sendTime': datetime.datetime.strptime(sendTime, '%Y/%m/%d %H:%M').strftime('%Y/%m/%d %H:%M'),
-                'creator_id': creator_id,
-                'created': currentTime,
-                'updated': currentTime,
+                'head': event['data']['title'],
+                'content': event['data']['description'],
+                'users': users,
+                'schedule': schedule,
+                'startTime': start_time,
+                'endTime': end_time,
+                'lastRandomTime': None,
+                'dateSend': date_send,
+                'creator_id': user['_id'],
+                'created': current_time,
+                'updated': current_time,
                 'progress': ProgressState.ACTIVE,
-                'timezone': delta,
                 'attempts': 0
             }
-            result.append(self.save(doc))
 
-        return result
+            if original:
+                push_notification.update({
+                    '_id': original.get('_id'),
+                    'progress': original.get('progress'),
+                    'attempts': original.get('attempts'),
+                    'dateSend': original.get('dateSend'),
+                    'lastRandomTime': original.get('lastRandomTime')
+                })
+
+                if start_time > current_user_date.strftime('%H:%M') \
+                    and schedule['start'] >= current_user_date.strftime('%Y/%m/%d'):
+                    push_notification.update({
+                        'progress': ProgressState.ACTIVE
+                    })
+            return self.save(push_notification)
+        return None
+
+    def delete_notification(self, event_id):
+        self.removeWithQuery(query={'_id': event_id})
 
     def updateProgress(self, record, save=True, **kwargs):
         """

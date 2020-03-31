@@ -1,4 +1,6 @@
 # -*- coding: utf-8 -*-
+import random
+
 import cherrypy
 import json
 import time
@@ -14,12 +16,12 @@ from girderformindlogger.exceptions import RestException
 from girderformindlogger.models.notification import Notification as NotificationModel
 from girderformindlogger.models.user import User as UserModel
 from girderformindlogger.models.profile import Profile as ProfileModel
-from girderformindlogger.models.pushNotification import PushNotification as PushNotificationModel, ProgressState
+from girderformindlogger.models.pushNotification import PushNotification as PushNotificationModel, \
+    ProgressState
 from girderformindlogger.models.setting import Setting
 from girderformindlogger.settings import SettingKey
 from girderformindlogger.utility import JsonEncoder
 from girderformindlogger.api import access
-
 
 # If no timeout param is passed to stream, we default to this value
 DEFAULT_STREAM_TIMEOUT = 300
@@ -41,6 +43,13 @@ def sseMessage(event):
 
 
 class Notification(Resource):
+    api_key = 'AAAAJOyOEz4:APA91bFudM5Cc1Qynqy7QGxDBa-2zrttoRw6ZdvE9PQbfIuAB9SFvPje7DcFMmPuX1IizR1NAa7eHC3qXmE6nmOpgQxXbZ0sNO_n1NITc1sE5NH3d8W9ld-cfN7sXNr6IAOuodtEwQy-'
+    push_service = FCMNotification(api_key=api_key, proxy_dict={})
+    user_timezone_time = None
+    success = 0
+    error = 0
+    log = '[Single] '
+
     def __init__(self):
         super(Notification, self).__init__()
         self.resourceName = 'notification'
@@ -52,21 +61,21 @@ class Notification(Resource):
     @access.token(cookie=True)
     @autoDescribeRoute(
         Description('Stream notifications for a given user via the SSE protocol.')
-        .notes('This uses long-polling to keep the connection open for '
-               'several minutes at a time (or longer) and should be requested '
-               'with an EventSource object or other SSE-capable client. '
-               '<p>Notifications are returned within a few seconds of when '
-               'they occur.  When no notification occurs for the timeout '
-               'duration, the stream is closed. '
-               '<p>This connection can stay open indefinitely long.')
-        .param('timeout', 'The duration without a notification before the stream is closed.',
-               dataType='integer', required=False, default=DEFAULT_STREAM_TIMEOUT)
-        .param('since', 'Filter out events before this time stamp.',
-               dataType='integer', required=False)
-        .produces('text/event-stream')
-        .errorResponse()
-        .errorResponse('You are not logged in.', 403)
-        .errorResponse('The notification stream is not enabled.', 503)
+            .notes('This uses long-polling to keep the connection open for '
+                   'several minutes at a time (or longer) and should be requested '
+                   'with an EventSource object or other SSE-capable client. '
+                   '<p>Notifications are returned within a few seconds of when '
+                   'they occur.  When no notification occurs for the timeout '
+                   'duration, the stream is closed. '
+                   '<p>This connection can stay open indefinitely long.')
+            .param('timeout', 'The duration without a notification before the stream is closed.',
+                   dataType='integer', required=False, default=DEFAULT_STREAM_TIMEOUT)
+            .param('since', 'Filter out events before this time stamp.',
+                   dataType='integer', required=False)
+            .produces('text/event-stream')
+            .errorResponse()
+            .errorResponse('You are not logged in.', 403)
+            .errorResponse('The notification stream is not enabled.', 503)
     )
     def stream(self, timeout, params):
         if not Setting().get(SettingKey.ENABLE_NOTIFICATION_STREAM):
@@ -96,18 +105,20 @@ class Notification(Resource):
                     break
 
                 time.sleep(wait)
+
         return streamGen
 
     @disableAuditLog
     @access.token(cookie=True)
     @autoDescribeRoute(
         Description('List notification events')
-        .notes('This endpoint can be used for manual long-polling when '
-               'SSE support is disabled or otherwise unavailable. The events are always '
-               'returned in chronological order.')
-        .param('since', 'Filter out events before this date.', required=False, dataType='dateTime')
-        .errorResponse()
-        .errorResponse('You are not logged in.', 403)
+            .notes('This endpoint can be used for manual long-polling when '
+                   'SSE support is disabled or otherwise unavailable. The events are always '
+                   'returned in chronological order.')
+            .param('since', 'Filter out events before this date.', required=False,
+                   dataType='dateTime')
+            .errorResponse()
+            .errorResponse('You are not logged in.', 403)
     )
     def listNotifications(self, since):
         user, token = self.getCurrentUser(returnToken=True)
@@ -118,50 +129,237 @@ class Notification(Resource):
     @access.public
     @autoDescribeRoute(
         Description('Send push notifications')
-        .errorResponse()
-        .errorResponse('You are not logged in.', 403)
+            .errorResponse()
+            .errorResponse('You are not logged in.', 403)
     )
     def sendPushNotifications(self):
-        success = 0
-        error = 0
         now = datetime.datetime.utcnow().strftime('%Y/%m/%d %H:%M')
-        notifications = PushNotificationModel().find(query={'progress': ProgressState.ACTIVE})
-        for notification in notifications:
-            users = [
-                    UserModel().findOne({
-                        '_id':p['userId']
-                    }) for p in list(
-                        ProfileModel().find(
-                            query={'appletId': notification['applet'], 'userId':{'$exists':True}}
-                        )
-                    )
-            ]
-            deviceIds = [user['deviceId'] for user in users
-                 if ('deviceId' in user)
-                 and int(user.get('timezone', 0)) == int(notification.get('timezone', 0))
-                 and datetime.datetime.strptime(notification['sendTime'], '%Y/%m/%d %H:%M')
-                 <= datetime.datetime.strptime(now, '%Y/%m/%d %H:%M') + datetime.timedelta(hours=int(user['timezone']))]
-            proxy_dict = {
+
+        users = list(UserModel().find({
+                    'timezone': {
+                        '$exists': True
+                    }}))
+
+        # filter for users
+        users = [dict(user) for user in users if user]
+
+        for user in users:
+            self.user_timezone_time = datetime.datetime.strptime(now, '%Y/%m/%d %H:%M') \
+                                      + datetime.timedelta(hours=int(user['timezone']))
+
+            notifications = list(PushNotificationModel().find(
+                query={
+                    'progress': ProgressState.ACTIVE,
+                    'notification_type': 1,
+                    'schedule.start': self.user_timezone_time.strftime('%Y/%m/%d'),
+                    'schedule.end': self.user_timezone_time.strftime('%Y/%m/%d'),
+                    'startTime': {
+                        '$lte': self.user_timezone_time.strftime('%H:%M')
+                    }
+                }))
+
+            self.__send_random_notifications(notifications, user)
+
+            notifications = [notification for notification in notifications if
+                             not notification['endTime']]
+
+            for notification in notifications:
+                user_data_send = self.user_timezone_time.strftime('%Y/%m/%d')
+                notification_date_send = notification['dateSend']
+                profile_exists = self.__does_profile_exists(notification, user)
+
+                if profile_exists:
+                    to_send = not notification_date_send or user_data_send > notification_date_send
+                    if to_send:
+                        self.__send_notification(notification, user)
+
+            self.__send_daily_notifications(user)
+            self.__send_weekly_notifications(user)
+
+        result = {'successed': self.success, 'errors': self.error}
+
+        self.success = 0
+        self.error = 0
+
+        return result
+
+    def __send_weekly_notifications(self, user):
+        """
+        Weekly Notification function
+        :param user: User to send the notification to.
+        :type user: dict
+        """
+        self.log = '[Weekly] '
+        notifications = list(PushNotificationModel().find(
+            query={
+                'notification_type': 3,
+                'schedule.start': {
+                    '$lte': self.user_timezone_time.strftime('%Y/%m/%d')
+                },
+                'schedule.end': {
+                    '$gt': self.user_timezone_time.strftime('%Y/%m/%d')
+                }
             }
-            test_api_key = 'AAAAJOyOEz4:APA91bFudM5Cc1Qynqy7QGxDBa-2zrttoRw6ZdvE9PQbfIuAB9SFvPje7DcFMmPuX1IizR1NAa7eHC3qXmE6nmOpgQxXbZ0sNO_n1NITc1sE5NH3d8W9ld-cfN7sXNr6IAOuodtEwQy-'
-            push_service = FCMNotification(api_key=test_api_key, proxy_dict=proxy_dict)
-            message_title = notification['head']
-            message_body = notification['content']
-            result = push_service.notify_multiple_devices(registration_ids=deviceIds,
-                                                message_title=message_title,
-                                                message_body=message_body)
-            notification['attempts'] += 1
-            notification['progress'] = ProgressState.ACTIVE
-            if result['failure']:
-                notification['progress'] = ProgressState.ERROR
-                error += result['failure']
-                print(result['results'])
+        ))
 
-            if result['success']:
-                notification['progress'] = ProgressState.SUCCESS
-                success += result['success']
+        self.__send_random_notifications(notifications, user)
 
-            PushNotificationModel().save(notification, validate=False)
+        notifications = [notification for notification in notifications if
+                         not notification['endTime']]
 
+        for notification in notifications:
+            if self.__does_profile_exists(notification, user):
 
-        return {'successed':success, 'errors':error}
+                user_time = self.user_timezone_time.strftime('%H:%M')
+                notification_time = notification['startTime']
+                day_of_week = int(self.user_timezone_time.weekday()) + 1
+                notification_day_of_week = int(notification['schedule']['dayOfWeek'])
+                user_data_send = self.user_timezone_time.strftime('%Y/%m/%d')
+                notification_date_send = notification['dateSend']
+
+                to_send = day_of_week == notification_day_of_week and user_time > notification_time and (
+                    not notification_date_send or user_data_send > notification_date_send)
+
+                if to_send:
+                    self.__send_notification(notification, user)
+
+    def __send_daily_notifications(self, user):
+        """
+        Daily Notification function
+        :param user: User to send the notification to.
+        :type user: dict
+        """
+        self.log = '[Daily] '
+        notifications = list(PushNotificationModel().find(
+            query={
+                'notification_type': 2,
+                'schedule.start': {
+                    '$lte': self.user_timezone_time.strftime('%Y/%m/%d')
+                },
+                'schedule.end': {
+                    '$gt': self.user_timezone_time.strftime('%Y/%m/%d')
+                }
+            }
+        ))
+
+        self.__send_random_notifications(notifications, user)
+
+        notifications = [notification for notification in notifications if
+                         not notification['endTime']]
+
+        for notification in notifications:
+            if self.__does_profile_exists(notification, user):
+                user_time = self.user_timezone_time.strftime('%H:%M')
+                notification_time = notification['startTime']
+
+                user_data_send = self.user_timezone_time.strftime('%Y/%m/%d')
+                notification_date_send = notification['dateSend']
+
+                to_send = user_time > notification_time and (not notification_date_send
+                                                             or user_data_send > notification_date_send)
+
+                if to_send:
+                    self.__send_notification(notification, user)
+
+    def __send_random_notifications(self, notifications, user):
+        """
+        Random Notification function
+        :param notifications: List of notification dict
+        :type notifications: list
+        :param user: User to send the notification to.
+        :type user: dict
+        """
+        notifications_with_end = [notification for notification in notifications if
+                                  notification['endTime']]
+
+        for notification in notifications_with_end:
+            if self.__does_profile_exists(notification, user):
+                format_str = '%H:%M'
+
+                if not notification['lastRandomTime'] or notification['dateSend']:
+                    # set random time
+                    notification['lastRandomTime'] = self.__random_date(
+                        notification['startTime'],
+                        notification['endTime'],
+                        format_str
+                    ).strftime(format_str)
+
+                user_time = self.user_timezone_time.strftime(format_str)
+                notification_time = notification['lastRandomTime']
+
+                user_data_send = self.user_timezone_time.strftime('%Y/%m/%d')
+                notification_date_send = notification['dateSend']
+
+                to_send = user_time > notification_time and (not notification_date_send
+                                                             or user_data_send > notification_date_send)
+
+                if to_send:
+                    self.__send_notification(notification, user)
+                PushNotificationModel().save(notification, validate=False)
+
+    def __random_date(self, start, end, format_str='%H:%M'):
+        """
+        Random date set between range of date
+        :params start: Start date range
+        :type start: str
+        :params end: End date range
+        :type end: str
+        :params format_str: Format date
+        :type format_str: str
+        """
+        start_date = datetime.datetime.strptime(start, format_str)
+        end_date = datetime.datetime.strptime(end, format_str)
+
+        time_between_dates = end_date - start_date
+        days_between_dates = time_between_dates.seconds
+        random_number_of_seconds = random.randrange(days_between_dates)
+        return start_date + datetime.timedelta(seconds=random_number_of_seconds)
+
+    def __send_notification(self, notification, user):
+        """
+        Main bode to send notification
+        :params notification: Notification which should be sent to user
+        :params notification: dict
+        :params user: User to send the notification to.
+        :params user: dict
+        """
+        notification['dateSend'] = self.user_timezone_time.strftime('%Y/%m/%d')
+        message_title = notification['head']
+        message_body = notification['content']
+        result = self.push_service.notify_multiple_devices(registration_ids=[user['deviceId']],
+                                                           message_title=message_title,
+                                                           message_body=message_body)
+        notification['attempts'] += 1
+        notification['progress'] = ProgressState.ACTIVE
+        if result['failure']:
+            notification['progress'] = ProgressState.ERROR
+            self.error += result['failure']
+            print(result['results'])
+
+        if result['success']:
+            notification['progress'] = ProgressState.SUCCESS
+            self.success += result['success']
+
+        PushNotificationModel().save(notification, validate=False)
+
+    def __does_profile_exists(self, notification, user):
+        user_list = [
+            profile['userId'] for profile in list(ProfileModel().find(
+                query={
+                    '_id': {
+                        '$in': notification['users']
+                    },
+                    'userId': {
+                        '$exists': True
+                    }
+                }
+            )) if profile and 'userId' in profile
+        ] if len(notification['users']) else [
+            profile['userId'] for profile in list(ProfileModel().find(
+                query={
+                    'appletId': notification['applet']
+                }
+            )) if profile and 'userId' in profile
+        ]
+
+        return user['_id'] in user_list
