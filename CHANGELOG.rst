@@ -8,10 +8,13 @@ Changes
 -------
 Unreleased
 ==========
+2019-03-31: v0.13.15
+fix scheduling functionality
+
 2019-03-31: v0.13.14
 notification system was fixed. (single, multi, daily\weekly notifications)
 
-2019-03-31: v.0.13.13
+2019-03-31: v0.13.13
 fix naming issue, caching issue
 
 2019-03-30: v0.13.12
