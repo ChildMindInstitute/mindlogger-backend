@@ -8,6 +8,18 @@ Changes
 -------
 Unreleased
 ==========
+2019-03-31: v0.13.15
+fix scheduling functionality
+
+2019-03-31: v0.13.14
+notification system was fixed. (single, multi, daily\weekly notifications)
+
+2019-03-31: v0.13.13
+fix naming issue, caching issue
+
+2019-03-30: v0.13.12
+Update invitation html
+
 2019-03-21: v0.13.11
 fix issue 838: Display name bug for new applets
 

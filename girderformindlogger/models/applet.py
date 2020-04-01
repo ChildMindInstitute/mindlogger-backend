@@ -52,7 +52,7 @@ class Applet(FolderModel):
         user=None,
         roles=None,
         constraints=None,
-        displayName=None
+        appletName=None
     ):
         """
         Method to create an Applet.
@@ -80,10 +80,7 @@ class Applet(FolderModel):
             CollectionModel().createCollection('Applets')
             appletsCollection = CollectionModel().findOne({"name": "Applets"})
 
-        if displayName == None:
-            displayName = 'applet'
-
-        displayName = self.validateAppletDisplayName(displayName, appletsCollection, user)
+        appletName = self.validateAppletName(appletName, appletsCollection, user)
 
         # create new applet
         applet = self.setMetadata(
@@ -94,7 +91,7 @@ class Applet(FolderModel):
                 public=True,
                 creator=user,
                 allowRename=True,
-                displayName=displayName
+                appletName=appletName
             ),
             metadata={
                 'protocol': protocol,
@@ -148,22 +145,22 @@ class Applet(FolderModel):
             refreshCache=False
         ))
 
-    def validateAppletDisplayName(self, displayName, appletsCollection, user):
-        name = displayName
+    def validateAppletName(self, appletName, appletsCollection, user):
+        name = appletName
         found = False
         n = 0
         while found == False:
             found = True
             existing = self.findOne({
                 'parentId': appletsCollection['_id'],
-                'displayName': name,
+                'appletName': name,
                 'parentCollection': 'collection',
                 'creatorId': user['_id']
             })
             if existing:
                 found = False
                 n = n + 1
-                name = '%s (%d)' % (displayName, n)
+                name = '%s(%d)' % (appletName, n)
 
         return name
 
@@ -178,13 +175,13 @@ class Applet(FolderModel):
     ):
         from girderformindlogger.models.protocol import Protocol
 
-        # get a protocol from a URL (do not load if we already have it in the database)
+        # get a protocol from a URL
         protocol = Protocol().getFromUrl(
             protocolUrl,
             'protocol',
             user,
             thread=False,
-            refreshCache=False
+            refreshCache=True
         )
 
         protocol = protocol[0].get('protocol', protocol[0])
@@ -196,16 +193,7 @@ class Applet(FolderModel):
 
         name = name if name is not None and len(name) else displayName
 
-        displayName = None
-        candidates = ['prefLabel', 'altLabel']
-
-        for candidate in candidates:
-            for key in protocol:
-                if str(key).endswith(candidate) and len(protocol[key]) and len(protocol[key][0].get('@value', '')) and displayName is None:
-                    displayName = protocol[key][0]['@value']
-
-        if displayName is None or len(displayName) == 0:
-            displayName = name if len(name) else 'applet'
+        appletName = '{}/'.format(protocolUrl)
 
         applet = self.createApplet(
             name=name,
@@ -224,7 +212,7 @@ class Applet(FolderModel):
             user=user,
             roles=roles,
             constraints=constraints,
-            displayName=displayName
+            appletName=appletName
         )
         emailMessage = "Your applet, {}, has been successfully created. The "  \
             "applet's ID is {}".format(
@@ -392,7 +380,8 @@ class Applet(FolderModel):
             str(appletId) in [
                 str(applet.get('_id')) for applet in self.getAppletsForUser(
                     role,
-                    user
+                    user,
+                    idOnly=True
                 ) if applet.get('_id') is not None
             ]
         ))
@@ -417,12 +406,37 @@ class Applet(FolderModel):
         ))
         return(applets if isinstance(applets, list) else [applets])
 
+    def reloadAndUpdateCache(self, applet, coordinator):
+        from girderformindlogger.models.protocol import Protocol
+
+        protocolUrl = applet.get('meta', {}).get('protocol', applet).get(
+            'http://schema.org/url',
+            applet.get('meta', {}).get('protocol', applet).get('url')
+        )
+
+        if protocolUrl is not None:
+            protocol = Protocol().getFromUrl(
+                protocolUrl,
+                'protocol',
+                coordinator,
+                thread=False,
+                refreshCache=True
+            )
+
+            protocol = protocol[0].get('protocol', protocol[0])
+            if protocol.get('_id'):
+                self.update({'_id': ObjectId(applet['_id'])}, {'$set': {'meta.protocol._id': protocol['_id']}})
+                if 'meta' in applet and 'protocol' in applet['meta']:
+                    applet['meta']['protocol']['_id'] = protocol['_id']
+
+            self.updateUserCacheAllUsersAllRoles(applet, coordinator)
+
     def updateUserCacheAllUsersAllRoles(self, applet, coordinator):
         from girderformindlogger.models.profile import Profile as ProfileModel
 
         if 'cached' in applet:
             applet.pop('cached')
-            self.save(applet, validate=False)
+            self.update({'_id': ObjectId(applet['_id'])}, {'$unset': {'cached': ''}})
 
         [self.updateUserCacheAllRoles(
             UserModel().load(
@@ -530,11 +544,7 @@ class Applet(FolderModel):
             else:
                 postformatted.append(applet)
         user['cached']['applets'].update({role: postformatted})
-        thread = threading.Thread(
-            target=UserModel().save,
-            args=(user,)
-        )
-        thread.start()
+        UserModel().save(user)
         return(formatted)
 
 
@@ -544,7 +554,7 @@ class Applet(FolderModel):
         if filterRequired and 'events' in schedule:
             events = []
             valid = []
-            individualized = {}
+            individualized = False
 
             for event in schedule['events']:
                 notForCurrentUser = 'data' in event and 'users' in event['data']
@@ -565,12 +575,12 @@ class Applet(FolderModel):
                 else:
                     valid.append(True)
                     if 'data' in event and 'title' in event['data'] and 'users' in event['data']:
-                        individualized[event['data']['title']] = True
+                        individualized = True
 
             i = 0
             for event in schedule['events']:
                 if 'data' in event and 'title' in event['data'] and valid[i]:
-                    if 'users' in event['data'] or event['data']['title'] not in individualized:
+                    if 'users' in event['data'] or not individualized:
                         eventData = copy.deepcopy(event)
                         if 'users' in eventData['data']:
                             eventData['data'].pop('users')
@@ -585,7 +595,7 @@ class Applet(FolderModel):
                 return {}
         return schedule
 
-    def getAppletsForUser(self, role, user, active=True):
+    def getAppletsForUser(self, role, user, active=True, idOnly = False):
         """
         Method get Applets for a User.
 
@@ -612,19 +622,19 @@ class Applet(FolderModel):
                         []
                     )},
                     'meta.applet.deleted': {'$ne': active}
-                }
+                }, fields = ['_id'] if idOnly else None
             )),
             *list(self.find(
                 {
                     'roles.manager.groups.id': {'$in': user.get('groups', [])},
                     'meta.applet.deleted': {'$ne': active}
-                }
+                }, fields = ['_id'] if idOnly else None
             ))
         ] if role=="coordinator" else list(self.find(
             {
                 'roles.' + role + '.groups.id': {'$in': user.get('groups', [])},
                 'meta.applet.deleted': {'$ne': active}
-            }
+            }, fields = ['_id'] if idOnly else None
         )) if active else [
             *list(self.find(
                 {
@@ -632,17 +642,17 @@ class Applet(FolderModel):
                         'groups',
                         []
                     )}
-                }
+                }, fields = ['_id'] if idOnly else None
             )),
             *list(self.find(
                 {
                     'roles.manager.groups.id': {'$in': user.get('groups', [])}
-                }
+                }, fields = ['_id'] if idOnly else None
             ))
         ] if role=="coordinator" else list(self.find(
             {
                 'roles.' + role + '.groups.id': {'$in': user.get('groups', [])}
-            }
+            }, fields = ['_id'] if idOnly else None
         ))
 
         # filter out duplicates for coordinators

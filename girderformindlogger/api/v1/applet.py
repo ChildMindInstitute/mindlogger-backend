@@ -45,6 +45,7 @@ from pyld import jsonld
 
 USER_ROLE_KEYS = USER_ROLES.keys()
 
+
 class Applet(Resource):
 
     def __init__(self):
@@ -59,6 +60,7 @@ class Applet(Resource):
         self.route('PUT', (':id', 'assign'), self.assignGroup)
         self.route('PUT', (':id', 'constraints'), self.setConstraints)
         self.route('PUT', (':id', 'schedule'), self.setSchedule)
+        self.route('PUT', (':id', 'refresh'), self.refresh)
         self.route('GET', (':id', 'schedule'), self.getSchedule)
         self.route('POST', (':id', 'invite'), self.invite)
         self.route('GET', (':id', 'roles'), self.getAppletRoles)
@@ -339,6 +341,39 @@ class Applet(Resource):
             )
         )
 
+    @access.user(scope=TokenScope.DATA_WRITE)
+    @autoDescribeRoute(
+        Description('reload protocol into database and refresh cache.')
+        .modelParam(
+            'id',
+            model=AppletModel,
+            level=AccessType.READ,
+            destName='applet'
+        )
+        .errorResponse('Invalid applet ID.')
+        .errorResponse('Write access was denied for this applet.', 403)
+    )
+    def refresh(self, applet):
+        user = self.getCurrentUser()
+
+        if not AppletModel().isCoordinator(applet['_id'], user):
+            raise AccessException(
+                "Only coordinators and managers can update applet."
+            )
+
+        thread = threading.Thread(
+            target=AppletModel().reloadAndUpdateCache,
+            args=(applet, user)
+        )
+
+        thread.start()
+
+        return({
+            "message": "The protocol is being reloaded and cached data is being updated. Please check back "
+                        "in several mintutes to see it."
+        })
+
+
     @access.user(scope=TokenScope.DATA_READ)
     @autoDescribeRoute(
         Description('Get associated groups for a given role and applet ID.')
@@ -548,42 +583,58 @@ class Applet(Resource):
             raise AccessException(
                 "Only coordinators and managers can update applet schedules."
             )
+
+        assigned = {}
+
         if 'events' in schedule:
-            # this should fix in frontend side
-            events = [schedule['events'][-1]] if len(schedule['events']) > 1 else schedule['events']
-            for event in events:
-                if 'data' in event and 'useNotifications' in event['data'] and event['data'].get('useNotifications', None):
-                    sendTime = datetime.utcnow().strftime('%H:%M')
-                    if event['data'].get('notifications', None) and event['data']['notifications'][0]['start']:
-                        sendTime = event['data']['notifications'][0]['start']
 
-                    # in case of sigle event with exact year, month, day
-                    if 'year' in event['schedule'] and 'month' in event['schedule'] and 'dayOfMonth' in event['schedule']:
-                        sendTime = (str(event['schedule']['year'][0]) + '/' +
-                                    ('0' + str(event['schedule']['month'][0] + 1))[-2:] + '/' +
-                                    ('0' + str(event['schedule']['dayOfMonth'][0]))[-2:] + ' ' +
-                                    sendTime)
-                        existNotification = PushNotificationModel().findOne(query={'applet':applet['_id'],
-                                                                                    'creator_id':thisUser['_id']
-                                                                                   })
-                        if not existNotification:
-                            PushNotificationModel().createNotification( applet['_id'], 1,
-                                                                        event['data']['title'], event['data']['description'],
-                                                                        str(sendTime), thisUser['_id'])
+            for event in list(schedule['events']):
+                if 'data' in event and 'useNotifications' in event['data'] and event['data']['useNotifications']:
+                    if 'notifications' in event['data'] and event['data']['notifications'][0]['start']:
+                        # in case of daily/weekly event
+                        exist_notification = None
 
-                    # in case of daily event
+                        if 'id' in event:
+                            event['id'] = ObjectId(event['id'])
+                            exist_notification = PushNotificationModel().findOne(query={'_id': event['id']})
 
-        appletMeta = applet['meta'] if 'meta' in applet else {'applet': {}}
-        if 'applet' not in appletMeta:
-            appletMeta['applet'] = {}
-        appletMeta['applet']['schedule'] = schedule
-        AppletModel().setMetadata(applet, appletMeta)
+                        if exist_notification:
+                            notification = PushNotificationModel().replaceNotification(
+                                applet['_id'],
+                                event,
+                                thisUser,
+                                exist_notification)
+                            event['id'] = notification['_id']
+                            assigned[event['id']] = True
+                        else:
+                            created_notification = PushNotificationModel().replaceNotification(
+                                applet['_id'],
+                                event,
+                                thisUser)
+
+                            if created_notification:
+                                event['id'] = created_notification['_id']
+                                assigned[event['id']] = True
+
+        original_schedule = applet.get('meta', {}).get('applet', {}).get('schedule', {})
+
+        if 'events' in original_schedule:
+            for event in original_schedule['events']:
+                original_id = event.get('id')
+                if original_id not in assigned:
+                    PushNotificationModel().delete_notification(original_id)
+
+        applet_meta = applet['meta'] if 'meta' in applet else {'applet': {}}
+        if 'applet' not in applet_meta:
+            applet_meta['applet'] = {}
+        applet_meta['applet']['schedule'] = schedule
+        AppletModel().setMetadata(applet, applet_meta)
         thread = threading.Thread(
             target=AppletModel().updateUserCacheAllUsersAllRoles,
             args=(applet, thisUser)
         )
         thread.start()
-        return(appletMeta)
+        return(applet_meta)
 
 
 def authorizeReviewer(applet, reviewer, user):

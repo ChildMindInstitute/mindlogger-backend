@@ -46,6 +46,13 @@ class Protocol(FolderModel):
             ]
         )
 
+    def getCache(self, id):
+        protocol = self.findOne({'_id': ObjectId(id)}, ['cached'])
+        cached = protocol.get('cached')
+        if protocol and cached:
+            return cached
+        return None
+
     def load(self, id, level=AccessType.ADMIN, user=None, objectId=True,
              force=False, fields=None, exc=False):
         """
