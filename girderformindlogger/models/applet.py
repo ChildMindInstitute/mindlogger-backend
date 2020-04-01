@@ -380,7 +380,8 @@ class Applet(FolderModel):
             str(appletId) in [
                 str(applet.get('_id')) for applet in self.getAppletsForUser(
                     role,
-                    user
+                    user,
+                    idOnly=True
                 ) if applet.get('_id') is not None
             ]
         ))
@@ -553,7 +554,7 @@ class Applet(FolderModel):
         if filterRequired and 'events' in schedule:
             events = []
             valid = []
-            individualized = {}
+            individualized = False
 
             for event in schedule['events']:
                 notForCurrentUser = 'data' in event and 'users' in event['data']
@@ -574,12 +575,12 @@ class Applet(FolderModel):
                 else:
                     valid.append(True)
                     if 'data' in event and 'title' in event['data'] and 'users' in event['data']:
-                        individualized[event['data']['title']] = True
+                        individualized = True
 
             i = 0
             for event in schedule['events']:
                 if 'data' in event and 'title' in event['data'] and valid[i]:
-                    if 'users' in event['data'] or event['data']['title'] not in individualized:
+                    if 'users' in event['data'] or not individualized:
                         eventData = copy.deepcopy(event)
                         if 'users' in eventData['data']:
                             eventData['data'].pop('users')
@@ -594,7 +595,7 @@ class Applet(FolderModel):
                 return {}
         return schedule
 
-    def getAppletsForUser(self, role, user, active=True):
+    def getAppletsForUser(self, role, user, active=True, idOnly = False):
         """
         Method get Applets for a User.
 
@@ -621,19 +622,19 @@ class Applet(FolderModel):
                         []
                     )},
                     'meta.applet.deleted': {'$ne': active}
-                }
+                }, fields = ['_id'] if idOnly else None
             )),
             *list(self.find(
                 {
                     'roles.manager.groups.id': {'$in': user.get('groups', [])},
                     'meta.applet.deleted': {'$ne': active}
-                }
+                }, fields = ['_id'] if idOnly else None
             ))
         ] if role=="coordinator" else list(self.find(
             {
                 'roles.' + role + '.groups.id': {'$in': user.get('groups', [])},
                 'meta.applet.deleted': {'$ne': active}
-            }
+            }, fields = ['_id'] if idOnly else None
         )) if active else [
             *list(self.find(
                 {
@@ -641,17 +642,17 @@ class Applet(FolderModel):
                         'groups',
                         []
                     )}
-                }
+                }, fields = ['_id'] if idOnly else None
             )),
             *list(self.find(
                 {
                     'roles.manager.groups.id': {'$in': user.get('groups', [])}
-                }
+                }, fields = ['_id'] if idOnly else None
             ))
         ] if role=="coordinator" else list(self.find(
             {
                 'roles.' + role + '.groups.id': {'$in': user.get('groups', [])}
-            }
+            }, fields = ['_id'] if idOnly else None
         ))
 
         # filter out duplicates for coordinators
