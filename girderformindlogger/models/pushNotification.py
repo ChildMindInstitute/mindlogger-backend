@@ -146,8 +146,14 @@ class PushNotification(Model):
                 if start_time > current_user_date.strftime('%H:%M') \
                     and schedule['start'] >= current_user_date.strftime('%Y/%m/%d'):
                     push_notification.update({
-                        'progress': ProgressState.ACTIVE
+                        'progress': ProgressState.ACTIVE,
+                        'lastRandomTime': None
                     })
+
+                    if push_notification['notification_type'] == 1:
+                        push_notification.update({
+                            'dateSend': None,
+                        })
             return self.save(push_notification)
         return None
 
