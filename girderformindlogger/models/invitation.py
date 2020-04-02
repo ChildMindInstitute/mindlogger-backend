@@ -172,8 +172,10 @@ class Invitation(AccessControlledModel):
             ]
             profile = profile[0] if len(profile) else None
         else:
-            profile=None
-        if profiles==None or profile==None or not len(profile):
+            profile = None
+            Profile().removeWithQuery({ '_id': ObjectId(invitation['_id']) })
+
+        if profile==None or not len(profile):
             profile = Profile().createProfile(
                 applet,
                 user,
@@ -195,7 +197,21 @@ class Invitation(AccessControlledModel):
                         profile['schema:knows'][k] = invitation['schema:knows'][
                             k
                         ]
-        Profile().save(profile, validate=False)
+
+        role2AccessLevel = { 'user': AccessType.READ, 'coordinator': AccessType.ADMIN, 'manager': AccessType.ADMIN, 'editor': AccessType.WRITE, 'reviewer': AccessType.READ }
+        accessLevel = role2AccessLevel[invitation.get('role', 'user')]
+
+        if not self.hasAccess(applet, user, accessLevel):
+            accessList = applet.get('access')
+
+            users = accessList.get('users', [])
+            users.append({ 'id': ObjectId(user['_id']), 'level': accessLevel })
+
+            accessList['users'] = users
+            self.setAccessList(applet, accessList)
+
+            Applet().update({'_id': ObjectId(applet['_id'])}, {'$set': {'access': applet.get('access', {})}})
+
         self.remove(invitation)
         return(Profile().displayProfileFields(
             Profile().load(profile['_id'], force=True),

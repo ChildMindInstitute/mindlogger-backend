@@ -217,6 +217,7 @@ class Profile(AccessControlledModel, dict):
         """
         import threading
 
+        loadingMessage = '{loading}…'
         if 'cachedDisplay' in profile:
             if forceManager:
                 if 'manager' in profile['cachedDisplay']:
@@ -225,7 +226,6 @@ class Profile(AccessControlledModel, dict):
                 if 'reviewer' in profile['cachedDisplay']:
                     return(profile['cachedDisplay']['reviewer'])
         else:
-            loadingMessage = '{loading}…'
             profile['cachedDisplay'] = {}
 
         thread = threading.Thread(
