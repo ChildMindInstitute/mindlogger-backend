@@ -8,6 +8,9 @@ Changes
 -------
 Unreleased
 ==========
+2019-04-02: v0.13.16
+fix issue 619 ( Managers don't have write access )
+
 2019-03-31: v0.13.15
 fix scheduling functionality
 
