@@ -48,7 +48,6 @@ class Notification(Resource):
     user_timezone_time = None
     success = 0
     error = 0
-    log = '[Single] '
 
     def __init__(self):
         super(Notification, self).__init__()
@@ -167,11 +166,12 @@ class Notification(Resource):
                 user_data_send = self.user_timezone_time.strftime('%Y/%m/%d')
                 notification_date_send = notification['dateSend']
                 profile_exists = self.__does_profile_exists(notification, user)
+                device_ids = self.get_user_device_id(notification['users'])
 
-                if profile_exists:
+                if profile_exists or len(device_ids):
                     to_send = not notification_date_send or user_data_send > notification_date_send
                     if to_send:
-                        self.__send_notification(notification, user)
+                        self.__send_notification(notification, user, device_ids)
 
             self.__send_daily_notifications(user)
             self.__send_weekly_notifications(user)
@@ -189,7 +189,6 @@ class Notification(Resource):
         :param user: User to send the notification to.
         :type user: dict
         """
-        self.log = '[Weekly] '
         notifications = list(PushNotificationModel().find(
             query={
                 'notification_type': 3,
@@ -208,7 +207,8 @@ class Notification(Resource):
                          not notification['endTime']]
 
         for notification in notifications:
-            if self.__does_profile_exists(notification, user):
+            device_ids = self.get_user_device_id(notification['users'])
+            if self.__does_profile_exists(notification, user) or len(device_ids):
 
                 user_time = self.user_timezone_time.strftime('%H:%M')
                 notification_time = notification['startTime']
@@ -221,7 +221,7 @@ class Notification(Resource):
                     not notification_date_send or user_data_send > notification_date_send)
 
                 if to_send:
-                    self.__send_notification(notification, user)
+                    self.__send_notification(notification, user, device_ids)
 
     def __send_daily_notifications(self, user):
         """
@@ -229,7 +229,6 @@ class Notification(Resource):
         :param user: User to send the notification to.
         :type user: dict
         """
-        self.log = '[Daily] '
         notifications = list(PushNotificationModel().find(
             query={
                 'notification_type': 2,
@@ -248,7 +247,9 @@ class Notification(Resource):
                          not notification['endTime']]
 
         for notification in notifications:
-            if self.__does_profile_exists(notification, user):
+            device_ids = self.get_user_device_id(notification['users'])
+
+            if self.__does_profile_exists(notification, user) or len(device_ids):
                 user_time = self.user_timezone_time.strftime('%H:%M')
                 notification_time = notification['startTime']
 
@@ -259,7 +260,7 @@ class Notification(Resource):
                                                              or user_data_send > notification_date_send)
 
                 if to_send:
-                    self.__send_notification(notification, user)
+                    self.__send_notification(notification, user, device_ids)
 
     def __send_random_notifications(self, notifications, user):
         """
@@ -273,7 +274,9 @@ class Notification(Resource):
                                   notification['endTime']]
 
         for notification in notifications_with_end:
-            if self.__does_profile_exists(notification, user):
+            device_ids = self.get_user_device_id(notification['users'])
+
+            if self.__does_profile_exists(notification, user) or len(device_ids):
                 format_str = '%H:%M'
 
                 if not notification['lastRandomTime'] or notification['dateSend']:
@@ -294,7 +297,7 @@ class Notification(Resource):
                                                              or user_data_send > notification_date_send)
 
                 if to_send:
-                    self.__send_notification(notification, user)
+                    self.__send_notification(notification, user, device_ids)
                 PushNotificationModel().save(notification, validate=False)
 
     def __random_date(self, start, end, format_str='%H:%M'):
@@ -315,7 +318,7 @@ class Notification(Resource):
         random_number_of_seconds = random.randrange(days_between_dates)
         return start_date + datetime.timedelta(seconds=random_number_of_seconds)
 
-    def __send_notification(self, notification, user):
+    def __send_notification(self, notification, user, user_ids=None):
         """
         Main bode to send notification
         :params notification: Notification which should be sent to user
@@ -326,7 +329,7 @@ class Notification(Resource):
         notification['dateSend'] = self.user_timezone_time.strftime('%Y/%m/%d')
         message_title = notification['head']
         message_body = notification['content']
-        result = self.push_service.notify_multiple_devices(registration_ids=[user['deviceId']],
+        result = self.push_service.notify_multiple_devices(registration_ids=user_ids or [user['deviceId']],
                                                            message_title=message_title,
                                                            message_body=message_body)
         notification['attempts'] += 1
@@ -341,6 +344,34 @@ class Notification(Resource):
             self.success += result['success']
 
         PushNotificationModel().save(notification, validate=False)
+
+    def get_user_device_id(self, profile_ids):
+        if profile_ids:
+            user_ids = [
+                profile['userId'] for profile in list(ProfileModel().find(
+                    query={
+                        '_id': {
+                            '$in': profile_ids
+                        },
+                        'userId': {
+                            '$exists': True
+                        }
+                    }
+                )) if profile and 'userId' in profile
+            ]
+
+            if user_ids:
+                device_ids = [
+                    user['deviceId'] for user in list(UserModel().find(
+                        query={
+                            '_id': {
+                                '$in': user_ids
+                            }
+                        }
+                    )) if user]
+
+                return device_ids
+        return []
 
     def __does_profile_exists(self, notification, user):
         user_list = [
