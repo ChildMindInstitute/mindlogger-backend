@@ -980,3 +980,27 @@ class Profile(AccessControlledModel, dict):
                     progress=progress, setPublic=setPublic, publicFlags=publicFlags, force=force)
 
         return doc
+
+    def get_profiles_by_applet_id(self, applet_id):
+        return self.find(
+            query={
+                'appletId': applet_id,
+                'userId': {
+                    '$exists': True
+                },
+                'profile': True
+            }
+        )
+
+    def get_profiles_by_ids(self, profile_ids):
+        return self.find(
+            query={
+                '_id': {
+                    '$in': profile_ids
+                },
+                'userId': {
+                    '$exists': True
+                },
+                'profile': True
+            }
+        )

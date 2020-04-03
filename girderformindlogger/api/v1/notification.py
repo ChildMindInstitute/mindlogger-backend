@@ -345,44 +345,15 @@ class Notification(Resource):
         PushNotificationModel().save(notification, validate=False)
 
     def get_user_device_id(self, notification):
-        user_ids = None
+        profiles = ProfileModel().get_profiles_by_ids(notification['users']) \
+            if len(notification['users']) \
+            else ProfileModel().get_profiles_by_applet_id(notification['applet'])
 
-        if len(notification['users']):
-            user_ids = [
-                profile['userId'] for profile in list(ProfileModel().find(
-                    query={
-                        '_id': {
-                            '$in': notification['users']
-                        },
-                        'userId': {
-                            '$exists': True
-                        },
-                        'profile': True
-                    }
-                )) if profile
-            ]
-        else:
-            user_ids = [
-                profile['userId'] for profile in list(ProfileModel().find(
-                    query={
-                        'appletId': notification['applet'],
-                        'userId': {
-                            '$exists': True
-                        },
-                        'profile': True
-                    }
-                )) if profile
-            ]
+        user_ids = [profile['userId'] for profile in list(profiles) if profile]
 
         if user_ids:
             device_ids = [
-                user['deviceId'] for user in list(UserModel().find(
-                    query={
-                        '_id': {
-                            '$in': user_ids
-                        }
-                    }
-                )) if user]
-
+                user['deviceId'] for user in list(UserModel().get_users_by_ids(user_ids)) if user
+            ]
             return device_ids
         return []

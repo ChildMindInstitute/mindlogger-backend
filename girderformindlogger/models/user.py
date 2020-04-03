@@ -296,7 +296,7 @@ class User(AccessControlledModel):
     def setUserName(self, user, userName, save=True):
         """
         Change a user's username
-        
+
         :param user: The user whose username to change.
         :param userName: the new userName to be stored
         """
@@ -734,3 +734,12 @@ class User(AccessControlledModel):
             raise AccessException('Login failed.')
         else:
             return(True)
+
+    def get_users_by_ids(self, user_ids):
+        return self.find(
+            query={
+                '_id': {
+                    '$in': user_ids
+                }
+            }
+        )
