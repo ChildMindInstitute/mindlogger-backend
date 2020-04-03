@@ -8,6 +8,8 @@ Changes
 -------
 Unreleased
 ==========
+2019-04-03: v0.13.17
+managers get general schedule
 2019-04-02: v0.13.16
 fix issue 619 ( Managers don't have write access )
 

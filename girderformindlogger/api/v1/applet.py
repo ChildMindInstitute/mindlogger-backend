@@ -550,11 +550,10 @@ class Applet(Resource):
             })
 
         model = AppletModel()
-        filterRequired = model._hasRole(applet['_id'], user, 'user') if not model.isCoordinator(applet['_id'], user) else False
         schedule = model.filterScheduleEvents(
             applet.get('meta', {}).get('applet', {}).get('schedule', {}),
             user,
-            filterRequired
+            model.isCoordinator(applet['_id'], user)
         )
 
         return schedule
