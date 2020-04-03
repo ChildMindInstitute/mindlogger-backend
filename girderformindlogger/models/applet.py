@@ -522,8 +522,7 @@ class Applet(FolderModel):
         profilesCache = {}
         for applet in formatted:
             if 'schedule' in applet['applet']:
-                filterRequired = (role == 'user') if not self.isCoordinator(applet['appletId'], user) else False
-                schedule = self.filterScheduleEvents(applet['applet']['schedule'], user, filterRequired, profilesCache)
+                schedule = self.filterScheduleEvents(applet['applet']['schedule'], user, self.isCoordinator(applet['appletId'], user), profilesCache)
                 if 'events' in schedule:
                     applet['applet']['schedule'] = schedule
                 else:
@@ -548,10 +547,10 @@ class Applet(FolderModel):
         return(formatted)
 
 
-    def filterScheduleEvents(self, schedule, user, filterRequired, profilesCache = {}):
+    def filterScheduleEvents(self, schedule, user, isCoordinator, profilesCache = {}):
         from girderformindlogger.models.profile import Profile
 
-        if filterRequired and 'events' in schedule:
+        if 'events' in schedule:
             events = []
             valid = []
             individualized = False
@@ -580,11 +579,14 @@ class Applet(FolderModel):
             i = 0
             for event in schedule['events']:
                 if 'data' in event and 'title' in event['data'] and valid[i]:
-                    if 'users' in event['data'] or not individualized:
-                        eventData = copy.deepcopy(event)
-                        if 'users' in eventData['data']:
-                            eventData['data'].pop('users')
-                        events.append(eventData)
+                    if not isCoordinator:
+                        if 'users' in event['data'] or not individualized:
+                            eventData = copy.deepcopy(event)
+                            if 'users' in eventData['data']:
+                                eventData['data'].pop('users')
+                            events.append(eventData)
+                    elif 'users' not in event['data']:
+                        events.append(event)
                 i = i + 1
 
             if len(events):
