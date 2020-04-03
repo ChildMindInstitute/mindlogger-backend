@@ -126,6 +126,7 @@ class PushNotification(Model):
                 'startTime': start_time,
                 'endTime': end_time,
                 'lastRandomTime': None,
+                'notifiedUsers': [],
                 'dateSend': date_send,
                 'creator_id': user['_id'],
                 'created': current_time,
@@ -140,6 +141,7 @@ class PushNotification(Model):
                     'progress': original.get('progress'),
                     'attempts': original.get('attempts'),
                     'dateSend': original.get('dateSend'),
+                    'notifiedUsers': original.get('notifiedUsers', []),
                     'lastRandomTime': original.get('lastRandomTime')
                 })
 
