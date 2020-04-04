@@ -274,6 +274,13 @@ class Notification(Resource):
         return [obj for obj in obj_list if arg in obj and obj[arg] != value]
 
     def refresh_notification_users(self, notification, user):
+        """
+        Remove sent notification users from the list whose dates do not coincide with the UTC date
+        :params notification: notification dict
+        :type notification: dict
+        :params user: user dict
+        :type user: dict
+        """
         if not notification['notification_type'] == 1:
             current_user_time = datetime.datetime.strptime(self.current_time, '%Y/%m/%d %H:%M') \
                                 + datetime.timedelta(hours=int(user['timezone']))
