@@ -3,6 +3,7 @@ import random
 
 import cherrypy
 import json
+import bson
 import time
 
 from pyfcm import FCMNotification
@@ -125,6 +126,26 @@ class Notification(Resource):
         return list(NotificationModel().get(
             user, since, token=token, sort=[('updated', SortDir.ASCENDING)]))
 
+    @disableAuditLog
+    @access.public
+    @autoDescribeRoute(
+        Description('Send push notifications')
+            .errorResponse()
+            .errorResponse('You are not logged in.', 403)
+    )
+    def sendPushNotifications(self):
+        self.current_time = datetime.datetime.utcnow().strftime('%Y/%m/%d %H:%M')
+        self.send_single_notifications()
+        self.send_daily_notifications()
+        self.send_weekly_notifications()
+
+        result = {'successed': self.success, 'errors': self.error}
+
+        self.success = 0
+        self.error = 0
+
+        return result
+
     def get_notifications_by_type(self, notification_type=1):
         return list(PushNotificationModel().find(
             query={
@@ -154,6 +175,7 @@ class Notification(Resource):
             users = list(UserModel().get_users_by_ids(user_ids))
             self.set_random_date(notification)
             current_users = self.filter_users_by_timezone(notification, users)
+
             if current_users:
                 notification.get('notifiedUsers')
                 notification.update({
@@ -179,6 +201,7 @@ class Notification(Resource):
                 '%H:%M'
             ).strftime('%H:%M')
 
+    # the main logic of notification
     def filter_users_by_timezone(self, notification, users):
         current_users = []
 
@@ -187,6 +210,17 @@ class Notification(Resource):
         notification_start_time = notification['startTime']
         notification_end_time = notification['endTime']
         notification_week_day = notification['schedule'].get('dayOfWeek', None)
+        notification_h = int(
+            datetime.datetime.strptime(notification["startTime"], "%H:%M").hour)
+        notification_m = int(
+            datetime.datetime.strptime(notification["startTime"], "%H:%M").minute)
+        notification_random_h = None
+        notification_random_m = None
+        if notification['lastRandomTime']:
+            notification_random_h = int(
+                datetime.datetime.strptime(notification["lastRandomTime"], "%H:%M").hour)
+            notification_random_m = int(
+                datetime.datetime.strptime(notification["lastRandomTime"], "%H:%M").minute)
 
         for user in users:
             current_user_time = datetime.datetime.strptime(self.current_time, '%Y/%m/%d %H:%M') \
@@ -198,43 +232,38 @@ class Notification(Resource):
             if 'notifiedUsers' in notification:
                 does_notified_user = self.__list_filter(notification['notifiedUsers'], '_id', user['_id'])
 
+            usr_h = int(current_user_time.strftime("%H"))
+            usr_m = int(current_user_time.strftime("%M"))
+
             if current_user_time.strftime('%H:%M') >= notification_start_time \
                 and notification_start_date <= current_user_time.strftime('%Y/%m/%d') \
                 <= notification_end_date:
                 if 'notifiedUsers' not in notification or not does_notified_user:
-                    if notification['notification_type'] == 1:
+
+                    if notification['notification_type'] in [1, 2]:
                         if notification_end_time and notification['lastRandomTime'] \
                             and current_user_time.strftime('%H:%M') \
-                            >= notification['lastRandomTime']:
-                            # in random time case for single notification
+                            >= notification['lastRandomTime'] and usr_h == notification_random_h \
+                            and usr_m >= notification_random_m:
+                            # in random time case for single\daily notification
                             current_users.append(user)
-                        if not notification_end_time:
-                            # in single notification case
+                        if not notification_end_time and usr_h == notification_h \
+                            and usr_m >= notification_m:
+                            # in single\daily notification case
                             current_users.append(user)
 
                     if notification['notification_type'] == 3:
                         if notification_week_day and notification_week_day == int(current_user_time.weekday()) + 1:
                             if notification_end_time and notification['lastRandomTime'] \
                                 and current_user_time.strftime('%H:%M') \
-                                >= notification['lastRandomTime']:
+                                >= notification['lastRandomTime'] and usr_h == notification_random_h \
+                                and usr_m >= notification_random_m:
                                 # in random time case for weekly notification case
                                 current_users.append(user)
 
-                            if not notification_end_time:
+                            if not notification_end_time and usr_h == notification_h and usr_m >= notification_m:
                                 # in weekly notification case
                                 current_users.append(user)
-
-                    if notification['notification_type'] == 2:
-                        if notification_end_time and notification['lastRandomTime'] \
-                            and current_user_time.strftime('%H:%M') \
-                            >= notification['lastRandomTime']:
-                            # in random time case for daily notification
-                            current_users.append(user)
-
-                        if not notification_end_time:
-                            # in daily notification case
-                            current_users.append(user)
-
         return current_users
 
     def __list_filter(self, obj_list, arg, value) -> dict:
@@ -260,186 +289,6 @@ class Notification(Resource):
                     < current_user_time.strftime('%Y/%m/%d'):
                     notification['notifiedUsers'] = \
                         self.__exclude_from_list(notification['notifiedUsers'], '_id', user['_id'])
-
-
-    @disableAuditLog
-    @access.public
-    @autoDescribeRoute(
-        Description('Send push notifications')
-            .errorResponse()
-            .errorResponse('You are not logged in.', 403)
-    )
-    def sendPushNotifications(self):
-        # now = datetime.datetime.utcnow().strftime('%Y/%m/%d %H:%M')
-        #
-        # users = list(UserModel().find({
-        #     'timezone': {
-        #         '$exists': True
-        #     }}))
-        #
-        # # filter for users
-        # users = [dict(user) for user in users if user]
-        #
-        # for user in users:
-        #     self.user_timezone_time = datetime.datetime.strptime(now, '%Y/%m/%d %H:%M') \
-        #                               + datetime.timedelta(hours=int(user['timezone']))
-        #
-        #     notifications = list(PushNotificationModel().find(
-        #         query={
-        #             'progress': ProgressState.ACTIVE,
-        #             'notification_type': 1,
-        #             'schedule.start': self.user_timezone_time.strftime('%Y/%m/%d'),
-        #             'schedule.end': self.user_timezone_time.strftime('%Y/%m/%d'),
-        #             'startTime': {
-        #                 '$lte': self.user_timezone_time.strftime('%H:%M')
-        #             }
-        #         }))
-        #
-        #     self.__send_random_notifications(notifications, user)
-        #
-        #     notifications = [notification for notification in notifications if
-        #                      not notification['endTime']]
-        #
-        #     for notification in notifications:
-        #         user_data_send = self.user_timezone_time.strftime('%Y/%m/%d')
-        #         notification_date_send = notification['dateSend']
-        #         device_ids = self.get_user_device_id(notification)
-        #
-        #         if len(device_ids):
-        #             to_send = not notification_date_send or user_data_send > notification_date_send
-        #             if to_send:
-        #                 self.__send_notification(notification, device_ids)
-        #
-        #     self.__send_daily_notifications(user)
-        #     self.__send_weekly_notifications(user)
-        self.current_time = datetime.datetime.utcnow().strftime('%Y/%m/%d %H:%M')
-        self.send_single_notifications()
-        self.send_daily_notifications()
-        self.send_weekly_notifications()
-
-        result = {'successed': self.success, 'errors': self.error}
-
-        self.success = 0
-        self.error = 0
-
-        return result
-
-    def __send_weekly_notifications(self, user):
-        """
-        Weekly Notification function
-        :param user: User to send the notification to.
-        :type user: dict
-        """
-        notifications = list(PushNotificationModel().find(
-            query={
-                'notification_type': 3,
-                'schedule.start': {
-                    '$lte': self.user_timezone_time.strftime('%Y/%m/%d')
-                },
-                'schedule.end': {
-                    '$gt': self.user_timezone_time.strftime('%Y/%m/%d')
-                }
-            }
-        ))
-
-        self.__send_random_notifications(notifications, user)
-
-        notifications = [notification for notification in notifications if
-                         not notification['endTime']]
-
-        for notification in notifications:
-            device_ids = self.get_user_device_id(notification)
-
-            if len(device_ids):
-                user_time = self.user_timezone_time.strftime('%H:%M')
-                notification_time = notification['startTime']
-                day_of_week = int(self.user_timezone_time.weekday()) + 1
-                notification_day_of_week = int(notification['schedule']['dayOfWeek'])
-                user_data_send = self.user_timezone_time.strftime('%Y/%m/%d')
-                notification_date_send = notification['dateSend']
-
-                to_send = day_of_week == notification_day_of_week and user_time > notification_time and (
-                    not notification_date_send or user_data_send > notification_date_send)
-
-                if to_send:
-                    self.__send_notification(notification, device_ids)
-
-    def __send_daily_notifications(self, user):
-        """
-        Daily Notification function
-        :param user: User to send the notification to.
-        :type user: dict
-        """
-        notifications = list(PushNotificationModel().find(
-            query={
-                'notification_type': 2,
-                'schedule.start': {
-                    '$lte': self.user_timezone_time.strftime('%Y/%m/%d')
-                },
-                'schedule.end': {
-                    '$gt': self.user_timezone_time.strftime('%Y/%m/%d')
-                }
-            }
-        ))
-
-        self.__send_random_notifications(notifications, user)
-
-        notifications = [notification for notification in notifications if
-                         not notification['endTime']]
-
-        for notification in notifications:
-            device_ids = self.get_user_device_id(notification)
-
-            if len(device_ids):
-                user_time = self.user_timezone_time.strftime('%H:%M')
-                notification_time = notification['startTime']
-
-                user_data_send = self.user_timezone_time.strftime('%Y/%m/%d')
-                notification_date_send = notification['dateSend']
-
-                to_send = user_time > notification_time and (not notification_date_send
-                                                             or user_data_send > notification_date_send)
-
-                if to_send:
-                    self.__send_notification(notification, device_ids)
-
-    def __send_random_notifications(self, notifications, user):
-        """
-        Random Notification function
-        :param notifications: List of notification dict
-        :type notifications: list
-        :param user: User to send the notification to.
-        :type user: dict
-        """
-        notifications_with_end = [notification for notification in notifications if
-                                  notification['endTime']]
-
-        for notification in notifications_with_end:
-            device_ids = self.get_user_device_id(notification)
-
-            if len(device_ids):
-                format_str = '%H:%M'
-
-                if not notification['lastRandomTime'] or notification['dateSend']:
-                    # set random time
-                    notification['lastRandomTime'] = self.__random_date(
-                        notification['startTime'],
-                        notification['endTime'],
-                        format_str
-                    ).strftime(format_str)
-
-                user_time = self.user_timezone_time.strftime(format_str)
-                notification_time = notification['lastRandomTime']
-
-                user_data_send = self.user_timezone_time.strftime('%Y/%m/%d')
-                notification_date_send = notification['dateSend']
-
-                to_send = user_time > notification_time and (not notification_date_send
-                                                             or user_data_send > notification_date_send)
-
-                if to_send:
-                    self.__send_notification(notification, device_ids)
-                PushNotificationModel().save(notification, validate=False)
 
     def __random_date(self, start, end, format_str='%H:%M'):
         """
@@ -499,6 +348,17 @@ class Notification(Resource):
         return []
 
     def get_profiles(self, notification):
-        return list(ProfileModel().get_profiles_by_ids(notification['users'])) \
-            if len(notification['users']) \
-            else list(ProfileModel().get_profiles_by_applet_id(notification['applet']))
+        if len(notification['users']):
+            return list(ProfileModel().get_profiles_by_ids(notification['users']))
+
+        notification_with_applet = list(PushNotificationModel().find(query={
+            'applet': notification['applet'],
+            'users': {
+                '$exists': True,
+                '$ne': []
+            }
+        }))
+        notification_with_applet = list(set(user for n in notification_with_applet for user in n['users']))
+        profiles = list(ProfileModel().get_profiles_by_applet_id(notification['applet']))
+        # exclude existed users from general schedule
+        return [profile for profile in profiles if profile['_id'] and profile['_id'] not in notification_with_applet]

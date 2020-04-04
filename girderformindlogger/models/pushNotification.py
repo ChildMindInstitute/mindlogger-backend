@@ -5,6 +5,8 @@ import time
 import bson
 
 from girderformindlogger.models.model_base import Model
+from girderformindlogger.models.profile import Profile as ProfileModel
+from girderformindlogger.models.user import User as UserModel
 
 
 class ProgressState(object):
@@ -141,7 +143,6 @@ class PushNotification(Model):
                     'progress': original.get('progress'),
                     'attempts': original.get('attempts'),
                     'dateSend': original.get('dateSend'),
-                    'notifiedUsers': original.get('notifiedUsers', []),
                     'lastRandomTime': original.get('lastRandomTime')
                 })
 
