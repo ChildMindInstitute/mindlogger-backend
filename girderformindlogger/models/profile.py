@@ -1004,3 +1004,13 @@ class Profile(AccessControlledModel, dict):
                 'profile': True
             }
         )
+
+    def get_profiles_by_user_ids(self, user_ids):
+        return self.find(
+            query={
+                'userId': {
+                    '$in': user_ids
+                },
+                'profile': True
+            }
+        )

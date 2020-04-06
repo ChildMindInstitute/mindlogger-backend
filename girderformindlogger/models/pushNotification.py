@@ -34,6 +34,7 @@ class PushNotification(Model):
     time at which the event happened, and an optional expires field indicating
     at what time the notification should be deleted from the database.
     """
+    current_time = datetime.datetime.utcnow().strftime('%Y/%m/%d %H:%M')
 
     def initialize(self):
         self.name = 'pushNotification'
@@ -143,6 +144,7 @@ class PushNotification(Model):
                     'progress': original.get('progress'),
                     'attempts': original.get('attempts'),
                     'dateSend': original.get('dateSend'),
+                    'notifiedUsers': self.update_notified_users(original),
                     'lastRandomTime': original.get('lastRandomTime')
                 })
 
@@ -248,3 +250,34 @@ class PushNotification(Model):
             q['updated'] = {'$gt': since}
 
         return self.find(q, sort=sort)
+
+    def update_notified_users(self, notification):
+        if len(notification['notifiedUsers']):
+            user_ids = [user['_id'] for user in notification['notifiedUsers']]
+
+            users = list(UserModel().get_users_by_ids(user_ids))
+
+            notification_start_date = notification['schedule']['start']
+            notification_end_date = notification['schedule']['end']
+            notification_h = int(
+                datetime.datetime.strptime(notification["startTime"], "%H:%M").hour)
+            notification_m = int(
+                datetime.datetime.strptime(notification["startTime"], "%H:%M").minute)
+
+            excluded_users = []
+            for user in users:
+                current_user_time = datetime.datetime.strptime(self.current_time, '%Y/%m/%d %H:%M') \
+                                    + datetime.timedelta(hours=int(user['timezone']))
+
+                usr_h = int(current_user_time.strftime("%H"))
+                usr_m = int(current_user_time.strftime("%M"))
+
+                if notification_start_date <= current_user_time.strftime('%Y/%m/%d') \
+                    <= notification_end_date and ((usr_h == notification_h and usr_m >= notification_m \
+                                                   and int(usr_m - notification_m) <= 1
+                                                  ) or usr_h != notification_h):
+                    excluded_users.append(user['_id'])
+
+            user_ids = [user for user in notification['notifiedUsers'] if user['_id'] not in excluded_users]
+            return user_ids
+        return []
