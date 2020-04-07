@@ -65,11 +65,10 @@ class PushNotification(Model):
         notification_type = 1
         start_time = event['data']['notifications'][0]['start']
         end_time = event['data']['notifications'][0]['end']
-        date_send = None
 
         schedule = {
             "start": (current_date - datetime.timedelta(days=1)).strftime('%Y/%m/%d'),
-            "end": '2045/12/30'
+            "end": (current_date + datetime.timedelta(days=365*40)).strftime('%Y/%m/%d')
         }
 
         users = []
@@ -96,7 +95,6 @@ class PushNotification(Model):
                 """
                 Weekly configuration in case of weekly event
                 """
-
                 notification_type = 3
                 if 'start' in event['schedule'] and event['schedule']['start']:
                     schedule['start'] = datetime.datetime.fromtimestamp(
@@ -105,7 +103,6 @@ class PushNotification(Model):
                     schedule['end'] = datetime.datetime.fromtimestamp(
                         float(event['schedule']['end']) / 1000).strftime('%Y/%m/%d')
                 schedule['dayOfWeek'] = event['schedule']['dayOfWeek'][0]
-                date_send = (current_date - datetime.timedelta(days=1)).strftime('%Y/%m/%d')
             else:
                 """
                 Daily configuration in case of daily event
@@ -117,7 +114,6 @@ class PushNotification(Model):
                 if 'end' in event['schedule'] and event['schedule']['end']:
                     schedule['end'] = datetime.datetime.fromtimestamp(
                         float(event['schedule']['end']) / 1000).strftime('%Y/%m/%d')
-                date_send = (current_date - datetime.timedelta(days=1)).strftime('%Y/%m/%d')
 
             push_notification = {
                 'applet': applet,
@@ -129,8 +125,8 @@ class PushNotification(Model):
                 'startTime': start_time,
                 'endTime': end_time,
                 'lastRandomTime': None,
-                'notifiedUsers': [],
-                'dateSend': date_send,
+                'notifiedUsers': original.get('notifiedUsers') if original else [],
+                'dateSend': None,
                 'creator_id': user['_id'],
                 'created': current_time,
                 'updated': current_time,
@@ -145,7 +141,7 @@ class PushNotification(Model):
                     'progress': original.get('progress'),
                     'attempts': original.get('attempts'),
                     'dateSend': original.get('dateSend'),
-                    'notifiedUsers': original.get('notifiedUsers'),
+                    'notifiedUsers': self.update_notified_users(push_notification),
                     'lastRandomTime': original.get('lastRandomTime')
                 })
 
@@ -156,14 +152,6 @@ class PushNotification(Model):
                         'lastRandomTime': None
                     })
 
-                    if push_notification['notification_type'] == 1:
-                        push_notification.update({
-                            'dateSend': None,
-                        })
-
-                push_notification.update({
-                    'notifiedUsers': self.update_notified_users(push_notification)
-                })
             return self.save(push_notification)
         return None
 
