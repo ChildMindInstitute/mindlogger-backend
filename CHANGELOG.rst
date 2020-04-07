@@ -8,6 +8,8 @@ Changes
 -------
 Unreleased
 ==========
+2019-04-07: v0.13.18
+update forgot password functionality
 2019-04-03: v0.13.17
 managers get general schedule
 2019-04-02: v0.13.16
