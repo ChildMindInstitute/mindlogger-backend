@@ -711,23 +711,29 @@ class Profile(AccessControlledModel, dict):
         if applet['_id'] not in [
             a.get('_id') for a in Applet().getAppletsForUser(role, user)
         ]:
-            groups=Applet().getAppletGroups(applet).get(role)
-            if bool(groups):
-                group = Group().load(
-                    ObjectId(list(groups.keys())[0]),
-                    force=True
-                )
-                Group().inviteUser(group, user, level=AccessType.READ)
-                Group().joinGroup(group, user)
-            else:
-                raise ValidationException(
-                    "User does not have role \"{}\" in this \"{}\" applet "
-                    "({})".format(
-                        role,
-                        Applet().preferredName(applet),
-                        str(applet['_id'])
+            appletGroups=Applet().getAppletGroups(applet)
+
+            rolesForCoordinator = ['user', 'editor', 'reviewer', 'coordinator']
+            roles = rolesForCoordinator if role == 'coordinator' else rolesForCoordinator.append('manager') if role == 'manager' else [role]
+            
+            for role in roles:
+                groups = appletGroups.get(role)
+                if bool(groups):
+                    group = Group().load(
+                        ObjectId(list(groups.keys())[0]),
+                        force=True
                     )
-                )
+                    Group().inviteUser(group, user, level=AccessType.READ)
+                    Group().joinGroup(group, user)
+                else:
+                    raise ValidationException(
+                        "User does not have role \"{}\" in this \"{}\" applet "
+                        "({})".format(
+                            role,
+                            Applet().preferredName(applet),
+                            str(applet['_id'])
+                        )
+                    )
 
         now = datetime.datetime.utcnow()
 
