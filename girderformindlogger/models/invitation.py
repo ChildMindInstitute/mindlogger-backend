@@ -172,8 +172,10 @@ class Invitation(AccessControlledModel):
             ]
             profile = profile[0] if len(profile) else None
         else:
-            profile=None
-        if profiles==None or profile==None or not len(profile):
+            profile = None
+            Profile().removeWithQuery({ '_id': ObjectId(invitation['_id']) })
+
+        if profile==None or not len(profile):
             profile = Profile().createProfile(
                 applet,
                 user,
@@ -195,7 +197,21 @@ class Invitation(AccessControlledModel):
                         profile['schema:knows'][k] = invitation['schema:knows'][
                             k
                         ]
-        Profile().save(profile, validate=False)
+
+        role2AccessLevel = { 'user': AccessType.READ, 'coordinator': AccessType.ADMIN, 'manager': AccessType.ADMIN, 'editor': AccessType.WRITE, 'reviewer': AccessType.READ }
+        accessLevel = role2AccessLevel[invitation.get('role', 'user')]
+
+        if not self.hasAccess(applet, user, accessLevel):
+            accessList = applet.get('access')
+
+            users = accessList.get('users', [])
+            users.append({ 'id': ObjectId(user['_id']), 'level': accessLevel })
+
+            accessList['users'] = users
+            self.setAccessList(applet, accessList)
+
+            Applet().update({'_id': ObjectId(applet['_id'])}, {'$set': {'access': applet.get('access', {})}})
+
         self.remove(invitation)
         return(Profile().displayProfileFields(
             Profile().load(profile['_id'], force=True),
@@ -237,7 +253,10 @@ class Invitation(AccessControlledModel):
             )
         ) if includeLink else ""
         applet = Applet().load(ObjectId(invitation['appletId']), force=True)
-        appletName = Applet().preferredName(applet)
+        appletName = applet.get(
+            'displayName',
+            'a new applet'
+        )
         try:
             skin = contextUtil.getSkin()
         except:
@@ -275,9 +294,9 @@ class Invitation(AccessControlledModel):
             Applet().listUsers(applet, 'reviewer', force=True)
         )
         body = """
-{greeting}ou have been invited {byCoordinator}to be {role} of <b>{appletName}</b>{instanceName}.
+{greeting}ou were invited {byCoordinator}to be {role} of <b>{appletName}</b>{instanceName}.
 <br/>
-{description}
+Below are the users that have access to your data:
 {reviewers}
 {managers}
 {coordinators}
@@ -290,21 +309,16 @@ class Invitation(AccessControlledModel):
                 coordinator.get("displayName", "an anonymous entity"),
                 "<a href=\"mailto:{email}\">{email}</a>".format(
                     email=coordinator["email"]
-                ) if "email" in coordinator else "email address unavailable"
+                ) if "email" in coordinator and coordinator["email"] is not None else "email not available"
             ) if isinstance(coordinator, dict) else "",
             coordinators="<h3>Users who can change this applet's settings, "
-                "but not who can access your data: </h3>{}"
+                "but who cannot change who can see your data: </h3>{}"
                 "".format(
                     coordinators if len(
                         coordinators
                     ) else "<ul><li>None</li></ul>"
                 ),
-            description="<h2>Description</h2><p>{}</p>".format(
-                description
-            ) if len(description) else "",
-            greeting="Welcome {}; y".format(
-                displayProfile['displayName']
-            ) if 'displayName' in displayProfile else "Welcome! Y",
+            greeting="Welcome to MindLogger! Y",
             instanceName=" on {}".format(
                 instanceName
             ) if instanceName is not None and len(instanceName) else "",

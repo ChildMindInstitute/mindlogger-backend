@@ -816,19 +816,33 @@ def formatLdObject(
                 'http://schema.org/url',
                 obj.get('meta', {}).get('protocol', obj).get('url')
             )
-            protocol = ProtocolModel().getFromUrl(
-                protocolUrl,
-                'protocol',
-                user,
-                thread=False,
-                refreshCache=refreshCache
-            )[0] if protocolUrl is not None else {}
+
+            # get protocol data from id
+            protocol = None
+            protocolId = obj.get('meta', {}).get('protocol', {}).get('_id' ,'').split('/')[-1]
+            if protocolId:
+                cache = ProtocolModel().getCache(protocolId)
+                if cache and isinstance(cache, str) and len(cache):
+                    protocol = loadCache(cache)
+
+            if protocolUrl is not None and not protocol:
+                # get protocol from url
+                protocol = ProtocolModel().getFromUrl(
+                            protocolUrl,
+                            'protocol',
+                            user,
+                            thread=False,
+                            refreshCache=refreshCache
+                        )[0]
+
+            # format protocol data
             protocol = formatLdObject(
                 protocol,
                 'protocol',
                 user,
                 refreshCache=refreshCache
             )
+
             applet = {}
             applet['activities'] = protocol.pop('activities', {})
             applet['items'] = protocol.pop('items', {})
@@ -858,10 +872,17 @@ def formatLdObject(
                 ])
             }
 
-            if (obj['displayName']):
-                for key in applet['applet']:
-                    if str(key).endswith('#prefLabel') or str(key).endswith('#altLabel'):
-                        applet['applet'][key] = [{"@language": "en", "@value": obj['displayName']}]
+            if 'appletName' in obj and obj['appletName']:
+                suffix = obj['appletName'].split('/')[-1]
+                inserted = False
+
+                candidates = ['prefLabel', 'altLabel']
+                if len(suffix):
+                    for candidate in candidates:
+                        for key in applet['applet']:
+                            if not inserted and str(key).endswith(candidate) and len(applet['applet'][key]) and len(applet['applet'][key][0].get('@value', '')):
+                                applet['applet'][key][0]['@value'] += (' ' + suffix)
+                                inserted = True
 
             createCache(obj, applet, 'applet', user)
             if responseDates:
@@ -880,8 +901,7 @@ def formatLdObject(
                 'activities': {},
                 "items": {}
             }
-            activitiesNow = set()
-            itemsNow = set()
+
             try:
                 protocol = componentImport(
                     newObj,
@@ -897,14 +917,10 @@ def formatLdObject(
                     user,
                     refreshCache=True
                 )
-            newActivities = [
-                a for a in protocol.get('activities', {}).keys(
-                ) if a not in activitiesNow
-            ]
-            newItems = [
-                i for i in protocol.get('items', {}).keys(
-                ) if i not in itemsNow
-            ]
+
+            newActivities = protocol.get('activities', {}).keys()
+            newItems = protocol.get('items', {}).keys()
+
             while(any([len(newActivities), len(newItems)])):
                 activitiesNow = set(
                     protocol.get('activities', {}).keys()
@@ -973,7 +989,7 @@ def formatLdObject(
                 user,
                 keepUndefined,
                 dropErrors,
-                refreshCache=False,
+                refreshCache=True,
                 responseDates=responseDates
             )))
         import sys, traceback
@@ -1017,7 +1033,7 @@ def componentImport(
                         ]
                     ])
                 ):
-                    activityComponent, activityContent, canonicalIRI =         \
+                    result =         \
                         smartImport(
                             IRI,
                             user=user,
@@ -1025,6 +1041,8 @@ def componentImport(
                         ) if (IRI is not None and not IRI.startswith(
                             "Document not found"
                         )) else (None, None, None)
+                    activityComponent, activityContent, canonicalIRI = result
+
                     activity["url"] = activity["schema:url"] = canonicalIRI if(
                         canonicalIRI is not None
                     ) else IRI

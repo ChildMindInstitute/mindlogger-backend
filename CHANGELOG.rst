@@ -8,6 +8,39 @@ Changes
 -------
 Unreleased
 ==========
+2019-04-07: v0.13.18
+update forgot password functionality
+2019-04-03: v0.13.17
+managers get general schedule
+2019-04-02: v0.13.16
+fix issue 619 ( Managers don't have write access )
+
+2019-03-31: v0.13.15
+fix scheduling functionality
+
+2019-03-31: v0.13.14
+notification system was fixed. (single, multi, daily\weekly notifications)
+
+2019-03-31: v0.13.13
+fix naming issue, caching issue
+
+2019-03-30: v0.13.12
+Update invitation html
+
+2019-03-21: v0.13.11
+fix issue 838: Display name bug for new applets
+
+2019-03-20: v0.13.9
+fix memory issue which cause CORS error
+2019-03-16: v0.13.8
+update individualized scheduling functionality
+2019-03-15: v0.13.7
+make cached data updated automatically whenever source data changes
+2019-03-13: v0.13.6
+update getAppletUsers function to return userId not only profile_id
+2019-03-12: v0.13.5
+fixed 500 error - fix an issue in pushNotification model which cause 500 error
+
 2019-03-10: v0.13.4
 fixed issue 609 - Applet names should not be able to be duplicated
 
