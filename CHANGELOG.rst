@@ -8,6 +8,9 @@ Changes
 -------
 Unreleased
 ==========
+2020-04-08: v0.13.18
+notification logic was updated (single, multi, daily\weekly, multi users notifications)
+
 2019-04-03: v0.13.17
 managers get general schedule
 2019-04-02: v0.13.16
