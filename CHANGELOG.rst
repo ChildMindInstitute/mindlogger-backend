@@ -8,8 +8,11 @@ Changes
 -------
 Unreleased
 ==========
-2020-04-08: v0.13.19
+2020-04-08: v0.13.20
 notification logic was updated (single, multi, daily\weekly, multi users notifications)
+
+2019-04-08: v0.13.19
+fix permission issue
 
 2019-04-07: v0.13.18
 update forgot password functionality
