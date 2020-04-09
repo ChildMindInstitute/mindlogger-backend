@@ -1029,7 +1029,7 @@ class User(Resource):
         if not user:
             raise RestException('That email is not registered.')
 
-        token = Token().createToken(user, days=1, scope=TokenScope.TEMPORARY_USER_AUTH)
+        token = Token().createToken(user, days=(15/1440.0), scope=TokenScope.TEMPORARY_USER_AUTH)
 
         url = '%s#useraccount/%s/token/%s' % (
             mail_utils.getEmailUrlPrefix(), str(user['_id']), str(token['_id']))
@@ -1038,6 +1038,7 @@ class User(Resource):
             'url': url,
             'token': str(token['_id'])
         })
+
         mail_utils.sendMail(
             '%s: Temporary access' % Setting().get(SettingKey.BRAND_NAME),
             html,
@@ -1060,7 +1061,10 @@ class User(Resource):
         delta = (token['expires'] - datetime.datetime.utcnow()).total_seconds()
         hasScope = Token().hasScope(token, TokenScope.TEMPORARY_USER_AUTH)
 
-        if token.get('userId') != user['_id'] or delta <= 0 or not hasScope:
+        if delta <= 0:
+            raise AccessException("The token is expired")
+
+        if token.get('userId') != user['_id'] or not hasScope:
             raise AccessException('The token does not grant temporary access to this user.')
 
         # Temp auth is verified, send an actual auth token now. We keep the
