@@ -45,7 +45,7 @@ installReqs = [
     'passlib [bcrypt,totp]',
     'pymongo>=3.6',
     'PyYAML',
-    'psutil==5.6.3',
+    'psutil==5.6.6',
     'pyld>=1.0.4',
     'pyOpenSSL',
     'python-dateutil==2.6.1',
