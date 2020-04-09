@@ -8,6 +8,81 @@ Changes
 -------
 Unreleased
 ==========
+2019-04-08: v0.13.19
+fix permission issue
+2019-04-07: v0.13.18
+update forgot password functionality
+2019-04-03: v0.13.17
+managers get general schedule
+2019-04-02: v0.13.16
+fix issue 619 ( Managers don't have write access )
+
+2019-03-31: v0.13.15
+fix scheduling functionality
+
+2019-03-31: v0.13.14
+notification system was fixed. (single, multi, daily\weekly notifications)
+
+2019-03-31: v0.13.13
+fix naming issue, caching issue
+
+2019-03-30: v0.13.12
+Update invitation html
+
+2019-03-21: v0.13.11
+fix issue 838: Display name bug for new applets
+
+2019-03-20: v0.13.9
+fix memory issue which cause CORS error
+2019-03-16: v0.13.8
+update individualized scheduling functionality
+2019-03-15: v0.13.7
+make cached data updated automatically whenever source data changes
+2019-03-13: v0.13.6
+update getAppletUsers function to return userId not only profile_id
+2019-03-12: v0.13.5
+fixed 500 error - fix an issue in pushNotification model which cause 500 error
+
+2019-03-10: v0.13.4
+fixed issue 609 - Applet names should not be able to be duplicated
+
+2019-03-10: v0.13.3
+fixed issue 243 - insert api to update username
+
+2019-03-7: v0.13.2
+^^^^^^^^^^^^^^^^^^
+* Temporarily fixed applet caching issue
+* Added timezone field in `/user/authentication` endpoint
+* Document README for project setup in Windows
+
+2019-02-14: v0.13.1
+^^^^^^^^^^^^^^^^^^
+* Revert changes in v0.9.1
+
+2019-02-13: v0.12.1
+^^^^^^^^^^^^^^^^^^
+* Add getSchedule endpoint to get schedule information for an applet
+
+2020-02-13: v0.11.1
+^^^^^^^^^^^^^^^^^^
+:racehorse: Improve response time on ``GET /applet/users``
+
+2020-02-13: v0.10.2
+^^^^^^^^^^^^^^^^^^
+:tractor: :racehorse: Simplify setting schedules
+
+2019-02-13: v0.10.1
+^^^^^^^^^^^^^^^^^^
+* :lock: Stop exposing sensitive data in deprecated `PUT /user/{:id}`
+
+2020-1-28: v0.9.2
+^^^^^^^^^^^^^^^^^^
+* :pencil: Change parameter type for `PUT /user/{id}/code` & `DELETE /user/{id}/code`
+
+2020-02-13: v0.9.1
+^^^^^^^^^^^^^^^^^^
+* :sparkles: Returns one applet per child for parent-report applets
+
 2020-02-10: v0.8.2
 ^^^^^^^^^^^^^^^^^^
 * Fixed issue with Pandas version in CI test

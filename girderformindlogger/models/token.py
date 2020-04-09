@@ -4,9 +4,9 @@ import six
 
 from girderformindlogger.constants import AccessType, TokenScope
 from girderformindlogger.exceptions import AccessException
+from girderformindlogger.models.model_base import AccessControlledModel
 from girderformindlogger.settings import SettingKey
 from girderformindlogger.utility import genToken
-from .model_base import AccessControlledModel
 
 
 class Token(AccessControlledModel):
@@ -42,7 +42,7 @@ class Token(AccessControlledModel):
         :type apiKey: dict
         :returns: The token document that was created.
         """
-        from .setting import Setting
+        from girderformindlogger.models.setting import Setting
 
         now = datetime.datetime.utcnow()
         days = days or Setting().get(SettingKey.COOKIE_LIFETIME)

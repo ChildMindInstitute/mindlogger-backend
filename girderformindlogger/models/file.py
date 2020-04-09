@@ -4,10 +4,10 @@ import datetime
 import os
 import six
 
-from .model_base import Model, AccessControlledModel
 from girderformindlogger import auditLogger, events
 from girderformindlogger.constants import AccessType, CoreEventHandler
 from girderformindlogger.exceptions import FilePathException, ValidationException
+from girderformindlogger.models.model_base import Model, AccessControlledModel
 from girderformindlogger.models.setting import Setting
 from girderformindlogger.settings import SettingKey
 from girderformindlogger.utility import acl_mixin, path as path_util
@@ -51,7 +51,7 @@ class File(acl_mixin.AccessControlMixin, Model):
             to False if you plan to delete the item and do not care about
             updating its size.
         """
-        from .item import Item
+        from girderformindlogger.models.item import Item
 
         if file.get('assetstoreId'):
             self.getAssetstoreAdapter(file).deleteFile(file)
@@ -169,7 +169,7 @@ class File(acl_mixin.AccessControlMixin, Model):
         return doc
 
     def _getAssetstoreModel(self, file):
-        from .assetstore import Assetstore
+        from girderformindlogger.models.assetstore import Assetstore
 
         if file.get('assetstoreType'):
             try:
@@ -206,7 +206,7 @@ class File(acl_mixin.AccessControlMixin, Model):
             this location, return it rather than creating a new file.
         :type reuseExisting: bool
         """
-        from .item import Item
+        from girderformindlogger.models.item import Item
 
         if parentType == 'folder':
             # Create a new item with the name of the file.
@@ -267,8 +267,8 @@ class File(acl_mixin.AccessControlMixin, Model):
             False if you plan to delete the item immediately and don't care to
             update its size.
         """
-        from .folder import Folder
-        from .item import Item
+        from girderformindlogger.models.folder import Folder
+        from girderformindlogger.models.item import Item
 
         if updateItemSize:
             # Propagate size up to item
@@ -350,7 +350,7 @@ class File(acl_mixin.AccessControlMixin, Model):
         # certain that the file will actually be saved. It is also possible for
         # "model.file.save" to set "defaultPrevented", which would prevent the
         # item from being saved initially.
-        from .item import Item
+        from girderformindlogger.models.item import Item
 
         fileDoc = event.info
         itemId = fileDoc.get('itemId')
@@ -436,7 +436,7 @@ class File(acl_mixin.AccessControlMixin, Model):
                 attachedDoc = modelType.load(
                     file.get('attachedToId'))
         else:
-            from .item import Item
+            from girderformindlogger.models.item import Item
             attachedDoc = Item().load(file.get('itemId'), force=True)
         return not attachedDoc
 

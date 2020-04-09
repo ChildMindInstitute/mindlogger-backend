@@ -9,11 +9,11 @@ import six
 from girderformindlogger import events
 from girderformindlogger.constants import AccessType, CoreEventHandler, TokenScope
 from girderformindlogger.exceptions import AccessException, ValidationException
+from girderformindlogger.models.model_base import AccessControlledModel
+from girderformindlogger.models.setting import Setting
 from girderformindlogger.settings import SettingKey
 from girderformindlogger.utility import config, mail_utils
 from girderformindlogger.utility._cache import rateLimitBuffer
-from .model_base import AccessControlledModel
-from .setting import Setting
 
 
 class User(AccessControlledModel):
@@ -24,7 +24,7 @@ class User(AccessControlledModel):
     def initialize(self):
         self.name = 'user'
         self.ensureIndices(['login', 'email', 'groupInvites.groupId', 'size',
-                            'created'])
+                            'created', 'deviceId', 'timezone'])
         self.prefixSearchFields = (
             'login', ('firstName', 'i'), ('displayName', 'i'), 'email')
         self.ensureTextIndex({
@@ -58,6 +58,9 @@ class User(AccessControlledModel):
         """
         Validate the user every time it is stored in the database.
         """
+        for s in ['email', 'displayName', 'firstName']:
+            if s in doc and doc[s] is None:
+                doc[s] = ''
         doc['login'] = doc.get('login', '').lower().strip()
         doc['email'] = doc.get('email', '').lower().strip()
         doc['displayName'] = doc.get(
@@ -66,6 +69,8 @@ class User(AccessControlledModel):
         ).strip()
         doc['firstName'] = doc.get('firstName', '').strip()
         doc['status'] = doc.get('status', 'enabled')
+        doc['deviceId'] = doc.get('deviceId', '')
+        doc['timezone'] = doc.get('timezone', 0)
 
         if 'salt' not in doc:
             # Internal error, this should not happen
@@ -133,7 +138,7 @@ class User(AccessControlledModel):
 
         return filteredDoc
 
-    def authenticate(self, login, password, otpToken=None):
+    def authenticate(self, login, password, otpToken=None, deviceId=None, timezone=0):
         """
         Validate a user login via username and password. If authentication
         fails, an ``AccessException`` is raised.
@@ -229,9 +234,9 @@ class User(AccessControlledModel):
         :param progress: A progress context to record progress on.
         :type progress: girderformindlogger.utility.progress.ProgressContext or None.
         """
-        from .folder import Folder
-        from .group import Group
-        from .token import Token
+        from girderformindlogger.models.folder import Folder
+        from girderformindlogger.models.group import Group
+        from girderformindlogger.models.token import Token
 
         # Delete all authentication tokens owned by this user
         Token().removeWithQuery({'userId': user['_id']})
@@ -287,6 +292,25 @@ class User(AccessControlledModel):
         return self.filterResultsByPermission(
             cursor=cursor, user=user, level=AccessType.READ, limit=limit,
             offset=offset)
+
+    def setUserName(self, user, userName, save=True):
+        """
+        Change a user's username
+        
+        :param user: The user whose username to change.
+        :param userName: the new userName to be stored
+        """
+
+        oldUserName = user['login']
+
+        if len(userName) > 0:
+            user['login'] = userName
+        else:
+            raise Exception('username can\'t be empty')
+        self.save(user)
+
+        return oldUserName
+
 
     def hasPassword(self, user):
         """
@@ -393,8 +417,8 @@ class User(AccessControlledModel):
         :type public: bool
         :returns: The user document that was created.
         """
-        from .group import Group
-        from .setting import Setting
+        from girderformindlogger.models.group import Group
+        from girderformindlogger.models.setting import Setting
         requireApproval = Setting(
         ).get(SettingKey.REGISTRATION_POLICY) == 'approve'
         email = "" if not email else email
@@ -412,6 +436,8 @@ class User(AccessControlledModel):
             'status': 'pending' if requireApproval else 'enabled',
             'admin': admin,
             'size': 0,
+            'deviceId': '',
+            'timezone': 0,
             'groups': [],
             'groupInvites': [
                 {
@@ -473,7 +499,7 @@ class User(AccessControlledModel):
         Returns True if email verification is required and this user has not
         yet verified their email address.
         """
-        from .setting import Setting
+        from girderformindlogger.models.setting import Setting
         return (not user['emailVerified']) and \
             Setting().get(SettingKey.EMAIL_VERIFICATION) == 'required'
 
@@ -482,7 +508,7 @@ class User(AccessControlledModel):
         Returns True if the registration policy requires admin approval and
         this user is pending approval.
         """
-        from .setting import Setting
+        from girderformindlogger.models.setting import Setting
         return user.get('status', 'enabled') == 'pending' and \
             Setting().get(SettingKey.REGISTRATION_POLICY) == 'approve'
 
@@ -508,7 +534,7 @@ class User(AccessControlledModel):
             [user.get('email')])
 
     def _sendVerificationEmail(self, user):
-        from .token import Token
+        from girderformindlogger.models.token import Token
 
         token = Token().createToken(
             user, days=1, scope=TokenScope.EMAIL_VERIFICATION)
@@ -541,8 +567,8 @@ class User(AccessControlledModel):
         This generally should not be called or overridden directly, but it may
         be unregistered from the `model.user.save.created` event.
         """
-        from .folder import Folder
-        from .setting import Setting
+        from girderformindlogger.models.folder import Folder
+        from girderformindlogger.models.setting import Setting
 
         if Setting().get(SettingKey.USER_DEFAULT_FOLDERS) == 'public_private':
             user = event.info
@@ -577,7 +603,7 @@ class User(AccessControlledModel):
             assetstore, otherwise return file document.
         :type data: bool
         """
-        from .folder import Folder
+        from girderformindlogger.models.folder import Folder
 
         if subpath:
             path = os.path.join(path, doc['login'])
@@ -604,7 +630,7 @@ class User(AccessControlledModel):
         :param level: If filtering by permission, the required permission level.
         :type level: AccessLevel
         """
-        from .folder import Folder
+        from girderformindlogger.models.folder import Folder
 
         count = 1
         folderModel = Folder()
@@ -631,7 +657,7 @@ class User(AccessControlledModel):
         :param level: The required access level, or None to return the raw
             top-level folder count.
         """
-        from .folder import Folder
+        from girderformindlogger.models.folder import Folder
 
         fields = () if level is None else ('access', 'public')
 
@@ -651,7 +677,7 @@ class User(AccessControlledModel):
         :param doc: The user.
         :type doc: dict
         """
-        from .folder import Folder
+        from girderformindlogger.models.folder import Folder
 
         size = 0
         fixes = 0

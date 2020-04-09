@@ -3,7 +3,7 @@ import datetime
 import six
 import time
 
-from .model_base import Model
+from girderformindlogger.models.model_base import Model
 
 
 class ProgressState(object):

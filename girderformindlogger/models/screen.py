@@ -25,15 +25,15 @@ import os
 import six
 
 from bson.objectid import ObjectId
-from .activity import Activity as ActivityModel
-from .applet import Applet
-from .assignment import Assignment
-from .folder import Folder as FolderModel
-from .item import Item
-from .model_base import AccessControlledModel
 from girderformindlogger import events
 from girderformindlogger.constants import AccessType
 from girderformindlogger.exceptions import ValidationException, GirderException
+from girderformindlogger.models.activity import Activity as ActivityModel
+from girderformindlogger.models.applet import Applet
+from girderformindlogger.models.assignment import Assignment
+from girderformindlogger.models.folder import Folder as FolderModel
+from girderformindlogger.models.item import Item
+from girderformindlogger.models.model_base import AccessControlledModel
 from girderformindlogger.utility.progress import noProgress, setResponseTimeLimit
 
 class Screen(Item):

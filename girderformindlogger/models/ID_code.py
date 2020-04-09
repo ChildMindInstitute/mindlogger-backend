@@ -6,12 +6,12 @@ import os
 import six
 
 from bson.objectid import ObjectId
-from .model_base import Model
 from girderformindlogger import events
 from girderformindlogger import logger
 from girderformindlogger.constants import AccessType
 from girderformindlogger.exceptions import ValidationException, GirderException
 from girderformindlogger.models.item import Item
+from girderformindlogger.models.model_base import Model
 from girderformindlogger.utility import acl_mixin
 from girderformindlogger.utility.model_importer import ModelImporter
 
@@ -71,7 +71,7 @@ class IDCode(acl_mixin.AccessControlMixin, Model):
         Takes the same parameters as
         :py:func:`girderformindlogger.models.model_base.AccessControlMixin.load`
         """
-        from .profile import Profile
+        from girderformindlogger.models.profile import Profile
 
         # Ensure we include extra fields to do the migration below
         extraFields = {'baseParentId', 'baseParentType', 'parentId',
@@ -104,7 +104,7 @@ class IDCode(acl_mixin.AccessControlMixin, Model):
         return doc
 
     def findIdCodes(self, profileId):
-        from .profile import Profile
+        from girderformindlogger.models.profile import Profile
 
         idCodes = [
             i['code'] for i in list(self.find({'profileId': {'$in': [
@@ -120,7 +120,7 @@ class IDCode(acl_mixin.AccessControlMixin, Model):
         return(idCodes)
 
     def removeCode(self, profileId, code):
-        from .profile import Profile
+        from girderformindlogger.models.profile import Profile
         idCode = self.findOne({
             'profileId': ObjectId(profileId),
             'code': code
@@ -181,7 +181,7 @@ class IDCode(acl_mixin.AccessControlMixin, Model):
             'code': idCode
         }))
         if len(existing):
-            from .profile import Profile
+            from girderformindlogger.models.profile import Profile
             ps = [
                 Profile().load(
                     exist['profileId'],
@@ -191,7 +191,7 @@ class IDCode(acl_mixin.AccessControlMixin, Model):
             if len(ps):
                 return(ps)
         else:
-            from .invitation import Invitation
+            from girderformindlogger.models.invitation import Invitation
             existing = list(self.find({
                 'idCode': idCode
             }))
@@ -231,7 +231,7 @@ class IDCode(acl_mixin.AccessControlMixin, Model):
         :type force: bool
         :returns: an ordered list of dictionaries from root to the current item
         """
-        from .folder import Folder
+        from girderformindlogger.models.folder import Folder
 
         folderModel = Folder()
         curFolder = folderModel.load(
@@ -254,5 +254,5 @@ class IDCode(acl_mixin.AccessControlMixin, Model):
         :param item: The item to check.
         :type item: dict
         """
-        from .folder import Folder
+        from girderformindlogger.models.folder import Folder
         return not Folder().load(item.get('profileId'), force=True)

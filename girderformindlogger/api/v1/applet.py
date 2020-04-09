@@ -22,6 +22,7 @@ import re
 import threading
 import uuid
 import requests
+from datetime import datetime
 from ..describe import Description, autoDescribeRoute
 from ..rest import Resource, rawResponse
 from bson.objectid import ObjectId
@@ -38,10 +39,12 @@ from girderformindlogger.models.item import Item as ItemModel
 from girderformindlogger.models.protocol import Protocol as ProtocolModel
 from girderformindlogger.models.roles import getCanonicalUser, getUserCipher
 from girderformindlogger.models.user import User as UserModel
+from girderformindlogger.models.pushNotification import PushNotification as PushNotificationModel
 from girderformindlogger.utility import config, jsonld_expander
 from pyld import jsonld
 
 USER_ROLE_KEYS = USER_ROLES.keys()
+
 
 class Applet(Resource):
 
@@ -57,6 +60,8 @@ class Applet(Resource):
         self.route('PUT', (':id', 'assign'), self.assignGroup)
         self.route('PUT', (':id', 'constraints'), self.setConstraints)
         self.route('PUT', (':id', 'schedule'), self.setSchedule)
+        self.route('PUT', (':id', 'refresh'), self.refresh)
+        self.route('GET', (':id', 'schedule'), self.getSchedule)
         self.route('POST', (':id', 'invite'), self.invite)
         self.route('GET', (':id', 'roles'), self.getAppletRoles)
         self.route('GET', (':id', 'users'), self.getAppletUsers)
@@ -75,7 +80,8 @@ class Applet(Resource):
     def getAppletUsers(self, applet):
         thisUser=self.getCurrentUser()
         if AppletModel().isCoordinator(applet['_id'], thisUser):
-            return(AppletModel().getAppletUsers(applet, thisUser, force=True))
+            appletUsers = AppletModel().getAppletUsers(applet, thisUser, force=True)
+            return appletUsers
         else:
             raise AccessException(
                 "Only coordinators and managers can see user lists."
@@ -282,11 +288,7 @@ class Applet(Resource):
                 AppletModel().preferredName(applet),
                 applet.get('_id')
             )
-            thread = threading.Thread(
-                target=AppletModel().updateUserCacheAllUsersAllRoles,
-                args=(applet, user)
-            )
-            thread.start()
+            AppletModel().updateUserCacheAllUsersAllRoles(applet, user)
         else:
             message = 'Could not deactivate applet {} ({}).'.format(
                 AppletModel().preferredName(applet),
@@ -315,6 +317,10 @@ class Applet(Resource):
     )
     def getApplet(self, applet, refreshCache=False):
         user = self.getCurrentUser()
+
+        # we don't need to refreshCache here (cached data is automatically updated whenever original data changes).
+        refreshCache = False
+
         if refreshCache:
             thread = threading.Thread(
                 target=jsonld_expander.formatLdObject,
@@ -334,6 +340,39 @@ class Applet(Resource):
                 refreshCache=refreshCache
             )
         )
+
+    @access.user(scope=TokenScope.DATA_WRITE)
+    @autoDescribeRoute(
+        Description('reload protocol into database and refresh cache.')
+        .modelParam(
+            'id',
+            model=AppletModel,
+            level=AccessType.READ,
+            destName='applet'
+        )
+        .errorResponse('Invalid applet ID.')
+        .errorResponse('Write access was denied for this applet.', 403)
+    )
+    def refresh(self, applet):
+        user = self.getCurrentUser()
+
+        if not AppletModel().isCoordinator(applet['_id'], user):
+            raise AccessException(
+                "Only coordinators and managers can update applet."
+            )
+
+        thread = threading.Thread(
+            target=AppletModel().reloadAndUpdateCache,
+            args=(applet, user)
+        )
+
+        thread.start()
+
+        return({
+            "message": "The protocol is being reloaded and cached data is being updated. Please check back "
+                        "in several mintutes to see it."
+        })
+
 
     @access.user(scope=TokenScope.DATA_READ)
     @autoDescribeRoute(
@@ -438,7 +477,7 @@ class Applet(Resource):
                 idCode=idCode
             )
 
-            return(Profile().displayProfileFields(invitation, user))
+            return(Profile().displayProfileFields(invitation, user, forceManager=True))
         except:
             import sys, traceback
             print(sys.exc_info())
@@ -478,6 +517,47 @@ class Applet(Resource):
         thread.start()
         return(applet)
 
+    @access.user(scope=TokenScope.DATA_READ)
+    @autoDescribeRoute(
+        Description('Get schedule information for an applet.')
+        .modelParam(
+            'id',
+            model=AppletModel,
+            level=AccessType.READ,
+            destName='applet'
+        )
+        .param(
+            'refreshCache',
+            'Reparse JSON-LD',
+            required=False,
+            dataType='boolean'
+        )
+        .errorResponse('Invalid applet ID.')
+        .errorResponse('Read access was denied for this applet.', 403)
+    )
+    def getSchedule(self, applet, refreshCache=False):
+        user = self.getCurrentUser()
+        if refreshCache:
+            thread = threading.Thread(
+                target=jsonld_expander.formatLdObject,
+                args=(applet, 'applet', user),
+                kwargs={'refreshCache': refreshCache}
+            )
+            thread.start()
+            return({
+                "message": "The applet is being refreshed. Please check back "
+                           "in several mintutes to see it."
+            })
+
+        model = AppletModel()
+        schedule = model.filterScheduleEvents(
+            applet.get('meta', {}).get('applet', {}).get('schedule', {}),
+            user,
+            model.isCoordinator(applet['_id'], user)
+        )
+
+        return schedule
+
     @access.user(scope=TokenScope.DATA_WRITE)
     @autoDescribeRoute(
         Description('Set or update schedule information for an applet.')
@@ -502,17 +582,58 @@ class Applet(Resource):
             raise AccessException(
                 "Only coordinators and managers can update applet schedules."
             )
-        appletMeta = applet['meta'] if 'meta' in applet else {'applet': {}}
-        if 'applet' not in appletMeta:
-            appletMeta['applet'] = {}
-        appletMeta['applet']['schedule'] = schedule
-        AppletModel().setMetadata(applet, appletMeta)
+
+        assigned = {}
+
+        if 'events' in schedule:
+
+            for event in list(schedule['events']):
+                if 'data' in event and 'useNotifications' in event['data'] and event['data']['useNotifications']:
+                    if 'notifications' in event['data'] and event['data']['notifications'][0]['start']:
+                        # in case of daily/weekly event
+                        exist_notification = None
+
+                        if 'id' in event:
+                            event['id'] = ObjectId(event['id'])
+                            exist_notification = PushNotificationModel().findOne(query={'_id': event['id']})
+
+                        if exist_notification:
+                            notification = PushNotificationModel().replaceNotification(
+                                applet['_id'],
+                                event,
+                                thisUser,
+                                exist_notification)
+                            event['id'] = notification['_id']
+                            assigned[event['id']] = True
+                        else:
+                            created_notification = PushNotificationModel().replaceNotification(
+                                applet['_id'],
+                                event,
+                                thisUser)
+
+                            if created_notification:
+                                event['id'] = created_notification['_id']
+                                assigned[event['id']] = True
+
+        original_schedule = applet.get('meta', {}).get('applet', {}).get('schedule', {})
+
+        if 'events' in original_schedule:
+            for event in original_schedule['events']:
+                original_id = event.get('id')
+                if original_id not in assigned:
+                    PushNotificationModel().delete_notification(original_id)
+
+        applet_meta = applet['meta'] if 'meta' in applet else {'applet': {}}
+        if 'applet' not in applet_meta:
+            applet_meta['applet'] = {}
+        applet_meta['applet']['schedule'] = schedule
+        AppletModel().setMetadata(applet, applet_meta)
         thread = threading.Thread(
             target=AppletModel().updateUserCacheAllUsersAllRoles,
             args=(applet, thisUser)
         )
         thread.start()
-        return(appletMeta)
+        return(applet_meta)
 
 
 def authorizeReviewer(applet, reviewer, user):

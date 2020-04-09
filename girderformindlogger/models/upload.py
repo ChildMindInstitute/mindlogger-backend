@@ -5,8 +5,8 @@ from bson.objectid import ObjectId
 
 from girderformindlogger import events, logger
 from girderformindlogger.api import rest
-from .model_base import Model
 from girderformindlogger.exceptions import GirderException, ValidationException
+from girderformindlogger.models.model_base import Model
 from girderformindlogger.settings import SettingKey
 from girderformindlogger.utility import RequestBodyStream
 from girderformindlogger.utility.progress import noProgress
@@ -31,7 +31,7 @@ class Upload(Model):
         :param minSize: the minimum size to return.
         :return: chunk size to use for file uploads.
         """
-        from .setting import Setting
+        from girderformindlogger.models.setting import Setting
         minChunkSize = Setting().get(SettingKey.UPLOAD_MINIMUM_CHUNK_SIZE)
         return max(minChunkSize, minSize)
 
@@ -127,8 +127,8 @@ class Upload(Model):
         :param user: The current user. Only affects behavior if filter=True.
         :type user: dict or None
         """
-        from .assetstore import Assetstore
-        from .file import File
+        from girderformindlogger.models.assetstore import Assetstore
+        from girderformindlogger.models.file import File
         from girderformindlogger.utility import assetstore_utilities
 
         assetstore = Assetstore().load(upload['assetstoreId'])
@@ -153,7 +153,7 @@ class Upload(Model):
         Requests the offset that should be used to resume uploading. This
         makes the request from the assetstore adapter.
         """
-        from .assetstore import Assetstore
+        from girderformindlogger.models.assetstore import Assetstore
         from girderformindlogger.utility import assetstore_utilities
 
         assetstore = Assetstore().load(upload['assetstoreId'])
@@ -171,9 +171,9 @@ class Upload(Model):
         :type assetstore: dict
         :returns: The file object that was created.
         """
-        from .assetstore import Assetstore
-        from .file import File
-        from .item import Item
+        from girderformindlogger.models.assetstore import Assetstore
+        from girderformindlogger.models.file import File
+        from girderformindlogger.models.item import Item
         from girderformindlogger.utility import assetstore_utilities
 
         events.trigger('model.upload.finalize', upload)
@@ -260,7 +260,7 @@ class Upload(Model):
             resource should be located.  This may be overridden.
         :returns: the selected assetstore.
         """
-        from .assetstore import Assetstore
+        from girderformindlogger.models.assetstore import Assetstore
 
         eventParams = {'model': modelType, 'resource': resource}
         event = events.trigger('model.upload.assetstore', eventParams)
@@ -399,7 +399,7 @@ class Upload(Model):
         :returns: the original file if it is not moved, or the newly 'uploaded'
             file if it is.
         """
-        from .file import File
+        from girderformindlogger.models.file import File
 
         if file['assetstoreId'] == assetstore['_id']:
             return file
@@ -474,7 +474,7 @@ class Upload(Model):
         :param upload: The upload document to remove.
         :type upload: dict
         """
-        from .assetstore import Assetstore
+        from girderformindlogger.models.assetstore import Assetstore
         from girderformindlogger.utility import assetstore_utilities
 
         assetstore = Assetstore().load(upload['assetstoreId'])
@@ -503,7 +503,7 @@ class Upload(Model):
         :type assetstoreId: str
         :returns: a list of items that were removed or could be removed.
         """
-        from .assetstore import Assetstore
+        from girderformindlogger.models.assetstore import Assetstore
         from girderformindlogger.utility import assetstore_utilities
 
         results = []

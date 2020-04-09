@@ -261,10 +261,13 @@ class Model(object):
             raise ResourcePathNotFound("Document not found: {}".format(str(
                 passedUrl
             )))
-        atType, cachedDoc = cycleModels(
-            {url, passedUrl},
-            modelType=primary
-        ) if not refreshCache else modelType, None
+
+        cachedDoc = None
+        if not refreshCache:
+            cachedDoc = cycleModels(
+                {url, passedUrl},
+                modelType=primary
+            )[1]
         if cachedDoc is None:
             if user==None:
                 raise AccessException(
@@ -1088,7 +1091,7 @@ class AccessControlledModel(Model):
         """
         Private helper for setting user roles on a resource.
         """
-        from .roles import createCipher
+        from girderformindlogger.models.roles import createCipher
         if not isinstance(id, ObjectId):
             id = ObjectId(id)
         if 'roles' not in doc:
@@ -1486,8 +1489,8 @@ class AccessControlledModel(Model):
         :type doc: dict
         :returns: A dict containing `users` and `groups` keys.
         """
-        from .user import User
-        from .group import Group
+        from girderformindlogger.models.user import User
+        from girderformindlogger.models.group import Group
 
         acList = {
             'users': doc.get('access', {}).get('users', []),
@@ -1535,9 +1538,9 @@ class AccessControlledModel(Model):
         :returns: A dict containing role-keyed dicts with `users` and `groups`
             keys.
         """
-        from .roles import decipherUser
-        from .user import User
-        from .group import Group
+        from girderformindlogger.models.roles import decipherUser
+        from girderformindlogger.models.user import User
+        from girderformindlogger.models.group import Group
         acList = {
             role: {
                 'users': doc.get('roles', {}).get(role, {}).get(
@@ -1682,7 +1685,7 @@ class AccessControlledModel(Model):
             currentUser's permissions (only matters if flags are passed).
         :type force: bool
         """
-        from .roles import createCipher
+        from girderformindlogger.models.roles import createCipher
         if role not in USER_ROLE_KEYS:
             raise ValidationException('Invalid role: {}.'.format(role), 'role')
         return(

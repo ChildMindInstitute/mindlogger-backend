@@ -46,6 +46,7 @@ class User(Resource):
         self.route('GET', (':id',), self.getUserByID)
         self.route('GET', (':id', 'access'), self.getUserAccess)
         self.route('PUT', (':id', 'access'), self.updateUserAccess)
+        self.route('GET', (':id', 'applets'), self.getUserApplets)
         self.route('PUT', (':id', 'code'), self.updateIDCode)
         self.route('DELETE', (':id', 'code'), self.removeIDCode)
         self.route('GET', ('applets',), self.getOwnApplets)
@@ -56,6 +57,8 @@ class User(Resource):
         self.route('POST', (), self.createUser)
         self.route('PUT', (':id',), self.updateUser)
         self.route('PUT', ('password',), self.changePassword)
+        self.route('PUT', ('username',), self.changeUserName)
+
         self.route('PUT', (':id', 'password'), self.changeUserPassword)
         self.route('GET', ('password', 'temporary', ':id'),
                    self.checkTemporaryPassword)
@@ -119,29 +122,26 @@ class User(Resource):
                             fields=userfields
                         ))
                     ]
-                appletC = jsonld_expander.loadCache(
-                    applet.get('cached')
-                ) if 'cached' in applet else applet
-                output.append({
-                    '_id': groupId,
-                    'applets': [{
-                        'name': appletC.get('applet', {}).get(
-                            'skos:prefLabel',
-                            ''
-                        ),
-                        'image': appletC.get('applet', {}).get(
-                            'schema:image',
-                            ''
-                        ),
-                        'description': appletC.get('applet', {
-                        }).get(
-                            'schema:description',
-                            ''
-                        ),
-                        'managers': applet.get('managers'),
-                        'reviewers': applet.get('reviewers')
-                    } for applet in applets]
-                })
+            output.append({
+                '_id': groupId,
+                'applets': [{
+                    'name': applet.get('cached', {}).get('applet', {}).get(
+                        'skos:prefLabel',
+                        ''
+                    ),
+                    'image': applet.get('cached', {}).get('applet', {}).get(
+                        'schema:image',
+                        ''
+                    ),
+                    'description': applet.get('cached', {}).get('applet', {
+                    }).get(
+                        'schema:description',
+                        ''
+                    ),
+                    'managers': applet.get('managers'),
+                    'reviewers': applet.get('reviewers')
+                } for applet in applets]
+            })
         return(output)
 
     @access.user
@@ -349,8 +349,8 @@ class User(Resource):
 
     @access.public(scope=TokenScope.USER_INFO_READ)
     @autoDescribeRoute(
-        Description('Update a user\'s ID Code.')
-        .param('id', 'Profile ID', required=True)
+        Description('Add a new ID Code to a user.')
+        .param('id', 'Profile ID', required=True, paramType='path')
         .param('code', 'ID code to add to profile', required=True)
         .errorResponse('ID was invalid.')
         .errorResponse('You do not have permission to see this user.', 403)
@@ -378,7 +378,7 @@ class User(Resource):
     @access.public(scope=TokenScope.USER_INFO_READ)
     @autoDescribeRoute(
         Description('Remove an ID Code from a user.')
-        .param('id', 'Profile ID', required=True)
+        .param('id', 'Profile ID', required=True, paramType='path')
         .param(
             'code',
             'ID code to remove from profile. If the ID code to remove is the '
@@ -440,6 +440,102 @@ class User(Resource):
             access,
             save=True
         )
+
+    @access.public(scope=TokenScope.DATA_READ)
+    @autoDescribeRoute(
+        Description('Get all applets for a user by that user\'s ID and role.')
+        .modelParam('id', model=UserModel, level=AccessType.READ)
+        .param(
+            'role',
+            'One of ' + str(USER_ROLES.keys()),
+            required=False,
+            default='user'
+        )
+        .param(
+            'ids_only',
+            'If true, only returns an Array of the IDs of assigned applets. '
+            'Otherwise, returns an Array of Objects keyed with "applet" '
+            '"protocol", "activities" and "items" with expanded JSON-LD as '
+            'values.',
+            required=False,
+            default=False,
+            dataType='boolean'
+        )
+        .errorResponse('ID was invalid.')
+        .errorResponse(
+            'You do not have permission to see any of this user\'s applets.',
+            403
+        )
+        .deprecated()
+    )
+    def getUserApplets(self, user, role, ids_only):
+        from bson.objectid import ObjectId
+        reviewer = self.getCurrentUser()
+        if reviewer is None:
+            raise AccessException("You must be logged in to get user applets.")
+        if user.get('_id') != reviewer.get('_id') and user.get(
+            '_id'
+        ) is not None:
+            raise AccessException("You can only get your own applets.")
+        role = role.lower()
+        if role not in USER_ROLES.keys():
+            raise RestException(
+                'Invalid user role.',
+                'role'
+            )
+        try:
+            applets = AppletModel().getAppletsForUser(role, user, active=True)
+            if len(applets)==0:
+                return([])
+            if ids_only==True:
+                return([applet.get('_id') for applet in applets])
+            return(
+                [
+                    {
+                        **jsonld_expander.formatLdObject(
+                            applet,
+                            'applet',
+                            reviewer,
+                            refreshCache=False
+                        ),
+                        "users": AppletModel().getAppletUsers(applet, user),
+                        "groups": AppletModel().getAppletGroups(
+                            applet,
+                            arrayOfObjects=True
+                        )
+                    } if role=="manager" else {
+                        **jsonld_expander.formatLdObject(
+                            applet,
+                            'applet',
+                            reviewer,
+                            dropErrors=True
+                        ),
+                        "groups": [
+                            group for group in AppletModel(
+                            ).getAppletGroups(applet).get(role) if ObjectId(
+                                group
+                            ) in [
+                                *user.get('groups', []),
+                                *user.get('formerGroups', []),
+                                *[invite['groupId'] for invite in [
+                                    *user.get('groupInvites', []),
+                                    *user.get('declinedInvites', [])
+                                ]]
+                            ]
+                        ]
+                    } for applet in applets if (
+                        applet is not None and not applet.get(
+                            'meta',
+                            {}
+                        ).get(
+                            'applet',
+                            {}
+                        ).get('deleted')
+                    )
+                ]
+            )
+        except Exception as e:
+            return(e)
 
     @access.public(scope=TokenScope.DATA_READ)
     @autoDescribeRoute(
@@ -588,6 +684,10 @@ class User(Resource):
                ' a cookie that should be passed back in future requests.')
         .param('Girder-OTP', 'A one-time password for this user',
                paramType='header', required=False)
+        .param('deviceId', 'device id for push notifications',
+               paramType='header', required=False)
+        .param('timezone', 'timezone of user mobile',
+               paramType='header', required=False)
         .errorResponse('Missing Authorization header.', 401)
         .errorResponse('Invalid login or password.', 403)
     )
@@ -600,6 +700,8 @@ class User(Resource):
 
         user, token = self.getCurrentUser(returnToken=True)
 
+        deviceId = cherrypy.request.headers.get('deviceId', '')
+        timezone = int(cherrypy.request.headers.get('timezone', 0))
 
         # Only create and send new cookie if user isn't already sending a valid
         # one.
@@ -636,6 +738,11 @@ class User(Resource):
                     )
                 )
 
+            if deviceId:
+                user['deviceId'] = deviceId
+                user['timezone'] = timezone
+                self._model.save(user)
+
             thread = threading.Thread(
                 target=AppletModel().updateUserCacheAllRoles,
                 args=(user,)
@@ -653,7 +760,6 @@ class User(Resource):
             },
             'message': 'Login succeeded.'
         }
-
     @access.public
     @autoDescribeRoute(
         Description('Log out of the system.')
@@ -776,7 +882,6 @@ class User(Resource):
         return {'nUsers': nUsers}
 
     @access.user
-    @filtermodel(model=UserModel)
     @autoDescribeRoute(
         Description("Update a user's information.")
         .modelParam('id', model=UserModel, level=AccessType.WRITE)
@@ -821,7 +926,8 @@ class User(Resource):
         status=None,
         firstName=None,
         lastName=None
-    ): # 🔥 delete firstName and lastName once fully deprecated
+    ):
+        # 🔥 delete firstName and lastName once fully deprecated
         user['firstName'] = displayName if len(
             displayName
         ) else firstName if firstName is not None else ""
@@ -834,6 +940,25 @@ class User(Resource):
             elif user['admin'] is not admin:
                 raise AccessException('Only admins may change admin status.')
 
+            # Only admins can change status
+            if status is not None and status != user.get('status', 'enabled'):
+                if not self.getCurrentUser()['admin']:
+                    raise AccessException('Only admins may change status.')
+                if user['status'] == 'pending' and status == 'enabled':
+                    # Send email on the 'pending' -> 'enabled' transition
+                    self._model._sendApprovedEmail(user)
+                user['status'] = status
+
+        try:
+            self._model.save(user)
+        except:
+            raise RestException(
+                'Update failed, and `PUT /user/{:id}` is deprecated.'
+            )
+
+        return(
+            {'message': 'Update saved, but `PUT /user/{:id}` is deprecated.'}
+        )
         # Only admins can change status
         if status is not None and status != user.get('status', 'enabled'):
             if not self.getCurrentUser()['admin']:
@@ -904,7 +1029,7 @@ class User(Resource):
         if not user:
             raise RestException('That email is not registered.')
 
-        token = Token().createToken(user, days=1, scope=TokenScope.TEMPORARY_USER_AUTH)
+        token = Token().createToken(user, days=(15/1440.0), scope=TokenScope.TEMPORARY_USER_AUTH)
 
         url = '%s#useraccount/%s/token/%s' % (
             mail_utils.getEmailUrlPrefix(), str(user['_id']), str(token['_id']))
@@ -913,6 +1038,7 @@ class User(Resource):
             'url': url,
             'token': str(token['_id'])
         })
+
         mail_utils.sendMail(
             '%s: Temporary access' % Setting().get(SettingKey.BRAND_NAME),
             html,
@@ -935,7 +1061,10 @@ class User(Resource):
         delta = (token['expires'] - datetime.datetime.utcnow()).total_seconds()
         hasScope = Token().hasScope(token, TokenScope.TEMPORARY_USER_AUTH)
 
-        if token.get('userId') != user['_id'] or delta <= 0 or not hasScope:
+        if delta <= 0:
+            raise AccessException("The token is expired")
+
+        if token.get('userId') != user['_id'] or not hasScope:
             raise AccessException('The token does not grant temporary access to this user.')
 
         # Temp auth is verified, send an actual auth token now. We keep the
@@ -1108,3 +1237,19 @@ class User(Resource):
 
         self._model._sendVerificationEmail(user)
         return {'message': 'Sent verification email.'}
+
+    @access.user
+    @autoDescribeRoute(
+        Description('Change your username.')
+        .param('username', 'Your new username.')
+        .errorResponse(('You are not logged in.',), 401)
+    )
+    def changeUserName(self, username):
+        user = self.getCurrentUser()
+
+        old = self._model.setUserName(user, username)
+
+        for p in list(ProfileModel().find(query={'userId': user['_id'], 'profile': True})):
+            ProfileModel()._cacheProfileDisplay(p, user, forceManager=True)
+
+        return {'message': 'username changed from {} to {}'.format(old, username)}

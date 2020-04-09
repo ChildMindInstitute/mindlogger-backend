@@ -25,6 +25,7 @@ with open('README.rst') as f:
 installReqs = [
     'boto3',
     'botocore',
+    'cherrypy_cors==1.6',
     # CherryPy version is restricted due to a bug in versions >=11.1
     # https://github.com/cherrypy/cherrypy/issues/1662
     'CherryPy<11.1',
@@ -44,7 +45,7 @@ installReqs = [
     'passlib [bcrypt,totp]',
     'pymongo>=3.6',
     'PyYAML',
-    'psutil==5.6.3',
+    'psutil==5.6.6',
     'pyld>=1.0.4',
     'pyOpenSSL',
     'python-dateutil==2.6.1',
