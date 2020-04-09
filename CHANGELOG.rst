@@ -8,13 +8,16 @@ Changes
 -------
 Unreleased
 ==========
-2019-04-08: v0.13.19
+2020-04-08: v0.13.19
 fix permission issue
-2019-04-07: v0.13.18
+
+2020-04-07: v0.13.18
 update forgot password functionality
-2019-04-03: v0.13.17
+
+2020-04-03: v0.13.17
 managers get general schedule
-2019-04-02: v0.13.16
+
+2020-04-02: v0.13.16
 fix issue 619 ( Managers don't have write access )
 
 2019-03-31: v0.13.15
