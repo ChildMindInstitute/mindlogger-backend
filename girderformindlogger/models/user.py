@@ -741,5 +741,8 @@ class User(AccessControlledModel):
                 '_id': {
                     '$in': user_ids
                 }
-            }
+            },
+            fields=[
+                '_id', 'timezone', 'deviceId'
+            ]
         )
