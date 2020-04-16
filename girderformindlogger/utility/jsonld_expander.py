@@ -676,8 +676,8 @@ def createCache(obj, formatted, modelType, user):
 
     return obj
 
-def loadCache(obj):
-    cache = CacheModel().getCacheData(obj)
+def loadCache(id):
+    cache = CacheModel().getCacheData(id)
     return cache
 
 
