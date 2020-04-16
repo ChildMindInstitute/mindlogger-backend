@@ -148,6 +148,7 @@ def MODELS():
     from girderformindlogger.models.screen import Screen as ScreenModel
     from girderformindlogger.models.user import User as UserModel
     from girderformindlogger.models.pushNotification import PushNotification as PushNotificationModel
+    from girderformindlogger.models.cache import Cache as CacheModel
     return({
         'activity': ActivityModel,
         'activitySet': ProtocolModel,
@@ -159,7 +160,8 @@ def MODELS():
         'protocol': ProtocolModel,
         'screen': ScreenModel,
         'user': UserModel,
-        'pushNotification': PushNotificationModel
+        'pushNotification': PushNotificationModel,
+        'cache': CacheModel
     })
 
 NONES = {"None", None, "none", ""}

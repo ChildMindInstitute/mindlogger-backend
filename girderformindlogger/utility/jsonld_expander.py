@@ -668,18 +668,16 @@ def createCache(obj, formatted, modelType, user):
 
     if obj.get('cached'):
         cache_id = obj['cached']
-        CacheModel().update(cache_id, 'folder', obj['_id'], modelType, formatted)
+        CacheModel().updateCache(cache_id, MODELS()[modelType]().name, obj['_id'], modelType, formatted)
     else:
-        saved = CacheModel().insert('folder', obj['_id'], 'applet', formatted)
+        saved = CacheModel().insertCache(MODELS()[modelType]().name, obj['_id'], modelType, formatted)
         obj['cached'] = saved['_id']
-        MODELS()[modelType]().updateOne({'_id': ObjectId(obj['_id'])}, {'cached': obj['cached']})
-
+        MODELS()[modelType]().update({'_id': ObjectId(obj['_id'])}, {'$set': {'cached': obj['cached']}}, False)
     return obj
 
 def loadCache(id):
     cache = CacheModel().getCacheData(id)
     return cache
-
 
 def _fixUpFormat(obj):
     if isinstance(obj, dict):

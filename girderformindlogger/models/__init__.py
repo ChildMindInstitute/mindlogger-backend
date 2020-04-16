@@ -236,6 +236,6 @@ def smartImport(IRI, user=None, refreshCache=False, modelType=None):
     )
     return((
         modelType,
-        loadCache(model.get('cached', model)),
+        loadCache(model.get('cached')) if model.get('cached') else model,
         reprolibCanonize(IRI)
     ))

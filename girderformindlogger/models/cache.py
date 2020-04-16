@@ -9,12 +9,13 @@ from bson.objectid import ObjectId
 from girderformindlogger import events
 from girderformindlogger.constants import AccessType
 from girderformindlogger.exceptions import ValidationException, GirderException
-from girderformindlogger.models.model_base import AccessControlledModel
+from girderformindlogger.models.model_base import AccessControlledModel, Model
 from girderformindlogger.utility.model_importer import ModelImporter
 from girderformindlogger.utility.progress import noProgress, setResponseTimeLimit
+from bson import json_util
 
 
-class Cache(AccessControlledModel):
+class Cache(Model):
     """
     Cache collection is used to save cache .
     """
@@ -23,42 +24,43 @@ class Cache(AccessControlledModel):
         self.name = 'cache'
         self.ensureIndices(
             (
-                [
-                    ('collection_name', 1),
-                    ('source_id', 1)                    
-                ],
+                'source_id',
                 'updated'
             )
         )
 
-        self.exposeFields(level=AccessType.READ, fields=(
-            'collection_name', 'source_id'))
+    def validate(self, document):
+        return document
 
-    def insert(self, collection_name, source_id, model_type, cachedData):
+    def insertCache(self, collection_name, source_id, model_type, cachedData):
+        newCache = {
+            'collection_name': collection_name,
+            'source_id': source_id,
+            'model_type': model_type,
+            'updated': datetime.datetime.utcnow(),
+            'cache_data': json_util.dumps(cachedData)
+        }
+        return self.save(newCache)
+
+    def updateCache(self, original_id, collection_name, source_id, model_type, cachedData):
         return self.save({
+            '_id': ObjectId(original_id),
             'collection_name': collection_name,
             'source_id': source_id,
             'model_type': model_type,
             'updated': datetime.datetime.utcnow(),
-            'cache_data': cachedData
+            'cache_data': json_util.dumps(cachedData)
         })
-    
-    def update(self, original_id, collection_name, source_id, model_type, cachedData):
-        return super().update(query={'_id': ObjectId(original_id)}, update={
-            'collection_name': collection_name,
-            'source_id': source_id,
-            'model_type': model_type,
-            'updated': datetime.datetime.utcnow(),
-            'cache_data': cachedData
-        }, multi=False)
     
     def getCacheData(self, _id):
         document = self.findOne(query={'_id': ObjectId(_id)})
-        if document:
-            return document.get('cache_data')
-
+        if document.get('cache_data'):
+            return json_util.loads(document.get('cache_data'))
         return None
 
-    def loadFromSourceID(self, collection_name, source_id):
-        return self.findOne(query={'collection_name': collection_name, 'source_id': source_id})
+    def getFromSourceID(self, collection_name, source_id):
+        document = self.findOne(query={'collection_name': collection_name, 'source_id': source_id})
+        if document.get('cache_data'):
+            return json_util.loads(document.get('cache_data'))
+        return None
 
