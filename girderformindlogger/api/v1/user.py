@@ -588,6 +588,8 @@ class User(Resource):
         refreshCache=False
     ):
         from bson.objectid import ObjectId
+        from girderformindlogger.utility.jsonld_expander import loadCache
+
         from girderformindlogger.utility.response import responseDateList
 
         reviewer = self.getCurrentUser()
@@ -599,35 +601,34 @@ class User(Resource):
                 'Invalid user role.',
                 'role'
             )
-        if ids_only or unexpanded:
-            applets = AppletModel().getAppletsForUser(
-                role,
-                reviewer,
-                active=True
-            )
-            if len(applets)==0:
-                return([])
-            if ids_only==True:
-                return([applet.get('_id') for applet in applets])
-            elif unexpanded==True:
-                return([{
-                    'applet': AppletModel().unexpanded(applet)
-                } for applet in applets])
-        try:
-            for applet in applets:
-                try:
-                    applet["applet"]["responseDates"] = responseDateList(
-                        applet['applet'].get(
-                            '_id',
-                            ''
-                        ).split('applet/')[-1],
-                        reviewer.get('_id'),
-                        reviewer
-                    )
-                except:
-                    applet["applet"]["responseDates"] = []
 
-            return(applets)
+        applet_ids = reviewer.get('applets', {}).get(role, [])
+
+        if ids_only:
+            return applet_ids
+        applets = [AppletModel().load(ObjectId(applet_id), AccessType.READ) for applet_id in applet_ids]
+
+        if unexpanded:
+            return([{
+                'applet': AppletModel().unexpanded(applet)
+            } for applet in applets])
+
+        try:
+            result = []
+            for applet in applets:
+                if applet.get('cached'):
+                    formatted = loadCache(applet['cached'])
+                    try:
+                        formatted["applet"]["responseDates"] = responseDateList(
+                            applet.get('_id'),
+                            reviewer.get('_id'),
+                            reviewer
+                        )
+                    except:
+                        formatted["applet"]["responseDates"] = []
+                    result.append(formatted)
+
+            return(result)
         except:
             import sys, traceback
             print(sys.exc_info())

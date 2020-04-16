@@ -214,6 +214,9 @@ class Applet(FolderModel):
             constraints=constraints,
             appletName=appletName
         )
+
+        UserModel().appendApplet(user, applet.get('applet', applet).get('_id').split('/')[-1], USER_ROLES.keys())
+
         emailMessage = "Your applet, {}, has been successfully created. The "  \
             "applet's ID is {}".format(
                 name,
