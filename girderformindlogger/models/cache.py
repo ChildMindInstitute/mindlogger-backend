@@ -44,13 +44,13 @@ class Cache(AccessControlledModel):
         })
     
     def update(self, original_id, collection_name, source_id, model_type, cachedData):
-        return super().update(query={'_id': ObjectId(original_id)}, {
+        return super().update(query={'_id': ObjectId(original_id)}, update={
             'collection_name': collection_name,
             'source_id': source_id,
             'model_type': model_type,
             'updated': datetime.datetime.utcnow(),
             'cache_data': cachedData
-        }, False)
+        }, multi=False)
     
     def getCacheData(self, _id):
         document = self.findOne(query={'_id': ObjectId(_id)})
