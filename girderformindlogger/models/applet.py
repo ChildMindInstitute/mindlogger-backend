@@ -143,7 +143,9 @@ class Applet(FolderModel):
 
         # give all roles to creator of an applet
         profile = Profile().createProfile(applet, user, 'manager')
-        profile['roles'] = USER_ROLES.keys()
+        profile = Profile().load(profile['_id'], force=True)
+
+        profile['roles'] = list(USER_ROLES.keys())
         Profile().save(profile, False)
 
         UserModel().appendApplet(user, applet['_id'], USER_ROLES.keys())
