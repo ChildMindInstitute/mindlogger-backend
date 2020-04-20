@@ -216,13 +216,18 @@ class Invitation(AccessControlledModel):
         profile['roles'] = profile.get('roles', [])
         invited_role = invitation.get('role','user')
 
+        new_roles = []
         # manager has get all roles by default
         for role in USER_ROLES.keys():
             if role not in profile['roles']:
                 if invited_role == 'manager' or invited_role == role:
+                    new_roles.append(role)
                     profile['roles'].append(role)
 
         Profile().save(profile, validate=False)
+
+        from girderformindlogger.models.user import User as UserModel
+        UserModel().appendApplet(user, applet['_id'], new_roles)
 
         self.remove(invitation)        
         return(Profile().displayProfileFields(
