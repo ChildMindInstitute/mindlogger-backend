@@ -409,7 +409,7 @@ class Applet(FolderModel):
         ))
         return(applets if isinstance(applets, list) else [applets])
 
-    def reloadAndUpdateCache(self, applet, coordinator):
+    def reloadAndUpdateCache(self, applet, editor):
         from girderformindlogger.models.protocol import Protocol
 
         protocolUrl = applet.get('meta', {}).get('protocol', applet).get(
@@ -421,7 +421,7 @@ class Applet(FolderModel):
             protocol = Protocol().getFromUrl(
                 protocolUrl,
                 'protocol',
-                coordinator,
+                editor,
                 thread=False,
                 refreshCache=True
             )
@@ -432,27 +432,15 @@ class Applet(FolderModel):
                 if 'meta' in applet and 'protocol' in applet['meta']:
                     applet['meta']['protocol']['_id'] = protocol['_id']
 
-            self.updateUserCacheAllUsersAllRoles(applet, coordinator)
+            from girderformindlogger.utility import jsonld_expander
 
-    def updateUserCacheAllUsersAllRoles(self, applet, coordinator):
-        from girderformindlogger.models.profile import Profile as ProfileModel
-
-        if 'cached' in applet:
-            applet.pop('cached')
-            self.update({'_id': ObjectId(applet['_id'])}, {'$unset': {'cached': ''}})
-
-        [self.updateUserCacheAllRoles(
-            UserModel().load(
-                id=ProfileModel().load(
-                    user['_id'],
-                    force=True
-                ).get('userId'),
-                force=True
+            jsonld_expander.formatLdObject(
+                applet,
+                'applet',
+                editor,
+                refreshCache=False,
+                responseDates=False
             )
-        ) for user in self.getAppletUsers(
-            applet,
-            coordinator
-        ).get('active', [])]
 
     def updateUserCacheAllRoles(self, user):
         [self.updateUserCache(role, user) for role in list(USER_ROLES.keys())]

@@ -757,3 +757,16 @@ class User(AccessControlledModel):
                 user['applets'][role].append(applet_id)
 
         self.update({'_id': user['_id']}, {'$set': {'applets': user['applets']}}, False)
+    
+    def removeApplet(self, user, applet_id):
+        if not user.get('applets'):
+            user['applets'] = {}
+            for role in USER_ROLES.keys():
+                user['applets'][role] = []
+        applet_id = ObjectId(applet_id)
+
+        for role in USER_ROLES.keys():
+            if applet_id in user['applets'][role]:
+                user['applets'][role].remove(applet_id)
+
+        self.update({'_id': user['_id']}, {'$set': {'applets': user['applets']}}, False)

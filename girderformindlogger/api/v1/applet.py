@@ -279,6 +279,8 @@ class Applet(Resource):
         .errorResponse('Write access was denied for this applet.', 403)
     )
     def deactivateApplet(self, folder):
+        from girderformindlogger.models.profile import Profile
+
         applet = folder
         user = Applet().getCurrentUser()
         applet['meta']['applet']['deleted'] = True
@@ -288,7 +290,12 @@ class Applet(Resource):
                 AppletModel().preferredName(applet),
                 applet.get('_id')
             )
-            AppletModel().updateUserCacheAllUsersAllRoles(applet, user)
+
+            Profile().deactivateProfile(applet['_id'], None)
+
+            users = list(Profile().find({'appletId': ObjectId(applet['_id']), 'deactivated': {'$ne': True}}, ['userId']))
+            for user in users:
+                UserModel().removeApplet(UserModel().findOne({'_id': ObjectId(user['userId'])}), applet['_id'])
         else:
             message = 'Could not deactivate applet {} ({}).'.format(
                 AppletModel().preferredName(applet),
@@ -510,11 +517,8 @@ class Applet(Resource):
             thisUser,
             refreshCache=True
         )
-        thread = threading.Thread(
-            target=AppletModel().updateUserCacheAllUsersAllRoles,
-            args=(applet, thisUser)
-        )
-        thread.start()
+        jsonld_expander.createCache(folder, applet, 'applet')
+
         return(applet)
 
     @access.user(scope=TokenScope.DATA_READ)
@@ -628,11 +632,7 @@ class Applet(Resource):
             applet_meta['applet'] = {}
         applet_meta['applet']['schedule'] = schedule
         AppletModel().setMetadata(applet, applet_meta)
-        thread = threading.Thread(
-            target=AppletModel().updateUserCacheAllUsersAllRoles,
-            args=(applet, thisUser)
-        )
-        thread.start()
+
         return(applet_meta)
 
 

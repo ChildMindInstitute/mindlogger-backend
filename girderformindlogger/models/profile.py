@@ -985,6 +985,22 @@ class Profile(AccessControlledModel, dict):
 
         return doc
 
+    def deactivateProfile(self, applet_id, user_id):
+        """
+        deactivate profile from applet_id, user_id
+        at the moment, this is used in deactivateApplet
+        """
+        if not applet_id and not user_id:
+            return
+
+        query = {}
+        if applet_id:
+            query['appletId'] = ObjectId(applet_id)
+        if user_id:
+            query['userId'] = ObjectId(user_id)
+
+        self.update(query, {'set': {'deactivated': True}})
+
     def get_profiles_by_applet_id(self, applet_id):
         return self.find(
             query={

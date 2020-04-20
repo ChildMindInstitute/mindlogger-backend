@@ -215,11 +215,6 @@ class User(Resource):
         profile["userDefined"] = ud
         ProfileModel().save(profile, validate=False)
 
-        thread = threading.Thread(
-            target=AppletModel().updateUserCacheAllUsersAllRoles,
-            args=(applet, thisUser)
-        )
-        thread.start()
         return(profile["userDefined"])
 
     @access.user(scope=TokenScope.DATA_WRITE)
@@ -267,11 +262,6 @@ class User(Resource):
         profile["coordinatorDefined"] = ud
         ProfileModel().save(profile, validate=False)
 
-        thread = threading.Thread(
-            target=AppletModel().updateUserCacheAllUsersAllRoles,
-            args=(applet, thisUser)
-        )
-        thread.start()
         return(profile["coordinatorDefined"])
 
     @access.public(scope=TokenScope.USER_INFO_READ)

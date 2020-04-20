@@ -657,7 +657,7 @@ def _createContext(key):
     return({key.split('://')[-1].replace('.', '_dot_'): key}, k)
 
 
-def createCache(obj, formatted, modelType, user):
+def createCache(obj, formatted, modelType, user = None):
     obj = MODELS()[modelType]().load(obj['_id'], force=True)
     if modelType in NONES:
         print("No modelType!")
