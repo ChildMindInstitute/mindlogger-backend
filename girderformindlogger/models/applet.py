@@ -138,6 +138,16 @@ class Applet(FolderModel):
                 currentUser=user,
                 force=False
             )
+        
+        from girderformindlogger.models.profile import Profile
+
+        # give all roles to creator of an applet
+        profile = Profile().createProfile(applet, user, 'manager')
+        profile['roles'] = USER_ROLES.keys()
+        Profile().save(profile, False)
+
+        UserModel().appendApplet(user, applet['_id'], USER_ROLES.keys())
+
         return(jsonld_expander.formatLdObject(
             applet,
             'applet',
@@ -214,8 +224,6 @@ class Applet(FolderModel):
             constraints=constraints,
             appletName=appletName
         )
-
-        UserModel().appendApplet(user, applet.get('applet', applet).get('_id').split('/')[-1], USER_ROLES.keys())
 
         emailMessage = "Your applet, {}, has been successfully created. The "  \
             "applet's ID is {}".format(
