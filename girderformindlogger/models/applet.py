@@ -248,7 +248,6 @@ class Applet(FolderModel):
             user,
             refreshCache=True
         )
-        self.updateUserCacheAllRoles(user)
 
     def getResponseData(self, appletId, reviewer, filter={}):
         """
@@ -449,102 +448,6 @@ class Applet(FolderModel):
                 refreshCache=False,
                 responseDates=False
             )
-
-    def updateUserCacheAllRoles(self, user):
-        [self.updateUserCache(role, user) for role in list(USER_ROLES.keys())]
-
-    def updateUserCache(self, role, user, active=True, refreshCache=False):
-        import threading
-        from bson import json_util
-        from girderformindlogger.models.profile import Profile
-        from girderformindlogger.utility import jsonld_expander
-
-        applets=self.getAppletsForUser(role, user, active)
-        user['cached'] = user.get('cached', {})
-        user['cached'] = json_util.loads(user['cached']) if isinstance(
-            user['cached'], str
-        ) else user['cached']
-        user['cached']['applets'] = user['cached'].get('applets', {})
-        user['cached']['applets'][role] = user['cached']['applets'].get(
-            role,
-            {}
-        )
-        formatted = [
-            {
-                **jsonld_expander.formatLdObject(
-                    applet,
-                    'applet',
-                    user,
-                    refreshCache=refreshCache,
-                    responseDates=False
-                ),
-                "users": self.getAppletUsers(applet, user),
-                "groups": self.getAppletGroups(
-                    applet,
-                    arrayOfObjects=True
-                ),
-                "appletId": applet['_id']
-            } if role in ["coordinator", "manager"] else {
-                **jsonld_expander.formatLdObject(
-                    applet,
-                    'applet',
-                    user,
-                    refreshCache=refreshCache,
-                    responseDates=(role=="user")
-                ),
-                "groups": [
-                    group for group in self.getAppletGroups(applet).get(
-                        role
-                    ) if ObjectId(
-                        group
-                    ) in [
-                        *user.get('groups', []),
-                        *user.get('formerGroups', []),
-                        *[invite['groupId'] for invite in [
-                            *user.get('groupInvites', []),
-                            *user.get('declinedInvites', [])
-                        ]]
-                    ]
-                ],
-                "appletId": applet['_id']
-            } for applet in applets if (
-                applet is not None and not applet.get(
-                    'meta',
-                    {}
-                ).get(
-                    'applet',
-                    {}
-                ).get('deleted')
-            )
-        ]
-
-        profilesCache = {}
-        for applet in formatted:
-            if 'schedule' in applet['applet']:
-                schedule = self.filterScheduleEvents(applet['applet']['schedule'], user, self.isCoordinator(applet['appletId'], user), profilesCache)
-                if 'events' in schedule:
-                    applet['applet']['schedule'] = schedule
-                else:
-                    del applet['applet']['schedule']
-            del applet['appletId']
-
-        postformatted = []
-        for applet in formatted:
-            if applet['applet'].get('informantRelationship')=='parent':
-                [
-                    postformatted.append(
-                        a
-                    ) for a in jsonld_expander.childByParent(
-                        user,
-                        applet
-                    )
-                ]
-            else:
-                postformatted.append(applet)
-        user['cached']['applets'].update({role: postformatted})
-        UserModel().save(user)
-        return(formatted)
-
 
     def filterScheduleEvents(self, schedule, user, isCoordinator, profilesCache = {}):
         from girderformindlogger.models.profile import Profile

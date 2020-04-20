@@ -700,11 +700,6 @@ class User(Resource):
                 user['timezone'] = timezone
                 self._model.save(user)
 
-            thread = threading.Thread(
-                target=AppletModel().updateUserCacheAllRoles,
-                args=(user,)
-            )
-
             setCurrentUser(user)
             token = self.sendAuthTokenCookie(user)
 
