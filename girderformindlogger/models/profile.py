@@ -713,9 +713,7 @@ class Profile(AccessControlledModel, dict):
         ]:
             appletGroups=Applet().getAppletGroups(applet)
 
-            rolesForCoordinator = ['user', 'editor', 'reviewer', 'coordinator']
-            roles = rolesForCoordinator if role == 'coordinator' else rolesForCoordinator.append('manager') if role == 'manager' else [role]
-            
+            roles = ['user', 'editor', 'reviewer', 'coordinator', 'manager'] if role == 'manager' else [role]
             for role in roles:
                 groups = appletGroups.get(role)
                 if bool(groups):
