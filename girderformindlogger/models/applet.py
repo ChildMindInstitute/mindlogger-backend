@@ -639,7 +639,7 @@ class Applet(FolderModel):
                     )
                     for p in list(
                         profileModel.find(
-                            query={'appletId': applet['_id'], 'userId': {'$exists': True}, 'profile': True}
+                            query={'appletId': applet['_id'], 'userId': {'$exists': True}, 'profile': True, 'deactivated': {'$ne': True}}
                         )
                     )
                 ],

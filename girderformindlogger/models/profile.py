@@ -25,7 +25,12 @@ class Profile(AccessControlledModel, dict):
 
     def initialize(self):
         self.name = 'profile'
-        self.ensureIndices(('appletId', ([('appletId', 1)], {})))
+        self.ensureIndices(
+            (
+                'appletId', 
+                'userId'
+            )
+        )
 
         self.exposeFields(level=AccessType.READ, fields=(
             '_id', 'created', 'updated', 'meta', 'appletId',
