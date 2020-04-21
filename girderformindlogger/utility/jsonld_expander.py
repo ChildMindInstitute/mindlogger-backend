@@ -798,7 +798,7 @@ def formatLdObject(
             protocolId = obj.get('meta', {}).get('protocol', {}).get('_id' ,'').split('/')[-1]
             if protocolId:
                 cache = ProtocolModel().getCache(protocolId)
-                if cache and isinstance(cache, str) and len(cache):
+                if cache:
                     protocol = loadCache(cache)
 
             if protocolUrl is not None and not protocol:

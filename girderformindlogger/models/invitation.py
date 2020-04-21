@@ -200,17 +200,6 @@ class Invitation(AccessControlledModel):
         role2AccessLevel = { 'user': AccessType.READ, 'coordinator': AccessType.ADMIN, 'manager': AccessType.ADMIN, 'editor': AccessType.WRITE, 'reviewer': AccessType.READ }
         accessLevel = role2AccessLevel[invitation.get('role', 'user')]
 
-        if not self.hasAccess(applet, user, accessLevel):
-            accessList = applet.get('access')
-
-            users = accessList.get('users', [])
-            users.append({ 'id': ObjectId(user['_id']), 'level': accessLevel })
-
-            accessList['users'] = users
-            self.setAccessList(applet, accessList)
-
-            Applet().update({'_id': ObjectId(applet['_id'])}, {'$set': {'access': applet.get('access', {})}})
-
         # append role value
         profile = Profile().load(profile['_id'], force=True)
         profile['roles'] = profile.get('roles', [])

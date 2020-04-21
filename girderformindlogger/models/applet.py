@@ -109,6 +109,10 @@ class Applet(FolderModel):
 
         print("Name: {}".format(appletGroupName))
         # Create user groups
+        role2AccessLevel = { 'user': AccessType.READ, 'coordinator': AccessType.ADMIN, 'manager': AccessType.ADMIN, 'editor': AccessType.WRITE, 'reviewer': AccessType.READ }
+        accessList = applet.get('access', {})
+        accessList['groups'] = []
+
         for role in USER_ROLES.keys():
             try:
                 group = GroupModel().createGroup(
@@ -116,6 +120,8 @@ class Applet(FolderModel):
                     creator=user,
                     public=False if role=='user' else True
                 )
+                accessList['groups'].append({ 'id': ObjectId(group['_id']), 'level': role2AccessLevel[role] })
+
             except ValidationException:
                 numero = 0
                 numberedName = appletGroupName
@@ -138,7 +144,10 @@ class Applet(FolderModel):
                 currentUser=user,
                 force=False
             )
-        
+
+        self.setAccessList(applet, accessList)
+        self.update({'_id': ObjectId(applet['_id'])}, {'$set': {'access': applet.get('access', {})}})
+
         from girderformindlogger.models.profile import Profile
 
         # give all roles to creator of an applet
