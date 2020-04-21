@@ -742,7 +742,10 @@ class User(AccessControlledModel):
                 '_id': {
                     '$in': user_ids
                 }
-            }
+            },
+            fields=[
+                'timezone', 'deviceId'
+            ]
         )
 
     def appendApplet(self, user, applet_id, roles = []):
