@@ -197,9 +197,6 @@ class Invitation(AccessControlledModel):
                             k
                         ]
 
-        role2AccessLevel = { 'user': AccessType.READ, 'coordinator': AccessType.ADMIN, 'manager': AccessType.ADMIN, 'editor': AccessType.WRITE, 'reviewer': AccessType.READ }
-        accessLevel = role2AccessLevel[invitation.get('role', 'user')]
-
         # append role value
         profile = Profile().load(profile['_id'], force=True)
         profile['roles'] = profile.get('roles', [])
