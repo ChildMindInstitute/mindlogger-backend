@@ -34,6 +34,9 @@ class Events(Model):
     def validate(self, document):
         return document
 
+    def deleteEvent(self, event_id):
+        self.removeWithQuery({'_id': ObjectId(event_id)})
+
     def upsertEvent(self, event, applet_id, event_id = None):
         newEvent = {'applet_id': applet_id, 'individualized': False}
 

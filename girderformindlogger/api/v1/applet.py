@@ -575,7 +575,8 @@ class Applet(Resource):
         assigned = {}
         if 'events' in schedule:
             for event in schedule['events']:
-                assigned[event['id']] = True
+                if 'id' in event:
+                    assigned[event['id']] = True
         original = EventsModel().getSchedule(applet['_id'])
 
         if 'events' in original:
@@ -583,6 +584,7 @@ class Applet(Resource):
                 original_id = event.get('id')
                 if original_id not in assigned:
                     PushNotificationModel().delete_notification(original_id)
+                    EventsModel().deleteEvent(original_id)
 
         if 'events' in schedule:
             # insert and update events/notifications
