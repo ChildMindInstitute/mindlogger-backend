@@ -576,7 +576,9 @@ class Applet(Resource):
         if 'events' in schedule:
             for event in schedule['events']:
                 if 'id' in event:
+                    event['id'] = ObjectId(event['id'])
                     assigned[event['id']] = True
+
         original = EventsModel().getSchedule(applet['_id'])
 
         if 'events' in original:
@@ -597,7 +599,6 @@ class Applet(Resource):
                         exist_notification = None
 
                         if 'id' in event:
-                            event['id'] = ObjectId(event['id'])
                             exist_notification = PushNotificationModel().findOne(query={'_id': event['id']})
 
                         if exist_notification:
