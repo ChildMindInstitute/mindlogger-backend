@@ -8,6 +8,9 @@ Changes
 -------
 Unreleased
 ==========
+2020-04-21: v0.14.1
+implement new design (make separate collection for cache and events, update endpoints)
+
 2020-04-08: v0.13.20
 notification logic was updated (single, multi, daily\weekly, multi users notifications)
 
