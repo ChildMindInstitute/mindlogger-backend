@@ -116,6 +116,7 @@ class PushNotification(Model):
                         float(event['schedule']['end']) / 1000).strftime('%Y/%m/%d')
 
             push_notification = {
+                '_id': event.get('_id'),
                 'applet': applet,
                 'notification_type': notification_type,
                 'head': event['data']['title'],

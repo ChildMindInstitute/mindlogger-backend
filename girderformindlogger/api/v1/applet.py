@@ -40,6 +40,7 @@ from girderformindlogger.models.protocol import Protocol as ProtocolModel
 from girderformindlogger.models.roles import getCanonicalUser, getUserCipher
 from girderformindlogger.models.user import User as UserModel
 from girderformindlogger.models.pushNotification import PushNotification as PushNotificationModel
+from girderformindlogger.models.events import Events as EventsModel
 from girderformindlogger.utility import config, jsonld_expander
 from pyld import jsonld
 
@@ -542,24 +543,7 @@ class Applet(Resource):
     )
     def getSchedule(self, applet, refreshCache=False):
         user = self.getCurrentUser()
-        if refreshCache:
-            thread = threading.Thread(
-                target=jsonld_expander.formatLdObject,
-                args=(applet, 'applet', user),
-                kwargs={'refreshCache': refreshCache}
-            )
-            thread.start()
-            return({
-                "message": "The applet is being refreshed. Please check back "
-                           "in several mintutes to see it."
-            })
-
-        model = AppletModel()
-        schedule = model.filterScheduleEvents(
-            applet.get('meta', {}).get('applet', {}).get('schedule', {}),
-            user,
-            model.isCoordinator(applet['_id'], user)
-        )
+        schedule = EventsModel().getScheduleForUser(applet['_id'], user['_id'], AppletModel().isCoordinator(applet['_id'], user))
 
         return schedule
 
@@ -589,10 +573,22 @@ class Applet(Resource):
             )
 
         assigned = {}
+        if 'events' in schedule:
+            for event in schedule['events']:
+                assigned[event['id']] = True
+        original = EventsModel().getSchedule(applet['_id'])
+
+        if 'events' in original:
+            for event in original['events']:
+                original_id = event.get('id')
+                if original_id not in assigned:
+                    PushNotificationModel().delete_notification(original_id)
 
         if 'events' in schedule:
+            # insert and update events/notifications
+            for event in schedule['events']:
+                savedEvent = EventsModel().upsertEvent(event, applet['_id'], event.get('id', None))
 
-            for event in list(schedule['events']):
                 if 'data' in event and 'useNotifications' in event['data'] and event['data']['useNotifications']:
                     if 'notifications' in event['data'] and event['data']['notifications'][0]['start']:
                         # in case of daily/weekly event
@@ -603,38 +599,23 @@ class Applet(Resource):
                             exist_notification = PushNotificationModel().findOne(query={'_id': event['id']})
 
                         if exist_notification:
-                            notification = PushNotificationModel().replaceNotification(
+                            PushNotificationModel().replaceNotification(
                                 applet['_id'],
-                                event,
+                                savedEvent,
                                 thisUser,
                                 exist_notification)
-                            event['id'] = notification['_id']
-                            assigned[event['id']] = True
                         else:
-                            created_notification = PushNotificationModel().replaceNotification(
+                            PushNotificationModel().replaceNotification(
                                 applet['_id'],
-                                event,
+                                savedEvent,
                                 thisUser)
+                event['id'] = savedEvent['_id']
 
-                            if created_notification:
-                                event['id'] = created_notification['_id']
-                                assigned[event['id']] = True
-
-        original_schedule = applet.get('meta', {}).get('applet', {}).get('schedule', {})
-
-        if 'events' in original_schedule:
-            for event in original_schedule['events']:
-                original_id = event.get('id')
-                if original_id not in assigned:
-                    PushNotificationModel().delete_notification(original_id)
-
-        applet_meta = applet['meta'] if 'meta' in applet else {'applet': {}}
-        if 'applet' not in applet_meta:
-            applet_meta['applet'] = {}
-        applet_meta['applet']['schedule'] = schedule
-        AppletModel().setMetadata(applet, applet_meta)
-
-        return(applet_meta)
+        return {
+            "applet": {
+                "schedule": schedule
+            }
+        }
 
 
 def authorizeReviewer(applet, reviewer, user):

@@ -451,56 +451,6 @@ class Applet(FolderModel):
                 responseDates=False
             )
 
-    def filterScheduleEvents(self, schedule, user, isCoordinator, profilesCache = {}):
-        from girderformindlogger.models.profile import Profile
-
-        if 'events' in schedule:
-            events = []
-            valid = []
-            individualized = False
-
-            for event in schedule['events']:
-                notForCurrentUser = 'data' in event and 'users' in event['data']
-
-                if 'data' in event and 'users' in event['data']:
-                    for appletUser in event['data']['users']:
-                        if isinstance(appletUser, str):
-                            if appletUser not in profilesCache:
-                                userData = Profile().findOne(query={'_id': ObjectId(appletUser)}, fields=['userId'])
-
-                                if userData and 'userId' in userData:
-                                    profilesCache[appletUser] = userData['userId']
-                            if profilesCache.get(appletUser, '') == user['_id']:
-                                notForCurrentUser = False
-                                break
-                if notForCurrentUser:
-                    valid.append(False)
-                else:
-                    valid.append(True)
-                    if 'data' in event and 'title' in event['data'] and 'users' in event['data']:
-                        individualized = True
-
-            i = 0
-            for event in schedule['events']:
-                if 'data' in event and 'title' in event['data'] and valid[i]:
-                    if not isCoordinator:
-                        if 'users' in event['data'] or not individualized:
-                            eventData = copy.deepcopy(event)
-                            if 'users' in eventData['data']:
-                                eventData['data'].pop('users')
-                            events.append(eventData)
-                    elif 'users' not in event['data']:
-                        events.append(event)
-                i = i + 1
-
-            if len(events):
-                newSchedule = schedule.copy()
-                newSchedule['events'] = events
-                return newSchedule
-            else:
-                return {}
-        return schedule
-
     def getAppletsForUser(self, role, user, active=True, idOnly = False):
         """
         Method get Applets for a User.
