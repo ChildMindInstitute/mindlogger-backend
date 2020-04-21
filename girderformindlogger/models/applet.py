@@ -306,8 +306,6 @@ class Applet(FolderModel):
         :type relationship: str
         :returns: updated Applet
         """
-        from bson.json_util import dumps
-        from girderformindlogger.utility.jsonld_expander import loadCache
 
         if not isinstance(relationship, str):
             raise TypeError("Applet relationship must be defined as a string.")
@@ -316,12 +314,8 @@ class Applet(FolderModel):
         if 'applet' not in applet['meta']:
             applet['meta']['applet'] = {}
         applet['meta']['applet']['informantRelationship'] = relationship
-        if 'cached' in applet:
-            applet['cached'] = loadCache(applet['cached'])
-        if 'applet' in applet['cached']:
-            applet['cached']['applet']['informantRelationship'] = relationship
-        applet['cached'] = dumps(applet['cached'])
-        return(self.save(applet, validate=False))
+
+        return self.save(applet, validate=False)
 
     def unexpanded(self, applet):
         from girderformindlogger.utility.jsonld_expander import loadCache
