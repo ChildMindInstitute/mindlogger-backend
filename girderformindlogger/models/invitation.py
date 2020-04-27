@@ -7,13 +7,12 @@ import six
 
 from bson.objectid import ObjectId
 from girderformindlogger import events
-from girderformindlogger.constants import AccessType
+from girderformindlogger.constants import AccessType, USER_ROLES
 from girderformindlogger.exceptions import ValidationException, GirderException
 from girderformindlogger.models.model_base import AccessControlledModel
 from girderformindlogger.utility.model_importer import ModelImporter
 from girderformindlogger.utility.progress import noProgress, \
     setResponseTimeLimit
-
 
 class Invitation(AccessControlledModel):
     """
@@ -198,21 +197,25 @@ class Invitation(AccessControlledModel):
                             k
                         ]
 
-        role2AccessLevel = { 'user': AccessType.READ, 'coordinator': AccessType.ADMIN, 'manager': AccessType.ADMIN, 'editor': AccessType.WRITE, 'reviewer': AccessType.READ }
-        accessLevel = role2AccessLevel[invitation.get('role', 'user')]
+        # append role value
+        profile = Profile().load(profile['_id'], force=True)
+        profile['roles'] = profile.get('roles', [])
+        invited_role = invitation.get('role','user')
 
-        if not self.hasAccess(applet, user, accessLevel):
-            accessList = applet.get('access')
+        new_roles = []
+        # manager has get all roles by default
+        for role in USER_ROLES.keys():
+            if role not in profile['roles']:
+                if invited_role == 'manager' or invited_role == role:
+                    new_roles.append(role)
+                    profile['roles'].append(role)
 
-            users = accessList.get('users', [])
-            users.append({ 'id': ObjectId(user['_id']), 'level': accessLevel })
+        Profile().save(profile, validate=False)
 
-            accessList['users'] = users
-            self.setAccessList(applet, accessList)
+        from girderformindlogger.models.user import User as UserModel
+        UserModel().appendApplet(user, applet['_id'], new_roles)
 
-            Applet().update({'_id': ObjectId(applet['_id'])}, {'$set': {'access': applet.get('access', {})}})
-
-        self.remove(invitation)
+        self.remove(invitation)        
         return(Profile().displayProfileFields(
             Profile().load(profile['_id'], force=True),
             user

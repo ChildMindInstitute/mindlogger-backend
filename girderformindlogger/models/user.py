@@ -7,13 +7,14 @@ from passlib.totp import TOTP, TokenError
 import six
 
 from girderformindlogger import events
-from girderformindlogger.constants import AccessType, CoreEventHandler, TokenScope
+from girderformindlogger.constants import AccessType, CoreEventHandler, TokenScope, USER_ROLES
 from girderformindlogger.exceptions import AccessException, ValidationException
 from girderformindlogger.models.model_base import AccessControlledModel
 from girderformindlogger.models.setting import Setting
 from girderformindlogger.settings import SettingKey
 from girderformindlogger.utility import config, mail_utils
 from girderformindlogger.utility._cache import rateLimitBuffer
+from bson import ObjectId
 
 
 class User(AccessControlledModel):
@@ -296,7 +297,7 @@ class User(AccessControlledModel):
     def setUserName(self, user, userName, save=True):
         """
         Change a user's username
-        
+
         :param user: The user whose username to change.
         :param userName: the new userName to be stored
         """
@@ -734,3 +735,41 @@ class User(AccessControlledModel):
             raise AccessException('Login failed.')
         else:
             return(True)
+
+    def get_users_by_ids(self, user_ids):
+        return self.find(
+            query={
+                '_id': {
+                    '$in': user_ids
+                }
+            },
+            fields=[
+                'timezone', 'deviceId'
+            ]
+        )
+
+    def appendApplet(self, user, applet_id, roles = []):
+        if not user.get('applets'):
+            user['applets'] = {}
+            for role in USER_ROLES.keys():
+                user['applets'][role] = []
+        applet_id = ObjectId(applet_id)
+
+        for role in roles:
+            if applet_id not in user['applets'][role]:
+                user['applets'][role].append(applet_id)
+
+        self.update({'_id': user['_id']}, {'$set': {'applets': user['applets']}}, False)
+    
+    def removeApplet(self, user, applet_id):
+        if not user.get('applets'):
+            user['applets'] = {}
+            for role in USER_ROLES.keys():
+                user['applets'][role] = []
+        applet_id = ObjectId(applet_id)
+
+        for role in USER_ROLES.keys():
+            if applet_id in user['applets'][role]:
+                user['applets'][role].remove(applet_id)
+
+        self.update({'_id': user['_id']}, {'$set': {'applets': user['applets']}}, False)

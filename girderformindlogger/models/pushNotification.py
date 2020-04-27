@@ -5,6 +5,8 @@ import time
 import bson
 
 from girderformindlogger.models.model_base import Model
+from girderformindlogger.models.profile import Profile as ProfileModel
+from girderformindlogger.models.user import User as UserModel
 
 
 class ProgressState(object):
@@ -32,6 +34,7 @@ class PushNotification(Model):
     time at which the event happened, and an optional expires field indicating
     at what time the notification should be deleted from the database.
     """
+    current_time = datetime.datetime.utcnow().strftime('%Y/%m/%d %H:%M')
 
     def initialize(self):
         self.name = 'pushNotification'
@@ -62,11 +65,10 @@ class PushNotification(Model):
         notification_type = 1
         start_time = event['data']['notifications'][0]['start']
         end_time = event['data']['notifications'][0]['end']
-        date_send = None
 
         schedule = {
             "start": (current_date - datetime.timedelta(days=1)).strftime('%Y/%m/%d'),
-            "end": '2045/12/30'
+            "end": (current_date + datetime.timedelta(days=365*40)).strftime('%Y/%m/%d')
         }
 
         users = []
@@ -93,7 +95,6 @@ class PushNotification(Model):
                 """
                 Weekly configuration in case of weekly event
                 """
-
                 notification_type = 3
                 if 'start' in event['schedule'] and event['schedule']['start']:
                     schedule['start'] = datetime.datetime.fromtimestamp(
@@ -102,7 +103,6 @@ class PushNotification(Model):
                     schedule['end'] = datetime.datetime.fromtimestamp(
                         float(event['schedule']['end']) / 1000).strftime('%Y/%m/%d')
                 schedule['dayOfWeek'] = event['schedule']['dayOfWeek'][0]
-                date_send = (current_date - datetime.timedelta(days=1)).strftime('%Y/%m/%d')
             else:
                 """
                 Daily configuration in case of daily event
@@ -114,9 +114,9 @@ class PushNotification(Model):
                 if 'end' in event['schedule'] and event['schedule']['end']:
                     schedule['end'] = datetime.datetime.fromtimestamp(
                         float(event['schedule']['end']) / 1000).strftime('%Y/%m/%d')
-                date_send = (current_date - datetime.timedelta(days=1)).strftime('%Y/%m/%d')
 
             push_notification = {
+                '_id': event.get('_id'),
                 'applet': applet,
                 'notification_type': notification_type,
                 'head': event['data']['title'],
@@ -126,7 +126,8 @@ class PushNotification(Model):
                 'startTime': start_time,
                 'endTime': end_time,
                 'lastRandomTime': None,
-                'dateSend': date_send,
+                'notifiedUsers': original.get('notifiedUsers') if original else [],
+                'dateSend': None,
                 'creator_id': user['_id'],
                 'created': current_time,
                 'updated': current_time,
@@ -135,11 +136,13 @@ class PushNotification(Model):
             }
 
             if original:
+                self.current_time = datetime.datetime.utcnow().strftime('%Y/%m/%d %H:%M')
                 push_notification.update({
                     '_id': original.get('_id'),
                     'progress': original.get('progress'),
                     'attempts': original.get('attempts'),
                     'dateSend': original.get('dateSend'),
+                    'notifiedUsers': self.update_notified_users(push_notification),
                     'lastRandomTime': original.get('lastRandomTime')
                 })
 
@@ -150,10 +153,6 @@ class PushNotification(Model):
                         'lastRandomTime': None
                     })
 
-                    if push_notification['notification_type'] == 1:
-                        push_notification.update({
-                            'dateSend': None,
-                        })
             return self.save(push_notification)
         return None
 
@@ -245,3 +244,36 @@ class PushNotification(Model):
             q['updated'] = {'$gt': since}
 
         return self.find(q, sort=sort)
+
+    def update_notified_users(self, notification):
+        if len(notification['notifiedUsers']):
+            user_ids = [user['_id'] for user in notification['notifiedUsers']]
+
+            users = list(UserModel().get_users_by_ids(user_ids))
+
+            notification_start_date = notification['schedule']['start']
+            notification_end_date = notification['schedule']['end']
+            notification_h = int(
+                datetime.datetime.strptime(notification["startTime"], "%H:%M").hour)
+            notification_m = int(
+                datetime.datetime.strptime(notification["startTime"], "%H:%M").minute)
+
+            excluded_users = []
+            for user in users:
+                current_user_time = datetime.datetime.strptime(self.current_time, '%Y/%m/%d %H:%M') \
+                                    + datetime.timedelta(hours=int(user['timezone']))
+
+                usr_h = int(current_user_time.strftime("%H"))
+                usr_m = int(current_user_time.strftime("%M"))
+
+                print(f'User m - {usr_m}')
+                print(f'Notification m - {notification_m}')
+                if notification_start_date <= current_user_time.strftime('%Y/%m/%d') \
+                    <= notification_end_date and ((usr_h == notification_h
+                                                   and notification_m > usr_m)
+                                                  or usr_h != notification_h):
+                    excluded_users.append(user['_id'])
+
+            user_ids = [user for user in notification['notifiedUsers'] if user['_id'] not in excluded_users]
+            return user_ids
+        return []

@@ -25,7 +25,12 @@ class Profile(AccessControlledModel, dict):
 
     def initialize(self):
         self.name = 'profile'
-        self.ensureIndices(('appletId', ([('appletId', 1)], {})))
+        self.ensureIndices(
+            (
+                'appletId', 
+                'userId'
+            )
+        )
 
         self.exposeFields(level=AccessType.READ, fields=(
             '_id', 'created', 'updated', 'meta', 'appletId',
@@ -713,9 +718,7 @@ class Profile(AccessControlledModel, dict):
         ]:
             appletGroups=Applet().getAppletGroups(applet)
 
-            rolesForCoordinator = ['user', 'editor', 'reviewer', 'coordinator']
-            roles = rolesForCoordinator if role == 'coordinator' else rolesForCoordinator.append('manager') if role == 'manager' else [role]
-            
+            roles = ['user', 'editor', 'reviewer', 'coordinator', 'manager'] if role == 'manager' else [role]
             for role in roles:
                 groups = appletGroups.get(role)
                 if bool(groups):
@@ -986,3 +989,53 @@ class Profile(AccessControlledModel, dict):
                     progress=progress, setPublic=setPublic, publicFlags=publicFlags, force=force)
 
         return doc
+
+    def deactivateProfile(self, applet_id, user_id):
+        """
+        deactivate profile from applet_id, user_id
+        at the moment, this is used in deactivateApplet
+        """
+        if not applet_id and not user_id:
+            return
+
+        query = {}
+        if applet_id:
+            query['appletId'] = ObjectId(applet_id)
+        if user_id:
+            query['userId'] = ObjectId(user_id)
+
+        self.update(query, {'set': {'deactivated': True}})
+
+    def get_profiles_by_applet_id(self, applet_id):
+        return self.find(
+            query={
+                'appletId': applet_id,
+                'userId': {
+                    '$exists': True
+                },
+                'profile': True
+            }
+        )
+
+    def get_profiles_by_ids(self, profile_ids):
+        return self.find(
+            query={
+                '_id': {
+                    '$in': profile_ids
+                },
+                'userId': {
+                    '$exists': True
+                },
+                'profile': True
+            }
+        )
+
+    def get_profiles_by_user_ids(self, user_ids):
+        return self.find(
+            query={
+                'userId': {
+                    '$in': user_ids
+                },
+                'profile': True
+            }
+        )

@@ -8,10 +8,18 @@ Changes
 -------
 Unreleased
 ==========
+2020-04-21: v0.14.1
+implement new design (make separate collection for cache and events, update endpoints)
+
+2020-04-08: v0.13.20
+notification logic was updated (single, multi, daily\weekly, multi users notifications)
+
 2019-04-08: v0.13.19
 fix permission issue
+
 2019-04-07: v0.13.18
 update forgot password functionality
+
 2019-04-03: v0.13.17
 managers get general schedule
 2019-04-02: v0.13.16

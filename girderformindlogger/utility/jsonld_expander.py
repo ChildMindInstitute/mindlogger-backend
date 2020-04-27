@@ -16,6 +16,8 @@ from girderformindlogger.models.screen import Screen as ScreenModel
 from girderformindlogger.models.user import User as UserModel
 from girderformindlogger.utility import loadJSON
 from girderformindlogger.utility.response import responseDateList
+from girderformindlogger.models.cache import Cache as CacheModel
+from bson.objectid import ObjectId
 from pyld import jsonld
 
 
@@ -655,53 +657,27 @@ def _createContext(key):
     return({key.split('://')[-1].replace('.', '_dot_'): key}, k)
 
 
-def createCache(obj, formatted, modelType, user):
+def createCache(obj, formatted, modelType, user = None):
     obj = MODELS()[modelType]().load(obj['_id'], force=True)
-    if "cached" in obj:
-        oc = obj.get("oldCache", [])
-        obj["oldCache"] = (oc if oc is not None else []).append(obj["cached"])
     if modelType in NONES:
         print("No modelType!")
         print(obj)
     if formatted is None:
         print("formatting failed!")
         print(obj)
-    obj["cached"] = json_util.dumps({
-        **formatted,
-        "prov:generatedAtTime": xsdNow()
-    })
-    return(MODELS()[modelType]().save(obj, validate=False))
 
-
-def loadCache(obj, user=None):
-    if isinstance(obj, dict):
-        if 'applet' in obj:
-            try:
-                obj["applet"]["responseDates"] = responseDateList(
-                    obj['applet'].get('_id', '').split('applet/')[-1],
-                    user.get('_id'),
-                    user
-                )
-            except:
-                obj["applet"]["responseDates"] = []
-        return(obj)
+    if obj.get('cached'):
+        cache_id = obj['cached']
+        CacheModel().updateCache(cache_id, MODELS()[modelType]().name, obj['_id'], modelType, formatted)
     else:
-        cache = json_util.loads(obj)
-        if 'applet' in cache:
-            try:
-                cache["applet"]["responseDates"] = responseDateList(
-                    cache['applet'].get('_id', '').split('applet/')[-1],
-                    user.get('_id'),
-                    user
-                )
-            except:
-                cache["applet"]["responseDates"] = []
-        return(
-            {
-                k: v for k, v in cache.items() if k!="prov:generatedAtTime"
-            } if isinstance(cache, dict) else cache
-        )
+        saved = CacheModel().insertCache(MODELS()[modelType]().name, obj['_id'], modelType, formatted)
+        obj['cached'] = saved['_id']
+        MODELS()[modelType]().update({'_id': ObjectId(obj['_id'])}, {'$set': {'cached': obj['cached']}}, False)
+    return obj
 
+def loadCache(id):
+    cache = CacheModel().getCacheData(id)
+    return cache
 
 def _fixUpFormat(obj):
     if isinstance(obj, dict):
@@ -822,7 +798,7 @@ def formatLdObject(
             protocolId = obj.get('meta', {}).get('protocol', {}).get('_id' ,'').split('/')[-1]
             if protocolId:
                 cache = ProtocolModel().getCache(protocolId)
-                if cache and isinstance(cache, str) and len(cache):
+                if cache:
                     protocol = loadCache(cache)
 
             if protocolUrl is not None and not protocol:

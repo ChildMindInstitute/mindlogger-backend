@@ -78,6 +78,8 @@ class User(Resource):
         .deprecated()
     )
     def getGroupInvites(self):
+        from girderformindlogger.utility.jsonld_expander import loadCache
+
         pending = self.getCurrentUser().get("groupInvites")
         output = []
         userfields = [
@@ -94,9 +96,7 @@ class User(Resource):
                     "roles.user.groups.id": groupId
                 },
                 fields=[
-                    'cached.applet.skos:prefLabel',
-                    'cached.applet.schema:description',
-                    'cached.applet.schema:image',
+                    'cached',
                     'roles'
                 ]
             ))
@@ -122,18 +122,22 @@ class User(Resource):
                             fields=userfields
                         ))
                     ]
+
+            for applet in applets:
+                applet['loadedCache'] = loadCache(applet['cached'])
+
             output.append({
                 '_id': groupId,
                 'applets': [{
-                    'name': applet.get('cached', {}).get('applet', {}).get(
+                    'name': applet.get('loadedCache', {}).get('applet', {}).get(
                         'skos:prefLabel',
                         ''
                     ),
-                    'image': applet.get('cached', {}).get('applet', {}).get(
+                    'image': applet.get('loadedCache', {}).get('applet', {}).get(
                         'schema:image',
                         ''
                     ),
-                    'description': applet.get('cached', {}).get('applet', {
+                    'description': applet.get('loadedCache', {}).get('applet', {
                     }).get(
                         'schema:description',
                         ''
@@ -211,11 +215,6 @@ class User(Resource):
         profile["userDefined"] = ud
         ProfileModel().save(profile, validate=False)
 
-        thread = threading.Thread(
-            target=AppletModel().updateUserCacheAllUsersAllRoles,
-            args=(applet, thisUser)
-        )
-        thread.start()
         return(profile["userDefined"])
 
     @access.user(scope=TokenScope.DATA_WRITE)
@@ -263,11 +262,6 @@ class User(Resource):
         profile["coordinatorDefined"] = ud
         ProfileModel().save(profile, validate=False)
 
-        thread = threading.Thread(
-            target=AppletModel().updateUserCacheAllUsersAllRoles,
-            args=(applet, thisUser)
-        )
-        thread.start()
         return(profile["coordinatorDefined"])
 
     @access.public(scope=TokenScope.USER_INFO_READ)
@@ -583,9 +577,10 @@ class User(Resource):
         unexpanded=False,
         refreshCache=False
     ):
-        import threading
-        from bson import json_util
         from bson.objectid import ObjectId
+        from girderformindlogger.utility.jsonld_expander import loadCache
+
+        from girderformindlogger.utility.response import responseDateList
 
         reviewer = self.getCurrentUser()
         if reviewer is None:
@@ -596,73 +591,35 @@ class User(Resource):
                 'Invalid user role.',
                 'role'
             )
-        if ids_only or unexpanded:
-            applets = AppletModel().getAppletsForUser(
-                role,
-                reviewer,
-                active=True
-            )
-            if len(applets)==0:
-                return([])
-            if ids_only==True:
-                return([applet.get('_id') for applet in applets])
-            elif unexpanded==True:
-                return([{
-                    'applet': AppletModel().unexpanded(applet)
-                } for applet in applets])
-        if refreshCache:
-            thread = threading.Thread(
-                target=AppletModel().updateUserCache,
-                args=(role, reviewer),
-                kwargs={"active": True, "refreshCache": refreshCache}
-            )
-            thread.start()
-            return({
-                "message": "The user cache is being updated. Please check back "
-                           "in several mintutes to see it."
-            })
-        try:
-            if 'cached' in reviewer:
-                reviewer['cached'] = json_util.loads(
-                    reviewer['cached']
-                ) if isinstance(reviewer['cached'], str) else reviewer['cached']
-            else:
-                reviewer['cached'] = {}
-            if 'applets' in reviewer[
-                'cached'
-            ] and role in reviewer['cached']['applets'] and isinstance(
-                reviewer['cached']['applets'][role],
-                list
-            ) and len(reviewer['cached']['applets'][role]):
-                applets = reviewer['cached']['applets'][role]
-                thread = threading.Thread(
-                    target=AppletModel().updateUserCache,
-                    args=(role, reviewer),
-                    kwargs={"active": True, "refreshCache": refreshCache}
-                )
-                thread.start()
-            else:
-                applets = AppletModel().updateUserCache(
-                    role,
-                    reviewer,
-                    active=True,
-                    refreshCache=refreshCache
-                )
-            for applet in applets:
-                try:
-                    applet["applet"]["responseDates"] = responseDateList(
-                        applet['applet'].get(
-                            '_id',
-                            ''
-                        ).split('applet/')[-1],
-                        user.get('_id'),
-                        user
-                    )
-                except:
-                    applet["applet"]["responseDates"] = []
 
-            return(applets)
-        except Exception as e:
+        applet_ids = reviewer.get('applets', {}).get(role, [])
+
+        if ids_only:
+            return applet_ids
+        applets = [AppletModel().load(ObjectId(applet_id), AccessType.READ) for applet_id in applet_ids]
+
+        if unexpanded:
+            return([{
+                'applet': AppletModel().unexpanded(applet)
+            } for applet in applets])
+
+        try:
+            result = []
+            for applet in applets:
+                if applet.get('cached'):
+                    formatted = loadCache(applet['cached'])
+                    try:
+                        formatted["applet"]["responseDates"] = responseDateList(
+                            applet.get('_id'),
+                            reviewer.get('_id'),
+                            reviewer
+                        )
+                    except:
+                        formatted["applet"]["responseDates"] = []
+                    result.append(formatted)
+
+            return(result)
+        except:
             import sys, traceback
             print(sys.exc_info())
             return([])
@@ -742,11 +699,6 @@ class User(Resource):
                 user['deviceId'] = deviceId
                 user['timezone'] = timezone
                 self._model.save(user)
-
-            thread = threading.Thread(
-                target=AppletModel().updateUserCacheAllRoles,
-                args=(user,)
-            )
 
             setCurrentUser(user)
             token = self.sendAuthTokenCookie(user)

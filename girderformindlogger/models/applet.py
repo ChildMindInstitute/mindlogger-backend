@@ -109,6 +109,10 @@ class Applet(FolderModel):
 
         print("Name: {}".format(appletGroupName))
         # Create user groups
+        role2AccessLevel = { 'user': AccessType.READ, 'coordinator': AccessType.ADMIN, 'manager': AccessType.ADMIN, 'editor': AccessType.WRITE, 'reviewer': AccessType.READ }
+        accessList = applet.get('access', {})
+        accessList['groups'] = []
+
         for role in USER_ROLES.keys():
             try:
                 group = GroupModel().createGroup(
@@ -116,6 +120,8 @@ class Applet(FolderModel):
                     creator=user,
                     public=False if role=='user' else True
                 )
+                accessList['groups'].append({ 'id': ObjectId(group['_id']), 'level': role2AccessLevel[role] })
+
             except ValidationException:
                 numero = 0
                 numberedName = appletGroupName
@@ -138,6 +144,21 @@ class Applet(FolderModel):
                 currentUser=user,
                 force=False
             )
+
+        self.setAccessList(applet, accessList)
+        self.update({'_id': ObjectId(applet['_id'])}, {'$set': {'access': applet.get('access', {})}})
+
+        from girderformindlogger.models.profile import Profile
+
+        # give all roles to creator of an applet
+        profile = Profile().createProfile(applet, user, 'manager')
+        profile = Profile().load(profile['_id'], force=True)
+
+        profile['roles'] = list(USER_ROLES.keys())
+        Profile().save(profile, False)
+
+        UserModel().appendApplet(user, applet['_id'], USER_ROLES.keys())
+
         return(jsonld_expander.formatLdObject(
             applet,
             'applet',
@@ -214,6 +235,7 @@ class Applet(FolderModel):
             constraints=constraints,
             appletName=appletName
         )
+
         emailMessage = "Your applet, {}, has been successfully created. The "  \
             "applet's ID is {}".format(
                 name,
@@ -237,7 +259,6 @@ class Applet(FolderModel):
             user,
             refreshCache=True
         )
-        self.updateUserCacheAllRoles(user)
 
     def getResponseData(self, appletId, reviewer, filter={}):
         """
@@ -294,8 +315,6 @@ class Applet(FolderModel):
         :type relationship: str
         :returns: updated Applet
         """
-        from bson.json_util import dumps
-        from girderformindlogger.utility.jsonld_expander import loadCache
 
         if not isinstance(relationship, str):
             raise TypeError("Applet relationship must be defined as a string.")
@@ -304,12 +323,8 @@ class Applet(FolderModel):
         if 'applet' not in applet['meta']:
             applet['meta']['applet'] = {}
         applet['meta']['applet']['informantRelationship'] = relationship
-        if 'cached' in applet:
-            applet['cached'] = loadCache(applet['cached'])
-        if 'applet' in applet['cached']:
-            applet['cached']['applet']['informantRelationship'] = relationship
-        applet['cached'] = dumps(applet['cached'])
-        return(self.save(applet, validate=False))
+
+        return self.save(applet, validate=False)
 
     def unexpanded(self, applet):
         from girderformindlogger.utility.jsonld_expander import loadCache
@@ -406,7 +421,7 @@ class Applet(FolderModel):
         ))
         return(applets if isinstance(applets, list) else [applets])
 
-    def reloadAndUpdateCache(self, applet, coordinator):
+    def reloadAndUpdateCache(self, applet, editor):
         from girderformindlogger.models.protocol import Protocol
 
         protocolUrl = applet.get('meta', {}).get('protocol', applet).get(
@@ -418,7 +433,7 @@ class Applet(FolderModel):
             protocol = Protocol().getFromUrl(
                 protocolUrl,
                 'protocol',
-                coordinator,
+                editor,
                 thread=False,
                 refreshCache=True
             )
@@ -429,173 +444,15 @@ class Applet(FolderModel):
                 if 'meta' in applet and 'protocol' in applet['meta']:
                     applet['meta']['protocol']['_id'] = protocol['_id']
 
-            self.updateUserCacheAllUsersAllRoles(applet, coordinator)
+            from girderformindlogger.utility import jsonld_expander
 
-    def updateUserCacheAllUsersAllRoles(self, applet, coordinator):
-        from girderformindlogger.models.profile import Profile as ProfileModel
-
-        if 'cached' in applet:
-            applet.pop('cached')
-            self.update({'_id': ObjectId(applet['_id'])}, {'$unset': {'cached': ''}})
-
-        [self.updateUserCacheAllRoles(
-            UserModel().load(
-                id=ProfileModel().load(
-                    user['_id'],
-                    force=True
-                ).get('userId'),
-                force=True
+            jsonld_expander.formatLdObject(
+                applet,
+                'applet',
+                editor,
+                refreshCache=False,
+                responseDates=False
             )
-        ) for user in self.getAppletUsers(
-            applet,
-            coordinator
-        ).get('active', [])]
-
-    def updateUserCacheAllRoles(self, user):
-        [self.updateUserCache(role, user) for role in list(USER_ROLES.keys())]
-
-    def updateUserCache(self, role, user, active=True, refreshCache=False):
-        import threading
-        from bson import json_util
-        from girderformindlogger.models.profile import Profile
-        from girderformindlogger.utility import jsonld_expander
-
-        applets=self.getAppletsForUser(role, user, active)
-        user['cached'] = user.get('cached', {})
-        user['cached'] = json_util.loads(user['cached']) if isinstance(
-            user['cached'], str
-        ) else user['cached']
-        user['cached']['applets'] = user['cached'].get('applets', {})
-        user['cached']['applets'][role] = user['cached']['applets'].get(
-            role,
-            {}
-        )
-        formatted = [
-            {
-                **jsonld_expander.formatLdObject(
-                    applet,
-                    'applet',
-                    user,
-                    refreshCache=refreshCache,
-                    responseDates=False
-                ),
-                "users": self.getAppletUsers(applet, user),
-                "groups": self.getAppletGroups(
-                    applet,
-                    arrayOfObjects=True
-                ),
-                "appletId": applet['_id']
-            } if role in ["coordinator", "manager"] else {
-                **jsonld_expander.formatLdObject(
-                    applet,
-                    'applet',
-                    user,
-                    refreshCache=refreshCache,
-                    responseDates=(role=="user")
-                ),
-                "groups": [
-                    group for group in self.getAppletGroups(applet).get(
-                        role
-                    ) if ObjectId(
-                        group
-                    ) in [
-                        *user.get('groups', []),
-                        *user.get('formerGroups', []),
-                        *[invite['groupId'] for invite in [
-                            *user.get('groupInvites', []),
-                            *user.get('declinedInvites', [])
-                        ]]
-                    ]
-                ],
-                "appletId": applet['_id']
-            } for applet in applets if (
-                applet is not None and not applet.get(
-                    'meta',
-                    {}
-                ).get(
-                    'applet',
-                    {}
-                ).get('deleted')
-            )
-        ]
-
-        profilesCache = {}
-        for applet in formatted:
-            if 'schedule' in applet['applet']:
-                schedule = self.filterScheduleEvents(applet['applet']['schedule'], user, self.isCoordinator(applet['appletId'], user), profilesCache)
-                if 'events' in schedule:
-                    applet['applet']['schedule'] = schedule
-                else:
-                    del applet['applet']['schedule']
-            del applet['appletId']
-
-        postformatted = []
-        for applet in formatted:
-            if applet['applet'].get('informantRelationship')=='parent':
-                [
-                    postformatted.append(
-                        a
-                    ) for a in jsonld_expander.childByParent(
-                        user,
-                        applet
-                    )
-                ]
-            else:
-                postformatted.append(applet)
-        user['cached']['applets'].update({role: postformatted})
-        UserModel().save(user)
-        return(formatted)
-
-
-    def filterScheduleEvents(self, schedule, user, isCoordinator, profilesCache = {}):
-        from girderformindlogger.models.profile import Profile
-
-        if 'events' in schedule:
-            events = []
-            valid = []
-            individualized = False
-
-            for event in schedule['events']:
-                notForCurrentUser = 'data' in event and 'users' in event['data']
-
-                if 'data' in event and 'users' in event['data']:
-                    for appletUser in event['data']['users']:
-                        if isinstance(appletUser, str):
-                            if appletUser not in profilesCache:
-                                userData = Profile().findOne(query={'_id': ObjectId(appletUser)}, fields=['userId'])
-
-                                if userData and 'userId' in userData:
-                                    profilesCache[appletUser] = userData['userId']
-                            if profilesCache.get(appletUser, '') == user['_id']:
-                                notForCurrentUser = False
-                                break
-                if notForCurrentUser:
-                    valid.append(False)
-                else:
-                    valid.append(True)
-                    if 'data' in event and 'title' in event['data'] and 'users' in event['data']:
-                        individualized = True
-
-            i = 0
-            for event in schedule['events']:
-                if 'data' in event and 'title' in event['data'] and valid[i]:
-                    if not isCoordinator:
-                        if 'users' in event['data'] or not individualized:
-                            eventData = copy.deepcopy(event)
-                            if 'users' in eventData['data']:
-                                eventData['data'].pop('users')
-                            events.append(eventData)
-                    elif 'users' not in event['data']:
-                        events.append(event)
-                i = i + 1
-
-            if len(events):
-                newSchedule = schedule.copy()
-                newSchedule['events'] = events
-                return newSchedule
-            else:
-                return {}
-        return schedule
 
     def getAppletsForUser(self, role, user, active=True, idOnly = False):
         """
@@ -735,7 +592,7 @@ class Applet(FolderModel):
                     )
                     for p in list(
                         profileModel.find(
-                            query={'appletId': applet['_id'], 'userId': {'$exists': True}, 'profile': True}
+                            query={'appletId': applet['_id'], 'userId': {'$exists': True}, 'profile': True, 'deactivated': {'$ne': True}}
                         )
                     )
                 ],
