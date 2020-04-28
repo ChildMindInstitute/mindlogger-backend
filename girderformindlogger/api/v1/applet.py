@@ -292,9 +292,9 @@ class Applet(Resource):
                 applet.get('_id')
             )
 
+            users = list(Profile().find({'appletId': ObjectId(applet['_id']), 'deactivated': {'$ne': True}}, fields=['userId']))
             Profile().deactivateProfile(applet['_id'], None)
 
-            users = list(Profile().find({'appletId': ObjectId(applet['_id']), 'deactivated': {'$ne': True}}, ['userId']))
             for user in users:
                 if 'userId' in user:
                     UserModel().removeApplet(UserModel().findOne({'_id': ObjectId(user['userId'])}), applet['_id'])
