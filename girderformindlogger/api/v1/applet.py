@@ -533,6 +533,12 @@ class Applet(Resource):
             destName='applet'
         )
         .param(
+            'get_all_events',
+            'return all events for an applet if true',
+            required=False,
+            dataType='boolean'
+        )
+        .param(
             'refreshCache',
             'Reparse JSON-LD',
             required=False,
@@ -549,7 +555,7 @@ class Applet(Resource):
         else:
             if not AppletModel().isCoordinator(applet['_id'], user):
                 raise AccessException(
-                    "Only coordinators and managers can update applet schedules."
+                    "Only coordinators and managers can get all events."
                 )
             schedule = EventsModel().getSchedule(applet['_id'])
 
