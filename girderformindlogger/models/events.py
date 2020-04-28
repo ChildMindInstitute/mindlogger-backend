@@ -47,9 +47,8 @@ class Events(Model):
             newEvent['data'] = event['data']
             if 'users' in event['data'] and isinstance(event['data']['users'], list):
                 newEvent['individualized'] = True
+                event['data']['users'] = [ObjectId(profile_id) for profile_id in event['data']['users']]
 
-                for i in range(0, len(event['data']['users'])):
-                    event['data']['users'][i] = ObjectId(event['data']['users'][i])
         if 'schedule' in event:
             newEvent['schedule'] = event['schedule']
 
