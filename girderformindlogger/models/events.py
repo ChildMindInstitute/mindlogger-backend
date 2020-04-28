@@ -45,14 +45,17 @@ class Events(Model):
 
         if 'data' in event:
             newEvent['data'] = event['data']
-            if 'users' in event['data']:
+            if 'users' in event['data'] and isinstance(event['data']['users'], list):
                 newEvent['individualized'] = True
+                event['data']['users'] = [ObjectId(profile_id) for profile_id in event['data']['users']]
+
         if 'schedule' in event:
             newEvent['schedule'] = event['schedule']
 
         return self.save(newEvent)
-    def hasIndividual(self, applet_id, profileId):
-        return (self.findOne({'applet_id': ObjectId(applet_id), 'data.users': profileId}) is not None)
+
+    def hasIndividual(self, applet_id, profile_id):
+        return (self.findOne({'applet_id': ObjectId(applet_id), 'data.users': profile_id}) is not None)
 
     def getEvents(self, applet_id, individualized):
         events = list(self.find({'applet_id': ObjectId(applet_id), 'individualized': individualized}, fields=['data', 'schedule']))

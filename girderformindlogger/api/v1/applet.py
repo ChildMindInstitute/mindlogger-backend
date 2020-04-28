@@ -292,9 +292,9 @@ class Applet(Resource):
                 applet.get('_id')
             )
 
+            users = list(Profile().find({'appletId': ObjectId(applet['_id']), 'deactivated': {'$ne': True}}, fields=['userId']))
             Profile().deactivateProfile(applet['_id'], None)
 
-            users = list(Profile().find({'appletId': ObjectId(applet['_id']), 'deactivated': {'$ne': True}}, ['userId']))
             for user in users:
                 if 'userId' in user:
                     UserModel().removeApplet(UserModel().findOne({'_id': ObjectId(user['userId'])}), applet['_id'])
@@ -533,6 +533,12 @@ class Applet(Resource):
             destName='applet'
         )
         .param(
+            'get_all_events',
+            'return all events for an applet if true',
+            required=False,
+            dataType='boolean'
+        )
+        .param(
             'refreshCache',
             'Reparse JSON-LD',
             required=False,
@@ -541,9 +547,17 @@ class Applet(Resource):
         .errorResponse('Invalid applet ID.')
         .errorResponse('Read access was denied for this applet.', 403)
     )
-    def getSchedule(self, applet, refreshCache=False):
+    def getSchedule(self, applet, get_all_events = False, refreshCache=False):
         user = self.getCurrentUser()
-        schedule = EventsModel().getScheduleForUser(applet['_id'], user['_id'], AppletModel().isCoordinator(applet['_id'], user))
+
+        if not get_all_events:
+            schedule = EventsModel().getScheduleForUser(applet['_id'], user['_id'], AppletModel().isCoordinator(applet['_id'], user))
+        else:
+            if not AppletModel().isCoordinator(applet['_id'], user):
+                raise AccessException(
+                    "Only coordinators and managers can get all events."
+                )
+            schedule = EventsModel().getSchedule(applet['_id'])
 
         return schedule
 
