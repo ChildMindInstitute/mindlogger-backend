@@ -541,9 +541,17 @@ class Applet(Resource):
         .errorResponse('Invalid applet ID.')
         .errorResponse('Read access was denied for this applet.', 403)
     )
-    def getSchedule(self, applet, refreshCache=False):
+    def getSchedule(self, applet, get_all_events = False, refreshCache=False):
         user = self.getCurrentUser()
-        schedule = EventsModel().getScheduleForUser(applet['_id'], user['_id'], AppletModel().isCoordinator(applet['_id'], user))
+
+        if not get_all_events:
+            schedule = EventsModel().getScheduleForUser(applet['_id'], user['_id'], AppletModel().isCoordinator(applet['_id'], user))
+        else:
+            if not AppletModel().isCoordinator(applet['_id'], user):
+                raise AccessException(
+                    "Only coordinators and managers can update applet schedules."
+                )
+            schedule = EventsModel().getSchedule(applet['_id'])
 
         return schedule
 
