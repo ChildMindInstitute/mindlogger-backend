@@ -157,7 +157,7 @@ class Applet(FolderModel):
         profile['roles'] = list(USER_ROLES.keys())
         Profile().save(profile, False)
 
-        UserModel().appendApplet(user, applet['_id'], USER_ROLES.keys())
+        UserModel().appendApplet(UserModel().load(user['_id'], force=True), applet['_id'], USER_ROLES.keys())
 
         return(jsonld_expander.formatLdObject(
             applet,
