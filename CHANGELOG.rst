@@ -8,6 +8,9 @@ Changes
 -------
 Unreleased
 ==========
+2020-04-29: v0.14.3
+fix an issue in createApplet function (970), update getSchedule
+
 2020-04-28: v0.14.2
 update getSchedule, getOwnApplets to fix 952, 955
 

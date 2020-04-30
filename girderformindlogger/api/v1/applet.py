@@ -533,7 +533,7 @@ class Applet(Resource):
             destName='applet'
         )
         .param(
-            'get_all_events',
+            'getAllEvents',
             'return all events for an applet if true',
             required=False,
             dataType='boolean'
@@ -547,10 +547,10 @@ class Applet(Resource):
         .errorResponse('Invalid applet ID.')
         .errorResponse('Read access was denied for this applet.', 403)
     )
-    def getSchedule(self, applet, get_all_events = False, refreshCache=False):
+    def getSchedule(self, applet, getAllEvents = False, refreshCache=False):
         user = self.getCurrentUser()
 
-        if not get_all_events:
+        if not getAllEvents:
             schedule = EventsModel().getScheduleForUser(applet['_id'], user['_id'], AppletModel().isCoordinator(applet['_id'], user))
         else:
             if not AppletModel().isCoordinator(applet['_id'], user):
