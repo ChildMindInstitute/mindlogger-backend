@@ -40,6 +40,7 @@ from girderformindlogger.models.protocol import Protocol as ProtocolModel
 from girderformindlogger.models.roles import getCanonicalUser, getUserCipher
 from girderformindlogger.models.user import User as UserModel
 from girderformindlogger.models.pushNotification import PushNotification as PushNotificationModel
+from girderformindlogger.models.push_notification import PushNotification as PushNotification
 from girderformindlogger.models.events import Events as EventsModel
 from girderformindlogger.utility import config, jsonld_expander
 from pyld import jsonld
@@ -587,32 +588,6 @@ class Applet(Resource):
                 if original_id not in assigned:
                     PushNotificationModel().delete_notification(original_id)
                     EventsModel().deleteEvent(original_id)
-
-        if 'events' in schedule:
-            # insert and update events/notifications
-            for event in schedule['events']:
-                savedEvent = EventsModel().upsertEvent(event, applet['_id'], event.get('id', None))
-
-                if 'data' in event and 'useNotifications' in event['data'] and event['data']['useNotifications']:
-                    if 'notifications' in event['data'] and event['data']['notifications'][0]['start']:
-                        # in case of daily/weekly event
-                        exist_notification = None
-
-                        if 'id' in event:
-                            exist_notification = PushNotificationModel().findOne(query={'_id': event['id']})
-
-                        if exist_notification:
-                            PushNotificationModel().replaceNotification(
-                                applet['_id'],
-                                savedEvent,
-                                thisUser,
-                                exist_notification)
-                        else:
-                            PushNotificationModel().replaceNotification(
-                                applet['_id'],
-                                savedEvent,
-                                thisUser)
-                event['id'] = savedEvent['_id']
 
         return {
             "applet": {

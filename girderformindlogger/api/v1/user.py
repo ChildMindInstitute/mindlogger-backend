@@ -699,6 +699,7 @@ class User(Resource):
                 user['deviceId'] = deviceId
                 user['timezone'] = timezone
                 self._model.save(user)
+                ProfileModel().updateProfiles(user, {'deviceId': deviceId, 'timezone': timezone})
 
             setCurrentUser(user)
             token = self.sendAuthTokenCookie(user)
@@ -1129,7 +1130,7 @@ class User(Resource):
             )
         else:
             currentUser = self.getCurrentUser()
-            id = id if id is not None else Profile().getProfile(
+            id = id if id is not None else ProfileModel().getProfile(
                 applet=AppletModel().load(applet, force=True),
                 idCode=idCode,
                 user=currentUser

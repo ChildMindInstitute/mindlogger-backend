@@ -27,7 +27,7 @@ class Profile(AccessControlledModel, dict):
         self.name = 'profile'
         self.ensureIndices(
             (
-                'appletId', 
+                'appletId',
                 'userId'
             )
         )
@@ -361,6 +361,17 @@ class Profile(AccessControlledModel, dict):
                 "You do not have adequate permissions to update this profile."
             )
         return self.save(profile, validate=False)
+
+    def updateProfiles(self, user, data):
+        profiles = list(self.get_profiles_by_user_ids(user_ids=[user['_id']]))
+        if len(profiles):
+            profile_ids = [profile['_id'] for profile in profiles]
+            self.update(query={
+                'userId': {
+                    '$in': profile_ids
+                },
+                'profile': True
+            }, update=data, multi=True)
 
     def updateRelations(self, profileId):
         relations = list(self.find({
@@ -747,6 +758,8 @@ class Profile(AccessControlledModel, dict):
                 'profile': True,
                 'created': now,
                 'updated': now,
+                'deviceId': user['deviceId'],
+                'timezone': user['timezone'],
                 'size': 0,
                 'coordinatorDefined': {},
                 'userDefined': {

@@ -10,6 +10,7 @@ from girderformindlogger import events
 from girderformindlogger.constants import AccessType
 from girderformindlogger.exceptions import ValidationException, GirderException
 from girderformindlogger.models.model_base import AccessControlledModel, Model
+from girderformindlogger.models.push_notification import PushNotification
 from girderformindlogger.models.profile import Profile
 from girderformindlogger.utility.model_importer import ModelImporter
 from girderformindlogger.utility.progress import noProgress, setResponseTimeLimit
@@ -38,10 +39,18 @@ class Events(Model):
         self.removeWithQuery({'_id': ObjectId(event_id)})
 
     def upsertEvent(self, event, applet_id, event_id = None):
-        newEvent = {'applet_id': applet_id, 'individualized': False}
+        newEvent = {
+            'applet_id': applet_id,
+            'individualized': False,
+            'schedulers': [],
+            'sendTime': []
+        }
 
-        if event_id and self.findOne({'_id': ObjectId(event_id)}, fields=['_id']):
+        existed_event = self.findOne({'_id': ObjectId(event_id)}, fields=['_id', 'schedulers'])
+
+        if event_id and existed_event:
             newEvent['_id'] = ObjectId(event_id)
+            newEvent['schedulers'] = existed_event['schedulers']
 
         if 'data' in event:
             newEvent['data'] = event['data']
@@ -50,7 +59,10 @@ class Events(Model):
         if 'schedule' in event:
             newEvent['schedule'] = event['schedule']
 
+        self.setSchedule(newEvent)
+
         return self.save(newEvent)
+
     def hasIndividual(self, applet_id, profileId):
         return (self.findOne({'applet_id': ObjectId(applet_id), 'data.users': profileId}) is not None)
 
@@ -61,6 +73,18 @@ class Events(Model):
                 event['data'].pop('users')
 
         return events
+
+    def setSchedule(self, event):
+        if 'data' in event and 'useNotifications' in event['data'] and event['data'][
+            'useNotifications']:
+            if 'notifications' in event['data'] and event['data']['notifications'][0]['start']:
+                push_notification = PushNotification(event)
+                push_notification.set_schedules()
+
+    def cancelSchedules(self, event):
+        pass
+        # if 'schedulers' in event and len(event['schedulers']):
+
 
     def getSchedule(self, applet_id):
         events = list(self.find({'applet_id': ObjectId(applet_id)}, fields=['data', 'schedule']))
