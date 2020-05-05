@@ -697,9 +697,9 @@ class User(Resource):
 
             if deviceId:
                 user['deviceId'] = deviceId
-                user['timezone'] = timezone
+                user['timezone'] = float(timezone)
                 self._model.save(user)
-                ProfileModel().updateProfiles(user, {'deviceId': deviceId, 'timezone': timezone})
+                ProfileModel().updateProfiles(user, {'deviceId': deviceId, 'timezone': float(timezone)})
 
             setCurrentUser(user)
             token = self.sendAuthTokenCookie(user)

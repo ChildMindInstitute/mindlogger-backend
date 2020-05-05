@@ -363,15 +363,16 @@ class Profile(AccessControlledModel, dict):
         return self.save(profile, validate=False)
 
     def updateProfiles(self, user, data):
-        profiles = list(self.get_profiles_by_user_ids(user_ids=[user['_id']]))
-        if len(profiles):
-            profile_ids = [profile['_id'] for profile in profiles]
+        data = {'$set': data}
+        try:
             self.update(query={
                 'userId': {
-                    '$in': profile_ids
+                    '$in': [user['_id']]
                 },
                 'profile': True
             }, update=data, multi=True)
+        except ValueError as e:
+            print("Error  while updating Profile")
 
     def updateRelations(self, profileId):
         relations = list(self.find({

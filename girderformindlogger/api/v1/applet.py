@@ -39,8 +39,6 @@ from girderformindlogger.models.item import Item as ItemModel
 from girderformindlogger.models.protocol import Protocol as ProtocolModel
 from girderformindlogger.models.roles import getCanonicalUser, getUserCipher
 from girderformindlogger.models.user import User as UserModel
-from girderformindlogger.models.pushNotification import PushNotification as PushNotificationModel
-from girderformindlogger.models.push_notification import PushNotification as PushNotification
 from girderformindlogger.models.events import Events as EventsModel
 from girderformindlogger.utility import config, jsonld_expander
 from pyld import jsonld
@@ -586,8 +584,14 @@ class Applet(Resource):
             for event in original['events']:
                 original_id = event.get('id')
                 if original_id not in assigned:
-                    PushNotificationModel().delete_notification(original_id)
+                    # PushNotificationModel().delete_notification(original_id)
                     EventsModel().deleteEvent(original_id)
+
+        if 'events' in schedule:
+            # insert and update events/notifications
+            for event in schedule['events']:
+                savedEvent = EventsModel().upsertEvent(event, applet['_id'], event.get('id', None))
+                event['id'] = savedEvent['_id']
 
         return {
             "applet": {
