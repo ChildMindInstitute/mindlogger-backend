@@ -607,7 +607,43 @@ class User(Resource):
             result = []
             for applet in applets:
                 if applet.get('cached'):
-                    formatted = loadCache(applet['cached'])
+                    formatted = {
+                        **jsonld_expander.formatLdObject(
+                            applet,
+                            'applet',
+                            reviewer,
+                            refreshCache=refreshCache,
+                            responseDates=False
+                        ),
+                        "users": AppletModel().getAppletUsers(applet, reviewer),
+                        "groups": AppletModel().getAppletGroups(
+                            applet,
+                            arrayOfObjects=True
+                        )
+                    } if role in ["coordinator", "manager"] else {
+                        **jsonld_expander.formatLdObject(
+                            applet,
+                            'applet',
+                            reviewer,
+                            refreshCache=refreshCache,
+                            responseDates=(role=="user")
+                        ),
+                        "groups": [
+                            group for group in AppletModel().getAppletGroups(applet).get(
+                                role
+                            ) if ObjectId(
+                                group
+                            ) in [
+                                *reviewer.get('groups', []),
+                                *reviewer.get('formerGroups', []),
+                                *[invite['groupId'] for invite in [
+                                    *reviewer.get('groupInvites', []),
+                                    *reviewer.get('declinedInvites', [])
+                                ]]
+                            ]
+                        ]
+                    }
+
                     try:
                         formatted["applet"]["responseDates"] = responseDateList(
                             applet.get('_id'),

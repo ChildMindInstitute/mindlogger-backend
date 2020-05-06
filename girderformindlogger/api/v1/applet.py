@@ -40,6 +40,7 @@ from girderformindlogger.models.protocol import Protocol as ProtocolModel
 from girderformindlogger.models.roles import getCanonicalUser, getUserCipher
 from girderformindlogger.models.user import User as UserModel
 from girderformindlogger.models.events import Events as EventsModel
+from girderformindlogger.models.profile import Profile as ProfileModel
 from girderformindlogger.utility import config, jsonld_expander
 from pyld import jsonld
 
@@ -291,9 +292,9 @@ class Applet(Resource):
                 applet.get('_id')
             )
 
+            users = list(Profile().find({'appletId': ObjectId(applet['_id']), 'deactivated': {'$ne': True}}, fields=['userId']))
             Profile().deactivateProfile(applet['_id'], None)
 
-            users = list(Profile().find({'appletId': ObjectId(applet['_id']), 'deactivated': {'$ne': True}}, ['userId']))
             for user in users:
                 if 'userId' in user:
                     UserModel().removeApplet(UserModel().findOne({'_id': ObjectId(user['userId'])}), applet['_id'])
@@ -532,6 +533,12 @@ class Applet(Resource):
             destName='applet'
         )
         .param(
+            'getAllEvents',
+            'return all events for an applet if true',
+            required=False,
+            dataType='boolean'
+        )
+        .param(
             'refreshCache',
             'Reparse JSON-LD',
             required=False,
@@ -540,9 +547,17 @@ class Applet(Resource):
         .errorResponse('Invalid applet ID.')
         .errorResponse('Read access was denied for this applet.', 403)
     )
-    def getSchedule(self, applet, refreshCache=False):
+    def getSchedule(self, applet, getAllEvents = False, refreshCache=False):
         user = self.getCurrentUser()
-        schedule = EventsModel().getScheduleForUser(applet['_id'], user['_id'], AppletModel().isCoordinator(applet['_id'], user))
+
+        if not getAllEvents:
+            schedule = EventsModel().getScheduleForUser(applet['_id'], user['_id'], AppletModel().isCoordinator(applet['_id'], user))
+        else:
+            if not AppletModel().isCoordinator(applet['_id'], user):
+                raise AccessException(
+                    "Only coordinators and managers can get all events."
+                )
+            schedule = EventsModel().getSchedule(applet['_id'])
 
         return schedule
 
@@ -584,7 +599,15 @@ class Applet(Resource):
             for event in original['events']:
                 original_id = event.get('id')
                 if original_id not in assigned:
-                    # PushNotificationModel().delete_notification(original_id)
+                    event = dict(EventsModel().findOne(query={"_id": original_id}, fields=['data']))
+                    ProfileModel().update(query={
+                        "_id": {
+                            "$in": event['data']['users']
+                        }
+                        }, update={'$inc': {
+                            'individual_events': -1
+                        }
+                    })
                     EventsModel().deleteEvent(original_id)
 
         if 'events' in schedule:
@@ -592,11 +615,6 @@ class Applet(Resource):
             for event in schedule['events']:
                 savedEvent = EventsModel().upsertEvent(event, applet['_id'], event.get('id', None))
                 event['id'] = savedEvent['_id']
-                # list(ProtocolModel().find(query={
-                #     "_id": {
-                #         "$in": savedEvent['data']
-                #     }
-                # }))
 
         return {
             "applet": {

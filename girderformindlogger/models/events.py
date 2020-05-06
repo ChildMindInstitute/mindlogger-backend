@@ -4,11 +4,8 @@ import datetime
 import json
 import os
 import six
-import math
 
 from bson.objectid import ObjectId
-from pyfcm import FCMNotification
-
 from girderformindlogger import events
 from girderformindlogger.constants import AccessType
 from girderformindlogger.exceptions import ValidationException, GirderException
@@ -46,25 +43,24 @@ class Events(Model):
             'applet_id': applet_id,
             'individualized': False,
             'schedulers': [],
-            'sendTime': []
+            'sendTime': [],
+            'data': {}
         }
 
-        existed_event = self.findOne({'_id': ObjectId(event_id)}, fields=['_id', 'schedulers'])
+        existed_event = self.findOne({'_id': ObjectId(event_id)}, fields=['_id', 'schedulers', 'data'])
 
         if event_id and existed_event:
             newEvent['_id'] = ObjectId(event_id)
             newEvent['schedulers'] = existed_event['schedulers']
-            newEvent['data'] = existed_event['data']
 
         if 'data' in event:
-            profiles = list(Profile().find(query={
-                "_id": {
-                    "$in": [ObjectId(profile) for profile in event['data']['users']]
-                }
-            }))
             newEvent['data'] = event['data']
-            if 'users' in event['data']:
+            if 'users' in event['data'] and isinstance(event['data']['users'], list):
                 newEvent['individualized'] = True
+                event['data']['users'] = [ObjectId(profile_id) for profile_id in event['data']['users']]
+
+            self.updateIndividualSchedulesParameter(event, existed_event)
+
         if 'schedule' in event:
             newEvent['schedule'] = event['schedule']
 
@@ -74,8 +70,33 @@ class Events(Model):
 
         return self.save(newEvent)
 
-    def updateIndividualSchedules(self, event):
-        pass
+    def updateIndividualSchedulesParameter(self, newEvent, oldEvent):
+        newEvent['data']['users'] = newEvent['data']['users'] if 'users' in newEvent['data'] else []
+
+        dicrementedUsers = list(set(oldEvent['data']['users']).difference(set(newEvent['data']['users']))) if oldEvent else []
+        incrementedUsers = list(set(newEvent['data']['users']).difference(set(oldEvent['data']['users']))) if oldEvent else []
+
+        if len(dicrementedUsers):
+            print('dicremented')
+            Profile().update(query={
+                "_id": {
+                    "$in": dicrementedUsers
+                }
+            }, update={'$inc': {
+                    'individual_events': -1
+                }
+            })
+
+        if len(incrementedUsers):
+            print('incremented')
+            Profile().update(query={
+                "_id": {
+                    "$in": incrementedUsers
+                }
+            }, update={'$inc': {
+                    'individual_events': 1
+                }
+            })
 
     def rescheduleRandomNotifications(self, event):
         if 'data' in event and 'useNotifications' in event['data'] and event['data'][

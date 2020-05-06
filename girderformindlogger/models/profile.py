@@ -763,6 +763,8 @@ class Profile(AccessControlledModel, dict):
                 'updated': now,
                 'deviceId': user['deviceId'],
                 'timezone': user['timezone'],
+                'individual_events': 0,
+                'completed_activities': [],
                 'size': 0,
                 'coordinatorDefined': {},
                 'userDefined': {
@@ -1020,7 +1022,7 @@ class Profile(AccessControlledModel, dict):
         if user_id:
             query['userId'] = ObjectId(user_id)
 
-        self.update(query, {'set': {'deactivated': True}})
+        self.update(query, {'$set': {'deactivated': True}})
 
     def get_profiles_by_applet_id(self, applet_id):
         return self.find(
