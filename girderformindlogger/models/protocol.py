@@ -32,7 +32,6 @@ from girderformindlogger.exceptions import ValidationException, GirderException
 from girderformindlogger.models.folder import Folder as FolderModel
 from girderformindlogger.models.user import User as UserModel
 from girderformindlogger.utility.progress import noProgress, setResponseTimeLimit
-from girderformindlogger.utility import jsonld_expander
 
 class Protocol(FolderModel):
     def importUrl(self, url, user=None, refreshCache=False):
@@ -118,4 +117,6 @@ class Protocol(FolderModel):
                 )
 
     def createProtocol(self, document, user):
+        from girderformindlogger.utility import jsonld_expander
+
         return jsonld_expander.loadFromSingleFile(document, user)
