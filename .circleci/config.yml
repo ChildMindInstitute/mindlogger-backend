@@ -131,8 +131,8 @@ jobs:
       - store_artifacts:
           path: htmlcov
       - run:
-          name: Upload coverage
-          command: codecov --disable search pycov gcov --root girderformindlogger --file /home/circleci/project/coverage.xml
+          name: Install Codecov client
+          command: pip install codecov
 
   public_symbols:
     docker:
