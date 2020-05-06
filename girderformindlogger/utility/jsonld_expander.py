@@ -1010,7 +1010,7 @@ def formatLdObject(
                                 applet['applet'][key][0]['@value'] += (' ' + suffix)
 
                             if not len(applet['applet']['url']): # for development
-                                applet['applet'][key][0]['@value'] += '( single-file )'
+                                applet['applet'][key][0]['@value'] += ' ( single-file )'
 
                             inserted = True
 
