@@ -77,7 +77,6 @@ class Events(Model):
         incrementedUsers = list(set(newEvent['data']['users']).difference(set(oldEvent['data']['users']))) if oldEvent else []
 
         if len(dicrementedUsers):
-            print('dicremented')
             Profile().update(query={
                 "_id": {
                     "$in": dicrementedUsers
@@ -88,7 +87,6 @@ class Events(Model):
             })
 
         if len(incrementedUsers):
-            print('incremented')
             Profile().update(query={
                 "_id": {
                     "$in": incrementedUsers

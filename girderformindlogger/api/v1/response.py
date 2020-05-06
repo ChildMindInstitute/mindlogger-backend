@@ -433,12 +433,22 @@ class ResponseItem(Resource):
             print(newItem)
 
             # update profile activity
-            Profile().update(query={
-                "_id": subject_id,
-                "completed_activities.activity_id": metadata['activity']['@id']
-            }, update={"$inc": {
-                "completed_activities.$.completed_time": now.strftime("%Y/%m/%d %H:%M")
-            }}, multi=False)
+            profile = Profile()
+            data = profile.findOne(query={
+                "_id": subject_id
+            })
+
+            if not len(data['completed_activities']):
+                data['completed_activities'].append({
+                    "activity_id": metadata['activity']['@id'],
+                    "completed_time": now.strftime("%Y/%m/%d")
+                })
+
+            for activity in data['completed_activities']:
+                if activity["activity_id"] == metadata['activity']['@id']:
+                    activity["completed_time"] = now.strftime("%Y/%m/%d")
+
+            profile.save(data, validate=False)
 
             return(newItem)
         except:
