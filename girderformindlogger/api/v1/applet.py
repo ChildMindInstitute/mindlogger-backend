@@ -216,6 +216,7 @@ class Applet(Resource):
         from datetime import datetime
         from ..rest import setContentDisposition, setRawResponse, setResponseHeader
 
+
         format = ('json' if format is None else format).lower()
         thisUser = self.getCurrentUser()
         data = AppletModel().getResponseData(id, thisUser)
