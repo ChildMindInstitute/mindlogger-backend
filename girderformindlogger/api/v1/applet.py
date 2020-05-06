@@ -67,6 +67,7 @@ class Applet(Resource):
         self.route('GET', (':id', 'roles'), self.getAppletRoles)
         self.route('GET', (':id', 'users'), self.getAppletUsers)
         self.route('DELETE', (':id',), self.deactivateApplet)
+        self.route('POST', ('fromJSON', ), self.createAppletFromProtocolData)
 
     @access.user(scope=TokenScope.DATA_OWN)
     @autoDescribeRoute(
@@ -182,6 +183,54 @@ class Applet(Resource):
             kwargs={
                 'name': name,
                 'protocolUrl': protocolUrl,
+                'user': thisUser,
+                'constraints': {
+                    'informantRelationship': informant
+                } if informant is not None else None
+            }
+        )
+        thread.start()
+        return({
+            "message": "The applet is being created. Please check back in "
+                       "several mintutes to see it. If you have an email "
+                       "address associated with your account, you will receive "
+                       "an email when your applet is ready."
+        })
+    
+    @access.user(scope=TokenScope.DATA_WRITE)
+    @autoDescribeRoute(
+        Description('Create an applet.')
+        .jsonParam(
+            'protocol',
+            'A JSON object containing protocol information for an applet',
+            paramType='form',
+            required=False
+        )
+        .param(
+            'name',
+            'Name to give the applet. The Protocol\'s name will be used if '
+            'this parameter is not provided.',
+            required=False
+        )
+        .param(
+            'informant',
+            ' '.join([
+                'Relationship from informant to individual of interest.',
+                'Currently handled informant relationships are',
+                str([r for r in DEFINED_INFORMANTS.keys()])
+            ]),
+            required=False
+        )
+        .errorResponse('Write access was denied for this applet.', 403)
+    )
+    def createAppletFromProtocolData(self, protocol, name=None, informant=None):
+        thisUser = self.getCurrentUser()
+        
+        thread = threading.Thread(
+            target=AppletModel().createAppletFromProtocolData,
+            kwargs={
+                'name': name,
+                'protocol': protocol,
                 'user': thisUser,
                 'constraints': {
                     'informantRelationship': informant
