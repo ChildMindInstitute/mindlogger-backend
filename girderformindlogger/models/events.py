@@ -54,8 +54,14 @@ class Events(Model):
         if event_id and existed_event:
             newEvent['_id'] = ObjectId(event_id)
             newEvent['schedulers'] = existed_event['schedulers']
+            newEvent['data'] = existed_event['data']
 
         if 'data' in event:
+            profiles = list(Profile().find(query={
+                "_id": {
+                    "$in": [ObjectId(profile) for profile in event['data']['users']]
+                }
+            }))
             newEvent['data'] = event['data']
             if 'users' in event['data']:
                 newEvent['individualized'] = True
@@ -67,6 +73,9 @@ class Events(Model):
         self.setSchedule(newEvent)
 
         return self.save(newEvent)
+
+    def updateIndividualSchedules(self, event):
+        pass
 
     def rescheduleRandomNotifications(self, event):
         if 'data' in event and 'useNotifications' in event['data'] and event['data'][

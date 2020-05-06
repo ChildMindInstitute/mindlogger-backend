@@ -182,6 +182,3 @@ workflows:
   test_all:
     jobs:
       - py3_serverInstall
-      - py3_integrationTests:
-          requires:
-            - py3_serverInstall
