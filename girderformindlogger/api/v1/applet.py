@@ -592,6 +592,11 @@ class Applet(Resource):
             for event in schedule['events']:
                 savedEvent = EventsModel().upsertEvent(event, applet['_id'], event.get('id', None))
                 event['id'] = savedEvent['_id']
+                # list(ProtocolModel().find(query={
+                #     "_id": {
+                #         "$in": savedEvent['data']
+                #     }
+                # }))
 
         return {
             "applet": {

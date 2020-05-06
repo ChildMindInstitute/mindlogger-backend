@@ -29,6 +29,7 @@ class Profile(AccessControlledModel, dict):
             (
                 'appletId',
                 'userId',
+                'individual_events',
                 'completed_activities'
             )
         )
