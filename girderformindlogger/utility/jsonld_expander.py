@@ -254,6 +254,15 @@ def importAndCompareModelType(model, url, user, modelType):
                     }
                 }
             )
+
+        modelClass.update(
+            {'_id': newModel['_id']},
+            {'$set': {
+                'loadedFromSingleFile': False
+            }}
+        )
+        newModel['loadedFromSingleFile'] = False
+
     formatted = _fixUpFormat(formatLdObject(
         newModel,
         mesoPrefix=modelType,
