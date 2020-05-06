@@ -72,7 +72,7 @@ class Events(Model):
     def rescheduleRandomNotifications(self, event):
         if 'data' in event and 'useNotifications' in event['data'] and event['data'][
             'useNotifications']:
-            push_notification = PushNotificationModel(event=event, callback=send_push_notification)
+            push_notification = PushNotificationModel(event=event)
             push_notification.random_reschedule()
             self.save(event)
 
@@ -91,7 +91,7 @@ class Events(Model):
         if 'data' in event and 'useNotifications' in event['data'] and event['data'][
             'useNotifications']:
             if 'notifications' in event['data'] and event['data']['notifications'][0]['start']:
-                push_notification = PushNotificationModel(event=event, callback=send_push_notification)
+                push_notification = PushNotificationModel(event=event)
                 push_notification.set_schedules()
 
     def cancelSchedules(self, event):
@@ -145,47 +145,3 @@ class Events(Model):
             "around": 1585724400000,
             'events': events
         }
-
-
-push_service = FCMNotification(
-    api_key='AAAAJOyOEz4:APA91bFudM5Cc1Qynqy7QGxDBa-2zrttoRw6ZdvE9PQbfIuAB9SFvPje7DcFMmPuX1IizR1NAa7eHC3qXmE6nmOpgQxXbZ0sNO_n1NITc1sE5NH3d8W9ld-cfN7sXNr6IAOuodtEwQy-',
-    proxy_dict={})
-
-
-def send_push_notification(applet_id, event_id):
-    now = datetime.datetime.utcnow()
-    now = datetime.datetime.strptime(now.strftime('%Y/%m/%d %H:%M'), '%Y/%m/%d %H:%M')
-
-    event = Events().findOne({'_id': event_id})
-
-    if event:
-        event_time = datetime.datetime.strptime(
-            f"{now.year}/{now.month}/{now.day} {event['sendTime']}", '%Y/%m/%d %H:%M')
-
-        timezone = (event_time - now).total_seconds() / 3600
-
-        query = {
-            'appletId': applet_id,
-            'timezone': round(timezone, 2),
-            'profile': True
-        }
-
-        if event['data']['notifications'][0]['notifyIfIncomplete']:
-            query['completed_activities'] = {
-                '$elemMatch': {
-                    "completed_time": ""
-                }
-            }
-
-        profiles = list(Profile().find(query=query, fields=['deviceId']))
-
-        device_ids = [profile['deviceId'] for profile in profiles]
-
-        message_title = event['data']['title']
-        message_body = event['data']['description']
-        push_service.notify_multiple_devices(registration_ids=device_ids,
-                                             message_title=message_title,
-                                             message_body=message_body)
-
-        if event['data']['notifications'][0]['random']:
-            Events().rescheduleRandomNotifications(event)

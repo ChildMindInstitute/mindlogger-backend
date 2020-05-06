@@ -52,6 +52,7 @@ installReqs = [
     'pytz',
     'qrcode[pil]',
     'requests',
+    'rq-scheduler==0.10.0',
     "shutilwhich ; python_version < '3'",
     'simplejson',
     'six>=1.9',

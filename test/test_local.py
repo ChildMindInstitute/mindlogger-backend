@@ -30,18 +30,18 @@ with open(os.path.join(
 )) as te:
     expectedResults = json.loads(te.read())
 
-@pytest.mark.parametrize(
-    "args",
-    [(protocolUrl, act1, act2, act1Item, act2Item, expectedResults)]
-)
-def test_1_HBN(args):
-    protocolUrl, act1, act2, act1Item, act2Item, expectedResults = args
-    try:
-        print('\n\n TEST 1: HBN')
-        fullTest(protocolUrl, act1, act2, act1Item, act2Item, expectedResults)
-    except Exception as e:
-        print('\n\n ERROR:', e)
-        raise e
+# @pytest.mark.parametrize(
+#     "args",
+#     [(protocolUrl, act1, act2, act1Item, act2Item, expectedResults)]
+# )
+# def test_1_HBN(args):
+#     protocolUrl, act1, act2, act1Item, act2Item, expectedResults = args
+#     try:
+#         print('\n\n TEST 1: HBN')
+#         fullTest(protocolUrl, act1, act2, act1Item, act2Item, expectedResults)
+#     except Exception as e:
+#         print('\n\n ERROR:', e)
+#         raise e
 
 nestedProtocol = ''.join([
     REPROLIB_CANONICAL,

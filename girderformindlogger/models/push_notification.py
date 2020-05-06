@@ -1,13 +1,12 @@
 import random
-from pyfcm import FCMNotification
-from bson import ObjectId
 from redis import Redis
 from rq_scheduler import Scheduler
 from datetime import datetime, timedelta
+from girderformindlogger.external.notification import send_push_notification
 
 
 class PushNotification(Scheduler):
-    def __init__(self, event, callback):
+    def __init__(self, event):
         super(PushNotification, self).__init__(connection=Redis())
         self.current_time = datetime.utcnow()
         self.event = event
@@ -18,11 +17,9 @@ class PushNotification(Scheduler):
         }
         self.start_time = datetime.strptime(event['data']['notifications'][0]['start'], '%H:%M')
         self.end_time = None
-        self.send_push_notification = callback
 
     def set_schedules(self):
         self.remove_schedules()
-        self.event['sendTime'] = []
 
         for notification in self.event['data']['notifications']:
             self.date_format(notification)
@@ -86,6 +83,7 @@ class PushNotification(Scheduler):
             self._set_scheduler_with_random_time(notification)
 
     def _set_scheduler_with_random_time(self, notification):
+        self.event['sendTime'] = []
         self.end_time = datetime.strptime(notification['end'], '%H:%M') \
             if notification['end'] else None
 
@@ -101,7 +99,7 @@ class PushNotification(Scheduler):
     def __set_job(self, first_launch=datetime.utcnow(), repeat=None):
         job = self.schedule(
                 scheduled_time=first_launch,
-                func=self.send_push_notification,
+                func=send_push_notification,
                 kwargs={
                     "applet_id": self.event.get("applet_id"),
                     "event_id": self.event.get("_id")
@@ -115,7 +113,7 @@ class PushNotification(Scheduler):
     def __set_cron(self, first_launch=datetime.utcnow()):
         job = self.cron(
                 first_launch,
-                func=self.send_push_notification,
+                func=send_push_notification,
                 kwargs={
                     "applet_id": self.event.get("applet_id"),
                     "event_id": self.event.get("_id")
@@ -186,5 +184,4 @@ class PushNotification(Scheduler):
         for job in jobs:
             self.cancel(job)
 
-        print('All jobs were removed')
         self.event['schedulers'] = []
