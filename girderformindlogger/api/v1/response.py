@@ -431,6 +431,15 @@ class ResponseItem(Resource):
                 aggregateAndSave(newItem, informant)
                 newItem['readOnly'] = True
             print(newItem)
+
+            # update profile activity
+            Profile().update(query={
+                "_id": subject_id,
+                "completed_activities.activity_id": metadata['activity']['@id']
+            }, update={"$inc": {
+                "completed_activities.$.completed_time": now.strftime("%Y/%m/%d %H:%M")
+            }}, multi=False)
+
             return(newItem)
         except:
             import sys, traceback
