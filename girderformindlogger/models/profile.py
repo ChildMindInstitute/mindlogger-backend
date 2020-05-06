@@ -28,7 +28,8 @@ class Profile(AccessControlledModel, dict):
         self.ensureIndices(
             (
                 'appletId',
-                'userId'
+                'userId',
+                'completed_activities'
             )
         )
 

@@ -46,8 +46,7 @@ class Events(Model):
             'applet_id': applet_id,
             'individualized': False,
             'schedulers': [],
-            'sendTime': [],
-            'completed_activities': []
+            'sendTime': []
         }
 
         existed_event = self.findOne({'_id': ObjectId(event_id)}, fields=['_id', 'schedulers'])
