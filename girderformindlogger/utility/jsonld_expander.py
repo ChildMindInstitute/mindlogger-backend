@@ -1003,12 +1003,16 @@ def formatLdObject(
                 inserted = False
 
                 candidates = ['prefLabel', 'altLabel']
-                if len(suffix):
-                    for candidate in candidates:
-                        for key in applet['applet']:
-                            if not inserted and str(key).endswith(candidate) and len(applet['applet'][key]) and len(applet['applet'][key][0].get('@value', '')):
+                for candidate in candidates:
+                    for key in applet['applet']:
+                        if not inserted and str(key).endswith(candidate) and len(applet['applet'][key]) and len(applet['applet'][key][0].get('@value', '')):
+                            if len(suffix):
                                 applet['applet'][key][0]['@value'] += (' ' + suffix)
-                                inserted = True
+
+                            if not len(applet['applet']['url']): # for development
+                                applet['applet'][key][0]['@value'] += '( single-file )'
+
+                            inserted = True
 
             createCache(obj, applet, 'applet', user)
             if responseDates:
