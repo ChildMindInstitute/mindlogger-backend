@@ -206,7 +206,7 @@ class Invitation(AccessControlledModel):
         # manager has get all roles by default
         for role in USER_ROLES.keys():
             if role not in profile['roles']:
-                if invited_role == 'manager' or invited_role == role:
+                if invited_role == 'manager' or invited_role == role or role == 'user':
                     new_roles.append(role)
                     profile['roles'].append(role)
 
