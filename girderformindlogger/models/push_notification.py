@@ -27,14 +27,16 @@ class PushNotification(Scheduler):
                 self._set_scheduler_with_random_time(notification)
             else:
                 self.event['sendTime'] = self.start_time.strftime('%H:%M')
-                launch_time = self.first_launch_time()
-                repeat = self.repeat_time(launch_time)
 
                 if self.notification_type in [1, 2]:
+                    launch_time = self.first_launch_time()
+                    repeat = self.repeat_time(launch_time)
                     self.__set_job(launch_time, repeat)
 
                 if self.notification_type == 3:
-                    self.__set_cron(launch_time, repeat)
+                    launch_time = self.prepare_weekly_schedule()
+                    print(launch_time)
+                    self.__set_cron(launch_time)
 
     def first_launch_time(self, start_time=None):
         launch_time = self.current_time
@@ -75,7 +77,7 @@ class PushNotification(Scheduler):
 
     def prepare_weekly_schedule(self):
         if 'dayOfWeek' in self.event["schedule"]:
-            return f"*/15 * * * {self.event['schedule'][0]}"
+            return f"*/15 * * * {self.event['schedule']['dayOfWeek'][0]}"
         return f"*/15 * * * {self.current_time.weekday()}"
 
     def random_reschedule(self):
@@ -90,12 +92,14 @@ class PushNotification(Scheduler):
 
         random_time = self.__random_date() if self.end_time else self.start_time
         self.event['sendTime'].append(random_time.strftime('%H:%M'))
-        first_launch = self.first_launch_time(start_time=random_time)
-        repeat = self.repeat_time(first_launch)
+
         if self.notification_type in [1, 2]:
+            first_launch = self.first_launch_time(start_time=random_time)
+            repeat = self.repeat_time(first_launch)
             self.__set_job(first_launch, repeat)
             return 0
-        self.__set_cron(first_launch, repeat)
+        first_launch = self.prepare_weekly_schedule()
+        self.__set_cron(first_launch)
 
     def __set_job(self, first_launch=datetime.utcnow(), repeat=None):
         job = self.schedule(
@@ -110,7 +114,7 @@ class PushNotification(Scheduler):
             )
         self.event["schedulers"].append(job.id)
 
-    def __set_cron(self, first_launch=datetime.utcnow(), repeat=None):
+    def __set_cron(self, first_launch, repeat=None):
         job = self.cron(
                 first_launch,
                 func=send_push_notification,
@@ -126,12 +130,6 @@ class PushNotification(Scheduler):
     def __random_date(self):
         """
         Random date set between range of date
-        :params start: Start date range
-        :type start: str
-        :params end: End date range
-        :type end: str
-        :params format_str: Format date
-        :type format_str: str
         """
         time_between_dates = self.end_time - self.start_time
         days_between_dates = time_between_dates.seconds
