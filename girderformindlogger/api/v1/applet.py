@@ -599,15 +599,19 @@ class Applet(Resource):
             for event in original['events']:
                 original_id = event.get('id')
                 if original_id not in assigned:
-                    event = dict(EventsModel().findOne(query={"_id": original_id}, fields=['data']))
-                    ProfileModel().update(query={
-                        "_id": {
-                            "$in": event['data']['users']
-                        }
-                        }, update={'$inc': {
-                            'individual_events': -1
-                        }
-                    })
+                    event = EventsModel().findOne(query={
+                        "_id": original_id, 'individualized': True
+                    }, fields=['data'])
+
+                    if event:
+                        ProfileModel().update(query={
+                            "_id": {
+                                "$in": event['data']['users']
+                            }
+                            }, update={'$inc': {
+                                'individual_events': -1
+                            }
+                        })
                     EventsModel().deleteEvent(original_id)
 
         if 'events' in schedule:

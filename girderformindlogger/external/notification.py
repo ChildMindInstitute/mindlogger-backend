@@ -25,14 +25,13 @@ def send_push_notification(applet_id, event_id):
         query = {
             'appletId': applet_id,
             'timezone': round(timezone, 2),
-            'profile': True
+            'profile': True,
+            'individual_events': {'$gte': 1} if event['individualized'] else 0
         }
 
         if event['data']['notifications'][0]['notifyIfIncomplete']:
-            query['completed_activities'] = {
-                '$elemMatch': {
-                    "completed_time": ""
-                }
+            query['completed_activities.completed_time'] = {
+                '$ne': now.strftime('%Y/%m/%d')
             }
 
         profiles = list(Profile().find(query=query, fields=['deviceId']))

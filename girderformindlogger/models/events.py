@@ -36,9 +36,12 @@ class Events(Model):
         return document
 
     def deleteEvent(self, event_id):
+        event = self.findOne({'_id': ObjectId(event_id)})
+        push_notification = PushNotificationModel(event=event)
+        push_notification.remove_schedules()
         self.removeWithQuery({'_id': ObjectId(event_id)})
 
-    def upsertEvent(self, event, applet_id, event_id = None):
+    def upsertEvent(self, event, applet_id, event_id=None):
         newEvent = {
             'applet_id': applet_id,
             'individualized': False,
@@ -46,7 +49,6 @@ class Events(Model):
             'sendTime': [],
             'data': {}
         }
-
         existed_event = self.findOne({'_id': ObjectId(event_id)}, fields=['_id', 'schedulers', 'data'])
 
         if event_id and existed_event:
@@ -59,22 +61,22 @@ class Events(Model):
                 newEvent['individualized'] = True
                 event['data']['users'] = [ObjectId(profile_id) for profile_id in event['data']['users']]
 
-            self.updateIndividualSchedulesParameter(event, existed_event)
+                self.updateIndividualSchedulesParameter(newEvent, existed_event)
 
         if 'schedule' in event:
             newEvent['schedule'] = event['schedule']
 
         newEvent = self.save(newEvent)
-
         self.setSchedule(newEvent)
 
         return self.save(newEvent)
 
     def updateIndividualSchedulesParameter(self, newEvent, oldEvent):
-        newEvent['data']['users'] = newEvent['data']['users'] if 'users' in newEvent['data'] else []
+        new = newEvent['data']['users'] if 'users' in newEvent['data'] else []
+        old = newEvent['data']['users'] if oldEvent else []
 
-        dicrementedUsers = list(set(oldEvent['data']['users']).difference(set(newEvent['data']['users']))) if oldEvent else []
-        incrementedUsers = list(set(newEvent['data']['users']).difference(set(oldEvent['data']['users']))) if oldEvent else []
+        dicrementedUsers = list(set(old).difference(set(new)))
+        incrementedUsers = list(set(new).difference(set(old)))
 
         if len(dicrementedUsers):
             Profile().update(query={

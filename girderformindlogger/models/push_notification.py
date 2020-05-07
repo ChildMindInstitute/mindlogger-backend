@@ -28,28 +28,29 @@ class PushNotification(Scheduler):
             else:
                 self.event['sendTime'] = self.start_time.strftime('%H:%M')
                 launch_time = self.first_launch_time()
+                repeat = self.repeat_time(launch_time)
 
                 if self.notification_type in [1, 2]:
-                    repeat = self.repeat_time(launch_time)
                     self.__set_job(launch_time, repeat)
 
                 if self.notification_type == 3:
-                    self.__set_cron(launch_time)
+                    self.__set_cron(launch_time, repeat)
 
     def first_launch_time(self, start_time=None):
         launch_time = self.current_time
-        tmp = start_time or self.start_time
-        for _ in range(4):
-            if tmp.minute <= launch_time.minute <= (tmp + timedelta(minutes=15)).minute\
-            or 45 <= tmp.minute <= 59 and 45 < launch_time.minute <= 59:
-                time = tmp + timedelta(minutes=15)
-                launch_time = datetime.strptime(
-                    f'{launch_time.year}/{launch_time.month}/{launch_time.day} {launch_time.hour}:{time.minute}',
-                    '%Y/%m/%d %H:%M')
-                break
-            tmp = tmp + timedelta(minutes=15)
+        tmp = start_time or datetime.strptime(
+                f'{launch_time.year}/{launch_time.month}/{launch_time.day} {launch_time.hour}:{self.start_time.minute}',
+                '%Y/%m/%d %H:%M')
 
-        return launch_time
+        for _ in range(4):
+            if tmp < launch_time:
+                tmp += timedelta(minutes=15)
+                continue
+            if tmp > launch_time and (tmp - launch_time).total_seconds() / 60 > 15:
+                tmp -= timedelta(hours=1)
+                continue
+            break
+        return tmp
 
     def repeat_time(self, launch_time):
         end_time = self.schedule_range["end"]
@@ -90,11 +91,11 @@ class PushNotification(Scheduler):
         random_time = self.__random_date() if self.end_time else self.start_time
         self.event['sendTime'].append(random_time.strftime('%H:%M'))
         first_launch = self.first_launch_time(start_time=random_time)
+        repeat = self.repeat_time(first_launch)
         if self.notification_type in [1, 2]:
-            repeat = self.repeat_time(first_launch)
             self.__set_job(first_launch, repeat)
             return 0
-        self.__set_cron()
+        self.__set_cron(first_launch, repeat)
 
     def __set_job(self, first_launch=datetime.utcnow(), repeat=None):
         job = self.schedule(
@@ -108,9 +109,8 @@ class PushNotification(Scheduler):
                 repeat=repeat
             )
         self.event["schedulers"].append(job.id)
-        print('------ Job was set')
 
-    def __set_cron(self, first_launch=datetime.utcnow()):
+    def __set_cron(self, first_launch=datetime.utcnow(), repeat=None):
         job = self.cron(
                 first_launch,
                 func=send_push_notification,
@@ -118,11 +118,10 @@ class PushNotification(Scheduler):
                     "applet_id": self.event.get("applet_id"),
                     "event_id": self.event.get("_id")
                 },
-                repeat=None,
+                repeat=repeat,
                 use_local_timezone=False
             )
         self.event["schedulers"].append(job.id)
-        print('------ Cron was set')
 
     def __random_date(self):
         """
