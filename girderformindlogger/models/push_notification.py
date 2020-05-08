@@ -76,9 +76,10 @@ class PushNotification(Scheduler):
         return end_time
 
     def prepare_weekly_schedule(self):
+        first_cron_launch = min([(self.start_time + timedelta(minutes=15 * i)).minute for i in range(1, 5)])
         if 'dayOfWeek' in self.event["schedule"]:
-            return f"*/15 * * * {self.event['schedule']['dayOfWeek'][0]}"
-        return f"*/15 * * * {self.current_time.weekday()}"
+            return f"{first_cron_launch}/15 * * * {self.event['schedule']['dayOfWeek'][0]}"
+        return f"{first_cron_launch}/15 * * * {self.current_time.weekday()}"
 
     def random_reschedule(self):
         self.remove_schedules()
