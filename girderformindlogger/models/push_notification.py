@@ -56,7 +56,10 @@ class PushNotification(Scheduler):
 
     def repeat_time(self, launch_time):
         end_time = self.schedule_range["end"]
-        if self.notification_type == 1:
+
+        if end_time:
+            end_time = datetime.strptime(f'{end_time} {self.start_time.strftime("%H:%M")}', '%Y/%m/%d %H:%M')
+        else:
             end_time = datetime.strptime(
                 f'{self.current_time.year}/{self.current_time.month}/{self.current_time.day} {self.start_time.strftime("%H:%M")}',
                 '%Y/%m/%d %H:%M')
@@ -70,6 +73,7 @@ class PushNotification(Scheduler):
             repeats = round(((end_time - start_time).total_seconds() / 3600) * 4) + 1
             print(f'Repeat times - {repeats}')
             return repeats
+        print(f'Repeat times - {end_time}')
         return end_time
 
     def prepare_weekly_schedule(self):
