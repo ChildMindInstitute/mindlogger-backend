@@ -160,12 +160,13 @@ class Profile(AccessControlledModel, dict):
         if showEmail:
             profileFields.append('email')
 
-        displayProfile = {
+        displayProfile = userProfile.get("coordinatorDefined", {})
+        displayProfile.update(userProfile.get("userDefined", {}))
+
+        displayProfile.update({
             k: v for k, v in userProfile.items(
             ) if k in profileFields
-        }
-        displayProfile.update(userProfile.get("coordinatorDefined", {}))
-        displayProfile.update(userProfile.get("userDefined", {}))
+        })
 
         if showIDCode:
             from girderformindlogger.models.ID_code import IDCode
@@ -265,7 +266,7 @@ class Profile(AccessControlledModel, dict):
         if 'invitedBy' in profile:
             profileDefinitions['invitedBy'] = self.cycleDefinitions(
                 profile['invitedBy'],
-                showEmail=True
+                showEmail=False
             )
 
         if forceManager and not forceReviewer:

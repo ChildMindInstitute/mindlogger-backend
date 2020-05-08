@@ -41,7 +41,9 @@ from girderformindlogger.models.roles import getCanonicalUser, getUserCipher
 from girderformindlogger.models.user import User as UserModel
 from girderformindlogger.models.pushNotification import PushNotification as PushNotificationModel
 from girderformindlogger.models.events import Events as EventsModel
-from girderformindlogger.utility import config, jsonld_expander
+from girderformindlogger.utility import config, jsonld_expander, mail_utils
+from girderformindlogger.models.setting import Setting
+from girderformindlogger.settings import SettingKey
 from pyld import jsonld
 
 USER_ROLE_KEYS = USER_ROLES.keys()
@@ -64,9 +66,11 @@ class Applet(Resource):
         self.route('PUT', (':id', 'refresh'), self.refresh)
         self.route('GET', (':id', 'schedule'), self.getSchedule)
         self.route('POST', (':id', 'invite'), self.invite)
+        self.route('POST', (':id', 'inviteUser'), self.inviteUser)
         self.route('GET', (':id', 'roles'), self.getAppletRoles)
         self.route('GET', (':id', 'users'), self.getAppletUsers)
         self.route('DELETE', (':id',), self.deactivateApplet)
+        self.route('POST', ('fromJSON', ), self.createAppletFromProtocolData)
 
     @access.user(scope=TokenScope.DATA_OWN)
     @autoDescribeRoute(
@@ -182,6 +186,54 @@ class Applet(Resource):
             kwargs={
                 'name': name,
                 'protocolUrl': protocolUrl,
+                'user': thisUser,
+                'constraints': {
+                    'informantRelationship': informant
+                } if informant is not None else None
+            }
+        )
+        thread.start()
+        return({
+            "message": "The applet is being created. Please check back in "
+                       "several mintutes to see it. If you have an email "
+                       "address associated with your account, you will receive "
+                       "an email when your applet is ready."
+        })
+    
+    @access.user(scope=TokenScope.DATA_WRITE)
+    @autoDescribeRoute(
+        Description('Create an applet.')
+        .jsonParam(
+            'protocol',
+            'A JSON object containing protocol information for an applet',
+            paramType='form',
+            required=False
+        )
+        .param(
+            'name',
+            'Name to give the applet. The Protocol\'s name will be used if '
+            'this parameter is not provided.',
+            required=False
+        )
+        .param(
+            'informant',
+            ' '.join([
+                'Relationship from informant to individual of interest.',
+                'Currently handled informant relationships are',
+                str([r for r in DEFINED_INFORMANTS.keys()])
+            ]),
+            required=False
+        )
+        .errorResponse('Write access was denied for this applet.', 403)
+    )
+    def createAppletFromProtocolData(self, protocol, name=None, informant=None):
+        thisUser = self.getCurrentUser()
+        
+        thread = threading.Thread(
+            target=AppletModel().createAppletFromProtocolData,
+            kwargs={
+                'name': name,
+                'protocol': protocol,
                 'user': thisUser,
                 'constraints': {
                     'informantRelationship': informant
@@ -490,6 +542,89 @@ class Applet(Resource):
         except:
             import sys, traceback
             print(sys.exc_info())
+
+    @access.user(scope=TokenScope.DATA_WRITE)
+    @autoDescribeRoute(
+        Description('Invite a user to a role in an applet.')
+        .modelParam(
+            'id',
+            model=AppletModel,
+            level=AccessType.READ,
+            destName='applet'
+        )
+        .param(
+            'role',
+            'Role to invite this user to. One of ' + str(set(USER_ROLE_KEYS)),
+            default='user',
+            required=False
+        )
+        .param(
+            'email',
+            'required, email of user',
+            required=True,
+        )
+        .param(
+            'displayName',
+            'displayName for user',
+            required=True
+        )
+        .param(
+            'MRN',
+            'MRN for user',
+            required=True
+        )
+        .errorResponse('Write access was denied for the folder or its new parent object.', 403)
+    )
+    def inviteUser(self, applet, role="user", email='', displayName='', MRN=''):
+        from girderformindlogger.models.invitation import Invitation
+        from girderformindlogger.models.profile import Profile
+
+        thisUser = self.getCurrentUser()
+
+        invitedUser = UserModel().findOne({
+            'email': email
+        })
+
+        if not invitedUser:
+            raise ValidationException(
+                'the user with such email does not exist'
+            )
+        try:
+            if role not in USER_ROLE_KEYS:
+                raise ValidationException(
+                    'Invalid role.',
+                    'role'
+                )
+
+            invitation = Invitation().createInvitationForSpecifiedUser(
+                applet = applet,
+                coordinator = thisUser,
+                role = role,
+                user = invitedUser,
+                displayName = displayName,
+                MRN = MRN
+            )
+
+            url = '%s/%s/invitation/%s' % (
+                mail_utils.getEmailUrlPrefix(), str(invitedUser['_id']), str(invitation['_id']))
+
+            html = mail_utils.renderTemplate('userInvite.mako', {
+                'url': url,
+                'userName': displayName,
+                'coordinatorName': thisUser['firstName'] if len(thisUser['firstName']) else thisUser['login'],
+                'appletName': applet['displayName'],
+                'MRN': MRN
+            })
+
+            mail_utils.sendMail(
+                'invitation for an applet',
+                html,
+                [email]
+            )
+
+            return 'sent invitation mail to {}'.format(email)
+        except:
+            return 'failed to invite user'
 
     @access.user(scope=TokenScope.DATA_WRITE)
     @autoDescribeRoute(

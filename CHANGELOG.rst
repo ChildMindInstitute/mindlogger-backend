@@ -8,6 +8,12 @@ Changes
 -------
 Unreleased
 ==========
+2020-05-08: v0.14.5
+make coordinators insert MRN, displayName, email when inviting user
+
+2020-05-06: v0.14.4
+make a new router to upload protocols using single-file format (issue - 201)
+
 2020-04-29: v0.14.3
 fix an issue in createApplet function (970), update getSchedule
 

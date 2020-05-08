@@ -251,6 +251,63 @@ class Applet(FolderModel):
             )
         print(emailMessage)
 
+    def createAppletFromProtocolData(
+        self,
+        name,
+        protocol,
+        user=None,
+        roles=None,
+        constraints=None,
+        sendEmail=True
+    ):
+        from girderformindlogger.models.protocol import Protocol
+
+        # get a protocol from a URL
+        protocol = Protocol().createProtocol(
+            protocol,
+            user
+        )
+
+        protocol = protocol.get('protocol', protocol)
+
+        displayName = Protocol(
+        ).preferredName(
+            protocol
+        )
+
+        name = name if name is not None and len(name) else displayName
+
+        appletName = '{}/'.format(protocol.get('@id'))
+
+        applet = self.createApplet(
+            name=name,
+            protocol={
+                '_id': 'protocol/{}'.format(
+                    str(protocol.get('_id')).split('/')[-1]
+                )
+            },
+            user=user,
+            roles=roles,
+            constraints=constraints,
+            appletName=appletName
+        )
+
+        emailMessage = "Your applet, {}, has been successfully created. The "  \
+            "applet's ID is {}".format(
+                name,
+                str(applet.get('applet', applet).get('_id')
+            )
+        )
+        if sendEmail and 'email' in user:
+            from girderformindlogger.utility.mail_utils import sendMail
+            sendMail(
+                subject=name,
+                text=emailMessage,
+                to=[user['email']]
+            )
+
+        print(emailMessage)
+
     def formatThenUpdate(self, applet, user):
         from girderformindlogger.utility import jsonld_expander
         jsonld_expander.formatLdObject(
@@ -602,17 +659,10 @@ class Applet(FolderModel):
             }
 
             for p in list(Invitation().find(query={'appletId': applet['_id']})):
-                profile = profileModel.findOne(query={'_id': p['_id']})
-                userDict['pending'].append(
-                    profileModel.displayProfileFields(
-                        profile,
-                        user,
-                        forceManager=True
-                    ) if profile else {
-                        '_id': p['_id'],
-                        'invitedBy': p['invitedBy'],
-                    }
-                )
+                fields = ['_id', 'displayName', 'role', 'MRN', 'created']
+                userDict['pending'].append({
+                    key: p[key] for key in fields if p.get(key, None)
+                })
 
 
             missing = threading.Thread(

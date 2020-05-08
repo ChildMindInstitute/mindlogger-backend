@@ -154,6 +154,56 @@ class Invitation(AccessControlledModel):
             )
         })
 
+    def createInvitationForSpecifiedUser(
+        self,
+        applet,
+        coordinator,
+        role,
+        user,
+        displayName,
+        MRN
+    ):
+        """
+        create new invitation
+        params
+
+        applet: The applet for which this invitation exists
+        coordinator: the person who invites (should be manager/coordinator of applet)
+        role: invited role
+        user: invited person
+        displayName: name of invited person 
+        """
+        from girderformindlogger.models.applet import Applet
+        from girderformindlogger.models.profile import Profile
+
+        invitation = self.findOne({
+            'appletId': applet['_id'],
+            'userId': user['_id']
+        })
+        now = datetime.datetime.utcnow()
+
+        if not invitation:
+            invitation = {
+                'appletId': applet['_id'],
+                'userId': user['_id'],
+                'created': now
+            }
+
+        invitation.update({
+            'inviterId': coordinator['_id'],
+            'role': role,
+            'displayName': displayName,
+            'MRN': MRN,
+            'updated': now,
+            'size': 0,
+            'invitedBy': Profile().coordinatorProfile(
+                applet['_id'],
+                coordinator
+            )
+        })
+
+        return self.save(invitation, validate=False)
+
     def acceptInvitation(self, invitation, user):
         from girderformindlogger.models.applet import Applet
         from girderformindlogger.models.ID_code import IDCode
@@ -206,9 +256,15 @@ class Invitation(AccessControlledModel):
         # manager has get all roles by default
         for role in USER_ROLES.keys():
             if role not in profile['roles']:
-                if invited_role == 'manager' or invited_role == role:
+                if invited_role == 'manager' or invited_role == role or role == 'user':
                     new_roles.append(role)
                     profile['roles'].append(role)
+
+        if invitation.get('displayName', None):
+            profile['displayName'] = invitation['displayName']
+
+        if invitation.get('MRN', None):
+            profile['MRN'] = invitation['MRN']
 
         Profile().save(profile, validate=False)
 

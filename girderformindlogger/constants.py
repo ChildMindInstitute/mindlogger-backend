@@ -134,7 +134,8 @@ KEYS_TO_EXPAND = [
 PROFILE_FIELDS = [
     '_id',
     'displayName',
-    'schema:knows'
+    'schema:knows',
+    'MRN'
 ]
 
 def MODELS():
