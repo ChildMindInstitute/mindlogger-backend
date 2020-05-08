@@ -26,7 +26,7 @@ class PushNotification(Scheduler):
             if notification['random']:
                 self._set_scheduler_with_random_time(notification)
             else:
-                self.event['sendTime'] = self.start_time.strftime('%H:%M')
+                self.event['sendTime'].append(self.start_time.strftime('%H:%M'))
 
                 if self.notification_type in [1, 2]:
                     launch_time = self.first_launch_time()
@@ -138,12 +138,17 @@ class PushNotification(Scheduler):
         return self.start_time + timedelta(seconds=random_number_of_seconds)
 
     def date_format(self, notification):
+        self.start_time = datetime.strptime(
+            f'{self.current_time.year}/{self.current_time.month}/{self.current_time.day} {notification["start"]}',
+            '%Y/%m/%d %H:%M')
         if 'dayOfMonth' in self.event['schedule']:
             """
             Does not repeat configuration in case of single event with exact year, month, day
             """
             if self.event['data'].get('notifications', None) and notification['random']:
-                self.end_time = notification['end']
+                self.end_time = datetime.strptime(
+                    f'{self.current_time.year}/{self.current_time.month}/{self.current_time.day} {notification["end"]}',
+                    '%Y/%m/%d %H:%M')
             if 'year' in self.event['schedule'] and 'month' in self.event['schedule'] \
                 and 'dayOfMonth' in self.event['schedule']:
                 current_date_schedule = str(str(self.event['schedule']['year'][0]) + '/' +

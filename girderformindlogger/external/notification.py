@@ -18,7 +18,7 @@ def send_push_notification(applet_id, event_id):
 
     if event:
         event_time = datetime.datetime.strptime(
-            f"{now.year}/{now.month}/{now.day} {event['sendTime']}", '%Y/%m/%d %H:%M')
+            f"{now.year}/{now.month}/{now.day} {event['sendTime'][0]}", '%Y/%m/%d %H:%M')
 
         timezone = (event_time - now).total_seconds() / 3600
 
