@@ -1,5 +1,4 @@
 import datetime
-
 from pyfcm import FCMNotification
 
 push_service = FCMNotification(
@@ -34,15 +33,19 @@ def send_push_notification(applet_id, event_id):
                 '$ne': now.strftime('%Y/%m/%d')
             }
 
+        print(f'Query - {query}')
         profiles = list(Profile().find(query=query, fields=['deviceId']))
 
         device_ids = [profile['deviceId'] for profile in profiles]
+        print(f'Device ids found - {len(device_ids)}')
 
         message_title = event['data']['title']
         message_body = event['data']['description']
-        push_service.notify_multiple_devices(registration_ids=device_ids,
-                                             message_title=message_title,
-                                             message_body=message_body)
+        result = push_service.notify_multiple_devices(registration_ids=device_ids,
+                                                      message_title=message_title,
+                                                      message_body=message_body)
+
+        print(f'Status - {"failed " + str(result["failure"]) if result["failure"] else "success " + str(result["success"])}')
 
         # if random time we will reschedule it in time between 23:45 and 23:59
         if event['data']['notifications'][0]['random'] and now.hour == 23 and 59 >= now.minute >= 45:
