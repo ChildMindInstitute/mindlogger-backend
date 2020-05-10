@@ -260,6 +260,12 @@ class Invitation(AccessControlledModel):
                     new_roles.append(role)
                     profile['roles'].append(role)
 
+        if invitation.get('displayName', None):
+            profile['displayName'] = invitation['displayName']
+
+        if invitation.get('MRN', None):
+            profile['MRN'] = invitation['MRN']
+
         Profile().save(profile, validate=False)
 
         from girderformindlogger.models.user import User as UserModel
