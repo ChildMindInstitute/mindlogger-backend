@@ -675,6 +675,12 @@ class User(Resource):
         Description('Log in to the system.')
         .notes('Pass your username and password using HTTP Basic Auth. Sends'
                ' a cookie that should be passed back in future requests.')
+        .param(
+            'loginAsEmail',
+            "set to false when logging in as username (this value is set to true by default)",
+            default = True,
+            required=False
+        )
         .param('Girder-OTP', 'A one-time password for this user',
                paramType='header', required=False)
         .param('deviceId', 'device id for push notifications',
@@ -684,7 +690,7 @@ class User(Resource):
         .errorResponse('Missing Authorization header.', 401)
         .errorResponse('Invalid login or password.', 403)
     )
-    def login(self):
+    def login(self, loginAsEmail):
         import threading
         from girderformindlogger.utility.mail_utils import validateEmailAddress
 
@@ -717,13 +723,21 @@ class User(Resource):
                 raise RestException('Invalid HTTP Authorization header', 401)
 
             login, password = credentials.split(':', 1)
-            if validateEmailAddress(login):
+
+            isEmail = validateEmailAddress(login)
+
+            if not loginAsEmail and isEmail:
                 raise AccessException(
                     "Please log in with a username, not an email address."
                 )
+            if loginAsEmail and not isEmail:
+                raise AccessException(
+                    "Please enter valid email address"
+                )
+
             otpToken = cherrypy.request.headers.get('Girder-OTP')
             try:
-                user = self._model.authenticate(login, password, otpToken)
+                user = self._model.authenticate(login, password, otpToken, loginAsEmail = True)
             except:
                 raise AccessException(
                     "Incorrect password for {} if that user exists".format(
@@ -819,7 +833,6 @@ class User(Resource):
             lastName=lastName, 
             admin=admin, 
             currentUser=currentUser,
-            useEmailAsLogIn=True,
             encryptEmail=True
         )
 
@@ -1218,17 +1231,16 @@ class User(Resource):
     @access.public
     @autoDescribeRoute(
         Description('Send verification email.')
-        .param('login', 'Your login.', strip=True)
+        .param('email', 'Your email.', strip=True)
         .errorResponse('That login is not registered.', 401)
     )
-    def sendVerificationEmail(self, login):
-        loginField = 'email' if '@' in login else 'login'
-        user = self._model.findOne({loginField: login.lower()})
+    def sendVerificationEmail(self, email):
+        user = self._model.findOne({'email': email})
 
         if not user:
             raise RestException('That login is not registered.', 401)
 
-        self._model._sendVerificationEmail(user)
+        self._model._sendVerificationEmail(user, email)
         return {'message': 'Sent verification email.'}
 
     @access.user
