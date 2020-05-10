@@ -659,17 +659,10 @@ class Applet(FolderModel):
             }
 
             for p in list(Invitation().find(query={'appletId': applet['_id']})):
-                profile = profileModel.findOne(query={'_id': p['_id']})
-                userDict['pending'].append(
-                    profileModel.displayProfileFields(
-                        profile,
-                        user,
-                        forceManager=True
-                    ) if profile else {
-                        '_id': p['_id'],
-                        'invitedBy': p['invitedBy'],
-                    }
-                )
+                fields = ['_id', 'displayName', 'role', 'MRN', 'created']
+                userDict['pending'].append({
+                    key: p[key] for key in fields if p.get(key, None)
+                })
 
 
             missing = threading.Thread(
