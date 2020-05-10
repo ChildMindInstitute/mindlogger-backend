@@ -182,13 +182,15 @@ class Invitation(Resource):
             'id',
             model=InvitationModel,
             force=True,
-            destName='invitation'
+            destName='invitation',
+            description='invitation id.'
         )
         .modelParam(
             'uid',
             model=UserModel,
             force=True,
-            destName='user'
+            destName='user',
+            description='The ID of user who accepts invite.'
         )
         .errorResponse()
     )
