@@ -622,7 +622,7 @@ class Applet(Resource):
                 [email]
             )
 
-            return invitation
+            return 'sent invitation mail to {}'.format(email)
         except:
             return 'failed to invite user'
 
