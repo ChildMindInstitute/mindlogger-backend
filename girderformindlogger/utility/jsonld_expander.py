@@ -1012,8 +1012,9 @@ def formatLdObject(
                             if not len(applet['applet']['url']): # for development
                                 applet['applet'][key][0]['@value'] += ' ( single-file )'
 
-                            inserted = True
+                            AppletModel().update({'_id': obj['_id']}, {'$set': {'displayName': applet['applet'][key][0]['@value']}})
 
+                            inserted = True
             createCache(obj, applet, 'applet', user)
             if responseDates:
                 try:

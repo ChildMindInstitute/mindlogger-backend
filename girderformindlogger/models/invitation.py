@@ -154,6 +154,56 @@ class Invitation(AccessControlledModel):
             )
         })
 
+    def createInvitationForSpecifiedUser(
+        self,
+        applet,
+        coordinator,
+        role,
+        user,
+        displayName,
+        MRN
+    ):
+        """
+        create new invitation
+        params
+
+        applet: The applet for which this invitation exists
+        coordinator: the person who invites (should be manager/coordinator of applet)
+        role: invited role
+        user: invited person
+        displayName: name of invited person 
+        """
+        from girderformindlogger.models.applet import Applet
+        from girderformindlogger.models.profile import Profile
+
+        invitation = self.findOne({
+            'appletId': applet['_id'],
+            'userId': user['_id']
+        })
+        now = datetime.datetime.utcnow()
+
+        if not invitation:
+            invitation = {
+                'appletId': applet['_id'],
+                'userId': user['_id'],
+                'created': now
+            }
+
+        invitation.update({
+            'inviterId': coordinator['_id'],
+            'role': role,
+            'displayName': displayName,
+            'MRN': MRN,
+            'updated': now,
+            'size': 0,
+            'invitedBy': Profile().coordinatorProfile(
+                applet['_id'],
+                coordinator
+            )
+        })
+
+        return self.save(invitation, validate=False)
+
     def acceptInvitation(self, invitation, user):
         from girderformindlogger.models.applet import Applet
         from girderformindlogger.models.ID_code import IDCode
