@@ -35,7 +35,7 @@ class User(AccessControlledModel):
         }, language='none')
         self.exposeFields(level=AccessType.READ, fields=(
             '_id', 'login', 'public', 'displayName', 'firstName', 'lastName',
-            'admin', 'email', 'created')) # 🔥 delete firstName, lastName and email once fully deprecated
+            'admin', 'email', 'created'))
         self.exposeFields(level=AccessType.ADMIN, fields=(
             'size', 'status', 'emailVerified', 'creatorId'))
 
@@ -408,7 +408,7 @@ class User(AccessControlledModel):
 
     def createUser(self, login, password, displayName="", email="",
                    admin=False, public=False, currentUser=None,
-                   firstName="", lastName=""): # 🔥 delete firstName and lastName once fully deprecated
+                   firstName="", lastName="", useEmailAsLogIn=False, encryptEmail=False):
         """
         Create a new user with the given information.
 
@@ -432,6 +432,7 @@ class User(AccessControlledModel):
                 displayName
             ) else firstName if firstName is not None else "",
             'firstName': firstName,
+            'lastName': lastName,
             'created': datetime.datetime.utcnow(),
             'emailVerified': False,
             'status': 'pending' if requireApproval else 'enabled',
@@ -447,7 +448,6 @@ class User(AccessControlledModel):
                 } for gi in list(Group().find(query={"queue": email}))
             ] if len(email) else []
         }
-
         self.setPassword(user, password, save=False)
         self.setPublic(user, public, save=False)
 

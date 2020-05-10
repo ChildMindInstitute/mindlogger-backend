@@ -766,7 +766,6 @@ class User(Resource):
     @autoDescribeRoute(
         Description('Create a new user.')
         .responseClass('User')
-        .param('login', "The user's requested login.")
         .param('password', "The user's requested password")
         .param(
             'displayName',
@@ -792,14 +791,13 @@ class User(Resource):
     )
     def createUser(
         self,
-        login,
         password,
         displayName="",
         email="",
         admin=False,
         lastName=None,
         firstName=None
-    ): # 🔥 delete lastName once fully deprecated
+    ):
         currentUser = self.getCurrentUser()
 
         regPolicy = Setting().get(SettingKey.REGISTRATION_POLICY)
@@ -812,11 +810,18 @@ class User(Resource):
                     'administrator to create an account for you.')
 
         user = self._model.createUser(
-            login=login, password=password, email=email,
+            login="", 
+            password=password, 
+            email=email,
             firstName=displayName if len(
                 displayName
             ) else firstName if firstName is not None else "",
-            lastName=lastName, admin=admin, currentUser=currentUser) # 🔥 delete firstName and lastName once fully deprecated
+            lastName=lastName, 
+            admin=admin, 
+            currentUser=currentUser,
+            useEmailAsLogIn=True,
+            encryptEmail=True
+        )
 
         if not currentUser and self._model.canLogin(user):
             setCurrentUser(user)
