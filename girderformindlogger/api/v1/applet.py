@@ -195,9 +195,7 @@ class Applet(Resource):
         thread.start()
         return({
             "message": "The applet is being created. Please check back in "
-                       "several mintutes to see it. If you have an email "
-                       "address associated with your account, you will receive "
-                       "an email when your applet is ready."
+                       "several mintutes to see it."
         })
     
     @access.user(scope=TokenScope.DATA_WRITE)
@@ -243,9 +241,7 @@ class Applet(Resource):
         thread.start()
         return({
             "message": "The applet is being created. Please check back in "
-                       "several mintutes to see it. If you have an email "
-                       "address associated with your account, you will receive "
-                       "an email when your applet is ready."
+                       "several mintutes to see it."
         })
 
     @access.user(scope=TokenScope.DATA_WRITE)
@@ -581,9 +577,10 @@ class Applet(Resource):
 
         thisUser = self.getCurrentUser()
 
-        invitedUser = UserModel().findOne({
-            'email': email
-        })
+        invitedUser = UserModel().findOne({'email': UserModel().hash(email), 'email_encrypted': True})
+
+        if not invitedUser:
+            invitedUser = UserModel().findOne({'email': email, 'email_encrypted': {'$ne': True}})            
 
         if not invitedUser:
             raise ValidationException(
@@ -894,6 +891,10 @@ def _invite(applet, user, role, rsvp, subject):
         )
     thisUser = Applet().getCurrentUser()
     user = user if user else str(thisUser['_id'])
+
+    if mail_utils.validateEmailAddress(user):
+        user = UserModel().hash(user)
+
     if bool(rsvp):
         groupName = {
             'title': '{} {}s'.format(

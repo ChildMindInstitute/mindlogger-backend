@@ -933,11 +933,11 @@ class User(Resource):
         firstName=None,
         lastName=None
     ):
-        # 🔥 delete firstName and lastName once fully deprecated
         user['firstName'] = displayName if len(
             displayName
         ) else firstName if firstName is not None else ""
-        user['email'] = email
+        user['email'] = UserModel().hash(email)
+        user['email_encrypted'] = True
 
         # Only admins can change admin state
         if admin is not None:
@@ -952,7 +952,7 @@ class User(Resource):
                     raise AccessException('Only admins may change status.')
                 if user['status'] == 'pending' and status == 'enabled':
                     # Send email on the 'pending' -> 'enabled' transition
-                    self._model._sendApprovedEmail(user)
+                    self._model._sendApprovedEmail(user, email)
                 user['status'] = status
 
         try:
@@ -965,16 +965,6 @@ class User(Resource):
         return(
             {'message': 'Update saved, but `PUT /user/{:id}` is deprecated.'}
         )
-        # Only admins can change status
-        if status is not None and status != user.get('status', 'enabled'):
-            if not self.getCurrentUser()['admin']:
-                raise AccessException('Only admins may change status.')
-            if user['status'] == 'pending' and status == 'enabled':
-                # Send email on the 'pending' -> 'enabled' transition
-                self._model._sendApprovedEmail(user)
-            user['status'] = status
-
-        return self._model.save(user)
 
     @access.admin
     @autoDescribeRoute(
@@ -1030,7 +1020,10 @@ class User(Resource):
         .errorResponse('That email does not exist in the system.')
     ) ## TODO: recreate by login
     def generateTemporaryPassword(self, email):
-        user = self._model.findOne({'email': email.lower()})
+        user = self._model.findOne({'email': self._model.hash(email.lower()), 'email_encrypted': True})
+
+        if not user:
+            user = self._model.findOne({'email': email.lower(), 'email_encrypted': {'$ne': True}})
 
         if not user:
             raise RestException('That email is not registered.')

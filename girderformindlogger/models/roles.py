@@ -88,7 +88,8 @@ def createCipher(applet, appletAssignments, user):
                 email=user,
                 admin=False,
                 public=False,
-                currentUser=thisUser
+                currentUser=thisUser,
+                encryptEmail=True
             )
         except:
             cUser = UserModel().createUser(
@@ -102,7 +103,8 @@ def createCipher(applet, appletAssignments, user):
                 email=user,
                 admin=False,
                 public=False,
-                currentUser=thisUser
+                currentUser=thisUser,
+                encryptEmail=True
             )
     newSecretCipher = FolderModel().setMetadata(
         FolderModel().createFolder(
@@ -265,18 +267,12 @@ def nextCipher(currentCiphers):
 
 def userByEmail(email):
     try:
-        userId = list(UserModel().find(
-            query={
-                'email': email
-            }
-        ))
+        user = UserModel().findOne({'email': UserModel().hash(email), 'email_encrypted': True})
+        if not user:
+            user = UserModel().findOne({'email': UserModel().hash(email), 'email_encrypted': {'$ne': True}})
     except:
         return(None)
     try:
-        return(
-            str(
-                userId[0]['_id']
-            ) if len(userId) and '_id' in userId[0] else None
-        )
+        return str(user['_id']) if user else None
     except:
         return(None)

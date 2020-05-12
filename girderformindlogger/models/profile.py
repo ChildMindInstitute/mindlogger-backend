@@ -755,7 +755,7 @@ class Profile(AccessControlledModel, dict):
                         'displayName',
                         user.get('firstName')
                     ),
-                    'email': user.get('email')
+                    'email': user.get('email') if not user.get('email_encrypted', None) else ''
                 }
             }.items() if v is not None
         }

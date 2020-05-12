@@ -65,7 +65,7 @@ class ProtoUser(User):
         #     # This is a legacy field; hash algorithms are now inline with the password hash
         #     del doc['hashAlg']
 
-        if not mail_utils.validateEmailAddress(doc['email']):
+        if not doc.get('email_encrypted', None) and not mail_utils.validateEmailAddress(doc['email']):
             raise ValidationException('Invalid email address.', 'email')
 
         # Ensure unique emails # TO DO: use existing user if email exists
@@ -89,43 +89,46 @@ class ProtoUser(User):
         """
         from girderformindlogger.models.group import Group
         from girderformindlogger.models.setting import Setting
-        protoUser = self.findOne(query={"email": email}, force=True)
+        
+        encryptedEmail = self._cryptContext.hash(email)
+        protoUser = self.findOne(query={"email": encryptedEmail}, force=True)
         if protoUser:
             protoUser['groupInvites'] = [
                 {
                     "groupId": gi.get('_id'),
                     "level": 0
-                } for gi in list(Group().find(query={"queue": email}))
+                } for gi in list(Group().find(query={"queue": encryptedEmail}))
             ]
             self.save(protoUser)
             return(protoUser)
         protoUser = {
-            'email': email,
+            'email': encryptedEmail,
             'created': datetime.datetime.utcnow(),
             'groupInvites': [
                 {
                     "groupId": gi.get('_id'),
                     "level": 0
-                } for gi in list(Group().find(query={"queue": email}))
-            ]
+                } for gi in list(Group().find(query={"queue": encryptedEmail}))
+            ],
+            'email_encrypted': True
         }
         protoUser = self.save(protoUser)
-        self._sendCreateAccountEmail(protoUser)
+        self._sendCreateAccountEmail(protoUser, email)
         return(protoUser)
 
-    def _sendCreateAccountEmail(self, user):
+    def _sendCreateAccountEmail(self, user, email):
         # from girderformindlogger.models.token import Token
         #
         # token = Token().createToken(
         #     user, days=1, scope=TokenScope.EMAIL_VERIFICATION)
         url = 'https://web.mindlogger.org/#/signup?email={}'.format(
-            user.get('email')
+            email
         )
         text = mail_utils.renderTemplate('emailCreateAccount.mako', {
             'url': url
         })
         mail_utils.sendMail(
-            to=user.get('email'),
+            to=email,
             subject='MindLogger: Invitation',
             text=text)
 
@@ -165,5 +168,5 @@ class ProtoUser(User):
         if progress:
             progress.update(
                 increment=1,
-                message='Deleted protoUser ' + protoUser['email']
+                message='Deleted protoUser ' + protoUser['_id']
             )
