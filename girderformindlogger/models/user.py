@@ -466,7 +466,10 @@ class User(AccessControlledModel):
             ] if len(email) else [],
             'email_encrypted': encryptEmail
         }
-        if encryptEmail and email:
+        if encryptEmail:
+            if len(email) == 0 or not mail_utils.validateEmailAddress(email):
+                raise ValidationException('Invalid email address.', 'email')
+
             user['email'] = self.hash(user['email'])
 
         self.setPassword(user, password, save=False)
