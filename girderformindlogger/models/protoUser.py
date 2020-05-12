@@ -5,6 +5,7 @@ import re
 from passlib.context import CryptContext
 from passlib.totp import TOTP, TokenError
 import six
+import hashlib
 
 from girderformindlogger import events
 from girderformindlogger.constants import AccessType, CoreEventHandler, TokenScope
@@ -89,8 +90,8 @@ class ProtoUser(User):
         """
         from girderformindlogger.models.group import Group
         from girderformindlogger.models.setting import Setting
-        
-        encryptedEmail = self._cryptContext.hash(email)
+
+        encryptedEmail = hashlib.sha224(email.encode('utf-8')).hexdigest()
         protoUser = self.findOne(query={"email": encryptedEmail}, force=True)
         if protoUser:
             protoUser['groupInvites'] = [

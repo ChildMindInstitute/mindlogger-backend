@@ -4,6 +4,8 @@ import os
 import re
 from passlib.context import CryptContext
 from passlib.totp import TOTP, TokenError
+import hashlib
+
 import six
 
 from girderformindlogger import events
@@ -149,7 +151,8 @@ class User(AccessControlledModel):
         return filteredDoc
 
     def hash(self, data):
-        return self._cryptContext.hash(data)
+        x = hashlib.sha224(data.encode('utf-8')).hexdigest()
+        return x
 
     def authenticate(self, login, password, otpToken=None, deviceId=None, timezone=0, loginAsEmail = False):
         """
@@ -463,7 +466,7 @@ class User(AccessControlledModel):
             ] if len(email) else [],
             'email_encrypted': encryptEmail
         }
-        if encryptEmail:
+        if encryptEmail and email:
             user['email'] = self.hash(user['email'])
 
         self.setPassword(user, password, save=False)
