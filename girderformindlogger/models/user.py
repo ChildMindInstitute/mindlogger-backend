@@ -35,7 +35,7 @@ class User(AccessControlledModel):
         }, language='none')
         self.exposeFields(level=AccessType.READ, fields=(
             '_id', 'login', 'public', 'displayName', 'firstName', 'lastName',
-            'admin', 'email', 'created'))
+            'admin', 'email', 'created')) # 🔥 delete firstName, lastName and email once fully deprecated
         self.exposeFields(level=AccessType.ADMIN, fields=(
             'size', 'status', 'emailVerified', 'creatorId'))
 
@@ -89,30 +89,21 @@ class User(AccessControlledModel):
             # This is a legacy field; hash algorithms are now inline with the password hash
             del doc['hashAlg']
 
+        self._validateLogin(doc['login'])
+
         if len(doc['email']) and not mail_utils.validateEmailAddress(
             doc['email']
         ):
             raise ValidationException('Invalid email address.', 'email')
 
-        if len(doc['email']):
-            q = {'email': doc['email']}
-            if '_id' in doc:
-                q['_id'] = {'$ne': doc['_id']}
-            existing = self.findOne(q)
-            if existing is not None:
-                raise ValidationException('That email is already registered in the system.', )
-            
         # Ensure unique logins
-        if len(doc['login']):
-            self._validateLogin(doc['login'])
-
-            q = {'login': doc['login']}
-            if '_id' in doc:
-                q['_id'] = {'$ne': doc['_id']}
-            existing = self.findOne(q)
-            if existing is not None:
-                raise ValidationException('That login is already registered.',
-                                        'login')
+        q = {'login': doc['login']}
+        if '_id' in doc:
+            q['_id'] = {'$ne': doc['_id']}
+        existing = self.findOne(q)
+        if existing is not None:
+            raise ValidationException('That login is already registered.',
+                                      'login')
 
         # If this is the first user being created, make it an admin
         existing = self.findOne({})
@@ -148,7 +139,7 @@ class User(AccessControlledModel):
 
         return filteredDoc
 
-    def authenticate(self, login, password, otpToken=None, deviceId=None, timezone=0, loginAsEmail = False):
+    def authenticate(self, login, password, otpToken=None, deviceId=None, timezone=0):
         """
         Validate a user login via username and password. If authentication
         fails, an ``AccessException`` is raised.
@@ -174,12 +165,17 @@ class User(AccessControlledModel):
             return event.responses[-1]
 
         login = login.lower().strip()
-        loginField = 'email' if loginAsEmail else 'login'
+        loginField = 'email' if '@' in login else 'login'
 
-        user = self.findOne({loginField: login})
-
+        if loginField=='login':
+            user = self.findOne({loginField: login})
+        else:
+            raise AccessException(
+                'Please log in with your username rather than your email '
+                'address.'
+            )
         if user is None:
-            raise AccessException('Login failed. User not found.')
+            raise AccessException('Login failed. Username not found.')
 
         # Handle users with no password
         if not self.hasPassword(user):
@@ -412,7 +408,7 @@ class User(AccessControlledModel):
 
     def createUser(self, login, password, displayName="", email="",
                    admin=False, public=False, currentUser=None,
-                   firstName="", lastName="", encryptEmail=False):
+                   firstName="", lastName=""): # 🔥 delete firstName and lastName once fully deprecated
         """
         Create a new user with the given information.
 
@@ -436,7 +432,6 @@ class User(AccessControlledModel):
                 displayName
             ) else firstName if firstName is not None else "",
             'firstName': firstName,
-            'lastName': lastName,
             'created': datetime.datetime.utcnow(),
             'emailVerified': False,
             'status': 'pending' if requireApproval else 'enabled',
@@ -452,6 +447,7 @@ class User(AccessControlledModel):
                 } for gi in list(Group().find(query={"queue": email}))
             ] if len(email) else []
         }
+
         self.setPassword(user, password, save=False)
         self.setPublic(user, public, save=False)
 
@@ -473,7 +469,7 @@ class User(AccessControlledModel):
 
         verifyEmail = Setting().get(SettingKey.EMAIL_VERIFICATION) != 'disabled'
         if verifyEmail:
-            self._sendVerificationEmail(user, email)
+            self._sendVerificationEmail(user)
 
         if requireApproval:
             self._sendApprovalEmail(user)
@@ -538,7 +534,7 @@ class User(AccessControlledModel):
             text,
             [user.get('email')])
 
-    def _sendVerificationEmail(self, user, email):
+    def _sendVerificationEmail(self, user):
         from girderformindlogger.models.token import Token
 
         token = Token().createToken(
@@ -551,7 +547,7 @@ class User(AccessControlledModel):
         mail_utils.sendMail(
             'Girder: Email verification',
             text,
-            [email])
+            [user.get('email')])
 
     def _grantSelfAccess(self, event):
         """

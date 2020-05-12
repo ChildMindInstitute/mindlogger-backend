@@ -675,12 +675,6 @@ class User(Resource):
         Description('Log in to the system.')
         .notes('Pass your username and password using HTTP Basic Auth. Sends'
                ' a cookie that should be passed back in future requests.')
-        .param(
-            'loginAsEmail',
-            "set to false when logging in as username (this value is set to true by default)",
-            default = True,
-            required=False
-        )
         .param('Girder-OTP', 'A one-time password for this user',
                paramType='header', required=False)
         .param('deviceId', 'device id for push notifications',
@@ -690,7 +684,7 @@ class User(Resource):
         .errorResponse('Missing Authorization header.', 401)
         .errorResponse('Invalid login or password.', 403)
     )
-    def login(self, loginAsEmail):
+    def login(self):
         import threading
         from girderformindlogger.utility.mail_utils import validateEmailAddress
 
@@ -723,21 +717,13 @@ class User(Resource):
                 raise RestException('Invalid HTTP Authorization header', 401)
 
             login, password = credentials.split(':', 1)
-
-            isEmail = validateEmailAddress(login)
-
-            if not loginAsEmail and isEmail:
+            if validateEmailAddress(login):
                 raise AccessException(
                     "Please log in with a username, not an email address."
                 )
-            if loginAsEmail and not isEmail:
-                raise AccessException(
-                    "Please enter valid email address"
-                )
-
             otpToken = cherrypy.request.headers.get('Girder-OTP')
             try:
-                user = self._model.authenticate(login, password, otpToken, loginAsEmail = True)
+                user = self._model.authenticate(login, password, otpToken)
             except:
                 raise AccessException(
                     "Incorrect password for {} if that user exists".format(
@@ -780,6 +766,7 @@ class User(Resource):
     @autoDescribeRoute(
         Description('Create a new user.')
         .responseClass('User')
+        .param('login', "The user's requested login.")
         .param('password', "The user's requested password")
         .param(
             'displayName',
@@ -805,13 +792,14 @@ class User(Resource):
     )
     def createUser(
         self,
+        login,
         password,
         displayName="",
         email="",
         admin=False,
         lastName=None,
         firstName=None
-    ):
+    ): # 🔥 delete lastName once fully deprecated
         currentUser = self.getCurrentUser()
 
         regPolicy = Setting().get(SettingKey.REGISTRATION_POLICY)
@@ -824,17 +812,11 @@ class User(Resource):
                     'administrator to create an account for you.')
 
         user = self._model.createUser(
-            login="", 
-            password=password, 
-            email=email,
+            login=login, password=password, email=email,
             firstName=displayName if len(
                 displayName
             ) else firstName if firstName is not None else "",
-            lastName=lastName, 
-            admin=admin, 
-            currentUser=currentUser,
-            encryptEmail=True
-        )
+            lastName=lastName, admin=admin, currentUser=currentUser) # 🔥 delete firstName and lastName once fully deprecated
 
         if not currentUser and self._model.canLogin(user):
             setCurrentUser(user)
@@ -1231,16 +1213,17 @@ class User(Resource):
     @access.public
     @autoDescribeRoute(
         Description('Send verification email.')
-        .param('email', 'Your email.', strip=True)
+        .param('login', 'Your login.', strip=True)
         .errorResponse('That login is not registered.', 401)
     )
-    def sendVerificationEmail(self, email):
-        user = self._model.findOne({'email': email})
+    def sendVerificationEmail(self, login):
+        loginField = 'email' if '@' in login else 'login'
+        user = self._model.findOne({loginField: login.lower()})
 
         if not user:
             raise RestException('That login is not registered.', 401)
 
-        self._model._sendVerificationEmail(user, email)
+        self._model._sendVerificationEmail(user)
         return {'message': 'Sent verification email.'}
 
     @access.user

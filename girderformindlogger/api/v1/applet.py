@@ -611,7 +611,7 @@ class Applet(Resource):
             html = mail_utils.renderTemplate('userInvite.mako', {
                 'url': url,
                 'userName': displayName,
-                'coordinatorName': thisUser['firstName'],
+                'coordinatorName': thisUser['firstName'] if len(thisUser['firstName']) else thisUser['login'],
                 'appletName': applet['displayName'],
                 'MRN': MRN
             })

@@ -236,6 +236,21 @@ class Applet(FolderModel):
             appletName=appletName
         )
 
+        emailMessage = "Your applet, {}, has been successfully created. The "  \
+            "applet's ID is {}".format(
+                name,
+                str(applet.get('applet', applet).get('_id')
+            )
+        )
+        if sendEmail and 'email' in user:
+            from girderformindlogger.utility.mail_utils import sendMail
+            sendMail(
+                subject=name,
+                text=emailMessage,
+                to=[user['email']]
+            )
+        print(emailMessage)
+
     def createAppletFromProtocolData(
         self,
         name,
@@ -276,6 +291,22 @@ class Applet(FolderModel):
             constraints=constraints,
             appletName=appletName
         )
+
+        emailMessage = "Your applet, {}, has been successfully created. The "  \
+            "applet's ID is {}".format(
+                name,
+                str(applet.get('applet', applet).get('_id')
+            )
+        )
+        if sendEmail and 'email' in user:
+            from girderformindlogger.utility.mail_utils import sendMail
+            sendMail(
+                subject=name,
+                text=emailMessage,
+                to=[user['email']]
+            )
+
+        print(emailMessage)
 
     def formatThenUpdate(self, applet, user):
         from girderformindlogger.utility import jsonld_expander
