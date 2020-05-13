@@ -605,12 +605,25 @@ class Applet(Resource):
             url = '%s/%s/invitation/%s' % (
                 mail_utils.getEmailUrlPrefix(), str(invitedUser['_id']), str(invitation['_id']))
 
+            managers = mail_utils.htmlUserList(
+                AppletModel().listUsers(applet, 'manager', force=True)
+            )
+            coordinators = mail_utils.htmlUserList(
+                AppletModel().listUsers(applet, 'coordinator', force=True)
+            )
+            reviewers = mail_utils.htmlUserList(
+                AppletModel().listUsers(applet, 'reviewer', force=True)
+            )
+
             html = mail_utils.renderTemplate('userInvite.mako', {
                 'url': url,
                 'userName': displayName,
                 'coordinatorName': thisUser['firstName'],
                 'appletName': applet['displayName'],
-                'MRN': MRN
+                'MRN': MRN,
+                'managers': managers,
+                'coordinators': coordinators,
+                'reviewers': reviewers
             })
 
             mail_utils.sendMail(
