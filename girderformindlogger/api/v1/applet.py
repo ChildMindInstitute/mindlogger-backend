@@ -42,7 +42,6 @@ from girderformindlogger.models.user import User as UserModel
 from girderformindlogger.models.pushNotification import PushNotification as PushNotificationModel
 from girderformindlogger.models.events import Events as EventsModel
 from girderformindlogger.utility import config, jsonld_expander, mail_utils
-from girderformindlogger.models.cache import Cache as CacheModel
 from girderformindlogger.models.setting import Setting
 from girderformindlogger.settings import SettingKey
 from pyld import jsonld
