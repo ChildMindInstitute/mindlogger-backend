@@ -157,7 +157,7 @@ class Profile(AccessControlledModel, dict):
         """
         profileFields = PROFILE_FIELDS
 
-        if showEmail:
+        if showEmail and not userProfile.get('email_encrypted', False):
             profileFields.append('email')
 
         displayProfile = userProfile.get("coordinatorDefined", {})

@@ -29,7 +29,7 @@ def formatUserString(u):
     return(
         "{name} {email}".format(
             name=u.get("displayName", ""),
-            email="({})".format(u["email"]) if "email" in u and u["email"] != "" else ""
+            email="({})".format(u["email"]) if "email" in u and u["email"] != "" and not u.get('email_encrypted', None) else ""
         ).strip()
     )
 

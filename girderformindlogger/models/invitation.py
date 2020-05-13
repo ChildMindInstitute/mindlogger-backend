@@ -161,7 +161,8 @@ class Invitation(AccessControlledModel):
         role,
         user,
         displayName,
-        MRN
+        MRN,
+        userEmail = ""
     ):
         """
         create new invitation
@@ -196,6 +197,7 @@ class Invitation(AccessControlledModel):
             'MRN': MRN,
             'updated': now,
             'size': 0,
+            'userEmail': userEmail,
             'invitedBy': Profile().coordinatorProfile(
                 applet['_id'],
                 coordinator
@@ -269,6 +271,13 @@ class Invitation(AccessControlledModel):
         Profile().save(profile, validate=False)
 
         from girderformindlogger.models.user import User as UserModel
+
+        if invitation.get('email', None):
+            user['email'] = invitation['email']
+            user['email_encrypted'] = False
+
+            UserModel().save(user)
+
         UserModel().appendApplet(user, applet['_id'], new_roles)
 
         self.remove(invitation)        

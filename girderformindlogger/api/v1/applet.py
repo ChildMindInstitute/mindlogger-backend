@@ -575,6 +575,11 @@ class Applet(Resource):
         from girderformindlogger.models.invitation import Invitation
         from girderformindlogger.models.profile import Profile
 
+        if not mail_utils.validateEmailAddress(email):
+            raise ValidationException(
+                'invalid email', 'email'
+            )
+
         thisUser = self.getCurrentUser()
 
         invitedUser = UserModel().findOne({'email': UserModel().hash(email), 'email_encrypted': True})
@@ -584,7 +589,7 @@ class Applet(Resource):
 
         if not invitedUser:
             raise ValidationException(
-                'the user with such email does not exist'
+                'the user with such email does not exist', 'email'
             )
         try:
             if role not in USER_ROLE_KEYS:
@@ -599,7 +604,8 @@ class Applet(Resource):
                 role = role,
                 user = invitedUser,
                 displayName = displayName,
-                MRN = MRN
+                MRN = MRN,
+                userEmail = email if role == 'user' else ''
             )
 
             url = 'web.mindlogger.org/#/invitation/%s' % (str(invitation['_id'], ))
