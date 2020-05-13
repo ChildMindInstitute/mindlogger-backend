@@ -574,8 +574,13 @@ class Applet(Resource):
             required=True,
         )
         .param(
-            'displayName',
-            'displayName for user',
+            'firstName',
+            'firstName for user',
+            required=True
+        )
+        .param(
+            'lastName',
+            'lastName for user',
             required=True
         )
         .param(
@@ -585,7 +590,7 @@ class Applet(Resource):
         )
         .errorResponse('Write access was denied for the folder or its new parent object.', 403)
     )
-    def inviteUser(self, applet, role="user", email='', displayName='', MRN=''):
+    def inviteUser(self, applet, role="user", email='', firstName='', lastName='', MRN=''):
         from girderformindlogger.models.invitation import Invitation
         from girderformindlogger.models.profile import Profile
 
@@ -606,59 +611,53 @@ class Applet(Resource):
                 "Only coordinators and managers can invite users."
             )
 
-        if not invitedUser:
+        if role not in USER_ROLE_KEYS:
             raise ValidationException(
-                'the user with such email does not exist', 'email'
-            )
-        try:
-            if role not in USER_ROLE_KEYS:
-                raise ValidationException(
-                    'Invalid role.',
-                    'role'
-                )
-
-            invitation = Invitation().createInvitationForSpecifiedUser(
-                applet = applet,
-                coordinator = thisUser,
-                role = role,
-                user = invitedUser,
-                displayName = displayName,
-                MRN = MRN,
-                userEmail = email if role != 'user' else ''
+                'Invalid role.',
+                'role'
             )
 
-            url = 'web.mindlogger.org/#/invitation/%s' % (str(invitation['_id'], ))
+        invitation = Invitation().createInvitationForSpecifiedUser(
+            applet = applet,
+            coordinator = thisUser,
+            role = role,
+            user = invitedUser,
+            firstName = firstName,
+            lastName = lastName,
+            MRN = MRN,
+            userEmail = email if role != 'user' or not invitedUser else ''
+        )
 
-            managers = mail_utils.htmlUserList(
-                AppletModel().listUsers(applet, 'manager', force=True)
-            )
-            coordinators = mail_utils.htmlUserList(
-                AppletModel().listUsers(applet, 'coordinator', force=True)
-            )
-            reviewers = mail_utils.htmlUserList(
-                AppletModel().listUsers(applet, 'reviewer', force=True)
-            )
+        url = 'web.mindlogger.org/#/invitation/%s' % (str(invitation['_id'], ))
 
-            html = mail_utils.renderTemplate('userInvite.mako', {
-                'url': url,
-                'userName': displayName,
-                'coordinatorName': thisUser['firstName'],
-                'appletName': applet['displayName'],
-                'MRN': MRN,
-                'managers': managers,
-                'coordinators': coordinators,
-                'reviewers': reviewers
-            })
+        managers = mail_utils.htmlUserList(
+            AppletModel().listUsers(applet, 'manager', force=True)
+        )
+        coordinators = mail_utils.htmlUserList(
+            AppletModel().listUsers(applet, 'coordinator', force=True)
+        )
+        reviewers = mail_utils.htmlUserList(
+            AppletModel().listUsers(applet, 'reviewer', force=True)
+        )
 
-            mail_utils.sendMail(
-                'invitation for an applet',
-                html,
-                [email]
-            )
+        html = mail_utils.renderTemplate('userInvite.mako' if invitedUser else 'inviteUserWithoutAccount.mako', {
+            'url': url,
+            'userName': firstName,
+            'coordinatorName': thisUser['firstName'],
+            'appletName': applet['displayName'],
+            'MRN': MRN,
+            'managers': managers,
+            'coordinators': coordinators,
+            'reviewers': reviewers
+        })
 
-            return 'sent invitation mail to {}'.format(email)
-        except:
-            return 'failed to invite user'
+        mail_utils.sendMail(
+            'invitation for an applet',
+            html,
+            [email]
+        )
+
+        return 'sent invitation mail to {}'.format(email)
 
     @access.user(scope=TokenScope.DATA_WRITE)
     @autoDescribeRoute(

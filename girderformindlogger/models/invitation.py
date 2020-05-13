@@ -160,7 +160,8 @@ class Invitation(AccessControlledModel):
         coordinator,
         role,
         user,
-        displayName,
+        firstName,
+        lastName,
         MRN,
         userEmail = ""
     ):
@@ -177,23 +178,29 @@ class Invitation(AccessControlledModel):
         from girderformindlogger.models.applet import Applet
         from girderformindlogger.models.profile import Profile
 
-        invitation = self.findOne({
-            'appletId': applet['_id'],
-            'userId': user['_id']
-        })
+        query = {'appletId': applet['_id']}
+        if user:
+            query['userId'] = user['_id']
+        else:
+            query['userEmail'] = userEmail
+
+        invitation = self.findOne(query)
+
         now = datetime.datetime.utcnow()
 
         if not invitation:
             invitation = {
                 'appletId': applet['_id'],
-                'userId': user['_id'],
                 'created': now
             }
+            if user:
+                invitation['userId'] = user['_id']
 
         invitation.update({
             'inviterId': coordinator['_id'],
             'role': role,
-            'displayName': displayName,
+            'firstName': firstName,
+            'lastName': lastName,
             'MRN': MRN,
             'updated': now,
             'size': 0,
@@ -262,11 +269,9 @@ class Invitation(AccessControlledModel):
                     new_roles.append(role)
                     profile['roles'].append(role)
 
-        if invitation.get('displayName', None):
-            profile['displayName'] = invitation['displayName']
-
-        if invitation.get('MRN', None):
-            profile['MRN'] = invitation['MRN']
+        profile['firstName'] = invitation.get('firstName', '')
+        profile['lastName'] = invitation.get('lastName', '')
+        profile['MRN'] = invitation.get('MRN', '')
 
         Profile().save(profile, validate=False)
 
