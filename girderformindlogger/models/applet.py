@@ -146,7 +146,12 @@ class Applet(FolderModel):
             )
 
         self.setAccessList(applet, accessList)
-        self.update({'_id': ObjectId(applet['_id'])}, {'$set': {'access': applet.get('access', {})}})
+        self.update({'_id': ObjectId(applet['_id'])}, {
+            '$set': {
+                'access': applet.get('access', {}),
+                'idle_time': 0
+            }
+        })
 
         from girderformindlogger.models.profile import Profile
 

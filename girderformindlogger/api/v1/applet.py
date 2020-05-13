@@ -42,6 +42,7 @@ from girderformindlogger.models.user import User as UserModel
 from girderformindlogger.models.pushNotification import PushNotification as PushNotificationModel
 from girderformindlogger.models.events import Events as EventsModel
 from girderformindlogger.utility import config, jsonld_expander, mail_utils
+from girderformindlogger.models.cache import Cache as CacheModel
 from girderformindlogger.models.setting import Setting
 from girderformindlogger.settings import SettingKey
 from pyld import jsonld
@@ -59,6 +60,7 @@ class Applet(Resource):
         self.route('GET', (':id', 'data'), self.getAppletData)
         self.route('GET', (':id', 'groups'), self.getAppletGroups)
         self.route('POST', (), self.createApplet)
+        self.route('PUT', (':id', 'idle'), self.setIdleTime)
         self.route('PUT', (':id', 'informant'), self.updateInformant)
         self.route('PUT', (':id', 'assign'), self.assignGroup)
         self.route('PUT', (':id', 'constraints'), self.setConstraints)
@@ -199,7 +201,7 @@ class Applet(Resource):
                        "address associated with your account, you will receive "
                        "an email when your applet is ready."
         })
-    
+
     @access.user(scope=TokenScope.DATA_WRITE)
     @autoDescribeRoute(
         Description('Create an applet.')
@@ -228,7 +230,7 @@ class Applet(Resource):
     )
     def createAppletFromProtocolData(self, protocol, name=None, informant=None):
         thisUser = self.getCurrentUser()
-        
+
         thread = threading.Thread(
             target=AppletModel().createAppletFromProtocolData,
             kwargs={
@@ -768,6 +770,37 @@ class Applet(Resource):
                 "schedule": schedule
             }
         }
+
+    @access.user(scope=TokenScope.DATA_WRITE)
+    @autoDescribeRoute(
+        Description('Set or update schedule information for an applet.')
+            .modelParam(
+            'id',
+            model=AppletModel,
+            level=AccessType.READ,
+            destName='applet'
+        )
+            .jsonParam(
+            'time',
+            'Idle time for applet',
+            default=0,
+            dataType='integer',
+            paramType='form',
+            required=False
+        )
+            .errorResponse('Invalid applet ID.')
+            .errorResponse('Read access was denied for this applet.', 403)
+    )
+    def setIdleTime(self, applet, time):
+        applet['idle_time'] = time
+        user = self.getCurrentUser()
+        AppletModel().update({'_id': applet['_id']}, {
+            '$set': {
+                'idle_time': time
+            }
+        })
+        AppletModel().formatThenUpdate(applet, user)
+        return {'time': time}
 
 
 def authorizeReviewer(applet, reviewer, user):
