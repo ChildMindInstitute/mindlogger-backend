@@ -8,6 +8,9 @@ Changes
 -------
 Unreleased
 ==========
+2020-05-14: v0.14.6
+encrypt user's email, update invitation mail template
+
 2020-05-08: v0.14.5
 make coordinators insert MRN, displayName, email when inviting user
 
