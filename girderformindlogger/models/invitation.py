@@ -272,8 +272,8 @@ class Invitation(AccessControlledModel):
 
         from girderformindlogger.models.user import User as UserModel
 
-        if invitation.get('email', None):
-            user['email'] = invitation['email']
+        if invitation.get('userEmail', None):
+            user['email'] = invitation['userEmail']
             user['email_encrypted'] = False
 
             UserModel().save(user)

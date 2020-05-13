@@ -163,6 +163,12 @@ class Applet(Resource):
             required=False
         )
         .param(
+            'email',
+            'email for creator of applet',
+            default='',
+            required=False
+        )
+        .param(
             'name',
             'Name to give the applet. The Protocol\'s name will be used if '
             'this parameter is not provided.',
@@ -179,7 +185,7 @@ class Applet(Resource):
         )
         .errorResponse('Write access was denied for this applet.', 403)
     )
-    def createApplet(self, protocolUrl=None, name=None, informant=None):
+    def createApplet(self, protocolUrl=None, email='', name=None, informant=None):
         thisUser = self.getCurrentUser()
         thread = threading.Thread(
             target=AppletModel().createAppletFromUrl,
@@ -187,6 +193,7 @@ class Applet(Resource):
                 'name': name,
                 'protocolUrl': protocolUrl,
                 'user': thisUser,
+                'email': email,
                 'constraints': {
                     'informantRelationship': informant
                 } if informant is not None else None
@@ -208,6 +215,12 @@ class Applet(Resource):
             required=False
         )
         .param(
+            'email',
+            'email for creator of applet',
+            default='',
+            required=False
+        )
+        .param(
             'name',
             'Name to give the applet. The Protocol\'s name will be used if '
             'this parameter is not provided.',
@@ -224,15 +237,16 @@ class Applet(Resource):
         )
         .errorResponse('Write access was denied for this applet.', 403)
     )
-    def createAppletFromProtocolData(self, protocol, name=None, informant=None):
+    def createAppletFromProtocolData(self, protocol, email='', name=None, informant=None):
         thisUser = self.getCurrentUser()
-        
+
         thread = threading.Thread(
             target=AppletModel().createAppletFromProtocolData,
             kwargs={
                 'name': name,
                 'protocol': protocol,
                 'user': thisUser,
+                'email': email,
                 'constraints': {
                     'informantRelationship': informant
                 } if informant is not None else None
@@ -587,6 +601,11 @@ class Applet(Resource):
         if not invitedUser:
             invitedUser = UserModel().findOne({'email': email, 'email_encrypted': {'$ne': True}})            
 
+        if not AppletModel().isCoordinator(applet['_id'], thisUser):
+            raise AccessException(
+                "Only coordinators and managers can invite users."
+            )
+
         if not invitedUser:
             raise ValidationException(
                 'the user with such email does not exist', 'email'
@@ -605,7 +624,7 @@ class Applet(Resource):
                 user = invitedUser,
                 displayName = displayName,
                 MRN = MRN,
-                userEmail = email if role == 'user' else ''
+                userEmail = email if role != 'user' else ''
             )
 
             url = 'web.mindlogger.org/#/invitation/%s' % (str(invitation['_id'], ))
