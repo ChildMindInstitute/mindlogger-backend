@@ -602,8 +602,7 @@ class Applet(Resource):
                 MRN = MRN
             )
 
-            url = '%s/%s/invitation/%s' % (
-                mail_utils.getEmailUrlPrefix(), str(invitedUser['_id']), str(invitation['_id']))
+            url = 'web.mindlogger.org/#/invitation/%s' % (str(invitation['_id'], ))
 
             managers = mail_utils.htmlUserList(
                 AppletModel().listUsers(applet, 'manager', force=True)
