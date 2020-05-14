@@ -744,6 +744,10 @@ class User(Resource):
                         login
                     )
                 )
+            if user.get('exception', None):
+                raise AccessException(
+                    user['exception']
+                )
 
             if deviceId:
                 user['deviceId'] = deviceId

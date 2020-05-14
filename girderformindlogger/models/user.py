@@ -530,7 +530,7 @@ class User(AccessControlledModel):
         """
         from girderformindlogger.models.setting import Setting
         return (not user['emailVerified']) and \
-            Setting().get(SettingKey.EMAIL_VERIFICATION) == 'required'
+            (Setting().get(SettingKey.EMAIL_VERIFICATION) == 'required' or Setting().get(SettingKey.EMAIL_VERIFICATION) == 'enabled')
 
     def adminApprovalRequired(self, user):
         """
