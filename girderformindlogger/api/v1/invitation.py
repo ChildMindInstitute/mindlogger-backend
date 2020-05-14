@@ -127,9 +127,15 @@ class Invitation(Resource):
             force=True,
             destName='invitation'
         )
+        .param(
+            'email',
+            'email for invited user',
+            default='',
+            required=False
+        )
         .errorResponse()
     )
-    def acceptInvitation(self, invitation):
+    def acceptInvitation(self, invitation, email):
         """
         Accept an invitation.
         """
@@ -138,7 +144,7 @@ class Invitation(Resource):
             raise AccessException(
                 "You must be logged in to accept an invitation."
             )
-        return(InvitationModel().acceptInvitation(invitation, currentUser))
+        return(InvitationModel().acceptInvitation(invitation, currentUser, email))
 
     @access.public(scope=TokenScope.USER_INFO_READ)
     @autoDescribeRoute(
@@ -150,13 +156,19 @@ class Invitation(Resource):
             destName='invitation'
         )
         .param(
+            'email',
+            'email for invited user',
+            default='',
+            required=False
+        )
+        .param(
             'token',
             'Authentication token to link user to invitation.',
             required=True
         )
         .errorResponse()
     )
-    def acceptInvitationByToken(self, invitation, token):
+    def acceptInvitationByToken(self, invitation, email, token):
         """
         Accept an invitation.
         """
@@ -172,7 +184,7 @@ class Invitation(Resource):
             raise AccessException(
                 "Invalid token."
             )
-        return(InvitationModel().acceptInvitation(invitation, currentUser))
+        return(InvitationModel().acceptInvitation(invitation, currentUser, email))
 
     @access.public(scope=TokenScope.USER_INFO_READ)
     @autoDescribeRoute(

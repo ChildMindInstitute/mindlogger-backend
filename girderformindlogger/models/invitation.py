@@ -213,10 +213,11 @@ class Invitation(AccessControlledModel):
 
         return self.save(invitation, validate=False)
 
-    def acceptInvitation(self, invitation, user):
+    def acceptInvitation(self, invitation, user, userEmail = ''): # we need to save coordinator/manager's email as plain text
         from girderformindlogger.models.applet import Applet
         from girderformindlogger.models.ID_code import IDCode
         from girderformindlogger.models.profile import Profile
+        from girderformindlogger.utility import mail_utils
 
         applet = Applet().load(invitation['appletId'], force=True)
         profiles = None
@@ -276,9 +277,19 @@ class Invitation(AccessControlledModel):
         Profile().save(profile, validate=False)
 
         from girderformindlogger.models.user import User as UserModel
-
-        if invitation.get('userEmail', None):
-            user['email'] = invitation['userEmail']
+        
+        if not mail_utils.validateEmailAddress(userEmail):
+            raise ValidationException(
+                'Invalid email address.',
+                'email'
+            )
+        if invited_role != 'user' and user.get('email_encrypted', False):
+            if UserModel().hash(userEmail) != user['email']:
+                raise ValidationException(
+                    'Invalid email address.',
+                    'email'
+                )
+            user['email'] = userEmail
             user['email_encrypted'] = False
 
             UserModel().save(user)

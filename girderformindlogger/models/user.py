@@ -440,8 +440,12 @@ class User(AccessControlledModel):
         login = login.lower().strip()
         email = email.lower().strip()
 
+        if self.findOne({'email': email, 'email_encrypted': {'$ne': True}}) or self.findOne({'email': self.hash(email), 'email_encrypted': True}):
+            raise ValidationException('That email is already registered in the system.', )
+
         if admin:
             requireApproval = False
+            encryptEmail = False
         user = {
             'login': login,
             'email': email,

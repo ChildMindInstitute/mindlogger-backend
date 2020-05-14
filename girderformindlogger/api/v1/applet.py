@@ -586,7 +586,8 @@ class Applet(Resource):
         .param(
             'MRN',
             'MRN for user',
-            required=True
+            default='',
+            required=False
         )
         .errorResponse('Write access was denied for the folder or its new parent object.', 403)
     )
@@ -601,7 +602,8 @@ class Applet(Resource):
 
         thisUser = self.getCurrentUser()
 
-        invitedUser = UserModel().findOne({'email': UserModel().hash(email), 'email_encrypted': True})
+        encryptedEmail = UserModel().hash(email)
+        invitedUser = UserModel().findOne({'email': encryptedEmail, 'email_encrypted': True})
 
         if not invitedUser:
             invitedUser = UserModel().findOne({'email': email, 'email_encrypted': {'$ne': True}})            
@@ -625,7 +627,7 @@ class Applet(Resource):
             firstName = firstName,
             lastName = lastName,
             MRN = MRN,
-            userEmail = email if role != 'user' or not invitedUser else ''
+            userEmail = encryptedEmail
         )
 
         url = 'web.mindlogger.org/#/invitation/%s' % (str(invitation['_id'], ))
