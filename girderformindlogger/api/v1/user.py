@@ -937,7 +937,7 @@ class User(Resource):
         firstName=None,
         lastName=None
     ):
-        user['firstName'] = displayName if len(
+        user['displayName'] = displayName if len(
             displayName
         ) else firstName if firstName is not None else ""
         user['email'] = UserModel().hash(email)
