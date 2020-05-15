@@ -620,14 +620,14 @@ class Applet(Resource):
             )
 
         invitation = Invitation().createInvitationForSpecifiedUser(
-            applet = applet,
-            coordinator = thisUser,
-            role = role,
-            user = invitedUser,
-            firstName = firstName,
-            lastName = lastName,
-            MRN = MRN,
-            userEmail = encryptedEmail
+            applet=applet,
+            coordinator=thisUser,
+            role=role,
+            user=invitedUser,
+            firstName=firstName,
+            lastName=lastName,
+            MRN=MRN,
+            userEmail=encryptedEmail
         )
 
         url = 'web.mindlogger.org/#/invitation/%s' % (str(invitation['_id'], ))
