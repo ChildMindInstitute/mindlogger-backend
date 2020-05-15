@@ -59,7 +59,6 @@ class Applet(Resource):
         self.route('GET', (':id', 'data'), self.getAppletData)
         self.route('GET', (':id', 'groups'), self.getAppletGroups)
         self.route('POST', (), self.createApplet)
-        self.route('PUT', (':id', 'idle'), self.setIdleTime)
         self.route('PUT', (':id', 'informant'), self.updateInformant)
         self.route('PUT', (':id', 'assign'), self.assignGroup)
         self.route('PUT', (':id', 'constraints'), self.setConstraints)
@@ -769,37 +768,6 @@ class Applet(Resource):
                 "schedule": schedule
             }
         }
-
-    @access.user(scope=TokenScope.DATA_WRITE)
-    @autoDescribeRoute(
-        Description('Set or update schedule information for an applet.')
-            .modelParam(
-            'id',
-            model=AppletModel,
-            level=AccessType.READ,
-            destName='applet'
-        )
-            .jsonParam(
-            'time',
-            'Idle time for applet',
-            default=0,
-            dataType='integer',
-            paramType='form',
-            required=False
-        )
-            .errorResponse('Invalid applet ID.')
-            .errorResponse('Read access was denied for this applet.', 403)
-    )
-    def setIdleTime(self, applet, time):
-        applet['idle_time'] = time
-        user = self.getCurrentUser()
-        AppletModel().update({'_id': applet['_id']}, {
-            '$set': {
-                'idle_time': time
-            }
-        })
-        AppletModel().formatThenUpdate(applet, user)
-        return {'time': time}
 
 
 def authorizeReviewer(applet, reviewer, user):

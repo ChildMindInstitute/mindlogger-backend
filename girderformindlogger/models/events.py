@@ -87,11 +87,12 @@ class Events(Model):
         }
 
     def getScheduleForUser(self, applet_id, user_id, is_coordinator):
-        if is_coordinator:
-            individualized = False
-        else:
+        individualized = False
+
+        if not is_coordinator:
             profile = Profile().findOne({'appletId': ObjectId(applet_id), 'userId': ObjectId(user_id)})
-            individualized = self.hasIndividual(applet_id, profile['_id'])
+            if profile:
+                individualized = self.hasIndividual(applet_id, profile['_id'])
 
         events = self.getEvents(applet_id, individualized)
         for event in events:
