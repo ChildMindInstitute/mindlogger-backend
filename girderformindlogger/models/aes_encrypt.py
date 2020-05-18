@@ -29,13 +29,9 @@ class AESEncryption(AccessControlledModel):
         super(AESEncryption, self).__init__()
 
     def initAES(self, fields=[]):
-        self.AES_KEY = cherrypy.config['aes_key'] if 'aes_key' in cherrypy.config else None
-        if not self.AES_KEY:
-            raise Exception('unable to load key')
+        self.AES_KEY = cherrypy.config['aes_key'] if 'aes_key' in cherrypy.config else b'a!z%C*f4JanU5kap2te45v9y/A?D(G+K'
 
-        print('aes_key', self.AES_KEY)
         self.fields = fields
-
         self.maxCount = 4
 
     # basic function for aes-encryption
