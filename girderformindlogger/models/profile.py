@@ -11,13 +11,13 @@ from girderformindlogger.constants import AccessType, DEFINED_RELATIONS,       \
     PROFILE_FIELDS
 from girderformindlogger.exceptions import ValidationException, GirderException
 from girderformindlogger.models.folder import Folder
-from girderformindlogger.models.model_base import AccessControlledModel
+from girderformindlogger.models.aes_encrypt import AESEncryption, AccessControlledModel
 from girderformindlogger.utility.model_importer import ModelImporter
 from girderformindlogger.utility.progress import noProgress, \
     setResponseTimeLimit
 
 
-class Profile(AccessControlledModel, dict):
+class Profile(AESEncryption, dict):
     """
     Profiles store customizable information specific to both users and applets.
     These data can be sensitive and are access controlled.
@@ -36,6 +36,13 @@ class Profile(AccessControlledModel, dict):
             '_id', 'created', 'updated', 'meta', 'appletId',
             'parentCollection', 'creatorId', 'baseParentType', 'baseParentId'
         ))
+
+        self.initAES([
+            ('firstName', 64),
+            ('lastName', 64),
+            ('userDefined.displayName', 64),
+            ('coordinatorDefined.displayName', 64)
+        ])
 
     def display(self, p, role):
         """

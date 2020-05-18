@@ -11,7 +11,7 @@ import six
 from girderformindlogger import events
 from girderformindlogger.constants import AccessType, CoreEventHandler, TokenScope, USER_ROLES
 from girderformindlogger.exceptions import AccessException, ValidationException
-from girderformindlogger.models.model_base import AccessControlledModel
+from girderformindlogger.models.aes_encrypt import AESEncryption, AccessControlledModel
 from girderformindlogger.models.setting import Setting
 from girderformindlogger.settings import SettingKey
 from girderformindlogger.utility import config, mail_utils
@@ -19,7 +19,7 @@ from girderformindlogger.utility._cache import rateLimitBuffer
 from bson import ObjectId
 
 
-class User(AccessControlledModel):
+class User(AESEncryption):
     """
     This model represents the users of the system.
     """
@@ -51,6 +51,12 @@ class User(AccessControlledModel):
             schemes=['bcrypt']
         )
 
+        self.initAES([
+            ('firstName', 64),
+            ('lastName', 64),
+            ('displayName', 64)
+        ])
+
         events.bind('model.user.save.created',
                     CoreEventHandler.USER_SELF_ACCESS, self._grantSelfAccess)
         events.bind('model.user.save.created',
@@ -65,7 +71,8 @@ class User(AccessControlledModel):
             if s in doc and doc[s] is None:
                 doc[s] = ''
         doc['login'] = doc.get('login', '').lower().strip()
-        doc['email'] = doc.get('email', '').lower().strip()
+        if not doc['email_encrypted']:
+            doc['email'] = doc.get('email', '').lower().strip()
         doc['displayName'] = doc.get(
             'displayName',
             doc.get('firstName', '')

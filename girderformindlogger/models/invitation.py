@@ -9,12 +9,12 @@ from bson.objectid import ObjectId
 from girderformindlogger import events
 from girderformindlogger.constants import AccessType, USER_ROLES
 from girderformindlogger.exceptions import ValidationException, GirderException
-from girderformindlogger.models.model_base import AccessControlledModel
+from girderformindlogger.models.aes_encrypt import AESEncryption, AccessControlledModel
 from girderformindlogger.utility.model_importer import ModelImporter
 from girderformindlogger.utility.progress import noProgress, \
     setResponseTimeLimit
 
-class Invitation(AccessControlledModel):
+class Invitation(AESEncryption):
     """
     Invitations store customizable information specific to both users and
     applets. These data can be sensitive and are access controlled.
@@ -29,6 +29,11 @@ class Invitation(AccessControlledModel):
             'parentCollection', 'creatorId', 'baseParentType', 'baseParentId'
         ))
 
+        self.initAES([
+            ('firstName', 64),
+            ('lastName', 64),
+            ('invitedBy.displayName', 64)
+        ])
 
     def load(self, id, level=AccessType.ADMIN, user=None, objectId=True,
              force=False, fields=None, exc=False):
