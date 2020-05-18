@@ -8,6 +8,9 @@ Changes
 -------
 Unreleased
 ==========
+2020-05-17: v0.14.7
+encrypt fields
+
 2020-05-14: v0.14.6
 encrypt user's email, update invitation mail template
 
