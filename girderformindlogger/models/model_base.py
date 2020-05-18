@@ -716,7 +716,7 @@ class Model(object):
 
         return self.collection.delete_many(query)
 
-    def load(self, id, objectId=True, fields=None, exc=False):
+    def load(self, id, objectId=True, fields=None, exc=False, **kwargs):
         """
         Fetch a single object from the database using its _id field.
 
