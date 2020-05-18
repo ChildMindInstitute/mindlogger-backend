@@ -843,7 +843,7 @@ class Profile(AESEncryption, dict):
             'parentCollection': 'profile'
         }, fields=fields, user=user, level=level)
 
-        return folders.count()
+        return len(folders)
 
     def subtreeCount(self, folder, includeItems=True, user=None, level=None):
         """

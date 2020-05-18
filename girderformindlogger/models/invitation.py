@@ -459,7 +459,7 @@ Below are the users that have access to your data:
             'parentCollection': 'profile'
         }, fields=fields, user=user, level=level)
 
-        return folders.count()
+        return len(folders)
 
     def subtreeCount(self, folder, includeItems=True, user=None, level=None):
         """

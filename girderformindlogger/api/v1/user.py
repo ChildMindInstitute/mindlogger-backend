@@ -887,8 +887,8 @@ class User(Resource):
         Description('Get detailed information of accessible users.')
     )
     def getUsersDetails(self):
-        nUsers = self._model.findWithPermissions(user=self.getCurrentUser(
-        )).count()
+        nUsers = len(self._model.findWithPermissions(user=self.getCurrentUser(
+        )))
         return {'nUsers': nUsers}
 
     @access.user
