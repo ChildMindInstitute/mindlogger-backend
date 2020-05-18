@@ -68,7 +68,7 @@ def loadConfig():
             os.environ['GIRDER_TEST_DB'].replace('.', '_')
 
     if 'AES_KEY' in os.environ:
-        cherrypy.config['database']['aes_key'] = bytes(os.getenv('AES_KEY'), 'utf8')
+        cherrypy.config['aes_key'] = bytes(os.getenv('AES_KEY'), 'utf8')
 
 def getConfig():
     if 'database' not in cherrypy.config:
