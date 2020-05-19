@@ -163,6 +163,12 @@ class Applet(Resource):
             required=False
         )
         .param(
+            'email',
+            'email for creator of applet',
+            default='',
+            required=False
+        )
+        .param(
             'name',
             'Name to give the applet. The Protocol\'s name will be used if '
             'this parameter is not provided.',
@@ -179,7 +185,7 @@ class Applet(Resource):
         )
         .errorResponse('Write access was denied for this applet.', 403)
     )
-    def createApplet(self, protocolUrl=None, name=None, informant=None):
+    def createApplet(self, protocolUrl=None, email='', name=None, informant=None):
         thisUser = self.getCurrentUser()
         thread = threading.Thread(
             target=AppletModel().createAppletFromUrl,
@@ -187,6 +193,7 @@ class Applet(Resource):
                 'name': name,
                 'protocolUrl': protocolUrl,
                 'user': thisUser,
+                'email': email,
                 'constraints': {
                     'informantRelationship': informant
                 } if informant is not None else None
@@ -195,9 +202,7 @@ class Applet(Resource):
         thread.start()
         return({
             "message": "The applet is being created. Please check back in "
-                       "several mintutes to see it. If you have an email "
-                       "address associated with your account, you will receive "
-                       "an email when your applet is ready."
+                       "several mintutes to see it."
         })
     
     @access.user(scope=TokenScope.DATA_WRITE)
@@ -210,6 +215,12 @@ class Applet(Resource):
             required=False
         )
         .param(
+            'email',
+            'email for creator of applet',
+            default='',
+            required=False
+        )
+        .param(
             'name',
             'Name to give the applet. The Protocol\'s name will be used if '
             'this parameter is not provided.',
@@ -226,15 +237,16 @@ class Applet(Resource):
         )
         .errorResponse('Write access was denied for this applet.', 403)
     )
-    def createAppletFromProtocolData(self, protocol, name=None, informant=None):
+    def createAppletFromProtocolData(self, protocol, email='', name=None, informant=None):
         thisUser = self.getCurrentUser()
-        
+
         thread = threading.Thread(
             target=AppletModel().createAppletFromProtocolData,
             kwargs={
                 'name': name,
                 'protocol': protocol,
                 'user': thisUser,
+                'email': email,
                 'constraints': {
                     'informantRelationship': informant
                 } if informant is not None else None
@@ -243,9 +255,7 @@ class Applet(Resource):
         thread.start()
         return({
             "message": "The applet is being created. Please check back in "
-                       "several mintutes to see it. If you have an email "
-                       "address associated with your account, you will receive "
-                       "an email when your applet is ready."
+                       "several mintutes to see it."
         })
 
     @access.user(scope=TokenScope.DATA_WRITE)
@@ -564,67 +574,92 @@ class Applet(Resource):
             required=True,
         )
         .param(
-            'displayName',
-            'displayName for user',
+            'firstName',
+            'firstName for user',
+            required=True
+        )
+        .param(
+            'lastName',
+            'lastName for user',
             required=True
         )
         .param(
             'MRN',
             'MRN for user',
-            required=True
+            default='',
+            required=False
         )
         .errorResponse('Write access was denied for the folder or its new parent object.', 403)
     )
-    def inviteUser(self, applet, role="user", email='', displayName='', MRN=''):
+    def inviteUser(self, applet, role="user", email='', firstName='', lastName='', MRN=''):
         from girderformindlogger.models.invitation import Invitation
         from girderformindlogger.models.profile import Profile
 
+        if not mail_utils.validateEmailAddress(email):
+            raise ValidationException(
+                'invalid email', 'email'
+            )
+
         thisUser = self.getCurrentUser()
 
-        invitedUser = UserModel().findOne({
-            'email': email
-        })
+        encryptedEmail = UserModel().hash(email)
+        invitedUser = UserModel().findOne({'email': encryptedEmail, 'email_encrypted': True})
 
         if not invitedUser:
+            invitedUser = UserModel().findOne({'email': email, 'email_encrypted': {'$ne': True}})            
+
+        if not AppletModel().isCoordinator(applet['_id'], thisUser):
+            raise AccessException(
+                "Only coordinators and managers can invite users."
+            )
+
+        if role not in USER_ROLE_KEYS:
             raise ValidationException(
-                'the user with such email does not exist'
-            )
-        try:
-            if role not in USER_ROLE_KEYS:
-                raise ValidationException(
-                    'Invalid role.',
-                    'role'
-                )
-
-            invitation = Invitation().createInvitationForSpecifiedUser(
-                applet = applet,
-                coordinator = thisUser,
-                role = role,
-                user = invitedUser,
-                displayName = displayName,
-                MRN = MRN
+                'Invalid role.',
+                'role'
             )
 
-            url = '%s/%s/invitation/%s' % (
-                mail_utils.getEmailUrlPrefix(), str(invitedUser['_id']), str(invitation['_id']))
+        invitation = Invitation().createInvitationForSpecifiedUser(
+            applet=applet,
+            coordinator=thisUser,
+            role=role,
+            user=invitedUser,
+            firstName=firstName,
+            lastName=lastName,
+            MRN=MRN,
+            userEmail=encryptedEmail
+        )
 
-            html = mail_utils.renderTemplate('userInvite.mako', {
-                'url': url,
-                'userName': displayName,
-                'coordinatorName': thisUser['firstName'],
-                'appletName': applet['displayName'],
-                'MRN': MRN
-            })
+        url = 'web.mindlogger.org/#/invitation/%s' % (str(invitation['_id'], ))
 
-            mail_utils.sendMail(
-                'invitation for an applet',
-                html,
-                [email]
-            )
+        managers = mail_utils.htmlUserList(
+            AppletModel().listUsers(applet, 'manager', force=True)
+        )
+        coordinators = mail_utils.htmlUserList(
+            AppletModel().listUsers(applet, 'coordinator', force=True)
+        )
+        reviewers = mail_utils.htmlUserList(
+            AppletModel().listUsers(applet, 'reviewer', force=True)
+        )
 
-            return 'sent invitation mail to {}'.format(email)
-        except:
-            return 'failed to invite user'
+        html = mail_utils.renderTemplate('userInvite.mako' if invitedUser else 'inviteUserWithoutAccount.mako', {
+            'url': url,
+            'userName': firstName,
+            'coordinatorName': thisUser['firstName'],
+            'appletName': applet['displayName'],
+            'MRN': MRN,
+            'managers': managers,
+            'coordinators': coordinators,
+            'reviewers': reviewers
+        })
+
+        mail_utils.sendMail(
+            'invitation for an applet',
+            html,
+            [email]
+        )
+
+        return 'sent invitation mail to {}'.format(email)
 
     @access.user(scope=TokenScope.DATA_WRITE)
     @autoDescribeRoute(
@@ -894,6 +929,10 @@ def _invite(applet, user, role, rsvp, subject):
         )
     thisUser = Applet().getCurrentUser()
     user = user if user else str(thisUser['_id'])
+
+    if mail_utils.validateEmailAddress(user):
+        user = UserModel().hash(user)
+
     if bool(rsvp):
         groupName = {
             'title': '{} {}s'.format(

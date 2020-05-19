@@ -192,9 +192,17 @@ class Applet(FolderModel):
         user=None,
         roles=None,
         constraints=None,
+        email='',
         sendEmail=True
     ):
         from girderformindlogger.models.protocol import Protocol
+        from girderformindlogger.utility import mail_utils
+
+        # we have cases to show manager's email to users
+        if mail_utils.validateEmailAddress(email):
+            user['email'] = email
+            user['email_encrypted'] = False
+            UserModel().save(user)
 
         # get a protocol from a URL
         protocol = Protocol().getFromUrl(
@@ -243,11 +251,19 @@ class Applet(FolderModel):
         user=None,
         roles=None,
         constraints=None,
+        email='',
         sendEmail=True
     ):
         from girderformindlogger.models.protocol import Protocol
+        from girderformindlogger.utility import mail_utils
 
-        # get a protocol from a URL
+        # we have cases to show manager's email to users
+        if mail_utils.validateEmailAddress(email):
+            user['email'] = email
+            user['email_encrypted'] = False
+            UserModel().save(user)
+
+        # get a protocol from single json file
         protocol = Protocol().createProtocol(
             protocol,
             user
@@ -628,7 +644,7 @@ class Applet(FolderModel):
             }
 
             for p in list(Invitation().find(query={'appletId': applet['_id']})):
-                fields = ['_id', 'displayName', 'role', 'MRN', 'created']
+                fields = ['_id', 'firstName', 'lastName', 'role', 'MRN', 'created']
                 userDict['pending'].append({
                     key: p[key] for key in fields if p.get(key, None)
                 })

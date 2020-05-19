@@ -38,7 +38,6 @@ class Invitation(Resource):
         self.route('GET', (':id',), self.getInvitation)
         self.route('GET', (':id', 'accept'), self.acceptInvitationByToken)
         self.route('POST', (':id', 'accept'), self.acceptInvitation)
-        self.route('POST', (':id', 'user', ':uid', 'accept'), self.acceptInvitationByUserId)
         self.route('GET', (':id', 'qr'), self.getQR)
         self.route('DELETE', (':id',), self.declineInvitation)
 
@@ -128,9 +127,15 @@ class Invitation(Resource):
             force=True,
             destName='invitation'
         )
+        .param(
+            'email',
+            'email for invited user',
+            default='',
+            required=False
+        )
         .errorResponse()
     )
-    def acceptInvitation(self, invitation):
+    def acceptInvitation(self, invitation, email):
         """
         Accept an invitation.
         """
@@ -139,7 +144,7 @@ class Invitation(Resource):
             raise AccessException(
                 "You must be logged in to accept an invitation."
             )
-        return(InvitationModel().acceptInvitation(invitation, currentUser))
+        return(InvitationModel().acceptInvitation(invitation, currentUser, email))
 
     @access.public(scope=TokenScope.USER_INFO_READ)
     @autoDescribeRoute(
@@ -151,13 +156,19 @@ class Invitation(Resource):
             destName='invitation'
         )
         .param(
+            'email',
+            'email for invited user',
+            default='',
+            required=False
+        )
+        .param(
             'token',
             'Authentication token to link user to invitation.',
             required=True
         )
         .errorResponse()
     )
-    def acceptInvitationByToken(self, invitation, token):
+    def acceptInvitationByToken(self, invitation, email, token):
         """
         Accept an invitation.
         """
@@ -173,36 +184,7 @@ class Invitation(Resource):
             raise AccessException(
                 "Invalid token."
             )
-        return(InvitationModel().acceptInvitation(invitation, currentUser))
-
-    @access.public(scope=TokenScope.USER_INFO_READ)
-    @autoDescribeRoute(
-        Description('Accept an invitation by token.')
-        .modelParam(
-            'id',
-            model=InvitationModel,
-            force=True,
-            destName='invitation',
-            description='invitation id.'
-        )
-        .modelParam(
-            'uid',
-            model=UserModel,
-            force=True,
-            destName='user',
-            description='The ID of user who accepts invite.'
-        )
-        .errorResponse()
-    )
-    def acceptInvitationByUserId(self, invitation, user):
-        """
-        Accept an invitation.
-        """
-        if invitation.get('userId') != user.get('_id'):
-            raise AccessException(
-                "Invalid access."
-            )
-        return (InvitationModel().acceptInvitation(invitation, user))
+        return(InvitationModel().acceptInvitation(invitation, currentUser, email))
 
     @access.public(scope=TokenScope.USER_INFO_READ)
     @autoDescribeRoute(

@@ -4,12 +4,14 @@ import os
 import re
 from passlib.context import CryptContext
 from passlib.totp import TOTP, TokenError
+import hashlib
+
 import six
 
 from girderformindlogger import events
 from girderformindlogger.constants import AccessType, CoreEventHandler, TokenScope, USER_ROLES
 from girderformindlogger.exceptions import AccessException, ValidationException
-from girderformindlogger.models.model_base import AccessControlledModel
+from girderformindlogger.models.aes_encrypt import AESEncryption, AccessControlledModel
 from girderformindlogger.models.setting import Setting
 from girderformindlogger.settings import SettingKey
 from girderformindlogger.utility import config, mail_utils
@@ -17,7 +19,7 @@ from girderformindlogger.utility._cache import rateLimitBuffer
 from bson import ObjectId
 
 
-class User(AccessControlledModel):
+class User(AESEncryption):
     """
     This model represents the users of the system.
     """
@@ -49,6 +51,12 @@ class User(AccessControlledModel):
             schemes=['bcrypt']
         )
 
+        self.initAES([
+            ('firstName', 64),
+            ('lastName', 64),
+            ('displayName', 64)
+        ])
+
         events.bind('model.user.save.created',
                     CoreEventHandler.USER_SELF_ACCESS, self._grantSelfAccess)
         events.bind('model.user.save.created',
@@ -63,7 +71,8 @@ class User(AccessControlledModel):
             if s in doc and doc[s] is None:
                 doc[s] = ''
         doc['login'] = doc.get('login', '').lower().strip()
-        doc['email'] = doc.get('email', '').lower().strip()
+        if not doc['email_encrypted']:
+            doc['email'] = doc.get('email', '').lower().strip()
         doc['displayName'] = doc.get(
             'displayName',
             doc.get('firstName', '')
@@ -89,7 +98,7 @@ class User(AccessControlledModel):
             # This is a legacy field; hash algorithms are now inline with the password hash
             del doc['hashAlg']
 
-        if len(doc['email']) and not mail_utils.validateEmailAddress(
+        if not doc['email_encrypted'] and len(doc['email']) and not mail_utils.validateEmailAddress(
             doc['email']
         ):
             raise ValidationException('Invalid email address.', 'email')
@@ -148,6 +157,10 @@ class User(AccessControlledModel):
 
         return filteredDoc
 
+    def hash(self, data):
+        x = hashlib.sha224(data.encode('utf-8')).hexdigest()
+        return x
+
     def authenticate(self, login, password, otpToken=None, deviceId=None, timezone=0, loginAsEmail = False):
         """
         Validate a user login via username and password. If authentication
@@ -176,7 +189,10 @@ class User(AccessControlledModel):
         login = login.lower().strip()
         loginField = 'email' if loginAsEmail else 'login'
 
-        user = self.findOne({loginField: login})
+        user = self.findOne({loginField: self.hash(login), 'email_encrypted': True})
+
+        if user is None and loginField == 'email':
+            user = self.findOne({loginField: login, 'email_encrypted': {'$ne': True}})
 
         if user is None:
             raise AccessException('Login failed. User not found.')
@@ -427,8 +443,16 @@ class User(AccessControlledModel):
         requireApproval = Setting(
         ).get(SettingKey.REGISTRATION_POLICY) == 'approve'
         email = "" if not email else email
+
+        login = login.lower().strip()
+        email = email.lower().strip()
+
+        if self.findOne({'email': email, 'email_encrypted': {'$ne': True}}) or self.findOne({'email': self.hash(email), 'email_encrypted': True}):
+            raise ValidationException('That email is already registered in the system.', )
+
         if admin:
             requireApproval = False
+            encryptEmail = False
         user = {
             'login': login,
             'email': email,
@@ -450,8 +474,15 @@ class User(AccessControlledModel):
                     "groupId": gi.get('_id'),
                     "level": 0
                 } for gi in list(Group().find(query={"queue": email}))
-            ] if len(email) else []
+            ] if len(email) else [],
+            'email_encrypted': encryptEmail
         }
+        if encryptEmail:
+            if len(email) == 0 or not mail_utils.validateEmailAddress(email):
+                raise ValidationException('Invalid email address.', 'email')
+
+            user['email'] = self.hash(user['email'])
+
         self.setPassword(user, password, save=False)
         self.setPublic(user, public, save=False)
 
@@ -478,8 +509,8 @@ class User(AccessControlledModel):
         if requireApproval:
             self._sendApprovalEmail(user)
         Group().update(
-            query={"queue": email},
-            update={"$pull": {"queue": email}},
+            query={"queue": user['email']},
+            update={"$pull": {"queue": user['email']}},
             multi=True
         )
         user = self._getGroupInvitesFromProtoUser(user)
@@ -506,7 +537,7 @@ class User(AccessControlledModel):
         """
         from girderformindlogger.models.setting import Setting
         return (not user['emailVerified']) and \
-            Setting().get(SettingKey.EMAIL_VERIFICATION) == 'required'
+            (Setting().get(SettingKey.EMAIL_VERIFICATION) == 'required' or Setting().get(SettingKey.EMAIL_VERIFICATION) == 'enabled')
 
     def adminApprovalRequired(self, user):
         """
@@ -528,7 +559,7 @@ class User(AccessControlledModel):
             'Girder: Account pending approval',
             text)
 
-    def _sendApprovedEmail(self, user):
+    def _sendApprovedEmail(self, user, email):
         text = mail_utils.renderTemplate('accountApproved.mako', {
             'user': user,
             'url': mail_utils.getEmailUrlPrefix()
@@ -536,7 +567,7 @@ class User(AccessControlledModel):
         mail_utils.sendMail(
             'Girder: Account approved',
             text,
-            [user.get('email')])
+            [email])
 
     def _sendVerificationEmail(self, user, email):
         from girderformindlogger.models.token import Token

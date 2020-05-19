@@ -9,12 +9,12 @@ from bson.objectid import ObjectId
 from girderformindlogger import events
 from girderformindlogger.constants import AccessType, USER_ROLES
 from girderformindlogger.exceptions import ValidationException, GirderException
-from girderformindlogger.models.model_base import AccessControlledModel
+from girderformindlogger.models.aes_encrypt import AESEncryption, AccessControlledModel
 from girderformindlogger.utility.model_importer import ModelImporter
 from girderformindlogger.utility.progress import noProgress, \
     setResponseTimeLimit
 
-class Invitation(AccessControlledModel):
+class Invitation(AESEncryption):
     """
     Invitations store customizable information specific to both users and
     applets. These data can be sensitive and are access controlled.
@@ -29,6 +29,11 @@ class Invitation(AccessControlledModel):
             'parentCollection', 'creatorId', 'baseParentType', 'baseParentId'
         ))
 
+        self.initAES([
+            ('firstName', 64),
+            ('lastName', 64),
+            ('invitedBy.displayName', 64)
+        ])
 
     def load(self, id, level=AccessType.ADMIN, user=None, objectId=True,
              force=False, fields=None, exc=False):
@@ -160,8 +165,10 @@ class Invitation(AccessControlledModel):
         coordinator,
         role,
         user,
-        displayName,
-        MRN
+        firstName,
+        lastName,
+        MRN,
+        userEmail = ""
     ):
         """
         create new invitation
@@ -176,26 +183,33 @@ class Invitation(AccessControlledModel):
         from girderformindlogger.models.applet import Applet
         from girderformindlogger.models.profile import Profile
 
-        invitation = self.findOne({
-            'appletId': applet['_id'],
-            'userId': user['_id']
-        })
+        query = {'appletId': applet['_id']}
+        if user:
+            query['userId'] = user['_id']
+        else:
+            query['userEmail'] = userEmail
+
+        invitation = self.findOne(query)
+
         now = datetime.datetime.utcnow()
 
         if not invitation:
             invitation = {
                 'appletId': applet['_id'],
-                'userId': user['_id'],
                 'created': now
             }
+            if user:
+                invitation['userId'] = user['_id']
 
         invitation.update({
             'inviterId': coordinator['_id'],
             'role': role,
-            'displayName': displayName,
+            'firstName': firstName,
+            'lastName': lastName,
             'MRN': MRN,
             'updated': now,
             'size': 0,
+            'userEmail': userEmail,
             'invitedBy': Profile().coordinatorProfile(
                 applet['_id'],
                 coordinator
@@ -204,10 +218,11 @@ class Invitation(AccessControlledModel):
 
         return self.save(invitation, validate=False)
 
-    def acceptInvitation(self, invitation, user):
+    def acceptInvitation(self, invitation, user, userEmail = ''): # we need to save coordinator/manager's email as plain text
         from girderformindlogger.models.applet import Applet
         from girderformindlogger.models.ID_code import IDCode
         from girderformindlogger.models.profile import Profile
+        from girderformindlogger.utility import mail_utils
 
         applet = Applet().load(invitation['appletId'], force=True)
         profiles = None
@@ -260,15 +275,30 @@ class Invitation(AccessControlledModel):
                     new_roles.append(role)
                     profile['roles'].append(role)
 
-        if invitation.get('displayName', None):
-            profile['displayName'] = invitation['displayName']
-
-        if invitation.get('MRN', None):
-            profile['MRN'] = invitation['MRN']
+        profile['firstName'] = invitation.get('firstName', '')
+        profile['lastName'] = invitation.get('lastName', '')
+        profile['MRN'] = invitation.get('MRN', '')
 
         Profile().save(profile, validate=False)
 
         from girderformindlogger.models.user import User as UserModel
+        
+        if not mail_utils.validateEmailAddress(userEmail):
+            raise ValidationException(
+                'Invalid email address.',
+                'email'
+            )
+        if invited_role != 'user' and user.get('email_encrypted', False):
+            if UserModel().hash(userEmail) != user['email']:
+                raise ValidationException(
+                    'Invalid email address.',
+                    'email'
+                )
+            user['email'] = userEmail
+            user['email_encrypted'] = False
+
+            UserModel().save(user)
+
         UserModel().appendApplet(user, applet['_id'], new_roles)
 
         self.remove(invitation)        
@@ -429,7 +459,7 @@ Below are the users that have access to your data:
             'parentCollection': 'profile'
         }, fields=fields, user=user, level=level)
 
-        return folders.count()
+        return len(folders)
 
     def subtreeCount(self, folder, includeItems=True, user=None, level=None):
         """
