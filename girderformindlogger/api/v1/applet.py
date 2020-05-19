@@ -740,6 +740,20 @@ class Applet(Resource):
             level=AccessType.READ,
             destName='applet'
         )
+        .param(
+            'rewrite',
+            'True if delete original events and insert all of them again.',
+            default=True,
+            dataType='boolean',
+            required=False
+        )
+        .jsonParam(
+            'deleted',
+            'id array of events specifying removed events',
+            paramType='form',
+            default=[],
+            required=False
+        )
         .jsonParam(
             'schedule',
             'A JSON object containing schedule information for an applet',
@@ -749,7 +763,7 @@ class Applet(Resource):
         .errorResponse('Invalid applet ID.')
         .errorResponse('Read access was denied for this applet.', 403)
     )
-    def setSchedule(self, applet, schedule, **kwargs):
+    def setSchedule(self, applet, rewrite, deleted, schedule, **kwargs):
         thisUser = self.getCurrentUser()
         if not AppletModel().isCoordinator(applet['_id'], thisUser):
             raise AccessException(
@@ -763,14 +777,20 @@ class Applet(Resource):
                     event['id'] = ObjectId(event['id'])
                     assigned[event['id']] = True
 
-        original = EventsModel().getSchedule(applet['_id'])
+        if rewrite:
+            original = EventsModel().getSchedule(applet['_id'])
 
-        if 'events' in original:
-            for event in original['events']:
-                original_id = event.get('id')
-                if original_id not in assigned:
-                    PushNotificationModel().delete_notification(original_id)
-                    EventsModel().deleteEvent(original_id)
+            if 'events' in original:
+                for event in original['events']:
+                    original_id = event.get('id')
+                    if original_id not in assigned:
+                        PushNotificationModel().delete_notification(original_id)
+                        EventsModel().deleteEvent(original_id)
+        else:
+            if isinstance(deleted, list):
+                for event_id in deleted:
+                    PushNotificationModel().delete_notification(ObjectId(event_id))
+                    EventsModel().deleteEvent(ObjectId(event_id))
 
         if 'events' in schedule:
             # insert and update events/notifications
@@ -800,7 +820,7 @@ class Applet(Resource):
 
         return {
             "applet": {
-                "schedule": schedule
+                "schedule": schedule if rewrite else EventsModel().getSchedule(applet['_id'])
             }
         }
 
