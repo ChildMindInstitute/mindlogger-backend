@@ -8,6 +8,9 @@ Changes
 -------
 Unreleased
 ==========
+2020-05-20: v0.14.8
+update setSchedule endpoint to accept updated fields from admin panel
+
 2020-05-17: v0.14.7
 encrypt fields
 

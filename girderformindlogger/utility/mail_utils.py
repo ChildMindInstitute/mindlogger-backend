@@ -10,6 +10,7 @@ from girderformindlogger import events
 from girderformindlogger import logger
 from girderformindlogger.constants import PACKAGE_DIR
 from girderformindlogger.settings import SettingKey
+from girderformindlogger.exceptions import AccessException
 
 
 def htmlUserList(userlist, showEmail=False):
@@ -150,20 +151,31 @@ class _SMTPConnection(object):
         self.password = password
 
     def __enter__(self):
-        if self.encryption == 'ssl':
-            self.connection = smtplib.SMTP_SSL(self.host, self.port)
-        else:
-            self.connection = smtplib.SMTP(self.host, self.port)
-            if self.encryption == 'starttls':
-                self.connection.starttls()
-        if self.username and self.password:
-            self.connection.login(self.username, self.password)
+        try:
+            if self.encryption == 'ssl':
+                self.connection = smtplib.SMTP_SSL(self.host, self.port)
+            else:
+                self.connection = smtplib.SMTP(self.host, self.port)
+                if self.encryption == 'starttls':
+                    self.connection.starttls()
+            if self.username and self.password:
+                self.connection.login(self.username, self.password)
+        except:
+            raise AccessException(
+                "An error occured when we were sending message. "
+                "Please try again later."
+            )
         return self
 
     def send(self, fromAddress, toAddresses, message):
         self.connection.sendmail(fromAddress, toAddresses, message)
 
     def __exit__(self, exc_type, exc_val, exc_tb):
+        if (exc_tb):
+            raise AccessException(
+                "An error occured when we were sending message. "
+                "Please try again later."
+            )
         self.connection.quit()
 
 
