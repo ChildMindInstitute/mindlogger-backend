@@ -130,6 +130,10 @@ class Notification(Resource):
     @access.public
     @autoDescribeRoute(
         Description('Send push notifications')
+        .notes(
+            'This endpoint is used to send push notifications to users using FCMNotification. <br>'
+            'This endpoint is going to be removed soon.'
+        )
             .errorResponse()
             .errorResponse('You are not logged in.', 403)
     )
