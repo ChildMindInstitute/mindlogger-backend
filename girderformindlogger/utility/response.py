@@ -442,6 +442,7 @@ def last7Days(
         sort=[("updated", DESCENDING)]
     ))
 
+
     latestResponses = [getLatestResponsesByAct(act) for act in listOfActivities]
 
     # destructure the responses
