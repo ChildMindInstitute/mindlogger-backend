@@ -75,6 +75,10 @@ class Applet(Resource):
     @access.user(scope=TokenScope.DATA_OWN)
     @autoDescribeRoute(
         Description('Get userlist, groups & statuses.')
+        .notes(
+            'this endpoint is used to get user-list for an applet. <br>'
+            'coordinator/managers can make request to this endpoint.'
+        )
         .modelParam(
             'id',
             model=FolderModel,
@@ -95,6 +99,10 @@ class Applet(Resource):
     @access.user(scope=TokenScope.DATA_WRITE)
     @autoDescribeRoute(
         Description('Assign a group to a role in an applet.')
+        .notes(
+            'this endpoint is used to assign group role for an applet. <br>'
+            'users who are associated with that group will be able to connect to this applet.'
+        )
         .deprecated()
         .responseClass('Folder')
         .modelParam('id', model=FolderModel, level=AccessType.READ)
@@ -157,6 +165,12 @@ class Applet(Resource):
     @access.user(scope=TokenScope.DATA_WRITE)
     @autoDescribeRoute(
         Description('Create an applet.')
+        .notes(
+            'Use this endpoint to create a new applet from protocol-url. <br>'
+            'You will need to wait for several minutes (5-10 mins) to see a new applet. <br>'
+            'When it\'s created you will be able to get applet using GET^user/applets endpoint. <br>'
+            'You will have all roles(manager, coordinator, editor, reviewer, user) for applets which you created.'
+        )
         .param(
             'protocolUrl',
             'URL of Activity Set from which to create applet',
@@ -204,10 +218,15 @@ class Applet(Resource):
             "message": "The applet is being created. Please check back in "
                        "several mintutes to see it."
         })
-    
+
     @access.user(scope=TokenScope.DATA_WRITE)
     @autoDescribeRoute(
         Description('Create an applet.')
+        .notes(
+            'This endpoint is used to create a new applet using protocol with single-file format. <br>'
+            'This endpoint will be widely used in the near future.'
+            '(it\'ll take seconds if we create a new applet using this endpoint.)'
+        )
         .jsonParam(
             'protocol',
             'A JSON object containing protocol information for an applet',
@@ -261,6 +280,10 @@ class Applet(Resource):
     @access.user(scope=TokenScope.DATA_WRITE)
     @autoDescribeRoute(
         Description('Get all data you are authorized to see for an applet.')
+        .notes(
+            'This endpoint returns user\'s response data for your applet by json/csv format. <br>'
+            'You\'ll need to access this endpoint only if you are manager/reviewer of this applet.'
+        )
         .param(
             'id',
             'ID of the applet for which to fetch data',
@@ -268,7 +291,7 @@ class Applet(Resource):
         )
         .param(
             'format',
-            'JSON or CSV',
+            'JSON or CSV (json by default)',
             required=False
         )
         .errorResponse('Write access was denied for this applet.', 403)
@@ -299,6 +322,9 @@ class Applet(Resource):
     @access.user(scope=TokenScope.DATA_WRITE)
     @autoDescribeRoute(
         Description('(managers only) Update the informant of an applet.')
+        .notes(
+            'managers can use this endpoint to update informant relationship for an applet.'
+        )
         .modelParam(
             'id',
             model=AppletModel,
@@ -337,6 +363,10 @@ class Applet(Resource):
     @access.user(scope=TokenScope.DATA_WRITE)
     @autoDescribeRoute(
         Description('Deactivate an applet by ID.')
+        .notes(
+            'this endpoint is used for deactivating an applet. <br>'
+            'we don\'t completely remove applet from database and we can revert it when it\'s needed.'
+        )
         .modelParam('id', model=AppletModel, level=AccessType.WRITE)
         .errorResponse('Invalid applet ID.')
         .errorResponse('Write access was denied for this applet.', 403)
@@ -371,6 +401,10 @@ class Applet(Resource):
     @access.user(scope=TokenScope.DATA_READ)
     @autoDescribeRoute(
         Description('Get an applet by ID.')
+        .notes(
+            'use this api to get applet info (protocol, activity, item) from applet_id. <br>'
+            'refreshCache parameter in this endpoint is deprecated and you don\'t need to set it.'
+        )
         .modelParam(
             'id',
             model=AppletModel,
@@ -415,6 +449,10 @@ class Applet(Resource):
     @access.user(scope=TokenScope.DATA_WRITE)
     @autoDescribeRoute(
         Description('reload protocol into database and refresh cache.')
+        .notes(
+            'this api is used for reloading applet. <br>'
+            'manager/editors will need to make request to this endpoint when they update version of protocol.'
+        )
         .modelParam(
             'id',
             model=AppletModel,
@@ -448,6 +486,10 @@ class Applet(Resource):
     @access.user(scope=TokenScope.DATA_READ)
     @autoDescribeRoute(
         Description('Get associated groups for a given role and applet ID.')
+        .notes(
+            'Use this endpoint to get associated groups for an applet. <br>'
+            'users who are associated with one of group for an applet will be able to connect this applet.'
+        )
         .modelParam('id', 'ID of the Applet.', model=AppletModel, level=AccessType.READ)
         .param(
             'role',
@@ -498,6 +540,10 @@ class Applet(Resource):
     @access.user(scope=TokenScope.DATA_WRITE)
     @autoDescribeRoute(
         Description('Invite a user to a role in an applet.')
+        .notes(
+            'coordinator/managers can use this endpoint to create a new invitation url. <br>'
+            'This endpoint is deprecated. (you\'ll need to use POST^applet/[id]/inviteUser instead of this endpoint.)'
+        )
         .modelParam(
             'id',
             model=AppletModel,
@@ -556,6 +602,10 @@ class Applet(Resource):
     @access.user(scope=TokenScope.DATA_WRITE)
     @autoDescribeRoute(
         Description('Invite a user to a role in an applet.')
+        .notes(
+            'coordinator/manager can use this endpoint to invite a user for his applet. <br>'
+            'user who is invited will get invitation link via email so that they can accept/decline invitation there.'
+        )
         .modelParam(
             'id',
             model=AppletModel,
@@ -696,6 +746,11 @@ class Applet(Resource):
     @access.user(scope=TokenScope.DATA_READ)
     @autoDescribeRoute(
         Description('Get schedule information for an applet.')
+        .notes(
+            'This endpoint is used to get schedule data for an applet. <br>'
+            'This endpoint returns schedule info for logged in user unless getAllEvents parameter is set to true. <br>'
+            '* only coordinator/managers are able to set getAllEvents to true when they are making request to this endpoint'
+        )
         .modelParam(
             'id',
             model=AppletModel,
@@ -734,6 +789,10 @@ class Applet(Resource):
     @access.user(scope=TokenScope.DATA_WRITE)
     @autoDescribeRoute(
         Description('Set or update schedule information for an applet.')
+        .notes(
+            'this endpoint is used for setting schedule for an applet. <br>'
+            'only coordinator/managers are able to make request to this endpoint. <br>'
+        )
         .modelParam(
             'id',
             model=AppletModel,

@@ -294,6 +294,9 @@ class ResponseItem(Resource):
     @access.user(scope=TokenScope.DATA_WRITE)
     @autoDescribeRoute(
         Description('Create a new user response item.')
+        .notes(
+            'This endpoint is used when a user finishs one activity on mobile app.'
+        )
         #.responseClass('Item')
         .modelParam(
             'applet',

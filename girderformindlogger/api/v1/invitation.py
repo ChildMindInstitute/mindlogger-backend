@@ -44,6 +44,10 @@ class Invitation(Resource):
     @access.public(scope=TokenScope.USER_INFO_READ)
     @autoDescribeRoute(
         Description('Get an invitation by ID.')
+        .notes(
+            'This endpoint is used to get invitation from id. <br>'
+            '(Used in the website to get invitation-html from id)'
+        )
         .modelParam(
             'id',
             model=InvitationModel,
@@ -121,6 +125,9 @@ class Invitation(Resource):
     @access.public(scope=TokenScope.USER_INFO_READ)
     @autoDescribeRoute(
         Description('Accept an invitation.')
+        .notes(
+            'This endpoint is used for logged in user to accept invitation.'
+        )
         .modelParam(
             'id',
             model=InvitationModel,
@@ -188,7 +195,7 @@ class Invitation(Resource):
 
     @access.public(scope=TokenScope.USER_INFO_READ)
     @autoDescribeRoute(
-        Description('Decline an invitation.')
+        Description('Decline an invitation from id.')
         .modelParam(
             'id',
             model=InvitationModel,

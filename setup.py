@@ -29,6 +29,7 @@ installReqs = [
     # CherryPy version is restricted due to a bug in versions >=11.1
     # https://github.com/cherrypy/cherrypy/issues/1662
     'CherryPy<11.1',
+    'pycryptodomex',
     'click',
     'click-plugins',
     'cryptography>=2.3',
