@@ -51,11 +51,16 @@ def expandObj(contextSet, data):
     if '@context' in data:
         for key in data['@context']:
             context.update(contextSet[key])
-    obj['@context'] = context
-    
+
+    if len(context.keys()):
+        obj['@context'] = context
+
     expanded = expand(obj)
     if '@context' in expanded:
         expanded.pop('@context')
+
+    if '@id' not in expanded:
+        raise ValidationException('unable to load id')
 
     return expanded
 
