@@ -55,3 +55,6 @@ tzlocal==2.0.0
 urllib3==1.25.3
 simplejson==3.16.0
 pycryptodomex==3.9.7
+rq==1.4.2
+redis==3.5.2
+rq-scheduler==0.10.0

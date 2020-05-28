@@ -18,6 +18,18 @@ def getDbConfig():
     else:
         return {}
 
+_redisClient = None
+def getRedisConnection():
+    global _redisClient
+
+    from redis import Redis
+
+    if _redisClient:
+        return _redisClient
+
+    cfg = config.getConfig()
+    _redisClient = Redis(**cfg['redis'])
+    return _redisClient
 
 def getDbConnection(uri=None, replicaSet=None, autoRetry=True, quiet=False, **kwargs):
     """
