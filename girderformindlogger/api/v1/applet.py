@@ -856,7 +856,11 @@ class Applet(Resource):
                                     'individual_events': -1
                                 }
                             })
-                        EventsModel().deleteEvent(original_id)
+                        EventsModel().deleteEvent(ObjectId(original_id))
+        else:
+            if isinstance(deleted, list):
+                for event_id in deleted:
+                    EventsModel().deleteEvent(ObjectId(event_id))
 
         if 'events' in schedule:
             # insert and update events/notifications
