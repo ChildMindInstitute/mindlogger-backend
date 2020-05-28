@@ -40,8 +40,10 @@ from girderformindlogger.models.protocol import Protocol as ProtocolModel
 from girderformindlogger.models.roles import getCanonicalUser, getUserCipher
 from girderformindlogger.models.user import User as UserModel
 from girderformindlogger.models.events import Events as EventsModel
+from girderformindlogger.utility import config, jsonld_expander, mail_utils
+from girderformindlogger.models.setting import Setting
+from girderformindlogger.settings import SettingKey
 from girderformindlogger.models.profile import Profile as ProfileModel
-from girderformindlogger.utility import config, jsonld_expander
 from pyld import jsonld
 
 USER_ROLE_KEYS = USER_ROLES.keys()
@@ -64,13 +66,19 @@ class Applet(Resource):
         self.route('PUT', (':id', 'refresh'), self.refresh)
         self.route('GET', (':id', 'schedule'), self.getSchedule)
         self.route('POST', (':id', 'invite'), self.invite)
+        self.route('POST', (':id', 'inviteUser'), self.inviteUser)
         self.route('GET', (':id', 'roles'), self.getAppletRoles)
         self.route('GET', (':id', 'users'), self.getAppletUsers)
         self.route('DELETE', (':id',), self.deactivateApplet)
+        self.route('POST', ('fromJSON', ), self.createAppletFromProtocolData)
 
     @access.user(scope=TokenScope.DATA_OWN)
     @autoDescribeRoute(
         Description('Get userlist, groups & statuses.')
+        .notes(
+            'this endpoint is used to get user-list for an applet. <br>'
+            'coordinator/managers can make request to this endpoint.'
+        )
         .modelParam(
             'id',
             model=FolderModel,
@@ -91,6 +99,10 @@ class Applet(Resource):
     @access.user(scope=TokenScope.DATA_WRITE)
     @autoDescribeRoute(
         Description('Assign a group to a role in an applet.')
+        .notes(
+            'this endpoint is used to assign group role for an applet. <br>'
+            'users who are associated with that group will be able to connect to this applet.'
+        )
         .deprecated()
         .responseClass('Folder')
         .modelParam('id', model=FolderModel, level=AccessType.READ)
@@ -153,9 +165,21 @@ class Applet(Resource):
     @access.user(scope=TokenScope.DATA_WRITE)
     @autoDescribeRoute(
         Description('Create an applet.')
+        .notes(
+            'Use this endpoint to create a new applet from protocol-url. <br>'
+            'You will need to wait for several minutes (5-10 mins) to see a new applet. <br>'
+            'When it\'s created you will be able to get applet using GET^user/applets endpoint. <br>'
+            'You will have all roles(manager, coordinator, editor, reviewer, user) for applets which you created.'
+        )
         .param(
             'protocolUrl',
             'URL of Activity Set from which to create applet',
+            required=False
+        )
+        .param(
+            'email',
+            'email for creator of applet',
+            default='',
             required=False
         )
         .param(
@@ -175,7 +199,7 @@ class Applet(Resource):
         )
         .errorResponse('Write access was denied for this applet.', 403)
     )
-    def createApplet(self, protocolUrl=None, name=None, informant=None):
+    def createApplet(self, protocolUrl=None, email='', name=None, informant=None):
         thisUser = self.getCurrentUser()
         thread = threading.Thread(
             target=AppletModel().createAppletFromUrl,
@@ -183,6 +207,7 @@ class Applet(Resource):
                 'name': name,
                 'protocolUrl': protocolUrl,
                 'user': thisUser,
+                'email': email,
                 'constraints': {
                     'informantRelationship': informant
                 } if informant is not None else None
@@ -191,14 +216,74 @@ class Applet(Resource):
         thread.start()
         return({
             "message": "The applet is being created. Please check back in "
-                       "several mintutes to see it. If you have an email "
-                       "address associated with your account, you will receive "
-                       "an email when your applet is ready."
+                       "several mintutes to see it."
+        })
+
+    @access.user(scope=TokenScope.DATA_WRITE)
+    @autoDescribeRoute(
+        Description('Create an applet.')
+        .notes(
+            'This endpoint is used to create a new applet using protocol with single-file format. <br>'
+            'This endpoint will be widely used in the near future.'
+            '(it\'ll take seconds if we create a new applet using this endpoint.)'
+        )
+        .jsonParam(
+            'protocol',
+            'A JSON object containing protocol information for an applet',
+            paramType='form',
+            required=False
+        )
+        .param(
+            'email',
+            'email for creator of applet',
+            default='',
+            required=False
+        )
+        .param(
+            'name',
+            'Name to give the applet. The Protocol\'s name will be used if '
+            'this parameter is not provided.',
+            required=False
+        )
+        .param(
+            'informant',
+            ' '.join([
+                'Relationship from informant to individual of interest.',
+                'Currently handled informant relationships are',
+                str([r for r in DEFINED_INFORMANTS.keys()])
+            ]),
+            required=False
+        )
+        .errorResponse('Write access was denied for this applet.', 403)
+    )
+    def createAppletFromProtocolData(self, protocol, email='', name=None, informant=None):
+        thisUser = self.getCurrentUser()
+
+        thread = threading.Thread(
+            target=AppletModel().createAppletFromProtocolData,
+            kwargs={
+                'name': name,
+                'protocol': protocol,
+                'user': thisUser,
+                'email': email,
+                'constraints': {
+                    'informantRelationship': informant
+                } if informant is not None else None
+            }
+        )
+        thread.start()
+        return({
+            "message": "The applet is being created. Please check back in "
+                       "several mintutes to see it."
         })
 
     @access.user(scope=TokenScope.DATA_WRITE)
     @autoDescribeRoute(
         Description('Get all data you are authorized to see for an applet.')
+        .notes(
+            'This endpoint returns user\'s response data for your applet by json/csv format. <br>'
+            'You\'ll need to access this endpoint only if you are manager/reviewer of this applet.'
+        )
         .param(
             'id',
             'ID of the applet for which to fetch data',
@@ -206,7 +291,7 @@ class Applet(Resource):
         )
         .param(
             'format',
-            'JSON or CSV',
+            'JSON or CSV (json by default)',
             required=False
         )
         .errorResponse('Write access was denied for this applet.', 403)
@@ -237,6 +322,9 @@ class Applet(Resource):
     @access.user(scope=TokenScope.DATA_WRITE)
     @autoDescribeRoute(
         Description('(managers only) Update the informant of an applet.')
+        .notes(
+            'managers can use this endpoint to update informant relationship for an applet.'
+        )
         .modelParam(
             'id',
             model=AppletModel,
@@ -275,6 +363,10 @@ class Applet(Resource):
     @access.user(scope=TokenScope.DATA_WRITE)
     @autoDescribeRoute(
         Description('Deactivate an applet by ID.')
+        .notes(
+            'this endpoint is used for deactivating an applet. <br>'
+            'we don\'t completely remove applet from database and we can revert it when it\'s needed.'
+        )
         .modelParam('id', model=AppletModel, level=AccessType.WRITE)
         .errorResponse('Invalid applet ID.')
         .errorResponse('Write access was denied for this applet.', 403)
@@ -309,6 +401,10 @@ class Applet(Resource):
     @access.user(scope=TokenScope.DATA_READ)
     @autoDescribeRoute(
         Description('Get an applet by ID.')
+        .notes(
+            'use this api to get applet info (protocol, activity, item) from applet_id. <br>'
+            'refreshCache parameter in this endpoint is deprecated and you don\'t need to set it.'
+        )
         .modelParam(
             'id',
             model=AppletModel,
@@ -353,6 +449,10 @@ class Applet(Resource):
     @access.user(scope=TokenScope.DATA_WRITE)
     @autoDescribeRoute(
         Description('reload protocol into database and refresh cache.')
+        .notes(
+            'this api is used for reloading applet. <br>'
+            'manager/editors will need to make request to this endpoint when they update version of protocol.'
+        )
         .modelParam(
             'id',
             model=AppletModel,
@@ -386,6 +486,10 @@ class Applet(Resource):
     @access.user(scope=TokenScope.DATA_READ)
     @autoDescribeRoute(
         Description('Get associated groups for a given role and applet ID.')
+        .notes(
+            'Use this endpoint to get associated groups for an applet. <br>'
+            'users who are associated with one of group for an applet will be able to connect this applet.'
+        )
         .modelParam('id', 'ID of the Applet.', model=AppletModel, level=AccessType.READ)
         .param(
             'role',
@@ -436,6 +540,10 @@ class Applet(Resource):
     @access.user(scope=TokenScope.DATA_WRITE)
     @autoDescribeRoute(
         Description('Invite a user to a role in an applet.')
+        .notes(
+            'coordinator/managers can use this endpoint to create a new invitation url. <br>'
+            'This endpoint is deprecated. (you\'ll need to use POST^applet/[id]/inviteUser instead of this endpoint.)'
+        )
         .modelParam(
             'id',
             model=AppletModel,
@@ -493,6 +601,118 @@ class Applet(Resource):
 
     @access.user(scope=TokenScope.DATA_WRITE)
     @autoDescribeRoute(
+        Description('Invite a user to a role in an applet.')
+        .notes(
+            'coordinator/manager can use this endpoint to invite a user for his applet. <br>'
+            'user who is invited will get invitation link via email so that they can accept/decline invitation there.'
+        )
+        .modelParam(
+            'id',
+            model=AppletModel,
+            level=AccessType.READ,
+            destName='applet'
+        )
+        .param(
+            'role',
+            'Role to invite this user to. One of ' + str(set(USER_ROLE_KEYS)),
+            default='user',
+            required=False
+        )
+        .param(
+            'email',
+            'required, email of user',
+            required=True,
+        )
+        .param(
+            'firstName',
+            'firstName for user',
+            required=True
+        )
+        .param(
+            'lastName',
+            'lastName for user',
+            required=True
+        )
+        .param(
+            'MRN',
+            'MRN for user',
+            default='',
+            required=False
+        )
+        .errorResponse('Write access was denied for the folder or its new parent object.', 403)
+    )
+    def inviteUser(self, applet, role="user", email='', firstName='', lastName='', MRN=''):
+        from girderformindlogger.models.invitation import Invitation
+        from girderformindlogger.models.profile import Profile
+
+        if not mail_utils.validateEmailAddress(email):
+            raise ValidationException(
+                'invalid email', 'email'
+            )
+
+        thisUser = self.getCurrentUser()
+
+        encryptedEmail = UserModel().hash(email)
+        invitedUser = UserModel().findOne({'email': encryptedEmail, 'email_encrypted': True})
+
+        if not invitedUser:
+            invitedUser = UserModel().findOne({'email': email, 'email_encrypted': {'$ne': True}})
+
+        if not AppletModel().isCoordinator(applet['_id'], thisUser):
+            raise AccessException(
+                "Only coordinators and managers can invite users."
+            )
+
+        if role not in USER_ROLE_KEYS:
+            raise ValidationException(
+                'Invalid role.',
+                'role'
+            )
+
+        invitation = Invitation().createInvitationForSpecifiedUser(
+            applet=applet,
+            coordinator=thisUser,
+            role=role,
+            user=invitedUser,
+            firstName=firstName,
+            lastName=lastName,
+            MRN=MRN,
+            userEmail=encryptedEmail
+        )
+
+        url = 'web.mindlogger.org/#/invitation/%s' % (str(invitation['_id'], ))
+
+        managers = mail_utils.htmlUserList(
+            AppletModel().listUsers(applet, 'manager', force=True)
+        )
+        coordinators = mail_utils.htmlUserList(
+            AppletModel().listUsers(applet, 'coordinator', force=True)
+        )
+        reviewers = mail_utils.htmlUserList(
+            AppletModel().listUsers(applet, 'reviewer', force=True)
+        )
+
+        html = mail_utils.renderTemplate('userInvite.mako' if invitedUser else 'inviteUserWithoutAccount.mako', {
+            'url': url,
+            'userName': firstName,
+            'coordinatorName': thisUser['firstName'],
+            'appletName': applet['displayName'],
+            'MRN': MRN,
+            'managers': managers,
+            'coordinators': coordinators,
+            'reviewers': reviewers
+        })
+
+        mail_utils.sendMail(
+            'invitation for an applet',
+            html,
+            [email]
+        )
+
+        return 'sent invitation mail to {}'.format(email)
+
+    @access.user(scope=TokenScope.DATA_WRITE)
+    @autoDescribeRoute(
         Description('Deprecated. Do not use')
         .modelParam('id', model=AppletModel, level=AccessType.READ)
         .param(
@@ -526,6 +746,11 @@ class Applet(Resource):
     @access.user(scope=TokenScope.DATA_READ)
     @autoDescribeRoute(
         Description('Get schedule information for an applet.')
+        .notes(
+            'This endpoint is used to get schedule data for an applet. <br>'
+            'This endpoint returns schedule info for logged in user unless getAllEvents parameter is set to true. <br>'
+            '* only coordinator/managers are able to set getAllEvents to true when they are making request to this endpoint'
+        )
         .modelParam(
             'id',
             model=AppletModel,
@@ -564,11 +789,29 @@ class Applet(Resource):
     @access.user(scope=TokenScope.DATA_WRITE)
     @autoDescribeRoute(
         Description('Set or update schedule information for an applet.')
+        .notes(
+            'this endpoint is used for setting schedule for an applet. <br>'
+            'only coordinator/managers are able to make request to this endpoint. <br>'
+        )
         .modelParam(
             'id',
             model=AppletModel,
             level=AccessType.READ,
             destName='applet'
+        )
+        .param(
+            'rewrite',
+            'True if delete original events and insert all of them again.',
+            default=True,
+            dataType='boolean',
+            required=False
+        )
+        .jsonParam(
+            'deleted',
+            'id array of events specifying removed events',
+            paramType='form',
+            default=[],
+            required=False
         )
         .jsonParam(
             'schedule',
@@ -579,7 +822,7 @@ class Applet(Resource):
         .errorResponse('Invalid applet ID.')
         .errorResponse('Read access was denied for this applet.', 403)
     )
-    def setSchedule(self, applet, schedule, **kwargs):
+    def setSchedule(self, applet, rewrite, deleted, schedule, **kwargs):
         thisUser = self.getCurrentUser()
         if not AppletModel().isCoordinator(applet['_id'], thisUser):
             raise AccessException(
@@ -593,26 +836,27 @@ class Applet(Resource):
                     event['id'] = ObjectId(event['id'])
                     assigned[event['id']] = True
 
-        original = EventsModel().getSchedule(applet['_id'])
+        if rewrite:
+            original = EventsModel().getSchedule(applet['_id'])
 
-        if 'events' in original:
-            for event in original['events']:
-                original_id = event.get('id')
-                if original_id not in assigned:
-                    event = EventsModel().findOne(query={
-                        "_id": original_id, 'individualized': True
-                    }, fields=['data'])
+            if 'events' in original:
+                for event in original['events']:
+                    original_id = event.get('id')
+                    if original_id not in assigned:
+                        event = EventsModel().findOne(query={
+                            "_id": original_id, 'individualized': True
+                        }, fields=['data'])
 
-                    if event:
-                        ProfileModel().update(query={
-                            "_id": {
-                                "$in": event['data']['users']
-                            }
-                            }, update={'$inc': {
-                                'individual_events': -1
-                            }
-                        })
-                    EventsModel().deleteEvent(original_id)
+                        if event:
+                            ProfileModel().update(query={
+                                "_id": {
+                                    "$in": event['data']['users']
+                                }
+                                }, update={'$inc': {
+                                    'individual_events': -1
+                                }
+                            })
+                        EventsModel().deleteEvent(original_id)
 
         if 'events' in schedule:
             # insert and update events/notifications
@@ -622,7 +866,7 @@ class Applet(Resource):
 
         return {
             "applet": {
-                "schedule": schedule
+                "schedule": schedule if rewrite else EventsModel().getSchedule(applet['_id'])
             }
         }
 
@@ -751,6 +995,10 @@ def _invite(applet, user, role, rsvp, subject):
         )
     thisUser = Applet().getCurrentUser()
     user = user if user else str(thisUser['_id'])
+
+    if mail_utils.validateEmailAddress(user):
+        user = UserModel().hash(user)
+
     if bool(rsvp):
         groupName = {
             'title': '{} {}s'.format(

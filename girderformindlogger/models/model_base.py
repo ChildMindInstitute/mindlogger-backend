@@ -716,7 +716,7 @@ class Model(object):
 
         return self.collection.delete_many(query)
 
-    def load(self, id, objectId=True, fields=None, exc=False):
+    def load(self, id, objectId=True, fields=None, exc=False, **kwargs):
         """
         Fetch a single object from the database using its _id field.
 
@@ -1457,13 +1457,13 @@ class AccessControlledModel(Model):
 
             for group in access.get('groups', []):
                 if group['id'] in user.get('groups', []):
-                    level = max(level, group['level'])
+                    level = max(level, int(group['level']))
                     if level == AccessType.ADMIN:
                         return(level)
 
             for userAccess in access.get('users', []):
                 if userAccess['id'] == user['_id']:
-                    level = max(level, userAccess['level'])
+                    level = max(level, int(userAccess['level']))
                     if level == AccessType.ADMIN:
                         return(level)
 

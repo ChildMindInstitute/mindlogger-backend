@@ -44,6 +44,144 @@ def getModelCollection(modelType):
     return(collection)
 
 
+def expandObj(contextSet, data):
+    obj = deepcopy(data)
+    context = {}
+
+    if '@context' in data:
+        for key in data['@context']:
+            context.update(contextSet[key])
+    obj['@context'] = context
+    
+    expanded = expand(obj)
+    if '@context' in expanded:
+        expanded.pop('@context')
+
+    return expanded
+
+def loadFromSingleFile(document, user):
+    if 'protocol' not in document or 'data' not in document['protocol']:
+        raise ValidationException(
+            'should contain protocol field in the json file.',
+        )
+    if 'activities' not in document['protocol']:
+        raise ValidationException(
+            'should contain activities field in the json file.',
+    )
+
+    contexts = document.get('contexts', {})
+
+    protocol = {
+        'protocol': {},
+        'activity': {},
+        'screen': {}
+    }
+
+    expandedProtocol = expandObj(contexts, document['protocol']['data'])
+    protocol['protocol'][expandedProtocol['@id']] = {
+        'expanded': expandedProtocol
+    }
+
+    protocolId = None
+    for activity in document['protocol']['activities'].values():
+        expandedActivity = expandObj(contexts, activity['data'])
+        protocol['activity'][expandedActivity['@id']] = {
+            'parentKey': 'protocol',
+            'parentId': expandedProtocol['@id'],
+            'expanded': expandedActivity
+        }
+
+        if 'items' not in activity:
+            raise ValidationException(
+                'should contain at least one item in each activity.',
+            )
+
+        for item in activity['items'].values():
+            expandedItem = expandObj(contexts, item)
+            protocol['screen'][expandedItem['@id']] = {
+                'parentKey': 'activity',
+                'parentId': expandedActivity['@id'],
+                'expanded': expandedItem
+            }
+
+    for modelType in ['protocol', 'activity', 'screen']:
+        modelClass = MODELS()[modelType]()
+        docCollection = getModelCollection(modelType)
+
+        for model in protocol[modelType].values():
+            prefName = modelClass.preferredName(model['expanded'])
+
+            if modelClass.name in ['folder', 'item']:
+                docFolder = FolderModel().createFolder(
+                    name=prefName,
+                    parent=docCollection,
+                    parentType='collection',
+                    public=True,
+                    creator=user,
+                    allowRename=True,
+                    reuseExisting=(modelType!='applet')
+                )
+
+                metadata = {modelType: model['expanded']}
+
+                tmp = model
+                while tmp.get('parentId', None):
+                    key = tmp['parentKey']
+                    tmp = protocol[key][tmp['parentId']]
+                    metadata['{}Id'.format(key)] = '{}/{}'.format(MODELS()[key]().name, tmp['_id'])
+
+                if modelClass.name=='folder':
+                    newModel = modelClass.setMetadata(
+                        docFolder,
+                        metadata
+                    )
+                elif modelClass.name=='item':
+                    newModel = modelClass.setMetadata(
+                        modelClass.createItem(
+                            name=prefName if prefName else str(len(list(
+                                FolderModel().childItems(
+                                    FolderModel().load(
+                                        docFolder,
+                                        level=None,
+                                        user=user,
+                                        force=True
+                                    )
+                                )
+                            )) + 1),
+                            creator=user,
+                            folder=docFolder,
+                            reuseExisting=True
+                        ),
+                        metadata
+                    )
+
+                # we don't need this in the future because we will only using single-file-format
+                modelClass.update(
+                    {'_id': newModel['_id']},
+                    {'$set': {
+                        'loadedFromSingleFile': True
+                    }})
+                if modelType != 'protocol':
+                    formatted = _fixUpFormat(formatLdObject(
+                        newModel,
+                        mesoPrefix = modelType,
+                        user = user,
+                        refreshCache = False
+                    ))
+
+                    createCache(newModel, formatted, modelType, user)
+                model['_id'] = newModel['_id']
+
+                if modelType == 'protocol':
+                    protocolId = newModel['_id']
+
+    return formatLdObject(
+        ProtocolModel().load(protocolId, force=True),
+        mesoPrefix = 'protocol',
+        user = user,
+        refreshCache = False
+    )
+
 def importAndCompareModelType(model, url, user, modelType):
     import threading
     from girderformindlogger.utility import firstLower
@@ -116,6 +254,15 @@ def importAndCompareModelType(model, url, user, modelType):
                     }
                 }
             )
+
+        modelClass.update(
+            {'_id': newModel['_id']},
+            {'$set': {
+                'loadedFromSingleFile': False
+            }}
+        )
+        newModel['loadedFromSingleFile'] = False
+
     formatted = _fixUpFormat(formatLdObject(
         newModel,
         mesoPrefix=modelType,
@@ -775,7 +922,10 @@ def formatLdObject(
             raise TypeError("JSON-LD must be an Object or Array.")
         newObj = obj.get('meta', obj)
         newObj = newObj.get(mesoPrefix, newObj)
-        newObj = expand(newObj, keepUndefined=keepUndefined)
+
+        if not obj.get('loadedFromSingleFile', False):
+            newObj = expand(newObj, keepUndefined=keepUndefined)
+
         if type(newObj)==list and len(newObj)==1:
             try:
                 newObj = newObj[0]
@@ -785,7 +935,7 @@ def formatLdObject(
             newObj = {}
         objID = str(obj.get('_id', 'undefined'))
         if objID=='undefined':
-            raise ResourcePathNotFound()
+            raise ResourcePathNotFound('unable to load object')
         newObj['_id'] = "/".join([snake_case(mesoPrefix), objID])
         if mesoPrefix=='applet':
             protocolUrl = obj.get('meta', {}).get('protocol', obj).get(
@@ -853,13 +1003,18 @@ def formatLdObject(
                 inserted = False
 
                 candidates = ['prefLabel', 'altLabel']
-                if len(suffix):
-                    for candidate in candidates:
-                        for key in applet['applet']:
-                            if not inserted and str(key).endswith(candidate) and len(applet['applet'][key]) and len(applet['applet'][key][0].get('@value', '')):
+                for candidate in candidates:
+                    for key in applet['applet']:
+                        if not inserted and str(key).endswith(candidate) and len(applet['applet'][key]) and len(applet['applet'][key][0].get('@value', '')):
+                            if len(suffix):
                                 applet['applet'][key][0]['@value'] += (' ' + suffix)
-                                inserted = True
 
+                            if not len(applet['applet']['url']): # for development
+                                applet['applet'][key][0]['@value'] += ' ( single-file )'
+
+                            AppletModel().update({'_id': obj['_id']}, {'$set': {'displayName': applet['applet'][key][0]['@value']}})
+
+                            inserted = True
             createCache(obj, applet, 'applet', user)
             if responseDates:
                 try:
@@ -878,83 +1033,98 @@ def formatLdObject(
                 "items": {}
             }
 
-            try:
-                protocol = componentImport(
-                    newObj,
-                    deepcopy(protocol),
-                    user,
-                    refreshCache=refreshCache
-                )
-            except:
-                print("636")
-                protocol = componentImport(
-                    newObj,
-                    deepcopy(protocol),
-                    user,
-                    refreshCache=True
-                )
+            if obj.get('loadedFromSingleFile', False):
+                activities = list(ActivityModel().find({'meta.protocolId': '{}/{}'.format(MODELS()['protocol']().name, obj['_id'])}))
+                items = list(ScreenModel().find({'meta.protocolId': '{}/{}'.format(MODELS()['protocol']().name, obj['_id'])}))
 
-            newActivities = protocol.get('activities', {}).keys()
-            newItems = protocol.get('items', {}).keys()
+                for activity in activities:
+                    formatted = formatLdObject(activity, 'activity', user)
+                    protocol['activities'][formatted['@id']] = formatted
+                for item in items:
+                    formatted = formatLdObject(item, 'screen', user)
+                    protocol['items'][formatted['@id']] = formatted
+            else:
+                try:
+                    protocol = componentImport(
+                        newObj,
+                        deepcopy(protocol),
+                        user,
+                        refreshCache=refreshCache
+                    )
+                except:
+                    print("636")
+                    protocol = componentImport(
+                        newObj,
+                        deepcopy(protocol),
+                        user,
+                        refreshCache=True
+                    )
 
-            while(any([len(newActivities), len(newItems)])):
-                activitiesNow = set(
-                    protocol.get('activities', {}).keys()
-                )
-                itemsNow = set(protocol.get('items', {}).keys())
-                for activityURL in newActivities:
-                    activity = protocol['activities'][activityURL]
-                    activity = activity.get(
-                        'meta',
-                        {}
-                    ).get('activity', activity)
-                    try:
-                        protocol = componentImport(
-                            deepcopy(activity),
-                            deepcopy(protocol),
-                            user,
-                            refreshCache=refreshCache
-                        )
-                    except:
-                        print("670")
-                        protocol = componentImport(
-                            deepcopy(activity),
-                            deepcopy(protocol),
-                            user,
-                            refreshCache=True
-                        )
-                for itemURL in newItems:
-                    activity = protocol['items'][itemURL]
-                    activity = activity.get(
-                        'meta',
-                        {}
-                    ).get('screen', activity)
-                    try:
-                        protocol = componentImport(
-                            deepcopy(activity),
-                            deepcopy(protocol),
-                            user,
-                            refreshCache=refreshCache
-                        )
-                    except:
-                        print("691")
-                        protocol = componentImport(
-                            deepcopy(activity),
-                            deepcopy(protocol),
-                            user,
-                            refreshCache=True
-                        )
-                newActivities = list(
-                    set(
+                newActivities = protocol.get('activities', {}).keys()
+                newItems = protocol.get('items', {}).keys()
+
+                while(any([len(newActivities), len(newItems)])):
+                    activitiesNow = set(
                         protocol.get('activities', {}).keys()
-                    ) - activitiesNow
-                )
-                newItems = list(
-                    set(
-                        protocol.get('items', {}).keys()
-                    ) - itemsNow
-                )
-            return(_fixUpFormat(protocol))
+                    )
+                    itemsNow = set(protocol.get('items', {}).keys())
+                    for activityURL in newActivities:
+                        activity = protocol['activities'][activityURL]
+                        activity = activity.get(
+                            'meta',
+                            {}
+                        ).get('activity', activity)
+                        try:
+                            protocol = componentImport(
+                                deepcopy(activity),
+                                deepcopy(protocol),
+                                user,
+                                refreshCache=refreshCache
+                            )
+                        except:
+                            print("670")
+                            protocol = componentImport(
+                                deepcopy(activity),
+                                deepcopy(protocol),
+                                user,
+                                refreshCache=True
+                            )
+                    for itemURL in newItems:
+                        activity = protocol['items'][itemURL]
+                        activity = activity.get(
+                            'meta',
+                            {}
+                        ).get('screen', activity)
+                        try:
+                            protocol = componentImport(
+                                deepcopy(activity),
+                                deepcopy(protocol),
+                                user,
+                                refreshCache=refreshCache
+                            )
+                        except:
+                            print("691")
+                            protocol = componentImport(
+                                deepcopy(activity),
+                                deepcopy(protocol),
+                                user,
+                                refreshCache=True
+                            )
+                    newActivities = list(
+                        set(
+                            protocol.get('activities', {}).keys()
+                        ) - activitiesNow
+                    )
+                    newItems = list(
+                        set(
+                            protocol.get('items', {}).keys()
+                        ) - itemsNow
+                    )
+            
+            formatted = _fixUpFormat(protocol)
+
+            createCache(obj, formatted, 'protocol')
+            return formatted
         else:
             return(_fixUpFormat(newObj))
     except:

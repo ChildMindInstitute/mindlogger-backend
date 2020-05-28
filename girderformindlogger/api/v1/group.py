@@ -312,12 +312,17 @@ class Group(Resource):
         groupModel = self._model
         user = self.getCurrentUser()
         if email is not None:
-            userToInvite = User().findOne(query={"email": email}, force=True)
+            userToInvite = User().findOne({'email': User().hash(email), 'email_encrypted': True}, force=True)
+            if userToInvite is None:
+                userToInvite = User().findOne({'email': email, 'email_encrypted': {'$ne': True}}, force=True)
+
         if userToInvite is None:
+            encryptedEmail = User().hash(email) if email else None
+
             try:
-                group["queue"] = list(set([email, *group.get("queue", [])]))
+                group["queue"] = list(set([encryptedEmail, *group.get("queue", [])]))
             except:
-                group["queue"] = list(set([email]))
+                group["queue"] = list(set([encryptedEmail]))
             groupModel.updateGroup(group)
             userToInvite = ProtoUser().createProtoUser(email=email)
             # TODO: send email to invite user
@@ -356,7 +361,7 @@ class Group(Resource):
                 mail_utils.sendMail(
                     "%s: You've been invited to a group" % Setting().get(SettingKey.BRAND_NAME),
                     html,
-                    [userToInvite['email']]
+                    [email]
                 )
 
         group['access'] = groupModel.getFullAccessList(group)

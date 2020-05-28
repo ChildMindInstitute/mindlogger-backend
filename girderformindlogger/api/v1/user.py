@@ -164,6 +164,9 @@ class User(Resource):
     @access.public(scope=TokenScope.USER_INFO_READ)
     @autoDescribeRoute(
         Description('Get a user by ID.')
+        .notes(
+            'This endpoint is used to get user data (firstName, lastName) from id'
+        )
         .param('id', 'Profile ID or ID code', required=True)
         .errorResponse('ID was invalid.')
         .errorResponse('You do not have permission to see this user.', 403)
@@ -176,6 +179,10 @@ class User(Resource):
     @access.user(scope=TokenScope.DATA_WRITE)
     @autoDescribeRoute(
         Description('Set or update your own custom schedule information for an applet.')
+        .notes(
+            'This endpoint is used when users want to set their own custom schedule. <br>'
+            'we are not using this functionality at the moment.'
+        )
         .modelParam(
             'id',
             model=AppletModel,
@@ -220,6 +227,11 @@ class User(Resource):
     @access.user(scope=TokenScope.DATA_WRITE)
     @autoDescribeRoute(
         Description('Set or update custom schedule information for a user of an applet you manage or coordinate.')
+        .notes(
+            'This endpoint designed for coordinators/managers to update individualized schedule. <br>'
+            'But we are not using this endpoint at the moment. <br>'
+            'Use PUT^applet/[id]/schedule instead of this.'
+        )
         .modelParam(
             'uid',
             model=ProfileModel,
@@ -242,6 +254,7 @@ class User(Resource):
         )
         .errorResponse('Invalid ID.')
         .errorResponse('Read access was denied.', 403)
+        .deprecated()
     )
     def setOtherSchedule(self, profile, applet, schedule, **kwargs):
         import threading
@@ -534,6 +547,9 @@ class User(Resource):
     @access.public(scope=TokenScope.DATA_READ)
     @autoDescribeRoute(
         Description('Get all your applets by role.')
+        .notes(
+            'This endpoint is used for users to get their applets with specified role.'
+        )
         .param(
             'role',
             'One of ' + str(USER_ROLES.keys()),
@@ -673,8 +689,17 @@ class User(Resource):
     @access.public
     @autoDescribeRoute(
         Description('Log in to the system.')
-        .notes('Pass your username and password using HTTP Basic Auth. Sends'
-               ' a cookie that should be passed back in future requests.')
+        .notes(
+                'Pass your username and password using HTTP Basic Auth. Sends'
+               ' a cookie that should be passed back in future requests. <br>'
+               'this endpoint is used when users login mindlogger.'
+        )
+        .param(
+            'loginAsEmail',
+            "set to false when logging in as username (this value is set to true by default)",
+            default = True,
+            required=False
+        )
         .param('Girder-OTP', 'A one-time password for this user',
                paramType='header', required=False)
         .param('deviceId', 'device id for push notifications',
@@ -684,7 +709,7 @@ class User(Resource):
         .errorResponse('Missing Authorization header.', 401)
         .errorResponse('Invalid login or password.', 403)
     )
-    def login(self):
+    def login(self, loginAsEmail):
         import threading
         from girderformindlogger.utility.mail_utils import validateEmailAddress
 
@@ -717,18 +742,30 @@ class User(Resource):
                 raise RestException('Invalid HTTP Authorization header', 401)
 
             login, password = credentials.split(':', 1)
-            if validateEmailAddress(login):
+
+            isEmail = validateEmailAddress(login)
+
+            if not loginAsEmail and isEmail:
                 raise AccessException(
                     "Please log in with a username, not an email address."
                 )
+            if loginAsEmail and not isEmail:
+                raise AccessException(
+                    "Please enter valid email address"
+                )
+
             otpToken = cherrypy.request.headers.get('Girder-OTP')
             try:
-                user = self._model.authenticate(login, password, otpToken)
+                user = self._model.authenticate(login, password, otpToken, loginAsEmail = True)
             except:
                 raise AccessException(
                     "Incorrect password for {} if that user exists".format(
                         login
                     )
+                )
+            if user.get('exception', None):
+                raise AccessException(
+                    user['exception']
                 )
 
             if deviceId:
@@ -753,7 +790,10 @@ class User(Resource):
     @autoDescribeRoute(
         Description('Log out of the system.')
         .responseClass('Token')
-        .notes('Attempts to delete your authentication cookie.')
+        .notes(
+            'Attempts to delete your authentication cookie. <br>'
+            'This endpoint is used when users logout. <br>'
+        )
     )
     def logout(self):
         token = self.getCurrentToken()
@@ -766,8 +806,12 @@ class User(Resource):
     @filtermodel(model=UserModel, addFields={'authToken'})
     @autoDescribeRoute(
         Description('Create a new user.')
+        .notes(
+            'This endpoint is used to create a new account in mindlogger. <br>'
+            'we save user\'s email as hashed value, so nobody will be able to see actual email address. <br>'
+            'we don\'t save user\'s firstName and lastName as plain text in the database.'
+        )
         .responseClass('User')
-        .param('login', "The user's requested login.")
         .param('password', "The user's requested password")
         .param(
             'displayName',
@@ -793,14 +837,13 @@ class User(Resource):
     )
     def createUser(
         self,
-        login,
         password,
         displayName="",
         email="",
         admin=False,
         lastName=None,
         firstName=None
-    ): # 🔥 delete lastName once fully deprecated
+    ):
         currentUser = self.getCurrentUser()
 
         regPolicy = Setting().get(SettingKey.REGISTRATION_POLICY)
@@ -813,11 +856,17 @@ class User(Resource):
                     'administrator to create an account for you.')
 
         user = self._model.createUser(
-            login=login, password=password, email=email,
+            login="", 
+            password=password, 
+            email=email,
             firstName=displayName if len(
                 displayName
             ) else firstName if firstName is not None else "",
-            lastName=lastName, admin=admin, currentUser=currentUser) # 🔥 delete firstName and lastName once fully deprecated
+            lastName=lastName, 
+            admin=admin, 
+            currentUser=currentUser,
+            encryptEmail=True
+        )
 
         if not currentUser and self._model.canLogin(user):
             setCurrentUser(user)
@@ -853,6 +902,10 @@ class User(Resource):
     @access.user
     @autoDescribeRoute(
         Description('Delete a user by ID.')
+        .notes(
+            'This endpoint is used to remove an account using id. <br>'
+            'The removed account won\'t be reverted.'
+        )
         .modelParam('id', model=UserModel, level=AccessType.ADMIN)
         .errorResponse('ID was invalid.')
         .errorResponse('You do not have permission to delete this user.', 403)
@@ -864,10 +917,13 @@ class User(Resource):
     @access.user
     @autoDescribeRoute(
         Description('Get detailed information of accessible users.')
+        .notes(
+            'This endpoint is used to get number of folders that user has access'
+        )
     )
     def getUsersDetails(self):
-        nUsers = self._model.findWithPermissions(user=self.getCurrentUser(
-        )).count()
+        nUsers = len(self._model.findWithPermissions(user=self.getCurrentUser(
+        )))
         return {'nUsers': nUsers}
 
     @access.user
@@ -916,11 +972,11 @@ class User(Resource):
         firstName=None,
         lastName=None
     ):
-        # 🔥 delete firstName and lastName once fully deprecated
-        user['firstName'] = displayName if len(
+        user['displayName'] = displayName if len(
             displayName
         ) else firstName if firstName is not None else ""
-        user['email'] = email
+        user['email'] = UserModel().hash(email)
+        user['email_encrypted'] = True
 
         # Only admins can change admin state
         if admin is not None:
@@ -935,7 +991,7 @@ class User(Resource):
                     raise AccessException('Only admins may change status.')
                 if user['status'] == 'pending' and status == 'enabled':
                     # Send email on the 'pending' -> 'enabled' transition
-                    self._model._sendApprovedEmail(user)
+                    self._model._sendApprovedEmail(user, email)
                 user['status'] = status
 
         try:
@@ -948,21 +1004,14 @@ class User(Resource):
         return(
             {'message': 'Update saved, but `PUT /user/{:id}` is deprecated.'}
         )
-        # Only admins can change status
-        if status is not None and status != user.get('status', 'enabled'):
-            if not self.getCurrentUser()['admin']:
-                raise AccessException('Only admins may change status.')
-            if user['status'] == 'pending' and status == 'enabled':
-                # Send email on the 'pending' -> 'enabled' transition
-                self._model._sendApprovedEmail(user)
-            user['status'] = status
-
-        return self._model.save(user)
 
     @access.admin
     @autoDescribeRoute(
         Description("Change a user's password.")
-        .notes('Only administrators may use this endpoint.')
+        .notes(
+            'Only administrators may use this endpoint. <br>'
+            'This endpoint is used for updating password without checking original password.'
+        )
         .modelParam('id', model=UserModel, level=AccessType.ADMIN)
         .param('password', "The user's new password.")
         .errorResponse('You are not an administrator.', 403)
@@ -975,6 +1024,9 @@ class User(Resource):
     @access.user
     @autoDescribeRoute(
         Description('Change your password.')
+        .notes(
+            'This endpoint is used when users need to update their password.'
+        )
         .param('old', 'Your current password or a temporary access token.')
         .param('new', 'Your new password.')
         .errorResponse(('You are not logged in.',
@@ -1009,11 +1061,18 @@ class User(Resource):
     @autoDescribeRoute(
         Description("Create a temporary access token for a user.  The user's "
                     'password is not changed.')
+        .notes(
+            'This endpoint is used in forgot-password functionality <br>'
+            'backend sends temporary access link to user via email.'
+        )
         .param('email', 'Your email address.', strip=True)
         .errorResponse('That email does not exist in the system.')
     ) ## TODO: recreate by login
     def generateTemporaryPassword(self, email):
-        user = self._model.findOne({'email': email.lower()})
+        user = self._model.findOne({'email': self._model.hash(email.lower()), 'email_encrypted': True})
+
+        if not user:
+            user = self._model.findOne({'email': email.lower(), 'email_encrypted': {'$ne': True}})
 
         if not user:
             raise RestException('That email is not registered.')
@@ -1040,6 +1099,10 @@ class User(Resource):
         Description('Check if a specified token is a temporary access token '
                     'for the specified user.  If the token is valid, returns '
                     'information on the token and user.')
+        .notes(
+            'This endpoint is used in forgot-password functionality. <br>'
+            'When users click link from their mail box frontend makes request to this endpoint.'
+        )
         .modelParam('id', 'The user ID to check.', model=UserModel, force=True)
         .param('token', 'The token to check.')
         .errorResponse('The token does not grant temporary access to the specified user.', 401)
@@ -1074,6 +1137,9 @@ class User(Resource):
     @access.public
     @autoDescribeRoute(
         Description('Get detailed information about a user.')
+        .notes(
+            ''
+        )
         .modelParam('id', model=UserModel, level=AccessType.READ)
         .errorResponse()
         .errorResponse('Read access was denied on the user.', 403)
@@ -1176,6 +1242,10 @@ class User(Resource):
     @access.public
     @autoDescribeRoute(
         Description('Verify an email address using a token.')
+        .notes(
+            'we use this endpoint for email-verification process. <br>'
+            '* this endpoint is used when users click email-verification link in their mail box.'
+        )
         .modelParam('id', 'The user ID to check.', model=UserModel, force=True)
         .param('token', 'The token to check.')
         .errorResponse('The token is invalid or expired.', 401)
@@ -1214,24 +1284,31 @@ class User(Resource):
     @access.public
     @autoDescribeRoute(
         Description('Send verification email.')
-        .param('login', 'Your login.', strip=True)
+        .notes(
+            'this endpoint is used for sending verificiation email to user. <br>'
+            'we don\'t use this endpoint often since we automatically do it when users sign-up.'
+        )
+        .param('email', 'Your email.', strip=True)
         .errorResponse('That login is not registered.', 401)
     )
-    def sendVerificationEmail(self, login):
-        loginField = 'email' if '@' in login else 'login'
-        user = self._model.findOne({loginField: login.lower()})
+    def sendVerificationEmail(self, email):
+        user = self._model.findOne({'email': email})
 
         if not user:
             raise RestException('That login is not registered.', 401)
 
-        self._model._sendVerificationEmail(user)
+        self._model._sendVerificationEmail(user, email)
         return {'message': 'Sent verification email.'}
 
     @access.user
     @autoDescribeRoute(
         Description('Change your username.')
+        .notes(
+            'this endpoint is used for updating user\'s login name but it is deprecated since we are using email as login'
+        )
         .param('username', 'Your new username.')
         .errorResponse(('You are not logged in.',), 401)
+        .deprecated()
     )
     def changeUserName(self, username):
         user = self.getCurrentUser()

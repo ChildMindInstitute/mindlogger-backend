@@ -38,6 +38,7 @@ def test_1_HBN(args):
     protocolUrl, act1, act2, act1Item, act2Item, expectedResults = args
     try:
         print('\n\n TEST 1: HBN')
+        # should be fixed in the future
         # fullTest(protocolUrl, act1, act2, act1Item, act2Item, expectedResults)
     except Exception as e:
         print('\n\n ERROR:', e)

@@ -11,13 +11,13 @@ from girderformindlogger.constants import AccessType, DEFINED_RELATIONS,       \
     PROFILE_FIELDS
 from girderformindlogger.exceptions import ValidationException, GirderException
 from girderformindlogger.models.folder import Folder
-from girderformindlogger.models.model_base import AccessControlledModel
+from girderformindlogger.models.aes_encrypt import AESEncryption, AccessControlledModel
 from girderformindlogger.utility.model_importer import ModelImporter
 from girderformindlogger.utility.progress import noProgress, \
     setResponseTimeLimit
 
 
-class Profile(AccessControlledModel, dict):
+class Profile(AESEncryption, dict):
     """
     Profiles store customizable information specific to both users and applets.
     These data can be sensitive and are access controlled.
@@ -38,6 +38,13 @@ class Profile(AccessControlledModel, dict):
             '_id', 'created', 'updated', 'meta', 'appletId',
             'parentCollection', 'creatorId', 'baseParentType', 'baseParentId'
         ))
+
+        self.initAES([
+            ('firstName', 64),
+            ('lastName', 64),
+            ('userDefined.displayName', 64),
+            ('coordinatorDefined.displayName', 64)
+        ])
 
     def display(self, p, role):
         """
@@ -159,15 +166,16 @@ class Profile(AccessControlledModel, dict):
         """
         profileFields = PROFILE_FIELDS
 
-        if showEmail:
+        if showEmail and not userProfile.get('email_encrypted', False):
             profileFields.append('email')
 
-        displayProfile = {
+        displayProfile = userProfile.get("coordinatorDefined", {})
+        displayProfile.update(userProfile.get("userDefined", {}))
+
+        displayProfile.update({
             k: v for k, v in userProfile.items(
             ) if k in profileFields
-        }
-        displayProfile.update(userProfile.get("coordinatorDefined", {}))
-        displayProfile.update(userProfile.get("userDefined", {}))
+        })
 
         if showIDCode:
             from girderformindlogger.models.ID_code import IDCode
@@ -267,7 +275,7 @@ class Profile(AccessControlledModel, dict):
         if 'invitedBy' in profile:
             profileDefinitions['invitedBy'] = self.cycleDefinitions(
                 profile['invitedBy'],
-                showEmail=True
+                showEmail=False
             )
 
         if forceManager and not forceReviewer:
@@ -772,7 +780,7 @@ class Profile(AccessControlledModel, dict):
                         'displayName',
                         user.get('firstName')
                     ),
-                    'email': user.get('email')
+                    'email': user.get('email') if not user.get('email_encrypted', None) else ''
                 }
             }.items() if v is not None
         }
@@ -853,7 +861,7 @@ class Profile(AccessControlledModel, dict):
             'parentCollection': 'profile'
         }, fields=fields, user=user, level=level)
 
-        return folders.count()
+        return len(folders)
 
     def subtreeCount(self, folder, includeItems=True, user=None, level=None):
         """

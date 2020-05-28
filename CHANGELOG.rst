@@ -8,6 +8,21 @@ Changes
 -------
 Unreleased
 ==========
+2020-05-20: v0.14.8
+update setSchedule endpoint to accept updated fields from admin panel
+
+2020-05-17: v0.14.7
+encrypt fields
+
+2020-05-14: v0.14.6
+encrypt user's email, update invitation mail template
+
+2020-05-08: v0.14.5
+make coordinators insert MRN, displayName, email when inviting user
+
+2020-05-06: v0.14.4
+make a new router to upload protocols using single-file format (issue - 201)
+
 2020-04-29: v0.14.3
 fix an issue in createApplet function (970), update getSchedule
 

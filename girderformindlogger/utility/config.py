@@ -57,15 +57,18 @@ def loadConfig():
         port = int(os.environ['GIRDER_PORT'])
         cherrypy.config['server.socket_port'] = port
 
+    if 'database' not in cherrypy.config:
+        cherrypy.config['database'] = {}
+
     if 'GIRDER_MONGO_URI' in os.environ:
-        if 'database' not in cherrypy.config:
-            cherrypy.config['database'] = {}
         cherrypy.config['database']['uri'] = os.getenv('GIRDER_MONGO_URI')
 
     if 'GIRDER_TEST_DB' in os.environ:
         cherrypy.config['database']['uri'] =\
             os.environ['GIRDER_TEST_DB'].replace('.', '_')
 
+    if 'AES_KEY' in os.environ:
+        cherrypy.config['aes_key'] = bytes(os.getenv('AES_KEY'), 'utf8')
 
 def getConfig():
     if 'database' not in cherrypy.config:
