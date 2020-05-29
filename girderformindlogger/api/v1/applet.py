@@ -39,11 +39,11 @@ from girderformindlogger.models.item import Item as ItemModel
 from girderformindlogger.models.protocol import Protocol as ProtocolModel
 from girderformindlogger.models.roles import getCanonicalUser, getUserCipher
 from girderformindlogger.models.user import User as UserModel
-from girderformindlogger.models.pushNotification import PushNotification as PushNotificationModel
 from girderformindlogger.models.events import Events as EventsModel
 from girderformindlogger.utility import config, jsonld_expander, mail_utils
 from girderformindlogger.models.setting import Setting
 from girderformindlogger.settings import SettingKey
+from girderformindlogger.models.profile import Profile as ProfileModel
 from pyld import jsonld
 
 USER_ROLE_KEYS = USER_ROLES.keys()
@@ -656,7 +656,7 @@ class Applet(Resource):
         invitedUser = UserModel().findOne({'email': encryptedEmail, 'email_encrypted': True})
 
         if not invitedUser:
-            invitedUser = UserModel().findOne({'email': email, 'email_encrypted': {'$ne': True}})            
+            invitedUser = UserModel().findOne({'email': email, 'email_encrypted': {'$ne': True}})
 
         if not AppletModel().isCoordinator(applet['_id'], thisUser):
             raise AccessException(
@@ -843,38 +843,29 @@ class Applet(Resource):
                 for event in original['events']:
                     original_id = event.get('id')
                     if original_id not in assigned:
-                        PushNotificationModel().delete_notification(original_id)
-                        EventsModel().deleteEvent(original_id)
+                        event = EventsModel().findOne(query={
+                            "_id": original_id, 'individualized': True
+                        }, fields=['data'])
+
+                        if event:
+                            ProfileModel().update(query={
+                                "_id": {
+                                    "$in": event['data']['users']
+                                }
+                                }, update={'$inc': {
+                                    'individual_events': -1
+                                }
+                            })
+                        EventsModel().deleteEvent(ObjectId(original_id))
         else:
             if isinstance(deleted, list):
                 for event_id in deleted:
-                    PushNotificationModel().delete_notification(ObjectId(event_id))
                     EventsModel().deleteEvent(ObjectId(event_id))
 
         if 'events' in schedule:
             # insert and update events/notifications
             for event in schedule['events']:
                 savedEvent = EventsModel().upsertEvent(event, applet['_id'], event.get('id', None))
-
-                if 'data' in event and 'useNotifications' in event['data'] and event['data']['useNotifications']:
-                    if 'notifications' in event['data'] and event['data']['notifications'][0]['start']:
-                        # in case of daily/weekly event
-                        exist_notification = None
-
-                        if 'id' in event:
-                            exist_notification = PushNotificationModel().findOne(query={'_id': event['id']})
-
-                        if exist_notification:
-                            PushNotificationModel().replaceNotification(
-                                applet['_id'],
-                                savedEvent,
-                                thisUser,
-                                exist_notification)
-                        else:
-                            PushNotificationModel().replaceNotification(
-                                applet['_id'],
-                                savedEvent,
-                                thisUser)
                 event['id'] = savedEvent['_id']
 
         return {

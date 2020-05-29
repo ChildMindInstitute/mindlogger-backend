@@ -434,6 +434,25 @@ class ResponseItem(Resource):
                 aggregateAndSave(newItem, informant)
                 newItem['readOnly'] = True
             print(newItem)
+
+            # update profile activity
+            profile = Profile()
+            data = profile.findOne(query={
+                "_id": subject_id
+            })
+
+            if not len(data['completed_activities']):
+                data['completed_activities'].append({
+                    "activity_id": metadata['activity']['@id'],
+                    "completed_time": now.strftime("%Y/%m/%d")
+                })
+
+            for activity in data['completed_activities']:
+                if activity["activity_id"] == metadata['activity']['@id']:
+                    activity["completed_time"] = now.strftime("%Y/%m/%d")
+
+            profile.save(data, validate=False)
+
             return(newItem)
         except:
             import sys, traceback

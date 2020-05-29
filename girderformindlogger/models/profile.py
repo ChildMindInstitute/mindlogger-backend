@@ -27,8 +27,10 @@ class Profile(AESEncryption, dict):
         self.name = 'profile'
         self.ensureIndices(
             (
-                'appletId', 
-                'userId'
+                'appletId',
+                'userId',
+                'individual_events',
+                'completed_activities'
             )
         )
 
@@ -369,6 +371,18 @@ class Profile(AESEncryption, dict):
                 "You do not have adequate permissions to update this profile."
             )
         return self.save(profile, validate=False)
+
+    def updateProfiles(self, user, data):
+        data = {'$set': data}
+        try:
+            self.update(query={
+                'userId': {
+                    '$in': [user['_id']]
+                },
+                'profile': True
+            }, update=data, multi=True)
+        except ValueError as e:
+            print("Error  while updating Profile")
 
     def updateRelations(self, profileId):
         relations = list(self.find({
@@ -755,6 +769,10 @@ class Profile(AESEncryption, dict):
                 'profile': True,
                 'created': now,
                 'updated': now,
+                'deviceId': user['deviceId'],
+                'timezone': user['timezone'],
+                'individual_events': 0,
+                'completed_activities': [],
                 'size': 0,
                 'coordinatorDefined': {},
                 'userDefined': {
