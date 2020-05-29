@@ -1,4 +1,6 @@
 import random
+
+import cherrypy
 from redis import Redis
 from rq_scheduler import Scheduler
 from datetime import datetime, timedelta
@@ -7,7 +9,8 @@ from girderformindlogger.external.notification import send_push_notification
 
 class PushNotification(Scheduler):
     def __init__(self, event):
-        super(PushNotification, self).__init__(connection=Redis())
+        super(PushNotification, self).__init__(connection=Redis.from_url(
+            cherrypy.config['redis_uri']))
         self.current_time = datetime.utcnow()
         self.event = event
         self.notification_type = 1
@@ -15,7 +18,7 @@ class PushNotification(Scheduler):
             "start": datetime.utcnow(),
             "end": None
         }
-        self.start_time = datetime.strptime(event['data']['notifications'][0]['start'], '%H:%M')
+        self.start_time = datetime.strptime(event['data']['notifications'][0].get('start') or self.current_time.strftime('%H:%M'), '%H:%M')
         self.end_time = None
 
     def set_schedules(self):
@@ -186,7 +189,7 @@ class PushNotification(Scheduler):
                     float(self.event['schedule']['end']) / 1000).strftime('%Y/%m/%d')
 
     def remove_schedules(self, jobs=None):
-        jobs = jobs or self.event['schedulers']
+        jobs = jobs or self.event.get('schedulers') or []
         for job in jobs:
             self.cancel(job)
 

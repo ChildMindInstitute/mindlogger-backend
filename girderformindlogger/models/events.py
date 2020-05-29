@@ -37,8 +37,9 @@ class Events(Model):
 
     def deleteEvent(self, event_id):
         event = self.findOne({'_id': ObjectId(event_id)})
-        push_notification = PushNotificationModel(event=event)
-        push_notification.remove_schedules()
+        if event:
+            push_notification = PushNotificationModel(event=event)
+            push_notification.remove_schedules()
         self.removeWithQuery({'_id': ObjectId(event_id)})
 
     def upsertEvent(self, event, applet_id, event_id=None):
