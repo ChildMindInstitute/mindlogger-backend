@@ -9,8 +9,7 @@ from girderformindlogger.external.notification import send_push_notification
 
 class PushNotification(Scheduler):
     def __init__(self, event):
-        super(PushNotification, self).__init__(connection=Redis.from_url(
-            cherrypy.config['redis_uri']))
+        super(PushNotification, self).__init__(connection=Redis())
         self.current_time = datetime.utcnow()
         self.event = event
         self.notification_type = 1

@@ -70,8 +70,6 @@ def loadConfig():
     if 'AES_KEY' in os.environ:
         cherrypy.config['aes_key'] = bytes(os.getenv('AES_KEY'), 'utf8')
 
-    cherrypy.config['redis_uri'] = os.getenv('REDIS_URI', 'redis://localhost/0')
-
 def getConfig():
     if 'database' not in cherrypy.config:
         loadConfig()
