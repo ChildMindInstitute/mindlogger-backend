@@ -5,11 +5,12 @@ from redis import Redis
 from rq_scheduler import Scheduler
 from datetime import datetime, timedelta
 from girderformindlogger.external.notification import send_push_notification
+from girderformindlogger.models import getRedisConnection
 
 
 class PushNotification(Scheduler):
     def __init__(self, event):
-        super(PushNotification, self).__init__(connection=Redis())
+        super(PushNotification, self).__init__(connection=getRedisConnection())
         self.current_time = datetime.utcnow()
         self.event = event
         self.notification_type = 1
