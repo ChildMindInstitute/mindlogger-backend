@@ -700,7 +700,8 @@ class Applet(Resource):
             'MRN': MRN,
             'managers': managers,
             'coordinators': coordinators,
-            'reviewers': reviewers
+            'reviewers': reviewers,
+            'role': role
         })
 
         mail_utils.sendMail(
