@@ -14,6 +14,11 @@ from girderformindlogger.utility import config
 from girderformindlogger.constants import ServerMode
 from . import webroot
 
+from rq import Connection, Worker
+from multiprocessing import Process
+from rq_scheduler import Scheduler
+from girderformindlogger.models import getRedisConnection
+
 with open(os.path.join(os.path.dirname(__file__), 'error.mako')) as f:
     _errorTemplate = f.read()
 
@@ -81,8 +86,26 @@ def configureServer(mode=None, plugins=None, curConfig=None):
     api_main.addApiToNode(root)
 
     girderformindlogger.events.setupDaemon()
-    cherrypy.engine.subscribe('start', girderformindlogger.events.daemon.start)
-    cherrypy.engine.subscribe('stop', girderformindlogger.events.daemon.stop)
+
+    redis = getRedisConnection()
+    with Connection(connection=redis):
+        worker = Process(target=Worker(['default']).work, args=())
+
+    scheduler = Process(target=Scheduler(connection=redis).run, args=())
+
+    def startEngine():
+        girderformindlogger.events.daemon.start()
+        worker.start()
+        scheduler.start()
+
+    def stopEngine():
+        girderformindlogger.events.daemon.stop()
+        worker.terminate()
+        scheduler.terminate()
+
+    cherrypy.engine.subscribe('start', startEngine)
+    cherrypy.engine.subscribe('stop', stopEngine)
+
 
     routeTable = loadRouteTable()
     info = {
