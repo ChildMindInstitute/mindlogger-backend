@@ -30,6 +30,7 @@ class Folder(AccessControlledModel):
                 'parentId',
                 'name',
                 'lowerName',
+                'duplicateOf',
                 'meta.activity.@type',
                 'meta.protocol.@type',
                 'meta.protocol.url',

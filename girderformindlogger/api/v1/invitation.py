@@ -151,8 +151,15 @@ class Invitation(Resource):
             raise AccessException(
                 "You must be logged in to accept an invitation."
             )
-        return(InvitationModel().acceptInvitation(invitation, currentUser, email))
 
+        profile = InvitationModel().acceptInvitation(invitation, currentUser, email)
+
+        if invitation.get('role', 'user') == 'editor' or invitation.get('role', 'user') == 'manager':
+            InvitationModel().accessToDuplicatedApplets(invitation, currentUser, email)
+
+        InvitationModel().remove(invitation)
+
+        return profile
     @access.public(scope=TokenScope.USER_INFO_READ)
     @autoDescribeRoute(
         Description('Accept an invitation by token.')
@@ -191,7 +198,15 @@ class Invitation(Resource):
             raise AccessException(
                 "Invalid token."
             )
-        return(InvitationModel().acceptInvitation(invitation, currentUser, email))
+
+        profile = InvitationModel().acceptInvitation(invitation, currentUser, email)
+
+        # editors should be able to access duplicated applets
+        if invitation.get('role','user') == 'editor' or invitation.get('role', 'user') == 'manager':
+            InvitationModel().accessToDuplicatedApplets(invitation, currentUser, email)
+
+        InvitationModel().remove(invitation)
+        return profile
 
     @access.public(scope=TokenScope.USER_INFO_READ)
     @autoDescribeRoute(

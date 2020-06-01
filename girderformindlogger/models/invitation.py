@@ -133,6 +133,7 @@ class Invitation(AESEncryption):
         now = datetime.datetime.utcnow()
 
         invitation = {
+            'inviterId': coordinator['_id'],
             'appletId': applet['_id'],
             'created': now,
             'updated': now,
@@ -225,6 +226,9 @@ class Invitation(AESEncryption):
         from girderformindlogger.utility import mail_utils
 
         applet = Applet().load(invitation['appletId'], force=True)
+        if not applet:
+            raise ValidationException('invalid invitation')
+
         profiles = None
         if 'idCode' in invitation:
             profiles = IDCode().findProfile(invitation['idCode'])
@@ -301,11 +305,32 @@ class Invitation(AESEncryption):
 
         UserModel().appendApplet(user, applet['_id'], new_roles)
 
-        self.remove(invitation)        
         return(Profile().displayProfileFields(
             Profile().load(profile['_id'], force=True),
             user
         ))
+
+    def accessToDuplicatedApplets(self, invitation, user, userEmail = ''):
+        from girderformindlogger.models.applet import Applet
+        from girderformindlogger.models.user import User as UserModel
+        duplicates = list(Applet().find({'duplicateOf': ObjectId(invitation['appletId'])}))
+
+        if 'inviterId' not in invitation:
+            return
+
+        for duplicate in duplicates:
+            newInvitation = self.createInvitationForSpecifiedUser(
+                duplicate,
+                UserModel().load(invitation['inviterId'], force=True),
+                invitation.get('role', 'user'),
+                user,
+                invitation.get('firstName', ''),
+                invitation.get('lastName', ''),
+                invitation.get('MRN', ''),
+                userEmail
+            )
+
+            self.acceptInvitation(self.load(newInvitation['_id'], force=True), user, userEmail)
 
     def htmlInvitation(
         self,
