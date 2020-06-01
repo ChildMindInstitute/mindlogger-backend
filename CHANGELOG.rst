@@ -8,6 +8,9 @@ Changes
 -------
 Unreleased
 ==========
+2020-06-01: v0.14.9
+insert endpoint to duplicate existing applet
+
 2020-05-20: v0.14.8
 update setSchedule endpoint to accept updated fields from admin panel
 
