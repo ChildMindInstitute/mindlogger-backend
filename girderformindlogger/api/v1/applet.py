@@ -71,6 +71,7 @@ class Applet(Resource):
         self.route('GET', (':id', 'users'), self.getAppletUsers)
         self.route('DELETE', (':id',), self.deactivateApplet)
         self.route('POST', ('fromJSON', ), self.createAppletFromProtocolData)
+        self.route('POST', (':id', 'duplicate', ), self.duplicateApplet)
 
     @access.user(scope=TokenScope.DATA_OWN)
     @autoDescribeRoute(
@@ -223,6 +224,37 @@ class Applet(Resource):
     @autoDescribeRoute(
         Description('Create an applet.')
         .notes(
+            'This endpoint is used to create applet from existing one. <br>'
+            'Only managers/editors of applets are able to access to this endpoint.'
+        )
+        .modelParam(
+            'id',
+            model=AppletModel,
+            level=AccessType.READ,
+            destName='applet'
+        )
+        .param(
+            'name',
+            'Name to give the applet.',
+            required=True
+        )
+        .errorResponse('Write access was denied for this applet.', 403)
+    )
+    def duplicateApplet(self, applet, name):
+        thisUser = self.getCurrentUser()
+
+        if applet['_id'] not in thisUser.get('applets', {}).get('editor') and applet['_id'] not in thisUser.get('applets', {}).get('manager'):
+            raise AccessException(
+                "Only managers and editors are able to duplicate applet."
+            )
+        AppletModel().duplicateApplet(applet, name, thisUser)
+
+        return "duplicate successed"
+
+    @access.user(scope=TokenScope.DATA_WRITE)
+    @autoDescribeRoute(
+        Description('Create an applet.')
+        .notes(
             'This endpoint is used to create a new applet using protocol with single-file format. <br>'
             'This endpoint will be widely used in the near future.'
             '(it\'ll take seconds if we create a new applet using this endpoint.)'
@@ -367,36 +399,37 @@ class Applet(Resource):
             'this endpoint is used for deactivating an applet. <br>'
             'we don\'t completely remove applet from database and we can revert it when it\'s needed.'
         )
-        .modelParam('id', model=AppletModel, level=AccessType.WRITE)
+        .modelParam(
+            'id', 
+            model=AppletModel, 
+            description='ID of the applet to update',
+            destName='applet', 
+            level=AccessType.WRITE
+        )
         .errorResponse('Invalid applet ID.')
         .errorResponse('Write access was denied for this applet.', 403)
     )
-    def deactivateApplet(self, folder):
+    def deactivateApplet(self, applet):
         from girderformindlogger.models.profile import Profile
 
-        applet = folder
-        user = Applet().getCurrentUser()
-        applet['meta']['applet']['deleted'] = True
-        applet = AppletModel().setMetadata(applet, applet.get('meta'), user)
-        if applet.get('meta', {}).get('applet', {}).get('deleted')==True:
+        user = self.getCurrentUser()
+        if not AppletModel().isManager(applet['_id'], user):
+            raise AccessException('only managers can remove applet')
+
+        successed = AppletModel().deactivateApplet(applet)
+        if successed:
             message = 'Successfully deactivated applet {} ({}).'.format(
                 AppletModel().preferredName(applet),
                 applet.get('_id')
             )
-
-            users = list(Profile().find({'appletId': ObjectId(applet['_id']), 'deactivated': {'$ne': True}}, fields=['userId']))
-            Profile().deactivateProfile(applet['_id'], None)
-
-            for user in users:
-                if 'userId' in user:
-                    UserModel().removeApplet(UserModel().findOne({'_id': ObjectId(user['userId'])}), applet['_id'])
         else:
             message = 'Could not deactivate applet {} ({}).'.format(
                 AppletModel().preferredName(applet),
                 applet.get('_id')
             )
             Description().errorResponse(message, 403)
-        return(message)
+
+        return message
 
     @access.user(scope=TokenScope.DATA_READ)
     @autoDescribeRoute(
@@ -700,7 +733,8 @@ class Applet(Resource):
             'MRN': MRN,
             'managers': managers,
             'coordinators': coordinators,
-            'reviewers': reviewers
+            'reviewers': reviewers,
+            'role': role
         })
 
         mail_utils.sendMail(

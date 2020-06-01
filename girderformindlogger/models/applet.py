@@ -166,18 +166,147 @@ class Applet(FolderModel):
             refreshCache=False
         ))
 
-    def validateAppletName(self, appletName, appletsCollection, user):
+    def duplicateApplet(
+        self,
+        applet,
+        name,
+        editor
+    ):
+        from girderformindlogger.utility import jsonld_expander
+
+        appletsCollection = CollectionModel().findOne({"name": "Applets"})
+        appletName = self.validateAppletName('{}/'.format(name), appletsCollection, UserModel().load(applet['creatorId'], force=True))
+
+        # create new applet
+        newApplet = self.setMetadata(
+            folder=self.createFolder(
+                parent=appletsCollection,
+                name=name,
+                parentType='collection',
+                public=True,
+                creator=editor,
+                allowRename=True,
+                appletName=appletName
+            ),
+            metadata=applet.get('meta', {})
+        )
+
+        appletGroupName = "Default {} ({})".format(
+            name,
+            str(newApplet.get('_id', ''))
+        )
+
+        print("Name: {}".format(appletGroupName))
+        # Create user groups
+        role2AccessLevel = { 'user': AccessType.READ, 'coordinator': AccessType.ADMIN, 'manager': AccessType.ADMIN, 'editor': AccessType.WRITE, 'reviewer': AccessType.READ }
+        accessList = newApplet.get('access', {})
+        accessList['groups'] = []
+
+        for role in USER_ROLES.keys():
+            try:
+                group = GroupModel().createGroup(
+                    name="{} {}s".format(appletGroupName, role.title()),
+                    creator=editor,
+                    public=False if role=='user' else True
+                )
+                accessList['groups'].append({ 'id': ObjectId(group['_id']), 'level': role2AccessLevel[role] })
+
+            except ValidationException:
+                numero = 0
+                numberedName = appletGroupName
+                while GroupModel().findOne(query={'name': numberedName}):
+                    numero += 1
+                    numberedName = "{} {} {}s".format(
+                        appletGroupName,
+                        str(numero),
+                        role.title()
+                    )
+                group = GroupModel().createGroup(
+                    name=numberedName,
+                    creator=editor,
+                    public=False if role=='user' else True
+                )
+            self.setGroupRole(
+                doc=newApplet,
+                group=group,
+                role=role,
+                currentUser=editor,
+                force=False
+            )
+
+        newApplet['duplicateOf'] = applet['_id']
+        self.setAccessList(newApplet, accessList)
+        self.save(newApplet)
+
+        from girderformindlogger.models.profile import Profile
+
+        # copy editor and manager list from original applet
+        profiles = Profile().find({
+            'appletId': applet['_id'],
+            'roles': {
+                '$in': ['manager', 'editor']
+            },
+            'userId': {
+                '$exists': True
+            },
+            'profile': True
+        })
+        for appletUser in profiles:
+            user = UserModel().load(appletUser['userId'], force=True)
+
+            profile = Profile().createProfile(newApplet, user, 'manager' if 'manager' in appletUser['roles'] else 'editor')
+            profile = Profile().load(profile['_id'], force=True)
+
+            keys = ['roles', 'firstName', 'lastName', 'MRN']
+            for key in keys:
+                if key in appletUser:
+                    profile[key] = appletUser[key]
+
+            Profile().save(profile, False)
+
+            UserModel().appendApplet(user, newApplet['_id'], appletUser['roles'])
+
+        return(jsonld_expander.formatLdObject(
+            newApplet,
+            'applet',
+            editor,
+            refreshCache=False
+        ))
+
+    def deactivateApplet(self, applet):
+        applet['meta']['applet']['deleted'] = True
+        applet = self.setMetadata(applet, applet.get('meta'))
+
+        successed = True
+        if applet.get('meta', {}).get('applet', {}).get('deleted')==True:
+            from girderformindlogger.models.profile import Profile
+
+            users = list(Profile().find({'appletId': ObjectId(applet['_id']), 'deactivated': {'$ne': True}}, fields=['userId']))
+            Profile().deactivateProfile(applet['_id'], None)
+
+            for user in users:
+                if 'userId' in user:
+                    UserModel().removeApplet(UserModel().findOne({'_id': ObjectId(user['userId'])}), applet['_id'])
+        else:
+            successed = False
+
+        return successed
+
+    def validateAppletName(self, appletName, appletsCollection, user = None):
         name = appletName
         found = False
         n = 0
         while found == False:
             found = True
-            existing = self.findOne({
+            query = {
                 'parentId': appletsCollection['_id'],
                 'appletName': name,
-                'parentCollection': 'collection',
-                'creatorId': user['_id']
-            })
+                'parentCollection': 'collection'
+            }
+            if user:
+                query['creatorId'] = user['_id']
+
+            existing = self.findOne(query)
             if existing:
                 found = False
                 n = n + 1
