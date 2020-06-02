@@ -1011,6 +1011,8 @@ def formatLdObject(
                 for candidate in candidates:
                     for key in applet['applet']:
                         if not inserted and str(key).endswith(candidate) and len(applet['applet'][key]) and len(applet['applet'][key][0].get('@value', '')):
+                            if obj.get('duplicateOf', None):
+                                applet['applet'][key][0]['@value'] = obj['appletName'].split('/')[0]
                             if len(suffix):
                                 applet['applet'][key][0]['@value'] += (' ' + suffix)
 
