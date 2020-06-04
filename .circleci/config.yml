@@ -2,6 +2,11 @@
 version: 2
 
 jobs:
+  deploy-job:
+    steps:
+      - add_ssh_keys:
+          fingerprints:
+            - "SHA256:OWiQkfscepshwgbC/WQsCD0+cKyxTv/VVbzPkWe9sRo"
   py3_serverInstall:
     docker:
       # This image uses the newest version of many dependencies
