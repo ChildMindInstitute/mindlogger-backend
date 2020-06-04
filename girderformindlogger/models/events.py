@@ -54,7 +54,7 @@ class Events(Model):
 
         if event_id and existed_event:
             newEvent['_id'] = ObjectId(event_id)
-            newEvent['schedulers'] = existed_event['schedulers']
+            newEvent['schedulers'] = existed_event.get('schedulers', [])
 
         if 'data' in event:
             newEvent['data'] = event['data']
