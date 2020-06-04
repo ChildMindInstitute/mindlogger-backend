@@ -13,9 +13,6 @@ jobs:
 
 
     steps:
-      - add_ssh_keys:
-        fingerprints:
-          - "SHA256:OWiQkfscepshwgbC/WQsCD0+cKyxTv/VVbzPkWe9sRo"
       - checkout:
           path: girderformindlogger
       - run:
