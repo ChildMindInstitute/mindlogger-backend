@@ -44,6 +44,7 @@ installReqs = [
     'filelock',
     "funcsigs ; python_version < '3'",
     'isodate',
+    'json5==0.9.5',
     'jsonschema',
     'Mako',
     'pandas==0.25.1',
