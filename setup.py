@@ -33,6 +33,7 @@ installReqs = [
     'redis',
     'rq-scheduler',
     'pycryptodomex',
+    'json5',
     'click',
     'click-plugins',
     'cryptography>=2.3',

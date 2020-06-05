@@ -21,7 +21,6 @@ import itertools
 import re
 import threading
 import uuid
-import requests
 from datetime import datetime
 from ..describe import Description, autoDescribeRoute
 from ..rest import Resource, rawResponse
@@ -400,10 +399,10 @@ class Applet(Resource):
             'we don\'t completely remove applet from database and we can revert it when it\'s needed.'
         )
         .modelParam(
-            'id', 
-            model=AppletModel, 
+            'id',
+            model=AppletModel,
             description='ID of the applet to update',
-            destName='applet', 
+            destName='applet',
             level=AccessType.WRITE
         )
         .errorResponse('Invalid applet ID.')
