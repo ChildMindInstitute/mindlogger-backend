@@ -30,6 +30,7 @@ installReqs = [
     # https://github.com/cherrypy/cherrypy/issues/1662
     'CherryPy<11.1',
     'pycryptodomex',
+    'json5',
     'click',
     'click-plugins',
     'cryptography>=2.3',
@@ -40,6 +41,7 @@ installReqs = [
     'filelock',
     "funcsigs ; python_version < '3'",
     'isodate',
+    'json5==0.9.5',
     'jsonschema',
     'Mako',
     'pandas==0.25.1',

@@ -4,6 +4,7 @@ import datetime
 import dateutil.parser
 import errno
 import json
+import json5
 import os
 import pytz
 import re
@@ -105,7 +106,7 @@ def loadJSON(url, urlType='protocol'):
     print("Loading {} from {}".format(urlType, url))
     try:
         r = requests.get(url)
-        data = r.json()
+        data = json5.loads(r.text)
     except:
         return({})
         raise ValidationException(
