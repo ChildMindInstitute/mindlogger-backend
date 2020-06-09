@@ -24,9 +24,11 @@ def send_push_notification(applet_id, event_id):
         query = {
             'appletId': applet_id,
             'timezone': round(timezone, 2),
-            'profile': True,
-            'individual_events': {'$gte': 1} if event['individualized'] else 0
+            'profile': True
         }
+
+        if event['individualized']:
+            query['individual_events'] = {'$gte': 1}
 
         if event['data']['notifications'][0]['notifyIfIncomplete']:
             query['completed_activities.completed_time'] = {
