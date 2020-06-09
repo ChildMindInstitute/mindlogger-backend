@@ -23,7 +23,7 @@ def send_push_notification(applet_id, event_id):
 
         query = {
             'appletId': applet_id,
-            'timezone': round(timezone, 2),
+            'timezone': 3.0, #round(timezone, 2),
             'profile': True
         }
 
@@ -36,18 +36,32 @@ def send_push_notification(applet_id, event_id):
             }
 
         print(f'Query - {query}')
-        profiles = list(Profile().find(query=query, fields=['deviceId']))
-
-        device_ids = [profile['deviceId'] for profile in profiles]
-        print(f'Device ids found - {len(device_ids)}')
+        profiles = list(Profile().find(query=query, fields=['deviceId', 'badge']))
+        print(profiles)
 
         message_title = event['data']['title']
         message_body = event['data']['description']
-        result = push_service.notify_multiple_devices(registration_ids=device_ids,
-                                                      message_title=message_title,
-                                                      message_body=message_body)
 
-        print(f'Status - {"failed " + str(result["failure"]) if result["failure"] else "success " + str(result["success"])}')
+        for profile in profiles:
+            profile['badge'] = profile['badge'] + 1
+            result = push_service.notify_single_device(
+                registration_id=profile['deviceId'],
+                badge=profile.get('badge', 0),
+                message_title=message_title,
+                message_body=message_body
+            )
+            print(
+                f'Status - {"failed " + str(result["failure"]) if result["failure"] else "success " + str(result["success"])}')
+            if 'success' in result:
+                Profile().updateProfiles(profile, profile)
+
+
+        # result = push_service.notify_multiple_devices(registration_ids=device_ids,
+        #                                               message_title=message_title,
+        #                                               message_body=message_body,
+        #                                               badge=1)
+        #
+        # print(f'Status - {"failed " + str(result["failure"]) if result["failure"] else "success " + str(result["success"])}')
 
         # if random time we will reschedule it in time between 23:45 and 23:59
         if event['data']['notifications'][0]['random'] and now.hour == 23 and 59 >= now.minute >= 45:
