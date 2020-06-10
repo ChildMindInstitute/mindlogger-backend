@@ -18,35 +18,29 @@ MonkeyPatch.patch_fromisoformat()
 
 
 def getSchedule(currentUser, timezone=None):
-    from .jsonld_expander import formatLdObject
-    return({
-        applet['applet'].get('_id', ''): {
-            applet['activities'][activity].get('_id', ''): {
-                'lastResponse': getLatestResponseTime(
-                    currentUser['_id'],
-                    applet['applet']['_id'].split('applet/')[-1],
-                    activity,
-                    tz=timezone
-                ) #,
+    from girderformindlogger.models.profile import Profile
+
+    schedule = {}
+    applets = currentUser.get('applets', {}).get('user', [])
+
+    for appletId in applets:
+        profile = Profile().findOne({'appletId': appletId, 'userId': currentUser['_id']})
+        activities = profile['completed_activities']
+
+        appletSchedule = {}
+        for activity in activities:
+            appletSchedule['activity/{}'.format(activity['activity_id'])] = {
+                'lastResponse': activity['completed_time'].astimezone(pytz.timezone(timezone)).isoformat() if (
+                        isinstance(timezone, str) and tz in pytz.all_timezones
+                    ) else activity['completed_time'].isoformat() #,
                 # 'nextScheduled': None,
                 # 'lastScheduled': None
-            } for activity in list(
-                applet.get('activities', {}).keys()
-            )
-        } for applet in [
-            formatLdObject(
-                applet,
-                'applet',
-                currentUser
-            ) for applet in AppletModel().getAppletsForUser(
-                user=currentUser,
-                role='user'
-            )
-        ]
-    })
+            }
+        schedule['activity/{}'.format(appletId)] = appletSchedule
 
+    return schedule
 
-def getLatestResponse(informantId, appletId, activityURL):
+def getLatestResponse(informantId, appletId, activityID):
     from .jsonld_expander import reprolibCanonize, reprolibPrefix
     responses = list(ResponseItem().find(
         query={
@@ -61,11 +55,10 @@ def getLatestResponse(informantId, appletId, activityURL):
                     ObjectId(appletId)
                 ]
             },
-            "meta.activity.url": {
+            "meta.activity.@id": {
                 "$in": [
-                    activityURL,
-                    reprolibPrefix(activityURL),
-                    reprolibCanonize(activityURL)
+                    activityID,
+                    ObjectId(activityID)
                 ]
             }
         },
@@ -77,8 +70,8 @@ def getLatestResponse(informantId, appletId, activityURL):
     return(None)
 
 
-def getLatestResponseTime(informantId, appletId, activityURL, tz=None):
-    latestResponse = getLatestResponse(informantId, appletId, activityURL)
+def getLatestResponseTime(informantId, appletId, activityID, tz=None):
+    latestResponse = getLatestResponse(informantId, appletId, activityID)
     try:
         latestResponse['updated'].isoformat(
         ) if tz is None else latestResponse['updated'].astimezone(pytz.timezone(
@@ -399,22 +392,21 @@ def last7Days(
     referenceDate=None
 ):
     from bson import json_util
-    from .jsonld_expander import loadCache, reprolibCanonize, reprolibPrefix
-    referenceDate = delocalize(
-        datetime.now(
-            tzlocal.get_localzone()
-        ) if referenceDate is None else referenceDate # TODO allow timeless dates
-    )
+    from girderformindlogger.models.profile import Profile
+
+    if referenceDate is None:
+        referenceDate = datetime.now(tzlocal.get_localzone())
+
+    startDate = delocalize(referenceDate - timedelta(days=7))
+    referenceDate = delocalize(referenceDate)
 
     # we need to get the activities
-    cachedApplet = loadCache(appletInfo['cached'])
+    profile = Profile().findOne({'userId': ObjectId(informantId), 'appletId': ObjectId(appletId)})
     listOfActivities = [
-        reprolibPrefix(activity) for activity in list(
-            cachedApplet['activities'].keys()
-        )
+        activity.get('activity_id') for activity in profile.get('completed_activities', [])
     ]
 
-    getLatestResponsesByAct = lambda activityURI: list(ResponseItem().find(
+    getLatestResponsesByAct = lambda activityId: list(ResponseItem().find(
         query={
             "baseParentType": 'user',
             "baseParentId": informantId if isinstance(
@@ -422,7 +414,8 @@ def last7Days(
                 ObjectId
             ) else ObjectId(informantId),
             "updated": {
-                "$lte": referenceDate
+                "$lte": referenceDate,
+                "$gt": startDate
             },
             "meta.applet.@id": {
                 "$in": [
@@ -430,11 +423,10 @@ def last7Days(
                     ObjectId(appletId)
                 ]
             },
-            "meta.activity.url": {
+            "meta.activity.@id": {
                 "$in": [
-                    activityURI,
-                    reprolibPrefix(activityURI),
-                    reprolibCanonize(activityURI)
+                    activityId,
+                    ObjectId(activityId)
                 ]
             }
         },
