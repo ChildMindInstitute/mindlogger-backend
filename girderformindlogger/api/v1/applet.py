@@ -877,19 +877,6 @@ class Applet(Resource):
                 for event in original['events']:
                     original_id = event.get('id')
                     if original_id not in assigned:
-                        event = EventsModel().findOne(query={
-                            "_id": original_id, 'individualized': True
-                        }, fields=['data'])
-
-                        if event:
-                            ProfileModel().update(query={
-                                "_id": {
-                                    "$in": event['data']['users']
-                                }
-                                }, update={'$inc': {
-                                    'individual_events': -1
-                                }
-                            })
                         EventsModel().deleteEvent(ObjectId(original_id))
         else:
             if isinstance(deleted, list):

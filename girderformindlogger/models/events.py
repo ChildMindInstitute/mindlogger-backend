@@ -15,7 +15,7 @@ from girderformindlogger.models.profile import Profile
 from girderformindlogger.utility.model_importer import ModelImporter
 from girderformindlogger.utility.progress import noProgress, setResponseTimeLimit
 from bson import json_util
-
+from girderformindlogger.models.profile import Profile as ProfileModel
 
 class Events(Model):
     """
@@ -37,6 +37,17 @@ class Events(Model):
 
     def deleteEvent(self, event_id):
         event = self.findOne({'_id': ObjectId(event_id)})
+
+        if event['individualized']:
+            ProfileModel().update(query={
+                "_id": {
+                    "$in": event['data']['users']
+                }
+                }, update={'$inc': {
+                    'individual_events': -1
+                }
+            })
+
         if event:
             push_notification = PushNotificationModel(event=event)
             push_notification.remove_schedules()
@@ -106,8 +117,6 @@ class Events(Model):
             push_notification.random_reschedule()
             self.save(event)
 
-    def hasIndividual(self, applet_id, profileId):
-        return (self.findOne({'applet_id': ObjectId(applet_id), 'data.users': profileId}) is not None)
 
     def getEvents(self, applet_id, individualized):
         events = list(self.find({'applet_id': ObjectId(applet_id), 'individualized': individualized}, fields=['data', 'schedule']))
@@ -123,11 +132,6 @@ class Events(Model):
             if 'notifications' in event['data'] and event['data']['notifications'][0]['start']:
                 push_notification = PushNotificationModel(event=event)
                 push_notification.set_schedules()
-
-    def cancelSchedules(self, event):
-        pass
-        # if 'schedulers' in event and len(event['schedulers']):
-
 
     def getSchedule(self, applet_id):
         events = list(self.find({'applet_id': ObjectId(applet_id)}, fields=['data', 'schedule']))
@@ -155,7 +159,7 @@ class Events(Model):
             individualized = False
         else:
             profile = Profile().findOne({'appletId': ObjectId(applet_id), 'userId': ObjectId(user_id)})
-            individualized = self.hasIndividual(applet_id, profile['_id'])
+            individualized = profile['individual_events'] > 0
 
         events = self.getEvents(applet_id, individualized)
         for event in events:
