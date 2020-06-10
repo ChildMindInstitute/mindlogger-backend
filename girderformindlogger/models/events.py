@@ -38,20 +38,20 @@ class Events(Model):
     def deleteEvent(self, event_id):
         event = self.findOne({'_id': ObjectId(event_id)})
 
-        if event['individualized']:
-            ProfileModel().update(query={
-                "_id": {
-                    "$in": event['data']['users']
-                }
-                }, update={'$inc': {
-                    'individual_events': -1
-                }
-            })
-
         if event:
+            if event['individualized']:
+                ProfileModel().update(query={
+                    "_id": {
+                        "$in": event['data']['users']
+                    }
+                    }, update={'$inc': {
+                        'individual_events': -1
+                    }
+                })
+
             push_notification = PushNotificationModel(event=event)
             push_notification.remove_schedules()
-        self.removeWithQuery({'_id': ObjectId(event_id)})
+            self.removeWithQuery({'_id': ObjectId(event_id)})
 
     def upsertEvent(self, event, applet_id, event_id=None):
         newEvent = {
