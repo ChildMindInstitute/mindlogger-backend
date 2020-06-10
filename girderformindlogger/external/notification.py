@@ -46,7 +46,10 @@ def send_push_notification(applet_id, event_id):
                 registration_id=profile['deviceId'],
                 badge=profile.get('badge', 0),
                 message_title=message_title,
-                message_body=message_body
+                message_body=message_body,
+                extra_notification_kwargs={
+                    "event_id": str(event_id)
+                }
             )
             print(
                 f'Status - {"failed " + str(result["failure"]) if result["failure"] else "success " + str(result["success"])}')
