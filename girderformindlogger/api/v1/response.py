@@ -19,8 +19,6 @@
 
 import itertools
 import tzlocal
-import pytz
-
 from ..describe import Description, autoDescribeRoute
 from ..rest import Resource, filtermodel, setResponseHeader, \
     setContentDisposition
@@ -373,9 +371,7 @@ class ResponseItem(Resource):
                 metadata['subject']['@id'] = subject_id
             else:
                 metadata['subject'] = {'@id': subject_id}
-
-            now = datetime.now(tz=pytz.timezone("UTC"))
-
+            now = datetime.now(tzlocal.get_localzone())
             appletName=AppletModel().preferredName(applet)
             UserResponsesFolder = ResponseFolderModel().load(
                 user=informant,
@@ -445,17 +441,15 @@ class ResponseItem(Resource):
                 "_id": subject_id
             })
 
-            updated = False
-            for activity in data['completed_activities']:
-                if activity["activity_id"] == metadata['activity']['@id']:
-                    activity["completed_time"] = now
-                    updated = True
-
-            if updated == False:
+            if not len(data['completed_activities']):
                 data['completed_activities'].append({
                     "activity_id": metadata['activity']['@id'],
-                    "completed_time": now
+                    "completed_time": now.strftime("%Y/%m/%d")
                 })
+
+            for activity in data['completed_activities']:
+                if activity["activity_id"] == metadata['activity']['@id']:
+                    activity["completed_time"] = now.strftime("%Y/%m/%d")
 
             profile.save(data, validate=False)
 
