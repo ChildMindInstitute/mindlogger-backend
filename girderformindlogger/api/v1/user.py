@@ -801,8 +801,13 @@ class User(Resource):
     )
     def logout(self):
         token = self.getCurrentToken()
+        user = self.getCurrentUser()
         if token:
             Token().remove(token)
+        if user:
+            ProfileModel().updateProfiles(user, {
+                "deviceId": ""
+            })
         self.deleteAuthTokenCookie()
         return {'message': 'Logged out.'}
 
