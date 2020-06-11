@@ -772,7 +772,11 @@ class User(Resource):
                 user['deviceId'] = deviceId
                 user['timezone'] = float(timezone)
                 self._model.save(user)
-                ProfileModel().updateProfiles(user, {'deviceId': deviceId, 'timezone': float(timezone)})
+                ProfileModel().updateProfiles(user, {
+                    'deviceId': deviceId,
+                    'timezone': float(timezone),
+                    'badge': 0
+                })
 
             setCurrentUser(user)
             token = self.sendAuthTokenCookie(user)
@@ -856,14 +860,14 @@ class User(Resource):
                     'administrator to create an account for you.')
 
         user = self._model.createUser(
-            login="", 
-            password=password, 
+            login="",
+            password=password,
             email=email,
             firstName=displayName if len(
                 displayName
             ) else firstName if firstName is not None else "",
-            lastName=lastName, 
-            admin=admin, 
+            lastName=lastName,
+            admin=admin,
             currentUser=currentUser,
             encryptEmail=True
         )

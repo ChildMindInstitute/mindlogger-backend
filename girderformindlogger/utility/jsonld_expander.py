@@ -586,15 +586,18 @@ def expandOneLevel(obj):
         # We only want to catch `None`s here, not other falsy objects
         return(obj)
     try:
-        newObj = jsonld.expand(obj)
+        if isinstance(obj, str):
+            data = loadJSON(obj)
+            if isinstance(data, dict):
+                data = loadJSON(reprolibCanonize(obj)) if len(data.keys()) == 0 else data
+                newObj = jsonld.expand(data)
+            else:
+                print("Invalid Url: ", obj)
+                return (obj)
+        else:
+            newObj = jsonld.expand(obj)
     except jsonld.JsonLdError as e: # 👮 Catch illegal JSON-LD
-        if e.type == "jsonld.InvalidUrl":
-            try:
-                newObj = jsonld.expand(reprolibCanonize(obj))
-            except:
-                print("Invalid URL: {}".format(e.details.get("url")))
-                print(obj)
-        elif e.cause.type == "jsonld.ContextUrlError":
+        if e.cause.type == "jsonld.ContextUrlError":
             invalidContext = e.cause.details.get("url")
             print("Invalid context: {}".format(invalidContext))
             if isinstance(obj, str):

@@ -21,7 +21,6 @@ import itertools
 import re
 import threading
 import uuid
-import requests
 from datetime import datetime
 from ..describe import Description, autoDescribeRoute
 from ..rest import Resource, rawResponse
@@ -72,6 +71,20 @@ class Applet(Resource):
         self.route('DELETE', (':id',), self.deactivateApplet)
         self.route('POST', ('fromJSON', ), self.createAppletFromProtocolData)
         self.route('POST', (':id', 'duplicate', ), self.duplicateApplet)
+        self.route('POST', ('resetBadge',), self.resetBadgeCount)
+
+    @access.user(scope=TokenScope.DATA_WRITE)
+    @autoDescribeRoute(
+        Description('Reset badge parameter')
+            .notes(
+            'this endpoint is used to reset badge parameter in profile collection. <br>'
+            'users who are associated with that group will be able to connect to this endpoint.'
+        )
+    )
+    def resetBadgeCount(self):
+        thisUser = self.getCurrentUser()
+        ProfileModel().updateProfiles(thisUser, {"badge": 0})
+        return({"message": "Badge was successfully reseted"})
 
     @access.user(scope=TokenScope.DATA_OWN)
     @autoDescribeRoute(
@@ -400,10 +413,10 @@ class Applet(Resource):
             'we don\'t completely remove applet from database and we can revert it when it\'s needed.'
         )
         .modelParam(
-            'id', 
-            model=AppletModel, 
+            'id',
+            model=AppletModel,
             description='ID of the applet to update',
-            destName='applet', 
+            destName='applet',
             level=AccessType.WRITE
         )
         .errorResponse('Invalid applet ID.')

@@ -767,6 +767,7 @@ class Profile(AESEncryption, dict):
                 'appletId': ObjectId(applet['_id']),
                 'userId': ObjectId(user['_id']),
                 'profile': True,
+                'badge': 0,
                 'created': now,
                 'updated': now,
                 'deviceId': user['deviceId'],
