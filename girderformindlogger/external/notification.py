@@ -32,7 +32,7 @@ def send_push_notification(applet_id, event_id):
 
         if event['data']['notifications'][0]['notifyIfIncomplete']:
             query['completed_activities.completed_time'] = {
-                '$ne': now.strftime('%Y/%m/%d')
+                '$lt': datetime.datetime.strptime(f"{now.year}/{now.month}/{now.day}", '%Y/%m/%d')
             }
 
         profiles = list(Profile().find(query=query, fields=['deviceId', 'badge']))
