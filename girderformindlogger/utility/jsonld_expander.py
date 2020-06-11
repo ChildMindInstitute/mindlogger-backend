@@ -211,6 +211,7 @@ def importAndCompareModelType(model, url, user, modelType):
     prefName = modelClass.preferredName(model)
     cachedDocObj = {}
     model = expand(url)
+
     print("Loaded {}".format(": ".join([modelType, prefName])))
     docCollection=getModelCollection(modelType)
     if modelClass.name in ['folder', 'item']:
@@ -529,9 +530,7 @@ def schemaPrefix(s):
     a = "schema:"
     b = "http://schema.org/"
     if isinstance(s, str):
-        if s.startswith(a):
-            return(s.replace(a, b))
-        elif s.startswith(b):
+        if s.startswith(b):
             return(s.replace(b, a))
     return(s)
 
@@ -578,8 +577,9 @@ def delanguageTag(obj):
     """
     if not isinstance(obj, list):
         return(obj)
-    return((obj if len(obj) else [{}])[-1].get("@value", ""))
 
+    data = (obj if len(obj) else [{}])[-1]
+    return data['@value'] if data.get('@value', '') else data.get('@id', '')
 
 def expandOneLevel(obj):
     if obj is None:
@@ -856,7 +856,7 @@ def _fixUpFormat(obj):
                 newObj[rk] = c if c is not None else obj[k]
             s2k = schemaPrefix(rk)
             if s2k!=rk:
-                newObj[s2k] = deepcopy(newObj[rk])
+                newObj[s2k] = newObj.pop(rk)
         if "@context" in newObj:
             newObj["@context"] = reprolibCanonize(newObj["@context"])
         for k in ["schema:url", "http://schema.org/url"]:
