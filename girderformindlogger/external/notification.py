@@ -41,20 +41,21 @@ def send_push_notification(applet_id, event_id):
         message_body = event['data']['description']
 
         for profile in profiles:
-            profile['badge'] = profile['badge'] + 1
-            result = push_service.notify_single_device(
-                registration_id=profile['deviceId'],
-                badge=profile.get('badge', 0),
-                message_title=message_title,
-                message_body=message_body,
-                extra_notification_kwargs={
-                    "event_id": str(event_id)
-                }
-            )
-            print(
-                f'Status - {"failed " + str(result["failure"]) if result["failure"] else "success " + str(result["success"])}')
-            if 'success' in result:
-                Profile().increment(query={"_id": profile['_id']}, field='badge', amount=1)
+            if len(profile['deviceId']):
+                profile['badge'] = profile['badge'] + 1
+                result = push_service.notify_single_device(
+                    registration_id=profile['deviceId'],
+                    badge=profile.get('badge', 0),
+                    message_title=message_title,
+                    message_body=message_body,
+                    extra_notification_kwargs={
+                        "event_id": str(event_id)
+                    }
+                )
+                print(
+                    f'Status - {"failed " + str(result["failure"]) if result["failure"] else "success " + str(result["success"])}')
+                if 'success' in result:
+                    Profile().increment(query={"_id": profile['_id']}, field='badge', amount=1)
 
         # if random time we will reschedule it in time between 23:45 and 23:59
         if event['data']['notifications'][0]['random'] and now.hour == 23 and 59 >= now.minute >= 45:
