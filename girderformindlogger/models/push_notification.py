@@ -18,12 +18,9 @@ class PushNotification(Scheduler):
             "start": datetime.utcnow(),
             "end": None
         }
-        self.start_time = self.current_time.strftime('%H:%M')
-
-        if event and 'notifications' in event['data'] and event['data']['notifications'][0]['start']:
-            self.start_time = event['data']['notifications'][0]['start']
-        self.start_time = datetime.strptime(self.start_time, '%H:%M')
-
+        self.start_time = datetime.strptime(event['data']['notifications'][0].get('start')
+                                            if 'notifications' in event['data']
+                                            else self.current_time.strftime('%H:%M'), '%H:%M')
         self.end_time = None
 
     def set_schedules(self):
