@@ -148,10 +148,25 @@ class Applet(FolderModel):
         self.setAccessList(applet, accessList)
         self.update({'_id': ObjectId(applet['_id'])}, {'$set': {'access': applet.get('access', {})}})
 
+        formatted = jsonld_expander.formatLdObject(
+            applet,
+            'applet',
+            user,
+            refreshCache=False
+        )
+
+        if 'activities' in formatted:
+            activities = []
+
+            for activity in formatted['activities']:
+                activities.append(formatted['activities'][activity]['_id'].split('/')[-1])
+
+            self.update({'_id': ObjectId(applet['_id'])}, {'$set': {'meta.protocol.activities': activities}})
+
         from girderformindlogger.models.profile import Profile
 
         # give all roles to creator of an applet
-        profile = Profile().createProfile(applet, user, 'manager')
+        profile = Profile().createProfile(self.load(applet['_id'], force=True), user, 'manager')
         profile = Profile().load(profile['_id'], force=True)
 
         profile['roles'] = list(USER_ROLES.keys())
@@ -159,12 +174,7 @@ class Applet(FolderModel):
 
         UserModel().appendApplet(UserModel().load(user['_id'], force=True), applet['_id'], USER_ROLES.keys())
 
-        return(jsonld_expander.formatLdObject(
-            applet,
-            'applet',
-            user,
-            refreshCache=False
-        ))
+        return formatted
 
     def duplicateApplet(
         self,
