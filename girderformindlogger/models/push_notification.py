@@ -82,7 +82,7 @@ class PushNotification(Scheduler):
             '%Y/%m/%d %H:%M')
 
         if end_time:
-            end_time += timedelta(hours=14)
+            end_time += timedelta(hours=11, minutes=45)
 
             if end_time < start_time:
                 return 0

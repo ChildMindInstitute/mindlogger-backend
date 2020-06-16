@@ -21,6 +21,12 @@ def send_push_notification(applet_id, event_id):
 
         timezone = (event_time - now).total_seconds() / 3600
 
+        # this is temporary fix for timezone issue
+        if timezone >= 12:
+            timezone = timezone - 24
+        elif timezone < -12:
+            timezone = timezone + 24
+
         query = {
             'appletId': applet_id,
             'timezone': round(timezone, 2),
