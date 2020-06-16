@@ -792,7 +792,6 @@ class Profile(AESEncryption, dict):
 
         self.setPublic(profile, False, save=False)
 
-        print('profile is', profile)
         # Save the profile.
         self.save(profile, validate=False)
         return({
