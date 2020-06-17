@@ -939,7 +939,7 @@ class User(Resource):
         )
         .param(
             'accountName',
-            '',
+            'name of account',
             required=True
         )
         .errorResponse('A parameter was invalid, or the specified login or'
