@@ -103,6 +103,9 @@ class User(AESEncryption):
         ):
             raise ValidationException('Invalid email address.', 'email')
 
+        if not len(doc['accountName']):
+            raise ValidationException('Account name is required.', )
+
         if len(doc['email']):
             q = {'email': doc['email']}
             if '_id' in doc:
@@ -428,7 +431,7 @@ class User(AESEncryption):
 
     def createUser(self, login, password, displayName="", email="",
                    admin=False, public=False, currentUser=None,
-                   firstName="", lastName="", encryptEmail=False):
+                   firstName="", lastName="", accountName="", encryptEmail=False):
         """
         Create a new user with the given information.
 
@@ -462,6 +465,7 @@ class User(AESEncryption):
             ) else firstName if firstName is not None else "",
             'firstName': firstName,
             'lastName': lastName,
+            'accountName': accountName,
             'created': datetime.datetime.utcnow(),
             'emailVerified': False,
             'status': 'pending' if requireApproval else 'enabled',
