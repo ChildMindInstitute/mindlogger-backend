@@ -30,7 +30,8 @@ def send_push_notification(applet_id, event_id):
         query = {
             'appletId': applet_id,
             'timezone': round(timezone, 2),
-            'profile': True
+            'profile': True,
+            'individual_events': 0
         }
 
         if event['individualized']:
