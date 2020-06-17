@@ -1,4 +1,5 @@
 import datetime
+from time import time
 from pyfcm import FCMNotification
 
 push_service = FCMNotification(
@@ -7,6 +8,7 @@ push_service = FCMNotification(
 
 
 def send_push_notification(applet_id, event_id):
+    start_time = time()
     from girderformindlogger.models.events import Events
     from girderformindlogger.models.profile import Profile
 
@@ -60,3 +62,5 @@ def send_push_notification(applet_id, event_id):
         # if random time we will reschedule it in time between 23:45 and 23:59
         if event['data']['notifications'][0]['random'] and now.hour == 23 and 59 >= now.minute >= 45:
             Events().rescheduleRandomNotifications(event)
+    end_time = time()
+    print(f'Send push notification was taken {end_time - start_time} sec.')
