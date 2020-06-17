@@ -187,7 +187,7 @@ def loadFromSingleFile(document, user):
         refreshCache = False
     )
 
-def importAndCompareModelType(model, url, user, modelType):
+def importAndCompareModelType(model, url, user, modelType, meta={}):
     import threading
     from girderformindlogger.utility import firstLower
 
@@ -232,7 +232,8 @@ def importAndCompareModelType(model, url, user, modelType):
                         **model,
                         'schema:url': url,
                         'url': url
-                    }
+                    },
+                    **meta
                 }
             )
         elif modelClass.name=='item':
@@ -257,7 +258,8 @@ def importAndCompareModelType(model, url, user, modelType):
                         **model,
                         'schema:url': url,
                         'url': url
-                    }
+                    },
+                    **meta
                 }
             )
 
@@ -1059,7 +1061,8 @@ def formatLdObject(
                         newObj,
                         deepcopy(protocol),
                         user,
-                        refreshCache=refreshCache
+                        refreshCache=refreshCache,
+                        meta={'protocolId': ObjectId(obj['_id'])}
                     )
                 except:
                     print("636")
@@ -1089,7 +1092,8 @@ def formatLdObject(
                                 deepcopy(activity),
                                 deepcopy(protocol),
                                 user,
-                                refreshCache=refreshCache
+                                refreshCache=refreshCache,
+                                meta={'protocolId': ObjectId(obj['_id']), 'activityId': ObjectId(protocol['activities'][activityURL]['_id'].split('/')[-1])}
                             )
                         except:
                             print("670")
@@ -1097,7 +1101,8 @@ def formatLdObject(
                                 deepcopy(activity),
                                 deepcopy(protocol),
                                 user,
-                                refreshCache=True
+                                refreshCache=True,
+                                meta={'protocolId': obj['_id'], 'activityId': activity['_id']}
                             )
                     for itemURL in newItems:
                         activity = protocol['items'][itemURL]
@@ -1130,7 +1135,7 @@ def formatLdObject(
                             protocol.get('items', {}).keys()
                         ) - itemsNow
                     )
-            
+
             formatted = _fixUpFormat(protocol)
 
             createCache(obj, formatted, 'protocol')
@@ -1158,7 +1163,8 @@ def componentImport(
     protocol,
     user=None,
     refreshCache=False,
-    modelType=['activity', 'item']
+    modelType=['activity', 'item'],
+    meta={}
 ):
     """
     :param modelType: model or models to search
@@ -1193,7 +1199,8 @@ def componentImport(
                         smartImport(
                             IRI,
                             user=user,
-                            refreshCache=refreshCache
+                            refreshCache=refreshCache,
+                            meta=meta
                         ) if (IRI is not None and not IRI.startswith(
                             "Document not found"
                         )) else (None, None, None)

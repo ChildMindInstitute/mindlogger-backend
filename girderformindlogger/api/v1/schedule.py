@@ -33,7 +33,7 @@ class Schedule(Resource):
         self.resourceName = 'schedule'
         self.route('GET', (), self.getSchedule)
 
-    @access.public(scope=TokenScope.DATA_READ)
+    @access.user(scope=TokenScope.DATA_READ)
     @autoDescribeRoute(
         Description('Get schedule Array for the logged-in user.')
         .param(

@@ -230,7 +230,7 @@ def cycleModels(IRIset, modelType=None):
     return(modelType, cachedDoc)
 
 
-def smartImport(IRI, user=None, refreshCache=False, modelType=None):
+def smartImport(IRI, user=None, refreshCache=False, modelType=None, meta={}):
     from girderformindlogger.constants import MODELS
     from girderformindlogger.utility.jsonld_expander import loadCache,         \
         reprolibCanonize
@@ -244,7 +244,8 @@ def smartImport(IRI, user=None, refreshCache=False, modelType=None):
         IRI,
         user=user,
         refreshCache=refreshCache,
-        thread=False
+        thread=False,
+        meta=meta
     )
     return((
         modelType,

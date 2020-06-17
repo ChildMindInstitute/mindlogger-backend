@@ -30,13 +30,13 @@ def getSchedule(currentUser, timezone=None):
         appletSchedule = {}
         for activity in activities:
             appletSchedule['activity/{}'.format(activity['activity_id'])] = {
-                'lastResponse': activity['completed_time'].astimezone(pytz.timezone(timezone)).isoformat() if (
+                'lastResponse': None if not activity['completed_time'] else activity['completed_time'].astimezone(pytz.timezone(timezone)).isoformat() if (
                         isinstance(timezone, str) and tz in pytz.all_timezones
                     ) else activity['completed_time'].isoformat() #,
                 # 'nextScheduled': None,
                 # 'lastScheduled': None
             }
-        schedule['activity/{}'.format(appletId)] = appletSchedule
+        schedule['applet/{}'.format(appletId)] = appletSchedule
 
     return schedule
 
