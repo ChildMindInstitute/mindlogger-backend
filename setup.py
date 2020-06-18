@@ -30,7 +30,6 @@ installReqs = [
     # https://github.com/cherrypy/cherrypy/issues/1662
     'CherryPy<11.1',
     'rq',
-    'redis',
     'rq-scheduler',
     'pycryptodomex',
     'json5',
