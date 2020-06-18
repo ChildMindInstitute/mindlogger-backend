@@ -56,9 +56,7 @@ def send_push_notification(applet_id, event_id):
                     message_title=message_title,
                     message_body=message_body,
                     data_message={
-                        "event_id": str(event_id),
-                        "title": message_title,
-                        "subtitle": message_body
+                        "event_id": str(event_id)
                     }
                 )
                 print(
