@@ -55,8 +55,10 @@ def send_push_notification(applet_id, event_id):
                     badge=profile.get('badge', 0),
                     message_title=message_title,
                     message_body=message_body,
-                    extra_notification_kwargs={
-                        "event_id": str(event_id)
+                    data_message={
+                        "event_id": str(event_id),
+                        "title": message_title,
+                        "subtitle": message_body
                     }
                 )
                 print(
