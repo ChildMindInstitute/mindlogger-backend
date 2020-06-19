@@ -49,5 +49,5 @@ class Schedule(Resource):
         """
         Get a list of dictionaries keyed by activityID.
         """
-        currentUser = self.getCurrentUser()
-        return(response.getSchedule(currentUser, timezone))
+        accountProfile = self.getAccountProfile()
+        return(response.getSchedule(accountProfile, timezone))
