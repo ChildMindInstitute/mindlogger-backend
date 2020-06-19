@@ -103,6 +103,9 @@ class User(AESEncryption):
         ):
             raise ValidationException('Invalid email address.', 'email')
 
+        if not len(doc['accountName']):
+            raise ValidationException('Account name is required.', )
+
         if len(doc['email']):
             q = {'email': doc['email']}
             if '_id' in doc:
@@ -110,7 +113,7 @@ class User(AESEncryption):
             existing = self.findOne(q)
             if existing is not None:
                 raise ValidationException('That email is already registered in the system.', )
-            
+
         # Ensure unique logins
         if len(doc['login']):
             self._validateLogin(doc['login'])
@@ -440,6 +443,7 @@ class User(AESEncryption):
         """
         from girderformindlogger.models.group import Group
         from girderformindlogger.models.setting import Setting
+        from girderformindlogger.models.account_profile import AccountProfile
         requireApproval = Setting(
         ).get(SettingKey.REGISTRATION_POLICY) == 'approve'
         email = "" if not email else email
@@ -513,6 +517,11 @@ class User(AESEncryption):
             update={"$pull": {"queue": user['email']}},
             multi=True
         )
+
+        account = AccountProfile().createOwner(user)
+        user['accountId'] = account['_id']
+        self.update({'_id': user['_id']}, {'$set': {'accountId': user['accountId']}})
+
         user = self._getGroupInvitesFromProtoUser(user)
         self._deleteProtoUser(user)
         return(user)
@@ -782,29 +791,3 @@ class User(AESEncryption):
                 'timezone', 'deviceId'
             ]
         )
-
-    def appendApplet(self, user, applet_id, roles = []):
-        if not user.get('applets'):
-            user['applets'] = {}
-            for role in USER_ROLES.keys():
-                user['applets'][role] = []
-        applet_id = ObjectId(applet_id)
-
-        for role in roles:
-            if applet_id not in user['applets'][role]:
-                user['applets'][role].append(applet_id)
-
-        self.update({'_id': user['_id']}, {'$set': {'applets': user['applets']}}, False)
-    
-    def removeApplet(self, user, applet_id):
-        if not user.get('applets'):
-            user['applets'] = {}
-            for role in USER_ROLES.keys():
-                user['applets'][role] = []
-        applet_id = ObjectId(applet_id)
-
-        for role in USER_ROLES.keys():
-            if applet_id in user['applets'][role]:
-                user['applets'][role].remove(applet_id)
-
-        self.update({'_id': user['_id']}, {'$set': {'applets': user['applets']}}, False)
