@@ -43,6 +43,7 @@ from girderformindlogger.utility import config, jsonld_expander, mail_utils
 from girderformindlogger.models.setting import Setting
 from girderformindlogger.settings import SettingKey
 from girderformindlogger.models.profile import Profile as ProfileModel
+from girderformindlogger.models.account_profile import AccountProfile
 from pyld import jsonld
 
 USER_ROLE_KEYS = USER_ROLES.keys()
@@ -214,7 +215,20 @@ class Applet(Resource):
         .errorResponse('Write access was denied for this applet.', 403)
     )
     def createApplet(self, protocolUrl=None, email='', name=None, informant=None):
+        accountProfile = AccountProfile()
+
         thisUser = self.getCurrentUser()
+        profile = self.getAccountProfile()
+
+        appletRole = None
+        for role in ['owner', 'manager', 'editor']:
+            if accountProfile.hasPermission(profile, role):
+                appletRole = role
+                break
+
+        if appletRole is None:
+            AccessException("You don't have enough permission to create applet on this account.")
+
         thread = threading.Thread(
             target=AppletModel().createAppletFromUrl,
             kwargs={
@@ -224,7 +238,9 @@ class Applet(Resource):
                 'email': email,
                 'constraints': {
                     'informantRelationship': informant
-                } if informant is not None else None
+                } if informant is not None else None,
+                'role': appletRole,
+                'accountId': profile['accountId']
             }
         )
         thread.start()
@@ -255,8 +271,9 @@ class Applet(Resource):
     )
     def duplicateApplet(self, applet, name):
         thisUser = self.getCurrentUser()
+        accountProfile = self.getAccountProfile()
 
-        if applet['_id'] not in thisUser.get('applets', {}).get('editor') and applet['_id'] not in thisUser.get('applets', {}).get('manager'):
+        if not accountProfile or applet['_id'] not in accountProfile.get('applets', {}).get('editor') and applet['_id'] not in accountProfile.get('applets', {}).get('manager'):
             raise AccessException(
                 "Only managers and editors are able to duplicate applet."
             )
@@ -302,7 +319,19 @@ class Applet(Resource):
         .errorResponse('Write access was denied for this applet.', 403)
     )
     def createAppletFromProtocolData(self, protocol, email='', name=None, informant=None):
+        accountProfile = AccountProfile()
+
         thisUser = self.getCurrentUser()
+        profile = self.getAccountProfile()
+
+        appletRole = None
+        for role in ['owner', 'manager', 'editor']:
+            if accountProfile.hasPermission(profile, 'manager'):
+                appletRole = role
+                break
+
+        if appletRole is None:
+            AccessException("You don't have enough permission to create applet on this account.")
 
         thread = threading.Thread(
             target=AppletModel().createAppletFromProtocolData,
@@ -313,7 +342,9 @@ class Applet(Resource):
                 'email': email,
                 'constraints': {
                     'informantRelationship': informant
-                } if informant is not None else None
+                } if informant is not None else None,
+                'role': appletRole,
+                'accountId': profile['accountId']
             }
         )
         thread.start()

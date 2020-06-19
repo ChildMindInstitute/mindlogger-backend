@@ -38,7 +38,7 @@ from girderformindlogger.models.protoUser import ProtoUser as ProtoUserModel
 from girderformindlogger.models.user import User as UserModel
 from girderformindlogger.utility.progress import noProgress,                   \
     setResponseTimeLimit
-
+from girderformindlogger.models.account_profile import AccountProfile
 
 class Applet(FolderModel):
     """
@@ -52,7 +52,9 @@ class Applet(FolderModel):
         user=None,
         roles=None,
         constraints=None,
-        appletName=None
+        appletName=None,
+        appletRole='editor',
+        accountId=None
     ):
         """
         Method to create an Applet.
@@ -91,7 +93,8 @@ class Applet(FolderModel):
                 public=True,
                 creator=user,
                 allowRename=True,
-                appletName=appletName
+                appletName=appletName,
+                accountId=accountId
             ),
             metadata={
                 'protocol': protocol,
@@ -169,12 +172,43 @@ class Applet(FolderModel):
         profile = Profile().createProfile(self.load(applet['_id'], force=True), user, 'manager')
         profile = Profile().load(profile['_id'], force=True)
 
-        profile['roles'] = list(USER_ROLES.keys())
+        profile['roles'] = list(USER_ROLES.keys()) if appletRole == 'manager' else ['editor', 'user']
         Profile().save(profile, False)
 
-        UserModel().appendApplet(UserModel().load(user['_id'], force=True), applet['_id'], USER_ROLES.keys())
+        AccountProfile().appendApplet(AccountProfile().findOne({'accountId': accountId, 'userId': user['_id']}), applet['_id'], profile['roles'])
+
+        managers = AccountProfile().getManagers(self, accountId)
+        applet = self.load(applet['_id'], force=True)
+        for manager in managers:
+            self.grantAccessToApplet(UserModel().load(manager, force=True), applet, 'manager')
 
         return formatted
+
+    # users won't use this endpoint, so all emails are plain text
+    def grantAccessToApplet(self, user, applet, role):
+        from girderformindlogger.models.invitation import Invitation
+        from girderformindlogger.models.profile import Profile
+
+        if Profile().findOne({'appletId': applet['_id'], 'userId': user['_id']}):
+            return
+
+        accountId = applet.get('accountId', None)
+        if not accountId:
+            return
+
+        ownerProfile = AccountProfile().load(accountId, force=True)
+
+        newInvitation = Invitation().createInvitationForSpecifiedUser(
+            applet,
+            ownerProfile['userId'],
+            role,
+            user,
+            user['firstName'],
+            user['lastName'],
+            user['email']
+        )
+
+        Invitation().acceptInvitation(self.load(newInvitation['_id'], force=True), user, user['email'])
 
     def duplicateApplet(
         self,
@@ -196,7 +230,8 @@ class Applet(FolderModel):
                 public=True,
                 creator=editor,
                 allowRename=True,
-                appletName=appletName
+                appletName=appletName,
+                accountId=applet['accountId']
             ),
             metadata=applet.get('meta', {})
         )
@@ -253,18 +288,19 @@ class Applet(FolderModel):
         # copy editor and manager list from original applet
         profiles = Profile().find({
             'appletId': applet['_id'],
-            'roles': {
-                '$in': ['manager', 'editor']
-            },
+            'roles': 'editor',
             'userId': {
                 '$exists': True
             },
             'profile': True
         })
         for appletUser in profiles:
+            if 'manager' in appletUser['roles']:
+                continue
+
             user = UserModel().load(appletUser['userId'], force=True)
 
-            profile = Profile().createProfile(newApplet, user, 'manager' if 'manager' in appletUser['roles'] else 'editor')
+            profile = Profile().createProfile(newApplet, user, 'editor')
             profile = Profile().load(profile['_id'], force=True)
 
             keys = ['roles', 'firstName', 'lastName', 'MRN']
@@ -274,7 +310,11 @@ class Applet(FolderModel):
 
             Profile().save(profile, False)
 
-            UserModel().appendApplet(user, newApplet['_id'], appletUser['roles'])
+            AccountProfile().appendApplet(AccountProfile.findOne({'accountId': newApplet['accountId'], 'userId': user['_id']}), newApplet['_id'], appletUser['roles'])
+
+        managers = AccountProfile().getManagers(self, newApplet['accountId'])
+        for manager in managers:
+            self.grantAccessToApplet(UserModel().load(manager, force=True), newApplet, 'manager')
 
         return(jsonld_expander.formatLdObject(
             newApplet,
@@ -332,7 +372,9 @@ class Applet(FolderModel):
         roles=None,
         constraints=None,
         email='',
-        sendEmail=True
+        sendEmail=True,
+        appletRole='editor',
+        accountId=None
     ):
         from girderformindlogger.models.protocol import Protocol
         from girderformindlogger.utility import mail_utils
@@ -380,7 +422,9 @@ class Applet(FolderModel):
             user=user,
             roles=roles,
             constraints=constraints,
-            appletName=appletName
+            appletName=appletName,
+            appletRole=appletRole,
+            accountId=accountId
         )
 
     def createAppletFromProtocolData(
@@ -391,7 +435,8 @@ class Applet(FolderModel):
         roles=None,
         constraints=None,
         email='',
-        sendEmail=True
+        sendEmail=True,
+        accountId=None
     ):
         from girderformindlogger.models.protocol import Protocol
         from girderformindlogger.utility import mail_utils
@@ -429,7 +474,9 @@ class Applet(FolderModel):
             user=user,
             roles=roles,
             constraints=constraints,
-            appletName=appletName
+            appletName=appletName,
+            appletRole=appletRole,
+            accountId=accountId
         )
 
     def formatThenUpdate(self, applet, user):
