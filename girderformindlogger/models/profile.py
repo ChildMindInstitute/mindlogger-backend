@@ -24,7 +24,7 @@ class Profile(AESEncryption, dict):
     """
 
     def initialize(self):
-        self.name = 'profile'
+        self.name = 'appletProfile'
         self.ensureIndices(
             (
                 'appletId',
@@ -778,6 +778,7 @@ class Profile(AESEncryption, dict):
                         'activity_id': activity_id, 'completed_time': None
                     } for activity_id in applet.get('meta', {}).get('protocol', {}).get('activities', [])
                 ],
+                'accountId': applet.get('accountId', None),
                 'size': 0,
                 'coordinatorDefined': {},
                 'userDefined': {
