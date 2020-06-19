@@ -24,7 +24,7 @@ class Token(AccessControlledModel):
         doc['scope'] = list(set(doc['scope']))
         return doc
 
-    def createToken(self, user=None, days=None, scope=None, apiKey=None):
+    def createToken(self, user=None, days=None, scope=None, apiKey=None, accountId=None):
         """
         Creates a new token. You can create an anonymous token
         (such as for CSRF mitigation) by passing "None" for the user argument.
@@ -68,6 +68,7 @@ class Token(AccessControlledModel):
             self.setPublic(token, True, save=False)
         else:
             token['userId'] = user['_id']
+            token['accountId'] = accountId if accountId else user.get('accountId', None)
             self.setUserAccess(token, user=user, level=AccessType.ADMIN,
                                save=False)
 
