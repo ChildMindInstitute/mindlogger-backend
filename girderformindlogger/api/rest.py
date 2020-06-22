@@ -24,6 +24,7 @@ from girderformindlogger.exceptions import AccessException, GirderException, Val
 from girderformindlogger.models.setting import Setting
 from girderformindlogger.models.token import Token
 from girderformindlogger.models.user import User
+from girderformindlogger.models.account_profile import AccountProfile
 from girderformindlogger.settings import SettingKey
 from girderformindlogger.utility import toBool, config, JsonEncoder, optionalArgumentDecorator
 from girderformindlogger.utility._cache import requestCache
@@ -207,6 +208,21 @@ def getCurrentUser(returnToken=False):
 
         user = User().load(token['userId'], force=True)
         return retVal(user, token)
+
+
+def getAccountProfile():
+    token = getCurrentToken()
+    if (token is None or token['expires'] < datetime.datetime.utcnow() or 'accountId' not in token or 'userId' not in token):
+        return None
+
+    else:
+        try:
+            ensureTokenScopes(token, getattr(
+                cherrypy.request, 'requiredScopes', TokenScope.USER_AUTH))
+        except AccessException:
+            return None
+
+        return AccountProfile().findOne({'accountId': token['accountId'], 'userId': token['userId']})
 
 
 def setCurrentUser(user):
@@ -1135,7 +1151,10 @@ class Resource(object):
         """
         return getCurrentUser(returnToken)
 
-    def sendAuthTokenCookie(self, user=None, scope=None, token=None, days=None):
+    def getAccountProfile(self):
+        return getAccountProfile()
+
+    def sendAuthTokenCookie(self, user=None, scope=None, token=None, days=None, accountId=None):
         """
         Helper method to send the authentication cookie
         """
@@ -1143,7 +1162,7 @@ class Resource(object):
             days = float(Setting().get(SettingKey.COOKIE_LIFETIME))
 
         if token is None:
-            token = Token().createToken(user, days=days, scope=scope)
+            token = Token().createToken(user, days=days, scope=scope, accountId=accountId)
 
         cookie = cherrypy.response.cookie
         cookie['girderToken'] = str(token['_id'])

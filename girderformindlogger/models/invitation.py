@@ -10,6 +10,7 @@ from girderformindlogger import events
 from girderformindlogger.constants import AccessType, USER_ROLES
 from girderformindlogger.exceptions import ValidationException, GirderException
 from girderformindlogger.models.aes_encrypt import AESEncryption, AccessControlledModel
+from girderformindlogger.models.account_profile import AccountProfile
 from girderformindlogger.utility.model_importer import ModelImporter
 from girderformindlogger.utility.progress import noProgress, \
     setResponseTimeLimit
@@ -303,7 +304,7 @@ class Invitation(AESEncryption):
 
             UserModel().save(user)
 
-        UserModel().appendApplet(user, applet['_id'], new_roles)
+        AccountProfile().appendApplet(AccountProfile().createAccountProfile(applet['accountId'], user['_id']), applet['_id'], profile['roles'])
 
         return(Profile().displayProfileFields(
             Profile().load(profile['_id'], force=True),

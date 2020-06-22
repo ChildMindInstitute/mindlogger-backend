@@ -19,6 +19,7 @@ from girderformindlogger.models.profile import Profile as ProfileModel
 from girderformindlogger.models.setting import Setting
 from girderformindlogger.models.token import Token
 from girderformindlogger.models.user import User as UserModel
+from girderformindlogger.models.account_profile import AccountProfile
 from girderformindlogger.settings import SettingKey
 from girderformindlogger.utility import jsonld_expander, mail_utils
 from sys import exc_info
@@ -50,6 +51,8 @@ class User(Resource):
         self.route('PUT', (':id', 'code'), self.updateIDCode)
         self.route('DELETE', (':id', 'code'), self.removeIDCode)
         self.route('GET', ('applets',), self.getOwnApplets)
+        self.route('GET', ('accounts',), self.getAccounts)
+        self.route('PUT', ('switchAccount', ), self.switchAccount)
         self.route('GET', (':id', 'details'), self.getUserDetails)
         self.route('GET', ('invites',), self.getGroupInvites)
         self.route('PUT', (':id', 'knows'), self.setUserRelationship)
@@ -58,6 +61,7 @@ class User(Resource):
         self.route('PUT', (':id',), self.updateUser)
         self.route('PUT', ('password',), self.changePassword)
         self.route('PUT', ('username',), self.changeUserName)
+        self.route('PUT', ('accountName',), self.changeAccountName)
 
         self.route('PUT', (':id', 'password'), self.changeUserPassword)
         self.route('GET', ('password', 'temporary', ':id'),
@@ -599,7 +603,8 @@ class User(Resource):
         from girderformindlogger.utility.response import responseDateList
 
         reviewer = self.getCurrentUser()
-        if reviewer is None:
+        accountProfile = self.getAccountProfile()
+        if reviewer is None or accountProfile is None:
             raise AccessException("You must be logged in to get user applets.")
         role = role.lower()
         if role not in USER_ROLES.keys():
@@ -608,7 +613,7 @@ class User(Resource):
                 'role'
             )
 
-        applet_ids = reviewer.get('applets', {}).get(role, [])
+        applet_ids = accountProfile.get('applets', {}).get(role, [])
 
         if ids_only:
             return applet_ids
@@ -676,6 +681,85 @@ class User(Resource):
             print(sys.exc_info())
             return([])
 
+    @access.public(scope=TokenScope.DATA_READ)
+    @autoDescribeRoute(
+        Description('Get all your applets by role.')
+        .notes(
+            'This endpoint is used for users to get their own/invited accounts.'
+        )
+        .errorResponse('ID was invalid.')
+        .errorResponse(
+            'You do not have permission to see accounts for this user.',
+            403
+        )
+    )
+    def getAccounts(self):
+        user = self.getCurrentUser()
+
+        if user is None:
+            raise AccessException('You are not authorized to make request to this endpoint.')
+        accounts = AccountProfile().getAccounts(user['_id'])
+        fields = ['accountName', 'accountId']
+
+        response = []
+        for account in accounts:
+            response.append({
+                'accountName': account['accountName'],
+                'accountId': account['accountId'],
+                'owned': (account['_id'] == account['accountId'])
+            })
+
+        return response
+
+    @access.public(scope=TokenScope.DATA_READ)
+    @autoDescribeRoute(
+        Description('switch account.')
+        .notes(
+            'This endpoint is used for users to switch their current account.'
+        )
+        .param(
+            'accountId',
+            'account id to switch',
+            required=True,
+            default=None
+        )
+        .errorResponse('ID was invalid.')
+        .errorResponse(
+            'You do not have permission to see this account.',
+            403
+        )
+    )
+    def switchAccount(self, accountId = None):
+        from bson.objectid import ObjectId
+        try:
+            account = AccountProfile().findOne({'_id': ObjectId(accountId)})
+            token = self.getCurrentToken()
+            user = self.getCurrentUser()
+
+            if not user or not account:
+                raise Exception('error.')
+        except:
+            raise AccessException('account does not exist or you are not allowed to access to this account')
+
+        token['accountId'] = ObjectId(accountId)
+        token = Token().save(token)
+
+        fields = ['accountId', 'accountName', 'applets']
+        tokenInfo = {
+            'account': {
+                field: account[field] for field in fields
+            },
+            'authToken': {
+                'token': token['_id'],
+                'expires': token['expires'],
+                'scope': token['scope']
+            }
+        }
+
+        if token['accountId'] == user['accountId']:
+            tokenInfo['account']['isDefaultName'] = False if user['accountName'] else True
+
+        return tokenInfo
 
     @access.public(scope=TokenScope.USER_INFO_READ)
     @filtermodel(model=UserModel)
@@ -781,8 +865,15 @@ class User(Resource):
             setCurrentUser(user)
             token = self.sendAuthTokenCookie(user)
 
-        return {
+        account = AccountProfile().findOne({'_id': user['accountId']})
+
+        fields = ['accountId', 'accountName', 'applets']
+
+        tokenInfo = {
             'user': self._model.filter(user, user),
+            'account': {
+                field: account[field] for field in fields
+            },
             'authToken': {
                 'token': token['_id'],
                 'expires': token['expires'],
@@ -790,6 +881,11 @@ class User(Resource):
             },
             'message': 'Login succeeded.'
         }
+
+        tokenInfo['account']['isDefaultName'] = False if user['accountName'] else True
+
+        return tokenInfo
+
     @access.public
     @autoDescribeRoute(
         Description('Log out of the system.')
@@ -833,13 +929,18 @@ class User(Resource):
                required=False, dataType='boolean', default=False)
         .param(
             'lastName',
-            'Deprecated. Do not use.',
+            'lastName of user.',
             required=False
         )
         .param(
             'firstName',
-            'Deprecated. Do not use.',
+            'firstName of user.',
             required=False
+        )
+        .param(
+            'accountName',
+            'name of account',
+            required=True
         )
         .errorResponse('A parameter was invalid, or the specified login or'
                        ' email already exists in the system.')
@@ -851,7 +952,8 @@ class User(Resource):
         email="",
         admin=False,
         lastName=None,
-        firstName=None
+        firstName=None,
+        accountName=""
     ):
         currentUser = self.getCurrentUser()
 
@@ -874,6 +976,7 @@ class User(Resource):
             lastName=lastName,
             admin=admin,
             currentUser=currentUser,
+            accountName=accountName,
             encryptEmail=True
         )
 
@@ -1328,3 +1431,28 @@ class User(Resource):
             ProfileModel()._cacheProfileDisplay(p, user, forceManager=True)
 
         return {'message': 'username changed from {} to {}'.format(old, username)}
+
+    @access.user
+    @autoDescribeRoute(
+        Description('Change your accountName.')
+        .notes(
+            'this endpoint is used for updating user\'s accountName'
+        )
+        .param('accountName', 'Your new accountName.')
+        .errorResponse(('You are not logged in.',), 401)
+    )
+    def changeAccountName(self, accountName):
+        profile = self.getAccountProfile()
+        if profile is None:
+            raise AccessException("You are not authorized to change account name for this account")
+        user = self.getCurrentUser()
+
+        if user['accountId'] == profile['accountId']: # check if user is owner of account
+            AccountProfile().updateAccountName(profile['accountId'], accountName)
+
+            user['accountName'] = accountName
+            self._model.save(user)
+        else:
+            raise AccessException("You are not authorized to change account name for this account")
+
+        return 'success'

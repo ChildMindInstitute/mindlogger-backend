@@ -284,6 +284,11 @@ class ResponseItem(Resource):
         try:
             appletInfo = AppletModel().findOne({'_id': ObjectId(applet)})
             user = self.getCurrentUser()
+            accountProfile = self.getAccountProfile()
+
+            if accountProfile is None or accountProfile['accountId'] != appletInfo['accountId']:
+                raise AccessException('unable to access this applet')
+
             return(last7Days(applet, appletInfo, user.get('_id'), user, referenceDate))
         except:
             import sys, traceback

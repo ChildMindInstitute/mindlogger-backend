@@ -15,7 +15,7 @@ from girderformindlogger.models.aes_encrypt import AESEncryption, AccessControll
 from girderformindlogger.utility.model_importer import ModelImporter
 from girderformindlogger.utility.progress import noProgress, \
     setResponseTimeLimit
-
+from girderformindlogger.constants import USER_ROLES
 
 class Profile(AESEncryption, dict):
     """
@@ -24,7 +24,7 @@ class Profile(AESEncryption, dict):
     """
 
     def initialize(self):
-        self.name = 'profile'
+        self.name = 'appletProfile'
         self.ensureIndices(
             (
                 'appletId',
@@ -705,6 +705,20 @@ class Profile(AESEncryption, dict):
         }
         return(userList)
 
+    def updateOwnerProfile(self, applet):
+        from girderformindlogger.models.account_profile import AccountProfile
+
+        accountId = applet.get('accountId', None)
+        if not accountId:
+            return
+        owner = AccountProfile().getOwner(accountId)
+
+        appletProfile = self.findOne({'userId': owner['userId'], 'appletId': applet['_id']})
+        appletProfile['roles'] = list(USER_ROLES.keys())
+        appletProfile['roles'].append('owner')
+
+        return self.save(appletProfile, validate=False)
+
     def createProfile(self, applet, user, role="user"):
         """
         Create a new profile to store information specific to a given (applet ∩
@@ -778,6 +792,7 @@ class Profile(AESEncryption, dict):
                         'activity_id': activity_id, 'completed_time': None
                     } for activity_id in applet.get('meta', {}).get('protocol', {}).get('activities', [])
                 ],
+                'accountId': applet.get('accountId', None),
                 'size': 0,
                 'coordinatorDefined': {},
                 'userDefined': {

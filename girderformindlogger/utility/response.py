@@ -17,14 +17,14 @@ from pymongo import ASCENDING, DESCENDING
 MonkeyPatch.patch_fromisoformat()
 
 
-def getSchedule(currentUser, timezone=None):
+def getSchedule(accountProfile, timezone=None):
     from girderformindlogger.models.profile import Profile
 
     schedule = {}
-    applets = currentUser.get('applets', {}).get('user', [])
+    applets = accountProfile.get('applets', {}).get('user', [])
 
     for appletId in applets:
-        profile = Profile().findOne({'appletId': appletId, 'userId': currentUser['_id']})
+        profile = Profile().findOne({'appletId': appletId, 'userId': accountProfile['userId']})
         activities = profile['completed_activities']
 
         appletSchedule = {}
