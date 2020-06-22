@@ -736,16 +736,13 @@ class User(Resource):
             token = self.getCurrentToken()
             user = self.getCurrentUser()
 
-            if user is None:
+            if not user or not account:
                 raise Exception('error.')
         except:
             raise AccessException('account does not exist or you are not allowed to access to this account')
 
-        if token:
-            Token().remove(token)
-
-        self.deleteAuthTokenCookie()
-        token = self.sendAuthTokenCookie(user, accountId=accountId)
+        token['accountId'] = ObjectId(accountId)
+        token = Token().save(token)
 
         fields = ['accountId', 'accountName', 'applets']
         tokenInfo = {
@@ -759,7 +756,8 @@ class User(Resource):
             }
         }
 
-        tokenInfo['account']['isDefaultName'] = False if user['accountName'] else True
+        if token['accountId'] == user['accountId']:
+            tokenInfo['account']['isDefaultName'] = False if user['accountName'] else True
 
         return tokenInfo
 
