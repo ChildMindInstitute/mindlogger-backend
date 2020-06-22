@@ -747,14 +747,21 @@ class User(Resource):
         self.deleteAuthTokenCookie()
         token = self.sendAuthTokenCookie(user, accountId=accountId)
 
-        return {
-            'account': account,
+        fields = ['accountId', 'accountName', 'applets']
+        tokenInfo = {
+            'account': {
+                field: account[field] for field in fields
+            },
             'authToken': {
                 'token': token['_id'],
                 'expires': token['expires'],
                 'scope': token['scope']
             }
         }
+
+        tokenInfo['account']['isDefaultName'] = False if user['accountName'] else True
+
+        return tokenInfo
 
     @access.public(scope=TokenScope.USER_INFO_READ)
     @filtermodel(model=UserModel)
@@ -856,12 +863,19 @@ class User(Resource):
                     'timezone': float(timezone),
                     'badge': 0
                 })
-            print('user is', user)
+
             setCurrentUser(user)
             token = self.sendAuthTokenCookie(user)
 
-        return {
+        account = AccountProfile().findOne({'_id': user['accountId']})
+
+        fields = ['accountId', 'accountName', 'applets']
+
+        tokenInfo = {
             'user': self._model.filter(user, user),
+            'account': {
+                field: account[field] for field in fields
+            },
             'authToken': {
                 'token': token['_id'],
                 'expires': token['expires'],
@@ -869,6 +883,10 @@ class User(Resource):
             },
             'message': 'Login succeeded.'
         }
+
+        tokenInfo['account']['isDefaultName'] = False if user['accountName'] else True
+
+        return tokenInfo
 
     @access.public
     @autoDescribeRoute(

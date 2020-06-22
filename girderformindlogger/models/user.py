@@ -27,7 +27,7 @@ class User(AESEncryption):
     def initialize(self):
         self.name = 'user'
         self.ensureIndices(['login', 'email', 'groupInvites.groupId', 'size',
-                            'created', 'deviceId', 'timezone'])
+                            'created', 'deviceId', 'timezone', 'accountId'])
         self.prefixSearchFields = (
             'login', ('firstName', 'i'), ('displayName', 'i'), 'email')
         self.ensureTextIndex({
@@ -102,9 +102,6 @@ class User(AESEncryption):
             doc['email']
         ):
             raise ValidationException('Invalid email address.', 'email')
-
-        if not len(doc['accountName']):
-            raise ValidationException('Account name is required.', )
 
         if len(doc['email']):
             q = {'email': doc['email']}
@@ -479,7 +476,8 @@ class User(AESEncryption):
                     "level": 0
                 } for gi in list(Group().find(query={"queue": email}))
             ] if len(email) else [],
-            'email_encrypted': encryptEmail
+            'email_encrypted': encryptEmail,
+            'accountName': ''
         }
         if encryptEmail:
             if len(email) == 0 or not mail_utils.validateEmailAddress(email):
