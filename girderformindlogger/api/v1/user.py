@@ -1435,7 +1435,6 @@ class User(Resource):
         )
         .param('accountName', 'Your new accountName.')
         .errorResponse(('You are not logged in.',), 401)
-        .deprecated()
     )
     def changeAccountName(self, accountName):
         profile = self.getAccountProfile()
@@ -1450,3 +1449,5 @@ class User(Resource):
             self._model.save(user)
         else:
             raise AccessException("You are not authorized to change account name for this account")
+
+        return 'success'
