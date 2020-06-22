@@ -23,7 +23,7 @@ from girderformindlogger.api import access
 from girderformindlogger.constants import TokenScope
 from girderformindlogger.models.applet import Applet as AppletModel
 from girderformindlogger.utility import jsonld_expander, response
-
+from girderformindlogger.exceptions import AccessException, ValidationException
 
 class Schedule(Resource):
     """API Endpoint for schedules."""
@@ -50,4 +50,8 @@ class Schedule(Resource):
         Get a list of dictionaries keyed by activityID.
         """
         accountProfile = self.getAccountProfile()
+
+        if not accountProfile:
+            raise AccessException("You don't have permission to get schedule for this user.")
+
         return(response.getSchedule(accountProfile, timezone))

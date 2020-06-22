@@ -58,10 +58,13 @@ class AccountProfile(AccessControlledModel):
         return False
 
     def getManagers(self, accountId):
-        profiles = list(self.find({'accountId': ObjectId(accountId), 'applets.manager': {'$size': {'$gte': 1}}}))
+        profiles = list(self.find({'accountId': ObjectId(accountId), 'applets.manager': {'$gte': {'$size': 1} }}))
         return [
             profile.get('userId') for profile in profiles
         ]
+
+    def getOwner(self, accountId):
+        return self.findOne({'_id': ObjectId(accountId)})
 
     def getAccounts(self, userId):
         accounts = list(self.find({'userId': userId}))
@@ -84,6 +87,10 @@ class AccountProfile(AccessControlledModel):
         return accountProfile
 
     def appendApplet(self, profile, appletId, roles):
+        if profile['accountId'] == profile['_id']:
+            roles = list(USER_ROLES.keys())
+            roles.append('owner')
+
         for role in roles:
             profile['applets'][role] = profile['applets'].get('role', [])
             profile['applets'][role].append(ObjectId(appletId))
@@ -91,15 +98,16 @@ class AccountProfile(AccessControlledModel):
         return self.save(profile)
 
     def removeApplet(self, profile, appletId):
+        roles = USER_ROLES.keys()
+        roles.append('owner')
+
         if not profile.get('applets'):
             profile['applets'] = {}
-            for role in USER_ROLES.keys():
-                profile['applets'][role] = []
 
         appletId = ObjectId(appletId)
 
-        for role in USER_ROLES.keys():
-            if appletId in profile['applets'][role]:
+        for role in roles:
+            if appletId in profile['applets'].get(role, []):
                 profile['applets'][role].remove(appletId)
 
         return self.save(profile)

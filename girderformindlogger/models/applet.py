@@ -169,18 +169,20 @@ class Applet(FolderModel):
         from girderformindlogger.models.profile import Profile
 
         # give all roles to creator of an applet
-        profile = Profile().createProfile(self.load(applet['_id'], force=True), user, 'manager')
+        applet = self.load(applet['_id'], force=True)
+        profile = Profile().createProfile(applet, user, appletRole)
         profile = Profile().load(profile['_id'], force=True)
 
-        profile['roles'] = list(USER_ROLES.keys()) if appletRole == 'manager' else ['editor', 'user']
+        profile['roles'] = ['editor', 'user'] if appletRole == 'editor' else list(USER_ROLES.keys())
         Profile().save(profile, False)
 
         AccountProfile().appendApplet(AccountProfile().findOne({'accountId': accountId, 'userId': user['_id']}), applet['_id'], profile['roles'])
 
-        managers = AccountProfile().getManagers(self, accountId)
-        applet = self.load(applet['_id'], force=True)
+        managers = AccountProfile().getManagers(accountId)
         for manager in managers:
             self.grantAccessToApplet(UserModel().load(manager, force=True), applet, 'manager')
+
+        Profile().updateOwnerProfile(applet)
 
         return formatted
 
@@ -312,7 +314,10 @@ class Applet(FolderModel):
 
             AccountProfile().appendApplet(AccountProfile.findOne({'accountId': newApplet['accountId'], 'userId': user['_id']}), newApplet['_id'], appletUser['roles'])
 
-        managers = AccountProfile().getManagers(self, newApplet['accountId'])
+            Profile().updateOwnerProfile(newApplet)
+
+
+        managers = AccountProfile().getManagers(newApplet['accountId'])
         for manager in managers:
             self.grantAccessToApplet(UserModel().load(manager, force=True), newApplet, 'manager')
 

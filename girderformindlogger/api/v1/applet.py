@@ -221,7 +221,7 @@ class Applet(Resource):
         profile = self.getAccountProfile()
 
         appletRole = None
-        for role in ['owner', 'manager', 'editor']:
+        for role in ['manager', 'editor']:
             if accountProfile.hasPermission(profile, role):
                 appletRole = role
                 break
@@ -239,7 +239,7 @@ class Applet(Resource):
                 'constraints': {
                     'informantRelationship': informant
                 } if informant is not None else None,
-                'role': appletRole,
+                'appletRole': appletRole,
                 'accountId': profile['accountId']
             }
         )
@@ -325,8 +325,8 @@ class Applet(Resource):
         profile = self.getAccountProfile()
 
         appletRole = None
-        for role in ['owner', 'manager', 'editor']:
-            if accountProfile.hasPermission(profile, 'manager'):
+        for role in ['manager', 'editor']:
+            if accountProfile.hasPermission(profile, role):
                 appletRole = role
                 break
 
