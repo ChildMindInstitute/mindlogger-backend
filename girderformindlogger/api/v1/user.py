@@ -937,11 +937,6 @@ class User(Resource):
             'firstName of user.',
             required=False
         )
-        .param(
-            'accountName',
-            'name of account',
-            required=True
-        )
         .errorResponse('A parameter was invalid, or the specified login or'
                        ' email already exists in the system.')
     )
@@ -952,8 +947,7 @@ class User(Resource):
         email="",
         admin=False,
         lastName=None,
-        firstName=None,
-        accountName=""
+        firstName=None
     ):
         currentUser = self.getCurrentUser()
 
@@ -976,7 +970,6 @@ class User(Resource):
             lastName=lastName,
             admin=admin,
             currentUser=currentUser,
-            accountName=accountName,
             encryptEmail=True
         )
 
