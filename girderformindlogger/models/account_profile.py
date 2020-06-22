@@ -31,6 +31,9 @@ class AccountProfile(AccessControlledModel):
         )
 
     def validate(self, document):
+        if not document.get('accountName', ''):
+            raise ValidationException('accountName not defined.', 'accountName')
+
         return document
 
     def createOwner(self, user):
@@ -78,13 +81,12 @@ class AccountProfile(AccessControlledModel):
 
         ownerAccount = self.load(accountId, force=True)
         accountProfile = {
-            'userId': user['_id'],
+            'userId': userId,
             'accountName': ownerAccount['accountName'],
             'accountId': accountId,
             'applets': {}
         }
-        account = self.save(account)
-        return accountProfile
+        return self.save(accountProfile)
 
     def appendApplet(self, profile, appletId, roles):
         if profile['accountId'] == profile['_id']:

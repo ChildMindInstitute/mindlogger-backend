@@ -304,7 +304,7 @@ class Invitation(AESEncryption):
 
             UserModel().save(user)
 
-        AccountProfile().appendApplet(AccountProfile().findOne({'accountId': applet['accountId'], 'userId': user['_id']}), applet['_id'], new_roles)
+        AccountProfile().appendApplet(AccountProfile().createAccountProfile(applet['accountId'], user['_id']), applet['_id'], profile['roles'])
 
         return(Profile().displayProfileFields(
             Profile().load(profile['_id'], force=True),
