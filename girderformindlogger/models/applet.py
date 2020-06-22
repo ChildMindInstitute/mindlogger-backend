@@ -179,15 +179,16 @@ class Applet(FolderModel):
         AccountProfile().appendApplet(AccountProfile().findOne({'accountId': accountId, 'userId': user['_id']}), applet['_id'], profile['roles'])
 
         managers = AccountProfile().getManagers(accountId)
+        inviter = UserModel().load(user['_id'], force=True)
         for manager in managers:
-            self.grantAccessToApplet(UserModel().load(manager, force=True), applet, 'manager')
+            self.grantAccessToApplet(UserModel().load(manager, force=True), applet, 'manager', inviter)
 
         Profile().updateOwnerProfile(applet)
 
         return formatted
 
     # users won't use this endpoint, so all emails are plain text
-    def grantAccessToApplet(self, user, applet, role):
+    def grantAccessToApplet(self, user, applet, role, inviter):
         from girderformindlogger.models.invitation import Invitation
         from girderformindlogger.models.profile import Profile
 
@@ -198,11 +199,9 @@ class Applet(FolderModel):
         if not accountId:
             return
 
-        ownerProfile = AccountProfile().load(accountId, force=True)
-
         newInvitation = Invitation().createInvitationForSpecifiedUser(
             applet,
-            ownerProfile['userId'],
+            inviter,
             role,
             user,
             user['firstName'],
@@ -210,7 +209,7 @@ class Applet(FolderModel):
             user['email']
         )
 
-        Invitation().acceptInvitation(self.load(newInvitation['_id'], force=True), user, user['email'])
+        Invitation().acceptInvitation(Invitation().load(newInvitation['_id'], force=True), user, user['email'])
 
     def duplicateApplet(
         self,
@@ -318,8 +317,9 @@ class Applet(FolderModel):
 
 
         managers = AccountProfile().getManagers(newApplet['accountId'])
+        inviter = UserModel().load(editor['_id'], force=True)
         for manager in managers:
-            self.grantAccessToApplet(UserModel().load(manager, force=True), newApplet, 'manager')
+            self.grantAccessToApplet(UserModel().load(manager, force=True), newApplet, 'manager', inviter)
 
         return(jsonld_expander.formatLdObject(
             newApplet,

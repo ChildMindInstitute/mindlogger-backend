@@ -227,7 +227,7 @@ class Applet(Resource):
                 break
 
         if appletRole is None:
-            AccessException("You don't have enough permission to create applet on this account.")
+            raise AccessException("You don't have enough permission to create applet on this account.")
 
         thread = threading.Thread(
             target=AppletModel().createAppletFromUrl,
@@ -331,7 +331,7 @@ class Applet(Resource):
                 break
 
         if appletRole is None:
-            AccessException("You don't have enough permission to create applet on this account.")
+            raise AccessException("You don't have enough permission to create applet on this account.")
 
         thread = threading.Thread(
             target=AppletModel().createAppletFromProtocolData,

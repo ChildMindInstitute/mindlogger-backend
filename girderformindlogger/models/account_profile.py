@@ -55,15 +55,15 @@ class AccountProfile(AccessControlledModel):
         }})
 
     def hasPermission(self, profile, role):
-        if profile and profile['_id'] == profile['accountId'] or len(profile.get('applets', {}).get(role, [])):
+        if profile and (profile['_id'] == profile['accountId'] or len(profile.get('applets', {}).get(role, []))):
             return True
 
         return False
 
     def getManagers(self, accountId):
-        profiles = list(self.find({'accountId': ObjectId(accountId), 'applets.manager': {'$gte': {'$size': 1} }}))
+        profiles = list(self.find({'accountId': ObjectId(accountId), 'applets.manager': {'$exists': True }}))
         return [
-            profile.get('userId') for profile in profiles
+            profile.get('userId') for profile in profiles if len(profile.get('applets', {}).get('manager', []))
         ]
 
     def getOwner(self, accountId):
@@ -89,13 +89,16 @@ class AccountProfile(AccessControlledModel):
         return self.save(accountProfile)
 
     def appendApplet(self, profile, appletId, roles):
+        appletId = ObjectId(appletId)
+
         if profile['accountId'] == profile['_id']:
             roles = list(USER_ROLES.keys())
             roles.append('owner')
 
         for role in roles:
-            profile['applets'][role] = profile['applets'].get('role', [])
-            profile['applets'][role].append(ObjectId(appletId))
+            profile['applets'][role] = profile['applets'].get(role, [])
+            if appletId not in profile['applets'][role]:
+                profile['applets'][role].append(appletId)
 
         return self.save(profile)
 
