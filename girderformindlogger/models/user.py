@@ -480,8 +480,7 @@ class User(AESEncryption):
                     "level": 0
                 } for gi in list(Group().find(query={"queue": email}))
             ] if len(email) else [],
-            'email_encrypted': encryptEmail,
-            'accountName': ''
+            'email_encrypted': encryptEmail
         }
         if encryptEmail:
             if len(email) == 0 or not mail_utils.validateEmailAddress(email):
