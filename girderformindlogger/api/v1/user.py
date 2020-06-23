@@ -732,9 +732,10 @@ class User(Resource):
     def switchAccount(self, accountId = None):
         from bson.objectid import ObjectId
         try:
-            account = AccountProfile().findOne({'_id': ObjectId(accountId)})
             token = self.getCurrentToken()
             user = self.getCurrentUser()
+            if user:
+                account = AccountProfile().findOne({'accountId': ObjectId(accountId), 'userId': user['_id']})
 
             if not user or not account:
                 raise Exception('error.')

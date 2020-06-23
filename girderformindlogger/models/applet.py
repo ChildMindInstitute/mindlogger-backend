@@ -210,6 +210,7 @@ class Applet(FolderModel):
         )
 
         Invitation().acceptInvitation(Invitation().load(newInvitation['_id'], force=True), user, user['email'])
+        Invitation().remove(newInvitation)
 
     def duplicateApplet(
         self,
