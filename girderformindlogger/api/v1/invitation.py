@@ -26,6 +26,7 @@ from girderformindlogger.models.applet import Applet as AppletModel
 from girderformindlogger.models.invitation import Invitation as InvitationModel
 from girderformindlogger.models.token import Token
 from girderformindlogger.models.user import User as UserModel
+from girderformindlogger.models.account_profile import AccountProfile
 from girderformindlogger.utility import jsonld_expander, response
 
 
@@ -154,8 +155,16 @@ class Invitation(Resource):
 
         profile = InvitationModel().acceptInvitation(invitation, currentUser, email)
 
-        if invitation.get('role', 'user') == 'editor' or invitation.get('role', 'user') == 'manager':
+        if invitation.get('role', 'user') == 'editor':
             InvitationModel().accessToDuplicatedApplets(invitation, currentUser, email)
+        elif invitation.get('role', 'user') == 'manager': # managers should be able to access all applets in the account
+            applet = AppletModel().load(invitation['appletId'], force=True)
+            inviter = UserModel().load(invitation['inviterId'], force=True)
+
+            appletsOnAccount = AccountProfile().getOwner(applet['accountId']).get('applets', {}).get('owner', [])
+
+            for applet in appletsOnAccount:
+                AppletModel().grantAccessToApplet(currentUser, AppletModel().load(applet, force=True), 'manager', inviter)
 
         InvitationModel().remove(invitation)
 
@@ -202,8 +211,17 @@ class Invitation(Resource):
         profile = InvitationModel().acceptInvitation(invitation, currentUser, email)
 
         # editors should be able to access duplicated applets
-        if invitation.get('role','user') == 'editor' or invitation.get('role', 'user') == 'manager':
+        if invitation.get('role','user') == 'editor':
             InvitationModel().accessToDuplicatedApplets(invitation, currentUser, email)
+
+        elif invitation.get('role', 'user') == 'manager': # managers should be able to access all applets in the account
+            applet = AppletModel().load(invitation['appletId'], force=True)
+            inviter = UserModel().load(invitation['inviterId'], force=True)
+
+            appletsOnAccount = AccountProfile().getOwner(applet['accountId']).get('applets', {}).get('owner', [])
+
+            for applet in appletsOnAccount:
+                AppletModel().grantAccessToApplet(currentUser, applet, 'manager', inviter)
 
         InvitationModel().remove(invitation)
         return profile
