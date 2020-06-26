@@ -53,6 +53,12 @@ class Events(Model):
             push_notification.remove_schedules()
             self.removeWithQuery({'_id': ObjectId(event_id)})
 
+    def deleteEventsByAppletId(self, applet_id):
+        events = self.find({'applet_id': ObjectId(applet_id)})
+
+        for event in events:
+            self.deleteEvent(event.get('_id'))
+
     def upsertEvent(self, event, applet_id, event_id=None):
         newEvent = {
             'applet_id': applet_id,

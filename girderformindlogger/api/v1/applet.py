@@ -466,6 +466,7 @@ class Applet(Resource):
                 AppletModel().preferredName(applet),
                 applet.get('_id')
             )
+            EventsModel().deleteEventsByAppletId(applet.get('_id'))
         else:
             message = 'Could not deactivate applet {} ({}).'.format(
                 AppletModel().preferredName(applet),
