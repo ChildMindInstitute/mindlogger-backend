@@ -205,7 +205,7 @@ def loadFromSingleFile(document, user):
                         newModel,
                         mesoPrefix=modelType,
                         user=user,
-                        refreshCache=False
+                        refreshCache=True
                     ))
 
                     createCache(newModel, formatted, modelType, user)
@@ -236,11 +236,11 @@ def loadFromSingleFile(document, user):
             allowRename=True,
             reuseExisting=True
         )
-        protocolContent['content'] = json_util.dumps(document)
 
         protocol['content_id'] = protocolContent['_id']
         FolderModel().save(protocol)
 
+    protocolContent['content'] = json_util.dumps(document)
     protocolContent['lastUpdatedBy'] = user['_id']
 
     FolderModel().save(protocolContent)
@@ -910,7 +910,7 @@ def clearCache(obj, modelType):
         cache_id = obj['cached']
         obj['cached'] = None
         MODELS()[modelType]().update({'_id': ObjectId(obj['_id'])}, {'$set': {'cached': None}}, False)
-
+        CacheModel().removeWithQuery({'_id': ObjectId(cache_id)})
     return obj
 
 def loadCache(id):
