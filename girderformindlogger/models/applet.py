@@ -332,12 +332,11 @@ class Applet(FolderModel):
         successed = True
         if applet.get('meta', {}).get('applet', {}).get('deleted')==True:
 
-            users = list(Profile().find({'appletId': ObjectId(applet['_id']), 'deactivated': {'$ne': True}}, fields=['userId']))
+            accountProfiles = list(AccountProfile().find({'accountId': applet['accountId'], 'applets.user': applet['_id'] }))
             Profile().deactivateProfile(applet['_id'], None)
 
-            for user in users:
-                if 'userId' in user:
-                    UserModel().removeApplet(UserModel().findOne({'_id': ObjectId(user['userId'])}), applet['_id'])
+            for accountProfile in accountProfiles:
+                AccountProfile().removeApplet(accountProfile, applet['_id'])
         else:
             successed = False
 

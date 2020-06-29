@@ -103,7 +103,7 @@ class AccountProfile(AccessControlledModel):
         return self.save(profile)
 
     def removeApplet(self, profile, appletId):
-        roles = USER_ROLES.keys()
+        roles = list(USER_ROLES.keys())
         roles.append('owner')
 
         if not profile.get('applets'):
@@ -115,4 +115,8 @@ class AccountProfile(AccessControlledModel):
             if appletId in profile['applets'].get(role, []):
                 profile['applets'][role].remove(appletId)
 
-        return self.save(profile)
+        if profile['_id'] != profile['accountId'] and not len(profile.get('applets', {}).get('user', [])):
+            self.remove(profile)
+        else:
+            self.save(profile)
+
