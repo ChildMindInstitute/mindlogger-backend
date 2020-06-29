@@ -536,6 +536,9 @@ class Applet(Resource):
         from girderformindlogger.models.profile import Profile
 
         user = self.getCurrentUser()
+        if applet.get('meta', {}).get('applet', {}).get('deleted'):
+            raise AccessException('this applet is already removed')
+
         if not AppletModel().isManager(applet['_id'], user):
             raise AccessException('only managers can remove applet')
 
