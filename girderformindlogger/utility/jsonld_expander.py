@@ -50,7 +50,7 @@ def expandObj(contextSet, data):
 
     if '@context' in data:
         for key in data['@context']:
-            context.update(contextSet[key])
+            context.update(deepcopy(contextSet[key]))
 
     if len(context.keys()):
         obj['@context'] = context
@@ -84,7 +84,8 @@ def loadFromSingleFile(document, user):
 
     expandedProtocol = expandObj(contexts, document['protocol']['data'])
     protocol['protocol'][expandedProtocol['@id']] = {
-        'expanded': expandedProtocol
+        'expanded': expandedProtocol,
+        'ref2Document': document['protocol']['data']
     }
 
     protocolId = None
@@ -93,7 +94,8 @@ def loadFromSingleFile(document, user):
         protocol['activity'][expandedActivity['@id']] = {
             'parentKey': 'protocol',
             'parentId': expandedProtocol['@id'],
-            'expanded': expandedActivity
+            'expanded': expandedActivity,
+            'ref2Document': activity['data']
         }
 
         if 'items' not in activity:
@@ -106,7 +108,8 @@ def loadFromSingleFile(document, user):
             protocol['screen'][expandedItem['@id']] = {
                 'parentKey': 'activity',
                 'parentId': expandedActivity['@id'],
-                'expanded': expandedItem
+                'expanded': expandedItem,
+                'ref2Document': item
             }
 
     for modelType in ['protocol', 'activity', 'screen']:
@@ -117,15 +120,27 @@ def loadFromSingleFile(document, user):
             prefName = modelClass.preferredName(model['expanded'])
 
             if modelClass.name in ['folder', 'item']:
-                docFolder = FolderModel().createFolder(
-                    name=prefName,
-                    parent=docCollection,
-                    parentType='collection',
-                    public=True,
-                    creator=user,
-                    allowRename=True,
-                    reuseExisting=(modelType!='applet')
-                )
+                docFolder = None
+                if modelClass.name == 'folder' and model['ref2Document'].get('_id', None):
+                    try:
+                        docFolder = FolderModel().load(model['ref2Document']['_id'], force=True)
+                        docFolder['name'] = prefName
+
+                        FolderModel().updateFolder(docFolder)
+                    except Exception as e:
+                        print('wrong folder id', model['ref2Document']['_id'])
+                        print(e)
+
+                if not docFolder:
+                    docFolder = FolderModel().createFolder(
+                        name=prefName,
+                        parent=docCollection,
+                        parentType='collection',
+                        public=True,
+                        creator=user,
+                        allowRename=True,
+                        reuseExisting=(modelClass.name == 'item')
+                    )
 
                 metadata = {modelType: model['expanded']}
 
@@ -141,8 +156,27 @@ def loadFromSingleFile(document, user):
                         metadata
                     )
                 elif modelClass.name=='item':
-                    newModel = modelClass.setMetadata(
-                        modelClass.createItem(
+                    item = None
+                    name = prefName if prefName else str(len(list(FolderModel().childItems(
+                        FolderModel().load(
+                            docFolder,
+                            level=None,
+                            user=user,
+                            force=True
+                        ))
+                    )) + 1)
+                    if model['ref2Document'].get('_id', None):
+                        try:
+                            item = modelClass.load(model['ref2Document']['_id'],force=True)
+                            item['name'] = name
+                            item['folderId'] = docFolder['_id']
+                            modelClass.updateItem(item)
+                        except Exception as e:
+                            print('wrong item id', model['ref2Document']['_id'])
+                            print(e)
+
+                    if not item:
+                        item = modelClass.createItem(
                             name=prefName if prefName else str(len(list(
                                 FolderModel().childItems(
                                     FolderModel().load(
@@ -155,36 +189,67 @@ def loadFromSingleFile(document, user):
                             )) + 1),
                             creator=user,
                             folder=docFolder,
-                            reuseExisting=True
-                        ),
-                        metadata
-                    )
+                            reuseExisting=False
+                        )
 
-                # we don't need this in the future because we will only using single-file-format
+                    newModel = modelClass.setMetadata(item, metadata)
+
                 modelClass.update(
                     {'_id': newModel['_id']},
                     {'$set': {
-                        'loadedFromSingleFile': True
+                        'loadedFromSingleFile': True,
+                        'lastUpdatedBy': user['_id']
                     }})
                 if modelType != 'protocol':
                     formatted = _fixUpFormat(formatLdObject(
                         newModel,
-                        mesoPrefix = modelType,
-                        user = user,
-                        refreshCache = False
+                        mesoPrefix=modelType,
+                        user=user,
+                        refreshCache=False
                     ))
 
                     createCache(newModel, formatted, modelType, user)
+
                 model['_id'] = newModel['_id']
 
                 if modelType == 'protocol':
                     protocolId = newModel['_id']
 
+                model['ref2Document']['_id'] = newModel['_id']
+
+    protocol = ProtocolModel().load(protocolId, force=True)
+
+    protocolContent = None
+    if protocol.get('content_id', None):
+        protocolContent = FolderModel().load(protocol['content_id'], force=True)
+        protocolContent['name'] = 'content of ' + protocol['name']
+
+        FolderModel().validate(protocolContent, allowRename=True)
+
+    if not protocolContent:
+        protocolContent = FolderModel().createFolder(
+            name='content of ' + protocol['name'],
+            parent=protocol,
+            parentType='folder',
+            public=False,
+            creator=user,
+            allowRename=True,
+            reuseExisting=True
+        )
+        protocolContent['content'] = json_util.dumps(document)
+
+        protocol['content_id'] = protocolContent['_id']
+        FolderModel().save(protocol)
+
+    protocolContent['lastUpdatedBy'] = user['_id']
+
+    FolderModel().save(protocolContent)
+
     return formatLdObject(
-        ProtocolModel().load(protocolId, force=True),
-        mesoPrefix = 'protocol',
-        user = user,
-        refreshCache = False
+        protocol,
+        mesoPrefix='protocol',
+        user=user,
+        refreshCache=True
     )
 
 def importAndCompareModelType(model, url, user, modelType, meta={}):
@@ -695,7 +760,9 @@ def expand(obj, keepUndefined=False):
     """
     if obj is None:
         return(obj)
+
     newObj = expandOneLevel(obj)
+
     if isinstance(newObj, dict):
         for k in KEYS_TO_EXPAND:
             if k in newObj.keys():
@@ -830,6 +897,20 @@ def createCache(obj, formatted, modelType, user = None):
         saved = CacheModel().insertCache(MODELS()[modelType]().name, obj['_id'], modelType, formatted)
         obj['cached'] = saved['_id']
         MODELS()[modelType]().update({'_id': ObjectId(obj['_id'])}, {'$set': {'cached': obj['cached']}}, False)
+    return obj
+
+def clearCache(obj, modelType):
+    if modelType in NONES:
+        print("No modelType!")
+        print(obj)
+
+    obj = MODELS()[modelType]().load(obj['_id'], force=True)
+
+    if obj.get('cached'):
+        cache_id = obj['cached']
+        obj['cached'] = None
+        MODELS()[modelType]().update({'_id': ObjectId(obj['_id'])}, {'$set': {'cached': None}}, False)
+
     return obj
 
 def loadCache(id):

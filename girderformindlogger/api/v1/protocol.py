@@ -34,7 +34,9 @@ from girderformindlogger.models.folder import Folder as FolderModel
 from girderformindlogger.models.item import Item as ItemModel
 from girderformindlogger.models.roles import getCanonicalUser, getUserCipher
 from girderformindlogger.models.user import User as UserModel
+from girderformindlogger.models.account_profile import AccountProfile
 from girderformindlogger.utility import config, jsonld_expander
+from bson import json_util
 
 
 class Protocol(Resource):
@@ -45,7 +47,6 @@ class Protocol(Resource):
         self._model = ProtocolModel()
         self.route('GET', (), self.getProtocolFromURL)
         self.route('GET', (':id',), self.getProtocol)
-
 
     @access.user(scope=TokenScope.DATA_READ)
     @autoDescribeRoute(
@@ -90,3 +91,4 @@ class Protocol(Resource):
             import sys, traceback
             print(sys.exc_info())
             return({traceback.print_tb(sys.exc_info()[2])})
+

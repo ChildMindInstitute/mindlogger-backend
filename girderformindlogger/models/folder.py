@@ -187,7 +187,7 @@ class Folder(AccessControlledModel):
 
         return size
 
-    def setMetadata(self, folder, metadata, allowNull=False):
+    def setMetadata(self, folder, metadata, allowNull=False, validate=True):
         """
         Set metadata on a folder.  A `ValidationException` is thrown in the
         cases where the metadata JSON object is badly formed, or if any of the
@@ -220,7 +220,7 @@ class Folder(AccessControlledModel):
         self.validateKeys(folder['meta'])
 
         # Validate and save the item
-        return self.save(folder)
+        return self.save(folder, validate=validate)
 
     def deleteMetadata(self, folder, fields):
         """
@@ -477,7 +477,7 @@ class Folder(AccessControlledModel):
         return iter(cursor)
 
     def createFolder(self, parent, name, description='', parentType='folder',
-                     public=None, creator=None, allowRename=False, reuseExisting=False, appletName=None, accountId=None):
+                     public=None, creator=None, allowRename=False, reuseExisting=False, appletName=None, accountId=None, validate=True):
         """
         Create a new folder under the given parent.
 
@@ -572,9 +572,9 @@ class Folder(AccessControlledModel):
             self.validate(folder, allowRename=True)
 
         # Now validate and save the folder.
-        return self.save(folder)
+        return self.save(folder, validate=validate)
 
-    def updateFolder(self, folder):
+    def updateFolder(self, folder, allowRename=True):
         """
         Updates a folder.
 
@@ -583,6 +583,8 @@ class Folder(AccessControlledModel):
         :returns: The folder document that was edited.
         """
         folder['updated'] = datetime.datetime.utcnow()
+        if allowRename:
+            self.validate(folder, allowRename=True)
 
         # Validate and save the folder
         return self.save(folder)

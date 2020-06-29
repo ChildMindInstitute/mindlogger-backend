@@ -44,6 +44,7 @@ from girderformindlogger.models.setting import Setting
 from girderformindlogger.settings import SettingKey
 from girderformindlogger.models.profile import Profile as ProfileModel
 from girderformindlogger.models.account_profile import AccountProfile
+from bson import json_util
 from pyld import jsonld
 
 USER_ROLE_KEYS = USER_ROLES.keys()
@@ -71,6 +72,8 @@ class Applet(Resource):
         self.route('GET', (':id', 'users'), self.getAppletUsers)
         self.route('DELETE', (':id',), self.deactivateApplet)
         self.route('POST', ('fromJSON', ), self.createAppletFromProtocolData)
+        self.route('GET', (':id', 'protocolData'), self.getProtocolData)
+        self.route('PUT', (':id', 'fromJSON'), self.updateAppletFromProtocolData)
         self.route('POST', (':id', 'duplicate', ), self.duplicateApplet)
         self.route('POST', ('resetBadge',), self.resetBadgeCount)
 
@@ -110,6 +113,23 @@ class Applet(Resource):
             raise AccessException(
                 "Only coordinators and managers can see user lists."
             )
+
+    @access.user(scope=TokenScope.DATA_READ)
+    @autoDescribeRoute(
+        Description('Get content of protocol by applet id.')
+        .modelParam('id', model=AppletModel, level=AccessType.READ, destName='applet')
+        .errorResponse('Invalid applet ID.')
+        .errorResponse('Read access was denied for this applet.', 403)
+    )
+    def getProtocolData(self, applet):
+        profile = self.getAccountProfile()
+        if not AccountProfile().hasPermission(profile, 'manager') and not AccountProfile().hasPermission(profile, 'editor'):
+            raise AccessException('You don\'t have enough permission to get content of this protocol')
+
+        protocol = ProtocolModel().load(applet.get('meta', {}).get('protocol', {}).get('_id', '').split('/')[-1], force=True)
+        protocolContent = FolderModel().load(protocol['content_id'], force=True)
+
+        return None if not protocolContent['content'] else json_util.loads(protocolContent['content'])
 
     @access.user(scope=TokenScope.DATA_WRITE)
     @autoDescribeRoute(
@@ -343,14 +363,73 @@ class Applet(Resource):
                 'constraints': {
                     'informantRelationship': informant
                 } if informant is not None else None,
-                'role': appletRole,
+                'appletRole': appletRole,
                 'accountId': profile['accountId']
             }
         )
         thread.start()
         return({
             "message": "The applet is being created. Please check back in "
-                       "several mintutes to see it."
+                       "several seconds to see it."
+        })
+
+
+    @access.user(scope=TokenScope.DATA_WRITE)
+    @autoDescribeRoute(
+        Description('Create an applet.')
+        .notes(
+            'This endpoint is used to update existing applet. <br>'
+            '(updating applet will take few seconds.)'
+        )
+        .param(
+            'name',
+            'Name to give the applet. The Protocol\'s name will be used if '
+            'this parameter is not provided.',
+            required=False
+        )
+        .modelParam(
+            'id',
+            model=AppletModel,
+            level=AccessType.READ,
+            destName='applet'
+        )
+        .jsonParam(
+            'protocol',
+            'A JSON object containing protocol information for an applet',
+            paramType='form',
+            required=False
+        )
+        .errorResponse('Write access was denied for this applet.', 403)
+    )
+    def updateAppletFromProtocolData(self, applet, name, protocol):
+        accountProfile = AccountProfile()
+
+        thisUser = self.getCurrentUser()
+        profile = self.getAccountProfile()
+
+        appletRole = None
+        for role in ['manager', 'editor']:
+            if accountProfile.hasPermission(profile, role):
+                appletRole = role
+                break
+
+        if appletRole is None:
+            raise AccessException("You don't have enough permission to create applet on this account.")
+
+        thread = threading.Thread(
+            target=AppletModel().updateAppletFromProtocolData,
+            kwargs={
+                'applet': applet,
+                'name': name,
+                'protocol': protocol,
+                'user': thisUser,
+                'accountId': profile['accountId']
+            }
+        )
+        thread.start()
+        return({
+            "message": "The applet is being updated. Please check back in "
+                       "several seconds to see it."
         })
 
     @access.user(scope=TokenScope.DATA_WRITE)
