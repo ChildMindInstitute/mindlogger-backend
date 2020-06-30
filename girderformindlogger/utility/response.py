@@ -11,20 +11,26 @@ from datetime import date, datetime, timedelta
 from girderformindlogger.models.applet import Applet as AppletModel
 from girderformindlogger.models.user import User as UserModel
 from girderformindlogger.models.response_folder import ResponseItem
+from girderformindlogger.models.account_profile import AccountProfile
 from girderformindlogger.utility import clean_empty
 from pandas.api.types import is_numeric_dtype
 from pymongo import ASCENDING, DESCENDING
 MonkeyPatch.patch_fromisoformat()
 
-
-def getSchedule(accountProfile, timezone=None):
+def getSchedule(currentUser, timezone=None):
     from girderformindlogger.models.profile import Profile
 
     schedule = {}
-    applets = accountProfile.get('applets', {}).get('user', [])
+
+    accounts = AccountProfile().getAccounts(currentUser['_id'])
+    applets = []
+   
+    for account in accounts:
+        for applet in account.get('applets', {}).get('user', []):
+            applets.append(applet)
 
     for appletId in applets:
-        profile = Profile().findOne({'appletId': appletId, 'userId': accountProfile['userId']})
+        profile = Profile().findOne({'appletId': appletId, 'userId': currentUser['_id']})
         activities = profile['completed_activities']
 
         appletSchedule = {}

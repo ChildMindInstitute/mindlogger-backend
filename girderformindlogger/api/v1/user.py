@@ -579,6 +579,13 @@ class User(Resource):
             dataType='boolean'
         )
         .param(
+            'getAllApplets',
+            'If true, applets returned from backend does not depend on account_id',
+            required=True,
+            default=False,
+            dataType='boolean'
+        )
+        .param(
             'refreshCache',
             'If true, refresh user cache.',
             required=False,
@@ -595,7 +602,8 @@ class User(Resource):
         role,
         ids_only=False,
         unexpanded=False,
-        refreshCache=False
+        refreshCache=False,
+        getAllApplets=False
     ):
         from bson.objectid import ObjectId
         from girderformindlogger.utility.jsonld_expander import loadCache
@@ -603,8 +611,7 @@ class User(Resource):
         from girderformindlogger.utility.response import responseDateList
 
         reviewer = self.getCurrentUser()
-        accountProfile = self.getAccountProfile()
-        if reviewer is None or accountProfile is None:
+        if reviewer is None:
             raise AccessException("You must be logged in to get user applets.")
         role = role.lower()
         if role not in USER_ROLES.keys():
@@ -612,8 +619,15 @@ class User(Resource):
                 'Invalid user role.',
                 'role'
             )
-
-        applet_ids = accountProfile.get('applets', {}).get(role, [])
+        applet_ids = []
+        if not getAllApplets:
+            accountProfile = self.getAccountProfile()
+            applet_ids = accountProfile.get('applets', {}).get(role, [])
+        else:
+            accounts = AccountProfile().getAccounts(reviewer['_id'])
+            for account in accounts:
+                for applet in account.get('applets', {}).get(role, []):
+                    applet_ids.append(applet)
 
         if ids_only:
             return applet_ids
@@ -732,9 +746,10 @@ class User(Resource):
     def switchAccount(self, accountId = None):
         from bson.objectid import ObjectId
         try:
-            account = AccountProfile().findOne({'_id': ObjectId(accountId)})
             token = self.getCurrentToken()
             user = self.getCurrentUser()
+            if user:
+                account = AccountProfile().findOne({'accountId': ObjectId(accountId), 'userId': user['_id']})
 
             if not user or not account:
                 raise Exception('error.')

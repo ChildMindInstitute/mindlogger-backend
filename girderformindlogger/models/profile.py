@@ -1053,15 +1053,15 @@ class Profile(AESEncryption, dict):
         self.update(query, {'$set': {'deactivated': True}})
 
     def get_profiles_by_applet_id(self, applet_id):
-        return self.find(
+        return list(self.find(
             query={
-                'appletId': applet_id,
+                'appletId': ObjectId(applet_id),
                 'userId': {
                     '$exists': True
                 },
                 'profile': True
             }
-        )
+        ))
 
     def get_profiles_by_ids(self, profile_ids):
         return self.find(

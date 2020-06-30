@@ -49,9 +49,6 @@ class Schedule(Resource):
         """
         Get a list of dictionaries keyed by activityID.
         """
-        accountProfile = self.getAccountProfile()
+        currentUser = self.getCurrentUser()
 
-        if not accountProfile:
-            raise AccessException("You don't have permission to get schedule for this user.")
-
-        return(response.getSchedule(accountProfile, timezone))
+        return(response.getSchedule(currentUser, timezone))
