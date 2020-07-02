@@ -190,25 +190,27 @@ class Applet(FolderModel):
     def grantAccessToApplet(self, user, applet, role, inviter):
         from girderformindlogger.models.invitation import Invitation
 
-        if Profile().findOne({'appletId': applet['_id'], 'userId': user['_id']}):
-            return
+        appletProfile = Profile().findOne({'appletId': applet['_id'], 'userId': user['_id']})
+        if not appletProfile:
+            accountId = applet.get('accountId', None)
+            if not accountId:
+                return
 
-        accountId = applet.get('accountId', None)
-        if not accountId:
-            return
+            newInvitation = Invitation().createInvitationForSpecifiedUser(
+                applet,
+                inviter,
+                role,
+                user,
+                user['firstName'],
+                user['lastName'],
+                user['email']
+            )
 
-        newInvitation = Invitation().createInvitationForSpecifiedUser(
-            applet,
-            inviter,
-            role,
-            user,
-            user['firstName'],
-            user['lastName'],
-            user['email']
-        )
+            appletProfile = Invitation().acceptInvitation(Invitation().load(newInvitation['_id'], force=True), user, user['email'])
+            Invitation().remove(newInvitation)
 
-        Invitation().acceptInvitation(Invitation().load(newInvitation['_id'], force=True), user, user['email'])
-        Invitation().remove(newInvitation)
+        if role == 'manager':
+            Profile().updateReviewerList(appletProfile)
 
     def duplicateApplet(
         self,

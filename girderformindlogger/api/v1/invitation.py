@@ -169,6 +169,7 @@ class Invitation(Resource):
         InvitationModel().remove(invitation)
 
         return profile
+
     @access.public(scope=TokenScope.USER_INFO_READ)
     @autoDescribeRoute(
         Description('Accept an invitation by token.')
