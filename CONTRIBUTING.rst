@@ -57,7 +57,7 @@ Elastic Beanstalk relies on Git and a local installation, so prior to deploying,
 Deploy to dev
 ~~~~~~~~~~~~~
 
-1. From the branch you want to deplpy, create a temporary Git tag (typically the upcoming semver plus a hyphen and a suffix, eg, ``v0.7.4-contributing``).
+1. From the branch you want to deploy, create a temporary Git tag (typically the upcoming semver plus a hyphen and a suffix, eg, ``v0.7.4-contributing``).
 
    .. code-block:: sh
 
