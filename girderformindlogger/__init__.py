@@ -35,11 +35,14 @@ config.loadConfig()  # Populate the config info at import time
 
 # Initialize sentry logging
 env = os.environ.get('HTTP_HOST', 'localhost')
-
+sentry_logging = LoggingIntegration(
+    level=logging.INFO,           # Capture info and above as breadcrumbs
+    event_level=logging.CRITICAL  # Send errors as events
+)
 if env is not 'localhost':
     sentry_sdk.init(dsn=config.getConfig()['sentry']['backend_dsn'],
                     environment=env,
-                    integrations=[])
+                    integrations=[sentry_logging])
 
 
 class LogLevelFilter(object):
