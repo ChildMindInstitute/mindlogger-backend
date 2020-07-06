@@ -186,7 +186,7 @@ class Applet(FolderModel):
 
         return formatted
 
-    # users won't use this endpoint, so all emails are plain text
+    # users won't use this function, so all emails are plain text
     def grantAccessToApplet(self, user, applet, role, inviter):
         from girderformindlogger.models.invitation import Invitation
 
@@ -203,6 +203,7 @@ class Applet(FolderModel):
                 user,
                 user['firstName'],
                 user['lastName'],
+                '',
                 user['email']
             )
 
@@ -210,7 +211,7 @@ class Applet(FolderModel):
             Invitation().remove(newInvitation)
 
         if role == 'manager':
-            Profile().updateReviewerList(appletProfile)
+            Profile().updateReviewerList(Profile().load(appletProfile['_id'], force=True))
 
     def duplicateApplet(
         self,
@@ -343,6 +344,74 @@ class Applet(FolderModel):
             successed = False
 
         return successed
+
+    def receiveOwnerShip(self, applet, thisUser, email):
+        from girderformindlogger.utility import mail_utils
+        from girderformindlogger.models.group import Group
+        from girderformindlogger.models.response_folder import ResponseItem
+
+        if not mail_utils.validateEmailAddress(email):
+            raise ValidationException(
+                'Invalid email address.',
+                'email'
+            )
+
+        if thisUser.get('email_encrypted', False):
+            if UserModel().hash(email) != thisUser['email']:
+                raise ValidationException(
+                    'Invalid email address.',
+                    'email'
+                )
+            thisUser['email'] = email
+            thisUser['email_encrypted'] = False
+
+            UserModel().save(thisUser)
+
+        accountId = thisUser['accountId']
+
+        appletUsers = list(Profile().find({'appletId': applet['_id']}))
+
+        appletGroups=self.getAppletGroups(applet)
+        groups = []
+        for role in list(USER_ROLES.keys()):
+            group = appletGroups.get(role)
+            if bool(group):
+                groups.append(Group().load(
+                    ObjectId(list(group.keys())[0]),
+                    force=True
+                ))
+
+        for user in appletUsers:
+            appletUser = UserModel().load(user['userId'], force=True)
+            for group in groups:
+                Group().removeUser(group, appletUser)
+
+            Profile().remove(user)
+
+        ResponseItem().removeWithQuery(
+            query={
+                "baseParentType": 'user',
+                "meta.applet.@id": applet['_id']
+            }
+        )
+
+        accountProfiles = list(AccountProfile().find({'accountId': applet['accountId'], 'applets.user': applet['_id'] }))
+
+        for accountProfile in accountProfiles:
+            AccountProfile().removeApplet(accountProfile, applet['_id'])
+
+        applet['accountId'] = accountId
+        self.save(applet)
+
+        account = AccountProfile().getOwner(accountId)
+        if not len(account.get('applets', {}).get('owner', [])):
+            self.grantAccessToApplet(thisUser, applet, 'manager', thisUser)
+        else:
+            managers = AccountProfile().getManagers(accountId)
+            for manager in managers:
+                self.grantAccessToApplet(UserModel().load(manager, force=True), applet, 'manager', thisUser)
+
+        return Profile().displayProfileFields(Profile().updateOwnerProfile(applet), thisUser, forceManager=True)
 
     def validateAppletName(self, appletName, appletsCollection, user = None):
         name = appletName
@@ -895,9 +964,10 @@ class Applet(FolderModel):
 
             for p in list(Invitation().find(query={'appletId': applet['_id']})):
                 fields = ['_id', 'firstName', 'lastName', 'role', 'MRN', 'created']
-                userDict['pending'].append({
-                    key: p[key] for key in fields if p.get(key, None)
-                })
+                if role != 'owner':
+                    userDict['pending'].append({
+                        key: p[key] for key in fields if p.get(key, None)
+                    })
 
 
             missing = threading.Thread(

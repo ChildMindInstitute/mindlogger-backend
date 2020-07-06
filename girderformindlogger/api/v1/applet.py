@@ -79,6 +79,7 @@ class Applet(Resource):
         self.route('PUT', (':id', 'fromJSON'), self.updateAppletFromProtocolData)
         self.route('POST', (':id', 'duplicate', ), self.duplicateApplet)
         self.route('POST', ('resetBadge',), self.resetBadgeCount)
+        self.route('PUT', (':id', 'transferOwnerShip', ), self.transferOwnerShip)
         self.route('DELETE', (':id', 'deleteUser', ), self.deleteUserFromApplet)
 
     @access.user(scope=TokenScope.DATA_WRITE)
@@ -134,7 +135,8 @@ class Applet(Resource):
 
         accountProfile = self.getAccountProfile()
 
-        if not accountProfile or applet['_id'] not in accountProfile.get('applets', {}).get('manager', []):
+        if not accountProfile or applet['_id'] not in accountProfile.get('applets', {}).get('manager', []) or \
+            (reviewerProfile and 'manager' in reviewerProfile.get('roles', []) and applet['_id'] not in accountProfile.get('applets', {}).get('owner', [])):
             raise AccessException('You don\'t have enough permission to update user list for this reviewer.')
 
         if not reviewerProfile or 'reviewer' not in reviewerProfile.get('roles', []) or applet['_id'] != reviewerProfile['appletId']:
@@ -1067,9 +1069,67 @@ class Applet(Resource):
             'role': role
         })
 
-        print('html is', html)
         mail_utils.sendMail(
             'invitation for an applet',
+            html,
+            [email]
+        )
+
+        return 'sent invitation mail to {}'.format(email)
+
+    @access.user(scope=TokenScope.DATA_WRITE)
+    @autoDescribeRoute(
+        Description('Invite a user to a role in an applet.')
+        .notes(
+            'this endpoint will be used for owners to transfer ownership for an applet to another owner'
+        )
+        .modelParam(
+            'id',
+            model=AppletModel,
+            level=AccessType.ADMIN,
+            destName='applet'
+        )
+        .param(
+            'email',
+            'email of user who will get ownership',
+            required=True
+        )
+    )
+    def transferOwnerShip(self, applet, email):
+        from girderformindlogger.models.invitation import Invitation
+
+        accountProfile = self.getAccountProfile()
+        thisUser = self.getCurrentUser()
+
+        if applet['_id'] not in accountProfile.get('applets', {}).get('owner', []):
+            raise AccessException('only owners can transfer ownership')
+
+        if not mail_utils.validateEmailAddress(email):
+            raise ValidationException(
+                'invalid email', 'email'
+            )
+
+        encryptedEmail = UserModel().hash(email)
+        invitedUser = UserModel().findOne({'email': encryptedEmail, 'email_encrypted': True})
+
+        if not invitedUser:
+            invitedUser = UserModel().findOne({'email': email, 'email_encrypted': {'$ne': True}})
+        if not invitedUser:
+            raise ValidationException('unable to find user with specified email address')
+
+        invitation = Invitation().createInvitationForSpecifiedUser(applet, thisUser, 'owner', invitedUser, firstName=invitedUser['firstName'], lastName=invitedUser['lastName'], MRN='', userEmail=email)
+
+        url = 'web.mindlogger.org/#/invitation/%s' % (str(invitation['_id'], ))
+
+        html = mail_utils.renderTemplate('transferOwnerShip.mako', {
+            'url': url,
+            'userName': invitedUser['firstName'],
+            'coordinatorName': thisUser['firstName'],
+            'appletName': applet['displayName'],
+        })
+
+        mail_utils.sendMail(
+            'Transfer ownership of an applet',
             html,
             [email]
         )

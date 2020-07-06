@@ -811,8 +811,9 @@ class Profile(AESEncryption, dict):
                         force=True
                     )
 
-                    Group().inviteUser(group, user, level=AccessType.READ)
-                    Group().joinGroup(group, user)
+                    if group['_id'] not in user.get('groups', []):
+                        Group().inviteUser(group, user, level=AccessType.READ)
+                        Group().joinGroup(group, user)
                 else:
                     raise ValidationException(
                         "User does not have role \"{}\" in this \"{}\" applet "
