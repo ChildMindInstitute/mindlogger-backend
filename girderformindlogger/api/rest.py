@@ -14,6 +14,7 @@ import types
 import unicodedata
 import uuid
 
+from sentry_sdk import capture_exception
 from dogpile.cache.util import kwarg_function_key_generator
 from girderformindlogger.external.mongodb_proxy import MongoProxy
 
@@ -651,16 +652,22 @@ def endpoint(fun):
                 val = list(val)
 
         except RestException as e:
+            print('RestException')
             val = _handleRestException(e)
         except AccessException as e:
+            print('AccessException')
             val = _handleAccessException(e)
         except GirderException as e:
+            print('GirderException')
             val = _handleGirderException(e)
         except ValidationException as e:
+            print('ValidationException')
             val = _handleValidationException(e)
         except cherrypy.HTTPRedirect:
             raise
-        except Exception:
+        except Exception as e:
+            capture_exception(e)
+
             # These are unexpected failures; send a 500 status
             logger.exception('500 Error')
             cherrypy.response.status = 500

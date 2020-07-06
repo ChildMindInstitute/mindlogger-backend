@@ -17,6 +17,8 @@ import os
 import six
 import sys
 import traceback
+import sentry_sdk
+from sentry_sdk.integrations.logging import LoggingIntegration
 
 from girderformindlogger.constants import LOG_ROOT, MAX_LOG_SIZE, LOG_BACKUP_COUNT, TerminalColor
 from girderformindlogger.utility import config, mkdir
@@ -30,6 +32,14 @@ auditLogger.setLevel(logging.INFO)
 logger = logging.getLogger('girderformindlogger')
 logger.setLevel(logging.DEBUG)  # Pass everything; let filters handle level-based filtering
 config.loadConfig()  # Populate the config info at import time
+
+# Initialize sentry logging
+env = os.environ.get('HTTP_HOST', 'localhost')
+
+if env is not 'localhost':
+    sentry_sdk.init(dsn=config.getConfig()['sentry']['backend_dsn'],
+                    environment=env,
+                    integrations=[])
 
 
 class LogLevelFilter(object):
