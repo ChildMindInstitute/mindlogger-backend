@@ -697,7 +697,7 @@ def expandOneLevel(obj):
         newObj,
         dict
     ):
-        if not isinstance(obj, dict):
+        if not isinstance(obj, dict) or '@context' in obj:
             obj={}
         for k, v in deepcopy(newObj).items():
             if not bool(v):
