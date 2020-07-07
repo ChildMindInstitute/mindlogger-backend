@@ -38,14 +38,16 @@ def send_push_notification(applet_id, event_id):
             query['individual_events'] = {'$gte': 1}
 
         if event['data']['notifications'][0]['notifyIfIncomplete']:
-            query['$or'] = [
+            query['$and'] = [
                 {
                     'completed_activities.completed_time': {
-                        '$lt': datetime.datetime.strptime(f"{now.year}/{now.month}/{now.day}",
-                                                          '%Y/%m/%d')}
+                        '$ne': None
+                    }
                 },
                 {
-                    'completed_activities.completed_time': {'$eq': None}
+                    'completed_activities.completed_time': {
+                        '$lt': now
+                    }
                 }
             ]
 
