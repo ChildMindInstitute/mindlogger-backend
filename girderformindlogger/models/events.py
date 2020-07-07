@@ -137,8 +137,12 @@ class Events(Model):
             self.save(event)
 
 
-    def getEvents(self, applet_id, individualized):
-        events = list(self.find({'applet_id': ObjectId(applet_id), 'individualized': individualized}, fields=['data', 'schedule']))
+    def getEvents(self, applet_id, individualized, profile_id = None):
+        if not individualized or not profile_id:
+            events = list(self.find({'applet_id': ObjectId(applet_id), 'individualized': individualized}, fields=['data', 'schedule']))
+        else:
+            events = list(self.find({'applet_id': ObjectId(applet_id), 'individualized': individualized, 'data.users': profile_id}, fields=['data', 'schedule']))
+
         for event in events:
             if 'data' in event and 'users' in event['data']:
                 event['data'].pop('users')
@@ -176,11 +180,12 @@ class Events(Model):
     def getScheduleForUser(self, applet_id, user_id, is_coordinator):
         if is_coordinator:
             individualized = False
+            events = self.getEvents(applet_id, False)
         else:
             profile = Profile().findOne({'appletId': ObjectId(applet_id), 'userId': ObjectId(user_id)})
             individualized = profile['individual_events'] > 0
+            events = self.getEvents(applet_id, individualized, profile['_id'])
 
-        events = self.getEvents(applet_id, individualized)
         for event in events:
             event['id'] = event['_id']
             event.pop('_id')
