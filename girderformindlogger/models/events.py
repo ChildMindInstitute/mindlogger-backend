@@ -12,10 +12,12 @@ from girderformindlogger.exceptions import ValidationException, GirderException
 from girderformindlogger.models.model_base import AccessControlledModel, Model
 from girderformindlogger.models.push_notification import PushNotification as PushNotificationModel
 from girderformindlogger.models.profile import Profile
+from girderformindlogger.models.folder import Folder
 from girderformindlogger.utility.model_importer import ModelImporter
 from girderformindlogger.utility.progress import noProgress, setResponseTimeLimit
 from bson import json_util
 from girderformindlogger.models.profile import Profile as ProfileModel
+
 
 class Events(Model):
     """
@@ -59,9 +61,9 @@ class Events(Model):
         for event in events:
             self.deleteEvent(event.get('_id'))
 
-    def upsertEvent(self, event, applet_id, event_id=None):
+    def upsertEvent(self, event, applet, event_id=None):
         newEvent = {
-            'applet_id': applet_id,
+            'applet_id': applet['_id'],
             'individualized': False,
             'schedulers': [],
             'sendTime': [],
@@ -75,6 +77,17 @@ class Events(Model):
 
         if 'data' in event:
             newEvent['data'] = event['data']
+
+            activities = Folder().find(query={
+                'meta.activity.url': event['data']['URI']
+            }, fields=['_id'])
+
+            activity_id = list(set(applet["meta"]["protocol"]["activities"]) & set(
+                [activity['_id'] for activity in activities]))
+
+            if len(activity_id):
+                newEvent['data']['activity_id'] = activity_id[0]
+
             if 'users' in event['data'] and isinstance(event['data']['users'], list):
                 newEvent['individualized'] = True
                 event['data']['users'] = [ObjectId(profile_id) for profile_id in event['data']['users']]

@@ -125,7 +125,8 @@ class PushNotification(Scheduler):
                 func=send_push_notification,
                 kwargs={
                     "applet_id": self.event.get("applet_id"),
-                    "event_id": self.event.get("_id")
+                    "event_id": self.event.get("_id"),
+                    "activity_id": self.event["data"].get("activity_id", None)
                 },
                 interval=900,
                 repeat=repeat
@@ -140,7 +141,8 @@ class PushNotification(Scheduler):
                 func=send_push_notification,
                 kwargs={
                     "applet_id": self.event.get("applet_id"),
-                    "event_id": self.event.get("_id")
+                    "event_id": self.event.get("_id"),
+                    "activity_id": self.event["data"].get("activity_id", None)
                 },
                 repeat=repeat,
                 use_local_timezone=False

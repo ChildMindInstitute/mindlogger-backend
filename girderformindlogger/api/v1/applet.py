@@ -1013,7 +1013,7 @@ class Applet(Resource):
         if 'events' in schedule:
             # insert and update events/notifications
             for event in schedule['events']:
-                savedEvent = EventsModel().upsertEvent(event, applet['_id'], event.get('id', None))
+                savedEvent = EventsModel().upsertEvent(event, applet, event.get('id', None))
                 event['id'] = savedEvent['_id']
 
         return {
