@@ -6,7 +6,7 @@ push_service = FCMNotification(
         proxy_dict={})
 
 
-def send_push_notification(applet_id, event_id):
+def send_push_notification(applet_id, event_id, activity_id=None):
     from girderformindlogger.models.events import Events
     from girderformindlogger.models.profile import Profile
 
@@ -37,19 +37,30 @@ def send_push_notification(applet_id, event_id):
         if event['individualized']:
             query['individual_events'] = {'$gte': 1}
 
-        if event['data']['notifications'][0]['notifyIfIncomplete']:
-            query['$and'] = [
-                {
-                    'completed_activities.completed_time': {
-                        '$ne': None
-                    }
-                },
-                {
-                    'completed_activities.completed_time': {
-                        '$lt': now
-                    }
+        if event['data']['notifications'][0]['notifyIfIncomplete'] and activity_id:
+            query['completed_activities'] = {
+                '$elemMatch': {
+                    '$or': [
+                        {
+                            'activity_id': activity_id,
+                            'completed_time': {
+                                '$not': {
+                                    '$gt': now - datetime.timedelta(hours=12),
+                                    '$lt': now
+                                }
+                            }
+                        },
+                        {
+                            'activity_id': activity_id,
+                            'completed_time': {
+                                '$eq': None
+                            }
+                        }
+                    ]
                 }
-            ]
+            }
+
+        print(query)
 
         profiles = list(Profile().find(query=query, fields=['deviceId', 'badge']))
 
