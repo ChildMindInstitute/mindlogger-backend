@@ -152,23 +152,26 @@ class Invitation(Resource):
             raise AccessException(
                 "You must be logged in to accept an invitation."
             )
+        if invitation.get('role', 'user') == 'owner':
+            profile = AppletModel().receiveOwnerShip(AppletModel().load(invitation['appletId'], force=True), currentUser, email)
+        else:
+            profile = InvitationModel().acceptInvitation(invitation, currentUser, email)
 
-        profile = InvitationModel().acceptInvitation(invitation, currentUser, email)
+            if invitation.get('role', 'user') == 'editor':
+                InvitationModel().accessToDuplicatedApplets(invitation, currentUser, email)
+            elif invitation.get('role', 'user') == 'manager': # managers should be able to access all applets in the account
+                applet = AppletModel().load(invitation['appletId'], force=True)
+                inviter = UserModel().load(invitation['inviterId'], force=True)
 
-        if invitation.get('role', 'user') == 'editor':
-            InvitationModel().accessToDuplicatedApplets(invitation, currentUser, email)
-        elif invitation.get('role', 'user') == 'manager': # managers should be able to access all applets in the account
-            applet = AppletModel().load(invitation['appletId'], force=True)
-            inviter = UserModel().load(invitation['inviterId'], force=True)
+                appletsOnAccount = AccountProfile().getOwner(applet['accountId']).get('applets', {}).get('owner', [])
 
-            appletsOnAccount = AccountProfile().getOwner(applet['accountId']).get('applets', {}).get('owner', [])
-
-            for applet in appletsOnAccount:
-                AppletModel().grantAccessToApplet(currentUser, AppletModel().load(applet, force=True), 'manager', inviter)
+                for applet in appletsOnAccount:
+                    AppletModel().grantAccessToApplet(currentUser, AppletModel().load(applet, force=True), 'manager', inviter)
 
         InvitationModel().remove(invitation)
 
         return profile
+
     @access.public(scope=TokenScope.USER_INFO_READ)
     @autoDescribeRoute(
         Description('Accept an invitation by token.')
@@ -207,21 +210,23 @@ class Invitation(Resource):
             raise AccessException(
                 "Invalid token."
             )
+        if invitation.get('role', 'user') == 'owner':
+            AppletModel().receiveOwnerShip(AppletModel().load(invitation['appletId'], force=True), currentUser, email)
+        else:
+            profile = InvitationModel().acceptInvitation(invitation, currentUser, email)
 
-        profile = InvitationModel().acceptInvitation(invitation, currentUser, email)
+            # editors should be able to access duplicated applets
+            if invitation.get('role','user') == 'editor':
+                InvitationModel().accessToDuplicatedApplets(invitation, currentUser, email)
 
-        # editors should be able to access duplicated applets
-        if invitation.get('role','user') == 'editor':
-            InvitationModel().accessToDuplicatedApplets(invitation, currentUser, email)
+            elif invitation.get('role', 'user') == 'manager': # managers should be able to access all applets in the account
+                applet = AppletModel().load(invitation['appletId'], force=True)
+                inviter = UserModel().load(invitation['inviterId'], force=True)
 
-        elif invitation.get('role', 'user') == 'manager': # managers should be able to access all applets in the account
-            applet = AppletModel().load(invitation['appletId'], force=True)
-            inviter = UserModel().load(invitation['inviterId'], force=True)
+                appletsOnAccount = AccountProfile().getOwner(applet['accountId']).get('applets', {}).get('owner', [])
 
-            appletsOnAccount = AccountProfile().getOwner(applet['accountId']).get('applets', {}).get('owner', [])
-
-            for applet in appletsOnAccount:
-                AppletModel().grantAccessToApplet(currentUser, applet, 'manager', inviter)
+                for applet in appletsOnAccount:
+                    AppletModel().grantAccessToApplet(currentUser, applet, 'manager', inviter)
 
         InvitationModel().remove(invitation)
         return profile

@@ -170,7 +170,8 @@ class Invitation(AESEncryption):
         firstName,
         lastName,
         MRN,
-        userEmail = ""
+        userEmail = "",
+        accessibleUsers = []
     ):
         """
         create new invitation
@@ -202,6 +203,9 @@ class Invitation(AESEncryption):
             }
             if user:
                 invitation['userId'] = user['_id']
+        if role == 'reviewer':
+            print('accessible users are ', accessibleUsers)
+            accessibleUsers = [ObjectId(accessibleUser) for accessibleUser in accessibleUsers]
 
         invitation.update({
             'inviterId': coordinator['_id'],
@@ -214,8 +218,9 @@ class Invitation(AESEncryption):
             'userEmail': userEmail,
             'invitedBy': Profile().coordinatorProfile(
                 applet['_id'],
-                coordinator
-            )
+                coordinator,
+            ),
+            'accessibleUsers': accessibleUsers if role == 'reviewer' else None
         })
 
         return self.save(invitation, validate=False)
@@ -225,6 +230,26 @@ class Invitation(AESEncryption):
         from girderformindlogger.models.ID_code import IDCode
         from girderformindlogger.models.profile import Profile
         from girderformindlogger.utility import mail_utils
+        from girderformindlogger.models.user import User as UserModel
+
+        if not mail_utils.validateEmailAddress(userEmail):
+            raise ValidationException(
+                'Invalid email address.',
+                'email'
+            )
+
+        invited_role = invitation.get('role','user')
+        if invited_role != 'user' and user.get('email_encrypted', False):
+            if UserModel().hash(userEmail) != user['email']:
+                raise ValidationException(
+                    'Invalid email address.',
+                    'email'
+                )
+            user['email'] = userEmail
+            user['email_encrypted'] = False
+
+            UserModel().save(user)
+
 
         applet = Applet().load(invitation['appletId'], force=True)
         if not applet:
@@ -270,7 +295,6 @@ class Invitation(AESEncryption):
         # append role value
         profile = Profile().load(profile['_id'], force=True)
         profile['roles'] = profile.get('roles', [])
-        invited_role = invitation.get('role','user')
 
         new_roles = []
         # manager has get all roles by default
@@ -286,23 +310,8 @@ class Invitation(AESEncryption):
 
         Profile().save(profile, validate=False)
 
-        from girderformindlogger.models.user import User as UserModel
-        
-        if not mail_utils.validateEmailAddress(userEmail):
-            raise ValidationException(
-                'Invalid email address.',
-                'email'
-            )
-        if invited_role != 'user' and user.get('email_encrypted', False):
-            if UserModel().hash(userEmail) != user['email']:
-                raise ValidationException(
-                    'Invalid email address.',
-                    'email'
-                )
-            user['email'] = userEmail
-            user['email_encrypted'] = False
-
-            UserModel().save(user)
+        if invited_role == 'reviewer':
+            Profile().updateReviewerList(profile, invitation.get('accessibleUsers'))
 
         AccountProfile().appendApplet(AccountProfile().createAccountProfile(applet['accountId'], user['_id']), applet['_id'], profile['roles'])
 
