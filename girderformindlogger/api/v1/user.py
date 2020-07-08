@@ -998,13 +998,6 @@ class User(Resource):
                 'expires': token['expires']
             }
 
-            account = AccountProfile().findOne({'userId': ObjectId(user['_id'])})
-            user['account'] = {
-                field: account[field] for field in ['accountId', 'accountName', 'applets']
-            }
-            user['account']['isDefaultName'] = True
-
-
         # Assign all new users to a "New Users" Group
         newUserGroup = GroupModel().findOne({'name': 'New Users'})
         newUserGroup = newUserGroup if (
@@ -1025,6 +1018,13 @@ class User(Resource):
         )
         group['access'] = GroupModel().getFullAccessList(group)
         group['requests'] = list(GroupModel().getFullRequestList(group))
+
+        if 'authToken' in user:
+            account = AccountProfile().findOne({'userId': ObjectId(user['_id'])})
+            user['account'] = {
+                field: account[field] for field in ['accountId', 'accountName', 'applets']
+            }
+            user['account']['isDefaultName'] = True
 
         return(user)
 
