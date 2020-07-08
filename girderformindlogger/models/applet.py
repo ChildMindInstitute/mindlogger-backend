@@ -177,11 +177,10 @@ class Applet(FolderModel):
 
         AccountProfile().appendApplet(AccountProfile().findOne({'accountId': accountId, 'userId': user['_id']}), applet['_id'], profile['roles'])
 
-        managers = AccountProfile().getManagers(accountId)
+        owner = AccountProfile().getOwner(accountId)
         inviter = UserModel().load(user['_id'], force=True)
-        for manager in managers:
-            self.grantAccessToApplet(UserModel().load(manager, force=True), applet, 'manager', inviter)
 
+        self.grantAccessToApplet(UserModel().load(owner['userId'], force=True), applet, 'manager', inviter)
         Profile().updateOwnerProfile(applet)
 
         return formatted
@@ -292,31 +291,14 @@ class Applet(FolderModel):
             },
             'profile': True
         })
-        for appletUser in profiles:
-            if 'manager' in appletUser['roles']:
-                continue
 
-            user = UserModel().load(appletUser['userId'], force=True)
-
-            profile = Profile().createProfile(newApplet, user, 'editor')
-            profile = Profile().load(profile['_id'], force=True)
-
-            keys = ['roles', 'firstName', 'lastName', 'MRN']
-            for key in keys:
-                if key in appletUser:
-                    profile[key] = appletUser[key]
-
-            Profile().save(profile, False)
-
-            AccountProfile().appendApplet(AccountProfile.findOne({'accountId': newApplet['accountId'], 'userId': user['_id']}), newApplet['_id'], appletUser['roles'])
-
-            Profile().updateOwnerProfile(newApplet)
-
-
-        managers = AccountProfile().getManagers(newApplet['accountId'])
         inviter = UserModel().load(editor['_id'], force=True)
-        for manager in managers:
-            self.grantAccessToApplet(UserModel().load(manager, force=True), newApplet, 'manager', inviter)
+        for profile in profiles:
+            role = 'manager' if 'manager' in profile.get('roles', []) else 'editor'
+            self.grantAccessToApplet(UserModel().load(profile['userId'], force=True), newApplet, role, inviter)
+
+
+        Profile().updateOwnerProfile(newApplet)
 
         return(jsonld_expander.formatLdObject(
             newApplet,
