@@ -923,7 +923,7 @@ class User(Resource):
         return {'message': 'Logged out.'}
 
     @access.public
-    @filtermodel(model=UserModel, addFields={'authToken'})
+    @filtermodel(model=UserModel, addFields={'authToken', 'account'})
     @autoDescribeRoute(
         Description('Create a new user.')
         .notes(
@@ -964,6 +964,7 @@ class User(Resource):
         lastName=None,
         firstName=None
     ):
+        from bson.objectid import ObjectId
         currentUser = self.getCurrentUser()
 
         regPolicy = Setting().get(SettingKey.REGISTRATION_POLICY)
@@ -991,10 +992,18 @@ class User(Resource):
         if not currentUser and self._model.canLogin(user):
             setCurrentUser(user)
             token = self.sendAuthTokenCookie(user)
+
             user['authToken'] = {
                 'token': token['_id'],
                 'expires': token['expires']
             }
+
+            account = AccountProfile().findOne({'userId': ObjectId(user['_id'])})
+            user['account'] = {
+                field: account[field] for field in ['accountId', 'accountName', 'applets']
+            }
+            user['account']['isDefaultName'] = True
+
 
         # Assign all new users to a "New Users" Group
         newUserGroup = GroupModel().findOne({'name': 'New Users'})
@@ -1383,11 +1392,17 @@ class User(Resource):
         Token().remove(token)
         user = self._model.save(user)
 
+        account = AccountProfile().findOne({'_id': user['accountId']})
+        fields = ['accountId', 'accountName', 'applets']
+
         if self._model.canLogin(user):
             setCurrentUser(user)
             authToken = self.sendAuthTokenCookie(user)
-            return {
+            tokenInfo = {
                 'user': self._model.filter(user, user),
+                'account': {
+                    field: account[field] for field in fields
+                },
                 'authToken': {
                     'token': authToken['_id'],
                     'expires': authToken['expires'],
@@ -1395,6 +1410,9 @@ class User(Resource):
                 },
                 'message': 'Email verification succeeded.'
             }
+            tokenInfo['account']['isDefaultName'] = True
+
+            return tokenInfo
         else:
             return {
                 'user': self._model.filter(user, user),
