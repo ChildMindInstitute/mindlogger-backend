@@ -60,12 +60,6 @@ class AccountProfile(AccessControlledModel):
 
         return False
 
-    def getManagers(self, accountId):
-        profiles = list(self.find({'accountId': ObjectId(accountId), 'applets.manager': {'$exists': True }}))
-        return [
-            profile.get('userId') for profile in profiles if len(profile.get('applets', {}).get('manager', []))
-        ]
-
     def getOwner(self, accountId):
         return self.findOne({'_id': ObjectId(accountId)})
 

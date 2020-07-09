@@ -852,7 +852,7 @@ class Applet(Resource):
             AppletModel().listUsers(applet, 'reviewer', force=True)
         )
 
-        html = mail_utils.renderTemplate('userInvite.mako' if invitedUser else 'inviteUserWithoutAccount.mako', {
+        html = mail_utils.renderTemplate('inviteUserWithoutAccount.mako' if not invitedUser else 'userInvite.mako' if role == 'user' else 'inviteEmployee.mako', {
             'url': url,
             'userName': firstName,
             'coordinatorName': thisUser['firstName'],

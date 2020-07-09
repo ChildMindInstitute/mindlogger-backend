@@ -188,7 +188,7 @@ REPROLIB_PREFIXES = [
 
 REPROLIB_TYPES = {
     'activity': 'reprolib:schemas/Activity',
-    'protocol': 'reprolib:schemas/ActivitySet',
+    'protocol': 'reprolib:schemas/Protocol',
     'screen': 'reprolib:schemas/Field'
 }
 

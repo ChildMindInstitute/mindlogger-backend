@@ -252,7 +252,7 @@ def loadFromSingleFile(document, user):
         refreshCache=True
     )
 
-def importAndCompareModelType(model, url, user, modelType, meta={}):
+def importAndCompareModelType(model, url, user, modelType, meta={}, existing=None):
     import threading
     from girderformindlogger.utility import firstLower
 
@@ -280,15 +280,24 @@ def importAndCompareModelType(model, url, user, modelType, meta={}):
     print("Loaded {}".format(": ".join([modelType, prefName])))
     docCollection=getModelCollection(modelType)
     if modelClass.name in ['folder', 'item']:
-        docFolder = FolderModel().createFolder(
-            name=prefName,
-            parent=docCollection,
-            parentType='collection',
-            public=True,
-            creator=user,
-            allowRename=True,
-            reuseExisting=(modelType!='applet')
-        )
+        docFolder = None
+
+        if modelClass.name == 'folder' and existing:
+            existing['name'] = prefName
+            FolderModel().updateFolder(existing)
+            docFolder = existing
+
+        if not docFolder:
+            docFolder = FolderModel().createFolder(
+                name=prefName,
+                parent=docCollection,
+                parentType='collection',
+                public=True,
+                creator=user,
+                allowRename=True,
+                reuseExisting=(modelClass.name=='item')
+            )
+
         if modelClass.name=='folder':
             newModel = modelClass.setMetadata(
                 docFolder,
@@ -302,22 +311,34 @@ def importAndCompareModelType(model, url, user, modelType, meta={}):
                 }
             )
         elif modelClass.name=='item':
-            newModel = modelClass.setMetadata(
-                modelClass.createItem(
-                    name=prefName if prefName else str(len(list(
-                        FolderModel().childItems(
-                            FolderModel().load(
-                                docFolder,
-                                level=None,
-                                user=user,
-                                force=True
-                            )
-                        )
-                    )) + 1),
+            item = None
+
+            name = prefName if prefName else str(len(list(
+                FolderModel().childItems(
+                    FolderModel().load(
+                        docFolder,
+                        level=None,
+                        user=user,
+                        force=True
+                    )
+                )
+            )) + 1)
+            if existing:
+                existing['name'] = name
+                existing['folderId'] = existing['_id']
+                modelClass.updateItem(existing)
+                item = existing
+
+            if not item:
+                item = modelClass.createItem(
+                    name=name,
                     creator=user,
                     folder=docFolder,
-                    reuseExisting=True
-                ),
+                    reuseExisting=False
+                )
+
+            newModel = modelClass.setMetadata(
+                item,
                 {
                     modelType: {
                         **model,

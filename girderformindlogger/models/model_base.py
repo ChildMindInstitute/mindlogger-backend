@@ -263,13 +263,11 @@ class Model(object):
                 passedUrl
             )))
 
-        cachedDoc = None
-        if not refreshCache:
-            cachedDoc = cycleModels(
-                {url, passedUrl},
-                modelType=primary
-            )[1]
-        if cachedDoc is None:
+        cachedDoc = cycleModels(
+            {url, passedUrl},
+            modelType=primary
+        )[1]
+        if cachedDoc is None or refreshCache:
             if user==None:
                 raise AccessException(
                     "You must be logged in to load a{} by url".format(
@@ -285,7 +283,7 @@ class Model(object):
                 thread = threading.Thread(
                     target=importAndCompareModelType,
                     args=(compact,),
-                    kwargs={'url': url, 'user': user, 'modelType': modelType, 'meta': meta}
+                    kwargs={'url': url, 'user': user, 'modelType': modelType, 'meta': meta, 'existing': cachedDoc}
                 )
                 thread.start()
                 return(
@@ -301,7 +299,8 @@ class Model(object):
                 url=url,
                 user=user,
                 modelType=modelType,
-                meta=meta
+                meta=meta,
+                existing=cachedDoc
             )
         else:
             model = cachedDoc
