@@ -74,7 +74,9 @@ def send_push_notification(applet_id, event_id, activity_id=None, send_time=None
                     message_title=message_title,
                     message_body=message_body,
                     data_message={
-                        "event_id": str(event_id)
+                        "event_id": str(event_id),
+                        "applet_id": str(applet_id),
+                        "activity_id": str(activity_id)
                     }
                 )
                 print(
