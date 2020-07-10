@@ -746,15 +746,15 @@ class Profile(AESEncryption, dict):
             fields=returnFields
         )
 
-        if existing:
-            return existing
-
         if applet['_id'] not in [
             a.get('_id') for a in Applet().getAppletsForUser(role, user)
         ]:
             appletGroups=Applet().getAppletGroups(applet)
 
             roles = ['user', 'editor', 'reviewer', 'coordinator', 'manager'] if role == 'manager' else [role]
+            if 'user' not in roles:
+                roles.append('user')
+
             for role in roles:
                 groups = appletGroups.get(role)
                 if bool(groups):
@@ -762,8 +762,10 @@ class Profile(AESEncryption, dict):
                         ObjectId(list(groups.keys())[0]),
                         force=True
                     )
-                    Group().inviteUser(group, user, level=AccessType.READ)
-                    Group().joinGroup(group, user)
+
+                    if group['_id'] not in user.get('groups', []):
+                        Group().inviteUser(group, user, level=AccessType.READ)
+                        Group().joinGroup(group, user)
                 else:
                     raise ValidationException(
                         "User does not have role \"{}\" in this \"{}\" applet "
@@ -773,6 +775,9 @@ class Profile(AESEncryption, dict):
                             str(applet['_id'])
                         )
                     )
+
+        if existing:
+            return existing
 
         now = datetime.datetime.utcnow()
 
