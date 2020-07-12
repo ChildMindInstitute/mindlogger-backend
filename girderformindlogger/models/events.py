@@ -78,9 +78,9 @@ class Events(Model):
         if 'data' in event:
             newEvent['data'] = event['data']
 
-            activities = Folder().find(query={
+            activities = list(Folder().find(query={
                 'meta.activity.url': event['data']['URI']
-            }, fields=['_id'])
+            }, fields=['_id']))
 
             activity_id = list(set(applet["meta"]["protocol"]["activities"]) & set(
                 [activity['_id'] for activity in activities]))
