@@ -254,7 +254,7 @@ class Item(acl_mixin.AccessControlMixin, Model):
         Model.remove(self, item)
 
     def createItem(self, name, creator, folder, description='',
-                   reuseExisting=False):
+                   reuseExisting=False, validate=True):
         """
         Create a new item. The creator will be given admin access to it.
 
@@ -303,9 +303,9 @@ class Item(acl_mixin.AccessControlMixin, Model):
             'updated': now,
             'size': 0,
             'meta': {}
-        })
+        }, validate=validate)
 
-    def updateItem(self, item):
+    def updateItem(self, item, folder=None):
         """
         Updates an item.
 
@@ -329,7 +329,7 @@ class Item(acl_mixin.AccessControlMixin, Model):
 
         return filteredDoc
 
-    def setMetadata(self, item, metadata, allowNull=False):
+    def setMetadata(self, item, metadata, allowNull=False, validate=True):
         """
         Set metadata on an item.  A `ValidationException` is thrown in the
         cases where the metadata JSON object is badly formed, or if any of the
@@ -362,7 +362,7 @@ class Item(acl_mixin.AccessControlMixin, Model):
         item['updated'] = datetime.datetime.utcnow()
 
         # Validate and save the item
-        return self.save(item)
+        return self.save(item, validate=validate)
 
     def deleteMetadata(self, item, fields):
         """

@@ -15,7 +15,7 @@ from girderformindlogger.models.aes_encrypt import AESEncryption, AccessControll
 from girderformindlogger.utility.model_importer import ModelImporter
 from girderformindlogger.utility.progress import noProgress, \
     setResponseTimeLimit
-
+from girderformindlogger.constants import USER_ROLES
 
 class Profile(AESEncryption, dict):
     """
@@ -24,11 +24,13 @@ class Profile(AESEncryption, dict):
     """
 
     def initialize(self):
-        self.name = 'profile'
+        self.name = 'appletProfile'
         self.ensureIndices(
             (
-                'appletId', 
-                'userId'
+                'appletId',
+                'userId',
+                'individual_events',
+                'completed_activities'
             )
         )
 
@@ -370,6 +372,18 @@ class Profile(AESEncryption, dict):
             )
         return self.save(profile, validate=False)
 
+    def updateProfiles(self, user, data):
+        data = {'$set': data}
+        try:
+            self.update(query={
+                'userId': {
+                    '$in': [user['_id']]
+                },
+                'profile': True
+            }, update=data, multi=True)
+        except ValueError as e:
+            print("Error  while updating Profile")
+
     def updateRelations(self, profileId):
         relations = list(self.find({
             '$or': [{
@@ -691,6 +705,20 @@ class Profile(AESEncryption, dict):
         }
         return(userList)
 
+    def updateOwnerProfile(self, applet):
+        from girderformindlogger.models.account_profile import AccountProfile
+
+        accountId = applet.get('accountId', None)
+        if not accountId:
+            return
+        owner = AccountProfile().getOwner(accountId)
+
+        appletProfile = self.findOne({'userId': owner['userId'], 'appletId': applet['_id']})
+        appletProfile['roles'] = list(USER_ROLES.keys())
+        appletProfile['roles'].append('owner')
+
+        return self.save(appletProfile, validate=False)
+
     def createProfile(self, applet, user, role="user"):
         """
         Create a new profile to store information specific to a given (applet ∩
@@ -718,15 +746,15 @@ class Profile(AESEncryption, dict):
             fields=returnFields
         )
 
-        if existing:
-            return existing
-
         if applet['_id'] not in [
             a.get('_id') for a in Applet().getAppletsForUser(role, user)
         ]:
             appletGroups=Applet().getAppletGroups(applet)
 
             roles = ['user', 'editor', 'reviewer', 'coordinator', 'manager'] if role == 'manager' else [role]
+            if 'user' not in roles:
+                roles.append('user')
+
             for role in roles:
                 groups = appletGroups.get(role)
                 if bool(groups):
@@ -734,8 +762,10 @@ class Profile(AESEncryption, dict):
                         ObjectId(list(groups.keys())[0]),
                         force=True
                     )
-                    Group().inviteUser(group, user, level=AccessType.READ)
-                    Group().joinGroup(group, user)
+
+                    if group['_id'] not in user.get('groups', []):
+                        Group().inviteUser(group, user, level=AccessType.READ)
+                        Group().joinGroup(group, user)
                 else:
                     raise ValidationException(
                         "User does not have role \"{}\" in this \"{}\" applet "
@@ -746,6 +776,9 @@ class Profile(AESEncryption, dict):
                         )
                     )
 
+        if existing:
+            return existing
+
         now = datetime.datetime.utcnow()
 
         profile = {
@@ -753,8 +786,18 @@ class Profile(AESEncryption, dict):
                 'appletId': ObjectId(applet['_id']),
                 'userId': ObjectId(user['_id']),
                 'profile': True,
+                'badge': 0,
                 'created': now,
                 'updated': now,
+                'deviceId': user['deviceId'],
+                'timezone': user['timezone'],
+                'individual_events': 0,
+                'completed_activities': [
+                    {
+                        'activity_id': activity_id, 'completed_time': None
+                    } for activity_id in applet.get('meta', {}).get('protocol', {}).get('activities', [])
+                ],
+                'accountId': applet.get('accountId', None),
                 'size': 0,
                 'coordinatorDefined': {},
                 'userDefined': {
@@ -1015,15 +1058,15 @@ class Profile(AESEncryption, dict):
         self.update(query, {'$set': {'deactivated': True}})
 
     def get_profiles_by_applet_id(self, applet_id):
-        return self.find(
+        return list(self.find(
             query={
-                'appletId': applet_id,
+                'appletId': ObjectId(applet_id),
                 'userId': {
                     '$exists': True
                 },
                 'profile': True
             }
-        )
+        ))
 
     def get_profiles_by_ids(self, profile_ids):
         return self.find(

@@ -38,7 +38,8 @@ from girderformindlogger.models.protoUser import ProtoUser as ProtoUserModel
 from girderformindlogger.models.user import User as UserModel
 from girderformindlogger.utility.progress import noProgress,                   \
     setResponseTimeLimit
-
+from girderformindlogger.models.account_profile import AccountProfile
+from girderformindlogger.models.profile import Profile
 
 class Applet(FolderModel):
     """
@@ -52,7 +53,9 @@ class Applet(FolderModel):
         user=None,
         roles=None,
         constraints=None,
-        appletName=None
+        appletName=None,
+        appletRole='editor',
+        accountId=None
     ):
         """
         Method to create an Applet.
@@ -91,7 +94,8 @@ class Applet(FolderModel):
                 public=True,
                 creator=user,
                 allowRename=True,
-                appletName=appletName
+                appletName=appletName,
+                accountId=accountId
             ),
             metadata={
                 'protocol': protocol,
@@ -148,23 +152,62 @@ class Applet(FolderModel):
         self.setAccessList(applet, accessList)
         self.update({'_id': ObjectId(applet['_id'])}, {'$set': {'access': applet.get('access', {})}})
 
-        from girderformindlogger.models.profile import Profile
-
-        # give all roles to creator of an applet
-        profile = Profile().createProfile(applet, user, 'manager')
-        profile = Profile().load(profile['_id'], force=True)
-
-        profile['roles'] = list(USER_ROLES.keys())
-        Profile().save(profile, False)
-
-        UserModel().appendApplet(UserModel().load(user['_id'], force=True), applet['_id'], USER_ROLES.keys())
-
-        return(jsonld_expander.formatLdObject(
+        formatted = jsonld_expander.formatLdObject(
             applet,
             'applet',
             user,
             refreshCache=False
-        ))
+        )
+
+        if 'activities' in formatted:
+            activities = []
+
+            for activity in formatted['activities']:
+                activities.append(ObjectId(formatted['activities'][activity]['_id'].split('/')[-1]))
+
+            self.update({'_id': ObjectId(applet['_id'])}, {'$set': {'meta.protocol.activities': activities}})
+
+        # give all roles to creator of an applet
+        applet = self.load(applet['_id'], force=True)
+        profile = Profile().createProfile(applet, user, appletRole)
+        profile = Profile().load(profile['_id'], force=True)
+
+        profile['roles'] = ['editor', 'user'] if appletRole == 'editor' else list(USER_ROLES.keys())
+        Profile().save(profile, False)
+
+        AccountProfile().appendApplet(AccountProfile().findOne({'accountId': accountId, 'userId': user['_id']}), applet['_id'], profile['roles'])
+
+        owner = AccountProfile().getOwner(accountId)
+        inviter = UserModel().load(user['_id'], force=True)
+
+        self.grantAccessToApplet(UserModel().load(owner['userId'], force=True), applet, 'manager', inviter)
+        Profile().updateOwnerProfile(applet)
+
+        return formatted
+
+    # users won't use this endpoint, so all emails are plain text
+    def grantAccessToApplet(self, user, applet, role, inviter):
+        from girderformindlogger.models.invitation import Invitation
+
+        if Profile().findOne({'appletId': applet['_id'], 'userId': user['_id']}):
+            return
+
+        accountId = applet.get('accountId', None)
+        if not accountId:
+            return
+
+        newInvitation = Invitation().createInvitationForSpecifiedUser(
+            applet,
+            inviter,
+            role,
+            user,
+            user['firstName'],
+            user['lastName'],
+            user['email']
+        )
+
+        Invitation().acceptInvitation(Invitation().load(newInvitation['_id'], force=True), user, user['email'])
+        Invitation().remove(newInvitation)
 
     def duplicateApplet(
         self,
@@ -186,7 +229,8 @@ class Applet(FolderModel):
                 public=True,
                 creator=editor,
                 allowRename=True,
-                appletName=appletName
+                appletName=appletName,
+                accountId=applet['accountId']
             ),
             metadata=applet.get('meta', {})
         )
@@ -238,33 +282,23 @@ class Applet(FolderModel):
         self.setAccessList(newApplet, accessList)
         self.save(newApplet)
 
-        from girderformindlogger.models.profile import Profile
-
         # copy editor and manager list from original applet
         profiles = Profile().find({
             'appletId': applet['_id'],
-            'roles': {
-                '$in': ['manager', 'editor']
-            },
+            'roles': 'editor',
             'userId': {
                 '$exists': True
             },
             'profile': True
         })
-        for appletUser in profiles:
-            user = UserModel().load(appletUser['userId'], force=True)
 
-            profile = Profile().createProfile(newApplet, user, 'manager' if 'manager' in appletUser['roles'] else 'editor')
-            profile = Profile().load(profile['_id'], force=True)
+        inviter = UserModel().load(editor['_id'], force=True)
+        for profile in profiles:
+            role = 'manager' if 'manager' in profile.get('roles', []) else 'editor'
+            self.grantAccessToApplet(UserModel().load(profile['userId'], force=True), newApplet, role, inviter)
 
-            keys = ['roles', 'firstName', 'lastName', 'MRN']
-            for key in keys:
-                if key in appletUser:
-                    profile[key] = appletUser[key]
 
-            Profile().save(profile, False)
-
-            UserModel().appendApplet(user, newApplet['_id'], appletUser['roles'])
+        Profile().updateOwnerProfile(newApplet)
 
         return(jsonld_expander.formatLdObject(
             newApplet,
@@ -279,14 +313,12 @@ class Applet(FolderModel):
 
         successed = True
         if applet.get('meta', {}).get('applet', {}).get('deleted')==True:
-            from girderformindlogger.models.profile import Profile
 
-            users = list(Profile().find({'appletId': ObjectId(applet['_id']), 'deactivated': {'$ne': True}}, fields=['userId']))
+            accountProfiles = list(AccountProfile().find({'accountId': applet['accountId'], 'applets.user': applet['_id'] }))
             Profile().deactivateProfile(applet['_id'], None)
 
-            for user in users:
-                if 'userId' in user:
-                    UserModel().removeApplet(UserModel().findOne({'_id': ObjectId(user['userId'])}), applet['_id'])
+            for accountProfile in accountProfiles:
+                AccountProfile().removeApplet(accountProfile, applet['_id'])
         else:
             successed = False
 
@@ -322,7 +354,9 @@ class Applet(FolderModel):
         roles=None,
         constraints=None,
         email='',
-        sendEmail=True
+        sendEmail=True,
+        appletRole='editor',
+        accountId=None
     ):
         from girderformindlogger.models.protocol import Protocol
         from girderformindlogger.utility import mail_utils
@@ -370,7 +404,9 @@ class Applet(FolderModel):
             user=user,
             roles=roles,
             constraints=constraints,
-            appletName=appletName
+            appletName=appletName,
+            appletRole=appletRole,
+            accountId=accountId
         )
 
     def createAppletFromProtocolData(
@@ -381,7 +417,9 @@ class Applet(FolderModel):
         roles=None,
         constraints=None,
         email='',
-        sendEmail=True
+        sendEmail=True,
+        appletRole='editor',
+        accountId=None
     ):
         from girderformindlogger.models.protocol import Protocol
         from girderformindlogger.utility import mail_utils
@@ -419,8 +457,76 @@ class Applet(FolderModel):
             user=user,
             roles=roles,
             constraints=constraints,
-            appletName=appletName
+            appletName=appletName,
+            appletRole=appletRole,
+            accountId=accountId
         )
+
+    def updateAppletFromProtocolData(
+        self,
+        name,
+        applet,
+        protocol,
+        user,
+        accountId
+    ):
+        from girderformindlogger.models.protocol import Protocol
+        from girderformindlogger.utility import jsonld_expander
+
+        # get a protocol from single json file
+        protocol = Protocol().createProtocol(
+            protocol,
+            user
+        )
+
+        protocol = protocol.get('protocol', protocol)
+
+        displayName = Protocol().preferredName(protocol)
+
+        applet['appletName'] = self.validateAppletName('{}/'.format(protocol.get('@id')), CollectionModel().findOne({'name': 'Applets'}), user)
+        applet['name'] = name if name is not None and len(name) else displayName
+
+        self.validate(applet, allowRename=True)
+        self.save(applet)
+        # update appletProfile according to updated applet
+        formatted = jsonld_expander.formatLdObject(
+            applet,
+            'applet',
+            user,
+            refreshCache=True
+        )
+
+        activities = []
+        if 'activities' in formatted:
+            for activity in formatted['activities']:
+                activities.append(ObjectId(formatted['activities'][activity]['_id'].split('/')[-1]))
+
+            self.update({'_id': ObjectId(applet['_id'])}, {'$set': {'meta.protocol.activities': activities}})
+
+        appletProfiles = Profile().get_profiles_by_applet_id(applet['_id'])
+
+        # update applet profiles
+        for profile in appletProfiles:
+            originalActivities = profile.get('completed_activities', [])
+            profile['completed_activities'] = []
+
+            activityUpdated = False
+            for activityId in activities:
+                activityData = None
+
+                for originalActivity in originalActivities:
+                    if originalActivity['activity_id'] == activityId:
+                        activityData = originalActivity
+
+                if not activityData:
+                    activityUpdated = True
+
+                profile['completed_activities'].append(activityData if activityData else {'activity_id': activityId, 'completed_time': None})
+
+            if activityUpdated:
+                Profile().save(profile, validate=False)
+
+        return formatted
 
     def formatThenUpdate(self, applet, user):
         from girderformindlogger.utility import jsonld_expander
@@ -444,7 +550,6 @@ class Applet(FolderModel):
         :reutrns: TBD
         """
         from girderformindlogger.models.ID_code import IDCode
-        from girderformindlogger.models.profile import Profile
         from girderformindlogger.models.response_folder import ResponseItem
         from girderformindlogger.models.user import User
         from pymongo import DESCENDING
@@ -544,7 +649,6 @@ class Applet(FolderModel):
         )
 
     def isCoordinator(self, appletId, user):
-        from girderformindlogger.models.profile import Profile
 
         try:
             user = Profile()._canonicalUser(appletId, user)
@@ -559,7 +663,6 @@ class Applet(FolderModel):
         return(self._hasRole(appletId, user, 'manager'))
 
     def _hasRole(self, appletId, user, role):
-        from girderformindlogger.models.profile import Profile
 
         user = Profile()._canonicalUser(appletId, user)
         return(bool(
@@ -696,7 +799,6 @@ class Applet(FolderModel):
         return(applets)
 
     def listUsers(self, applet, role, user=None, force=False):
-        from girderformindlogger.models.profile import Profile
         if not force:
             if not any([
                 self.isCoordinator(applet['_id'], user),
@@ -736,7 +838,6 @@ class Applet(FolderModel):
         :returns: list of dicts
         """
         from girderformindlogger.models.invitation import Invitation
-        from girderformindlogger.models.profile import Profile
 
         profileFields = ["_id", "coordinatorDefined", "userDefined"]
 

@@ -19,6 +19,7 @@ from girderformindlogger.models.profile import Profile as ProfileModel
 from girderformindlogger.models.setting import Setting
 from girderformindlogger.models.token import Token
 from girderformindlogger.models.user import User as UserModel
+from girderformindlogger.models.account_profile import AccountProfile
 from girderformindlogger.settings import SettingKey
 from girderformindlogger.utility import jsonld_expander, mail_utils
 from sys import exc_info
@@ -50,6 +51,8 @@ class User(Resource):
         self.route('PUT', (':id', 'code'), self.updateIDCode)
         self.route('DELETE', (':id', 'code'), self.removeIDCode)
         self.route('GET', ('applets',), self.getOwnApplets)
+        self.route('GET', ('accounts',), self.getAccounts)
+        self.route('PUT', ('switchAccount', ), self.switchAccount)
         self.route('GET', (':id', 'details'), self.getUserDetails)
         self.route('GET', ('invites',), self.getGroupInvites)
         self.route('PUT', (':id', 'knows'), self.setUserRelationship)
@@ -58,6 +61,7 @@ class User(Resource):
         self.route('PUT', (':id',), self.updateUser)
         self.route('PUT', ('password',), self.changePassword)
         self.route('PUT', ('username',), self.changeUserName)
+        self.route('PUT', ('accountName',), self.changeAccountName)
 
         self.route('PUT', (':id', 'password'), self.changeUserPassword)
         self.route('GET', ('password', 'temporary', ':id'),
@@ -575,6 +579,13 @@ class User(Resource):
             dataType='boolean'
         )
         .param(
+            'getAllApplets',
+            'If true, applets returned from backend does not depend on account_id',
+            required=True,
+            default=False,
+            dataType='boolean'
+        )
+        .param(
             'refreshCache',
             'If true, refresh user cache.',
             required=False,
@@ -591,7 +602,8 @@ class User(Resource):
         role,
         ids_only=False,
         unexpanded=False,
-        refreshCache=False
+        refreshCache=False,
+        getAllApplets=False
     ):
         from bson.objectid import ObjectId
         from girderformindlogger.utility.jsonld_expander import loadCache
@@ -607,8 +619,15 @@ class User(Resource):
                 'Invalid user role.',
                 'role'
             )
-
-        applet_ids = reviewer.get('applets', {}).get(role, [])
+        applet_ids = []
+        if not getAllApplets:
+            accountProfile = self.getAccountProfile()
+            applet_ids = accountProfile.get('applets', {}).get(role, [])
+        else:
+            accounts = AccountProfile().getAccounts(reviewer['_id'])
+            for account in accounts:
+                for applet in account.get('applets', {}).get(role, []):
+                    applet_ids.append(applet)
 
         if ids_only:
             return applet_ids
@@ -676,6 +695,86 @@ class User(Resource):
             print(sys.exc_info())
             return([])
 
+    @access.public(scope=TokenScope.DATA_READ)
+    @autoDescribeRoute(
+        Description('Get all your applets by role.')
+        .notes(
+            'This endpoint is used for users to get their own/invited accounts.'
+        )
+        .errorResponse('ID was invalid.')
+        .errorResponse(
+            'You do not have permission to see accounts for this user.',
+            403
+        )
+    )
+    def getAccounts(self):
+        user = self.getCurrentUser()
+
+        if user is None:
+            raise AccessException('You are not authorized to make request to this endpoint.')
+        accounts = AccountProfile().getAccounts(user['_id'])
+        fields = ['accountName', 'accountId']
+
+        response = []
+        for account in accounts:
+            response.append({
+                'accountName': account['accountName'],
+                'accountId': account['accountId'],
+                'owned': (account['_id'] == account['accountId'])
+            })
+
+        return response
+
+    @access.public(scope=TokenScope.DATA_READ)
+    @autoDescribeRoute(
+        Description('switch account.')
+        .notes(
+            'This endpoint is used for users to switch their current account.'
+        )
+        .param(
+            'accountId',
+            'account id to switch',
+            required=True,
+            default=None
+        )
+        .errorResponse('ID was invalid.')
+        .errorResponse(
+            'You do not have permission to see this account.',
+            403
+        )
+    )
+    def switchAccount(self, accountId = None):
+        from bson.objectid import ObjectId
+        try:
+            token = self.getCurrentToken()
+            user = self.getCurrentUser()
+            if user:
+                account = AccountProfile().findOne({'accountId': ObjectId(accountId), 'userId': user['_id']})
+
+            if not user or not account:
+                raise Exception('error.')
+        except:
+            raise AccessException('account does not exist or you are not allowed to access to this account')
+
+        token['accountId'] = ObjectId(accountId)
+        token = Token().save(token)
+
+        fields = ['accountId', 'accountName', 'applets']
+        tokenInfo = {
+            'account': {
+                field: account[field] for field in fields
+            },
+            'authToken': {
+                'token': token['_id'],
+                'expires': token['expires'],
+                'scope': token['scope']
+            }
+        }
+
+        if token['accountId'] == user['accountId']:
+            tokenInfo['account']['isDefaultName'] = False if user['accountName'] else True
+
+        return tokenInfo
 
     @access.public(scope=TokenScope.USER_INFO_READ)
     @filtermodel(model=UserModel)
@@ -770,14 +869,26 @@ class User(Resource):
 
             if deviceId:
                 user['deviceId'] = deviceId
-                user['timezone'] = timezone
+                user['timezone'] = float(timezone)
                 self._model.save(user)
+                ProfileModel().updateProfiles(user, {
+                    'deviceId': deviceId,
+                    'timezone': float(timezone),
+                    'badge': 0
+                })
 
             setCurrentUser(user)
             token = self.sendAuthTokenCookie(user)
 
-        return {
+        account = AccountProfile().findOne({'_id': user['accountId']})
+
+        fields = ['accountId', 'accountName', 'applets']
+
+        tokenInfo = {
             'user': self._model.filter(user, user),
+            'account': {
+                field: account[field] for field in fields
+            },
             'authToken': {
                 'token': token['_id'],
                 'expires': token['expires'],
@@ -785,6 +896,11 @@ class User(Resource):
             },
             'message': 'Login succeeded.'
         }
+
+        tokenInfo['account']['isDefaultName'] = False if user['accountName'] else True
+
+        return tokenInfo
+
     @access.public
     @autoDescribeRoute(
         Description('Log out of the system.')
@@ -796,13 +912,18 @@ class User(Resource):
     )
     def logout(self):
         token = self.getCurrentToken()
+        user = self.getCurrentUser()
         if token:
             Token().remove(token)
+        if user:
+            ProfileModel().updateProfiles(user, {
+                "deviceId": ""
+            })
         self.deleteAuthTokenCookie()
         return {'message': 'Logged out.'}
 
     @access.public
-    @filtermodel(model=UserModel, addFields={'authToken'})
+    @filtermodel(model=UserModel, addFields={'authToken', 'account'})
     @autoDescribeRoute(
         Description('Create a new user.')
         .notes(
@@ -823,12 +944,12 @@ class User(Resource):
                required=False, dataType='boolean', default=False)
         .param(
             'lastName',
-            'Deprecated. Do not use.',
+            'lastName of user.',
             required=False
         )
         .param(
             'firstName',
-            'Deprecated. Do not use.',
+            'firstName of user.',
             required=False
         )
         .errorResponse('A parameter was invalid, or the specified login or'
@@ -843,6 +964,7 @@ class User(Resource):
         lastName=None,
         firstName=None
     ):
+        from bson.objectid import ObjectId
         currentUser = self.getCurrentUser()
 
         regPolicy = Setting().get(SettingKey.REGISTRATION_POLICY)
@@ -855,14 +977,14 @@ class User(Resource):
                     'administrator to create an account for you.')
 
         user = self._model.createUser(
-            login="", 
-            password=password, 
+            login="",
+            password=password,
             email=email,
             firstName=displayName if len(
                 displayName
             ) else firstName if firstName is not None else "",
-            lastName=lastName, 
-            admin=admin, 
+            lastName=lastName,
+            admin=admin,
             currentUser=currentUser,
             encryptEmail=True
         )
@@ -870,6 +992,7 @@ class User(Resource):
         if not currentUser and self._model.canLogin(user):
             setCurrentUser(user)
             token = self.sendAuthTokenCookie(user)
+
             user['authToken'] = {
                 'token': token['_id'],
                 'expires': token['expires']
@@ -895,6 +1018,13 @@ class User(Resource):
         )
         group['access'] = GroupModel().getFullAccessList(group)
         group['requests'] = list(GroupModel().getFullRequestList(group))
+
+        if 'authToken' in user:
+            account = AccountProfile().findOne({'userId': ObjectId(user['_id'])})
+            user['account'] = {
+                field: account[field] for field in ['accountId', 'accountName', 'applets']
+            }
+            user['account']['isDefaultName'] = True
 
         return(user)
 
@@ -1231,7 +1361,7 @@ class User(Resource):
             )
         else:
             currentUser = self.getCurrentUser()
-            id = id if id is not None else Profile().getProfile(
+            id = id if id is not None else ProfileModel().getProfile(
                 applet=AppletModel().load(applet, force=True),
                 idCode=idCode,
                 user=currentUser
@@ -1262,11 +1392,17 @@ class User(Resource):
         Token().remove(token)
         user = self._model.save(user)
 
+        account = AccountProfile().findOne({'_id': user['accountId']})
+        fields = ['accountId', 'accountName', 'applets']
+
         if self._model.canLogin(user):
             setCurrentUser(user)
             authToken = self.sendAuthTokenCookie(user)
-            return {
+            tokenInfo = {
                 'user': self._model.filter(user, user),
+                'account': {
+                    field: account[field] for field in fields
+                },
                 'authToken': {
                     'token': authToken['_id'],
                     'expires': authToken['expires'],
@@ -1274,6 +1410,9 @@ class User(Resource):
                 },
                 'message': 'Email verification succeeded.'
             }
+            tokenInfo['account']['isDefaultName'] = True
+
+            return tokenInfo
         else:
             return {
                 'user': self._model.filter(user, user),
@@ -1318,3 +1457,28 @@ class User(Resource):
             ProfileModel()._cacheProfileDisplay(p, user, forceManager=True)
 
         return {'message': 'username changed from {} to {}'.format(old, username)}
+
+    @access.user
+    @autoDescribeRoute(
+        Description('Change your accountName.')
+        .notes(
+            'this endpoint is used for updating user\'s accountName'
+        )
+        .param('accountName', 'Your new accountName.')
+        .errorResponse(('You are not logged in.',), 401)
+    )
+    def changeAccountName(self, accountName):
+        profile = self.getAccountProfile()
+        if profile is None:
+            raise AccessException("You are not authorized to change account name for this account")
+        user = self.getCurrentUser()
+
+        if user['accountId'] == profile['accountId']: # check if user is owner of account
+            AccountProfile().updateAccountName(profile['accountId'], accountName)
+
+            user['accountName'] = accountName
+            self._model.save(user)
+        else:
+            raise AccessException("You are not authorized to change account name for this account")
+
+        return 'success'

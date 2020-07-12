@@ -18,6 +18,18 @@ def getDbConfig():
     else:
         return {}
 
+_redisClient = None
+def getRedisConnection():
+    global _redisClient
+
+    from redis import Redis
+
+    if _redisClient:
+        return _redisClient
+
+    cfg = config.getConfig()
+    _redisClient = Redis(**cfg['redis'])
+    return _redisClient
 
 def getDbConnection(uri=None, replicaSet=None, autoRetry=True, quiet=False, **kwargs):
     """
@@ -218,7 +230,7 @@ def cycleModels(IRIset, modelType=None):
     return(modelType, cachedDoc)
 
 
-def smartImport(IRI, user=None, refreshCache=False, modelType=None):
+def smartImport(IRI, user=None, refreshCache=False, modelType=None, meta={}):
     from girderformindlogger.constants import MODELS
     from girderformindlogger.utility.jsonld_expander import loadCache,         \
         reprolibCanonize
@@ -232,7 +244,8 @@ def smartImport(IRI, user=None, refreshCache=False, modelType=None):
         IRI,
         user=user,
         refreshCache=refreshCache,
-        thread=False
+        thread=False,
+        meta=meta
     )
     return((
         modelType,

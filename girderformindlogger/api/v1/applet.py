@@ -38,11 +38,13 @@ from girderformindlogger.models.item import Item as ItemModel
 from girderformindlogger.models.protocol import Protocol as ProtocolModel
 from girderformindlogger.models.roles import getCanonicalUser, getUserCipher
 from girderformindlogger.models.user import User as UserModel
-from girderformindlogger.models.pushNotification import PushNotification as PushNotificationModel
 from girderformindlogger.models.events import Events as EventsModel
 from girderformindlogger.utility import config, jsonld_expander, mail_utils
 from girderformindlogger.models.setting import Setting
 from girderformindlogger.settings import SettingKey
+from girderformindlogger.models.profile import Profile as ProfileModel
+from girderformindlogger.models.account_profile import AccountProfile
+from bson import json_util
 from pyld import jsonld
 
 USER_ROLE_KEYS = USER_ROLES.keys()
@@ -70,7 +72,23 @@ class Applet(Resource):
         self.route('GET', (':id', 'users'), self.getAppletUsers)
         self.route('DELETE', (':id',), self.deactivateApplet)
         self.route('POST', ('fromJSON', ), self.createAppletFromProtocolData)
+        self.route('GET', (':id', 'protocolData'), self.getProtocolData)
+        self.route('PUT', (':id', 'fromJSON'), self.updateAppletFromProtocolData)
         self.route('POST', (':id', 'duplicate', ), self.duplicateApplet)
+        self.route('POST', ('resetBadge',), self.resetBadgeCount)
+
+    @access.user(scope=TokenScope.DATA_WRITE)
+    @autoDescribeRoute(
+        Description('Reset badge parameter')
+            .notes(
+            'this endpoint is used to reset badge parameter in profile collection. <br>'
+            'users who are associated with that group will be able to connect to this endpoint.'
+        )
+    )
+    def resetBadgeCount(self):
+        thisUser = self.getCurrentUser()
+        ProfileModel().updateProfiles(thisUser, {"badge": 0})
+        return({"message": "Badge was successfully reseted"})
 
     @access.user(scope=TokenScope.DATA_OWN)
     @autoDescribeRoute(
@@ -95,6 +113,23 @@ class Applet(Resource):
             raise AccessException(
                 "Only coordinators and managers can see user lists."
             )
+
+    @access.user(scope=TokenScope.DATA_READ)
+    @autoDescribeRoute(
+        Description('Get content of protocol by applet id.')
+        .modelParam('id', model=AppletModel, level=AccessType.READ, destName='applet')
+        .errorResponse('Invalid applet ID.')
+        .errorResponse('Read access was denied for this applet.', 403)
+    )
+    def getProtocolData(self, applet):
+        profile = self.getAccountProfile()
+        if not AccountProfile().hasPermission(profile, 'manager') and not AccountProfile().hasPermission(profile, 'editor'):
+            raise AccessException('You don\'t have enough permission to get content of this protocol')
+
+        protocol = ProtocolModel().load(applet.get('meta', {}).get('protocol', {}).get('_id', '').split('/')[-1], force=True)
+        protocolContent = FolderModel().load(protocol['content_id'], force=True)
+
+        return None if not protocolContent['content'] else json_util.loads(protocolContent['content'])
 
     @access.user(scope=TokenScope.DATA_WRITE)
     @autoDescribeRoute(
@@ -200,7 +235,20 @@ class Applet(Resource):
         .errorResponse('Write access was denied for this applet.', 403)
     )
     def createApplet(self, protocolUrl=None, email='', name=None, informant=None):
+        accountProfile = AccountProfile()
+
         thisUser = self.getCurrentUser()
+        profile = self.getAccountProfile()
+
+        appletRole = None
+        for role in ['manager', 'editor']:
+            if accountProfile.hasPermission(profile, role):
+                appletRole = role
+                break
+
+        if appletRole is None:
+            raise AccessException("You don't have enough permission to create applet on this account.")
+
         thread = threading.Thread(
             target=AppletModel().createAppletFromUrl,
             kwargs={
@@ -210,7 +258,9 @@ class Applet(Resource):
                 'email': email,
                 'constraints': {
                     'informantRelationship': informant
-                } if informant is not None else None
+                } if informant is not None else None,
+                'appletRole': appletRole,
+                'accountId': profile['accountId']
             }
         )
         thread.start()
@@ -241,8 +291,9 @@ class Applet(Resource):
     )
     def duplicateApplet(self, applet, name):
         thisUser = self.getCurrentUser()
+        accountProfile = self.getAccountProfile()
 
-        if applet['_id'] not in thisUser.get('applets', {}).get('editor') and applet['_id'] not in thisUser.get('applets', {}).get('manager'):
+        if not accountProfile or applet['_id'] not in accountProfile.get('applets', {}).get('editor') and applet['_id'] not in accountProfile.get('applets', {}).get('manager'):
             raise AccessException(
                 "Only managers and editors are able to duplicate applet."
             )
@@ -288,7 +339,19 @@ class Applet(Resource):
         .errorResponse('Write access was denied for this applet.', 403)
     )
     def createAppletFromProtocolData(self, protocol, email='', name=None, informant=None):
+        accountProfile = AccountProfile()
+
         thisUser = self.getCurrentUser()
+        profile = self.getAccountProfile()
+
+        appletRole = None
+        for role in ['manager', 'editor']:
+            if accountProfile.hasPermission(profile, role):
+                appletRole = role
+                break
+
+        if appletRole is None:
+            raise AccessException("You don't have enough permission to create applet on this account.")
 
         thread = threading.Thread(
             target=AppletModel().createAppletFromProtocolData,
@@ -299,13 +362,74 @@ class Applet(Resource):
                 'email': email,
                 'constraints': {
                     'informantRelationship': informant
-                } if informant is not None else None
+                } if informant is not None else None,
+                'appletRole': appletRole,
+                'accountId': profile['accountId']
             }
         )
         thread.start()
         return({
             "message": "The applet is being created. Please check back in "
-                       "several mintutes to see it."
+                       "several seconds to see it."
+        })
+
+
+    @access.user(scope=TokenScope.DATA_WRITE)
+    @autoDescribeRoute(
+        Description('Create an applet.')
+        .notes(
+            'This endpoint is used to update existing applet. <br>'
+            '(updating applet will take few seconds.)'
+        )
+        .param(
+            'name',
+            'Name to give the applet. The Protocol\'s name will be used if '
+            'this parameter is not provided.',
+            required=False
+        )
+        .modelParam(
+            'id',
+            model=AppletModel,
+            level=AccessType.READ,
+            destName='applet'
+        )
+        .jsonParam(
+            'protocol',
+            'A JSON object containing protocol information for an applet',
+            paramType='form',
+            required=False
+        )
+        .errorResponse('Write access was denied for this applet.', 403)
+    )
+    def updateAppletFromProtocolData(self, applet, name, protocol):
+        accountProfile = AccountProfile()
+
+        thisUser = self.getCurrentUser()
+        profile = self.getAccountProfile()
+
+        appletRole = None
+        for role in ['manager', 'editor']:
+            if accountProfile.hasPermission(profile, role):
+                appletRole = role
+                break
+
+        if appletRole is None:
+            raise AccessException("You don't have enough permission to create applet on this account.")
+
+        thread = threading.Thread(
+            target=AppletModel().updateAppletFromProtocolData,
+            kwargs={
+                'applet': applet,
+                'name': name,
+                'protocol': protocol,
+                'user': thisUser,
+                'accountId': profile['accountId']
+            }
+        )
+        thread.start()
+        return({
+            "message": "The applet is being updated. Please check back in "
+                       "several seconds to see it."
         })
 
     @access.user(scope=TokenScope.DATA_WRITE)
@@ -412,6 +536,9 @@ class Applet(Resource):
         from girderformindlogger.models.profile import Profile
 
         user = self.getCurrentUser()
+        if applet.get('meta', {}).get('applet', {}).get('deleted'):
+            raise AccessException('this applet is already removed')
+
         if not AppletModel().isManager(applet['_id'], user):
             raise AccessException('only managers can remove applet')
 
@@ -421,6 +548,7 @@ class Applet(Resource):
                 AppletModel().preferredName(applet),
                 applet.get('_id')
             )
+            EventsModel().deleteEventsByAppletId(applet.get('_id'))
         else:
             message = 'Could not deactivate applet {} ({}).'.format(
                 AppletModel().preferredName(applet),
@@ -724,7 +852,7 @@ class Applet(Resource):
             AppletModel().listUsers(applet, 'reviewer', force=True)
         )
 
-        html = mail_utils.renderTemplate('userInvite.mako' if invitedUser else 'inviteUserWithoutAccount.mako', {
+        html = mail_utils.renderTemplate('inviteUserWithoutAccount.mako' if not invitedUser else 'userInvite.mako' if role == 'user' else 'inviteEmployee.mako', {
             'url': url,
             'userName': firstName,
             'coordinatorName': thisUser['firstName'],
@@ -876,38 +1004,16 @@ class Applet(Resource):
                 for event in original['events']:
                     original_id = event.get('id')
                     if original_id not in assigned:
-                        PushNotificationModel().delete_notification(original_id)
-                        EventsModel().deleteEvent(original_id)
+                        EventsModel().deleteEvent(ObjectId(original_id))
         else:
             if isinstance(deleted, list):
                 for event_id in deleted:
-                    PushNotificationModel().delete_notification(ObjectId(event_id))
                     EventsModel().deleteEvent(ObjectId(event_id))
 
         if 'events' in schedule:
             # insert and update events/notifications
             for event in schedule['events']:
-                savedEvent = EventsModel().upsertEvent(event, applet['_id'], event.get('id', None))
-
-                if 'data' in event and 'useNotifications' in event['data'] and event['data']['useNotifications']:
-                    if 'notifications' in event['data'] and event['data']['notifications'][0]['start']:
-                        # in case of daily/weekly event
-                        exist_notification = None
-
-                        if 'id' in event:
-                            exist_notification = PushNotificationModel().findOne(query={'_id': event['id']})
-
-                        if exist_notification:
-                            PushNotificationModel().replaceNotification(
-                                applet['_id'],
-                                savedEvent,
-                                thisUser,
-                                exist_notification)
-                        else:
-                            PushNotificationModel().replaceNotification(
-                                applet['_id'],
-                                savedEvent,
-                                thisUser)
+                savedEvent = EventsModel().upsertEvent(event, applet, event.get('id', None))
                 event['id'] = savedEvent['_id']
 
         return {

@@ -10,6 +10,7 @@ from girderformindlogger import events
 from girderformindlogger.constants import AccessType, USER_ROLES
 from girderformindlogger.exceptions import ValidationException, GirderException
 from girderformindlogger.models.aes_encrypt import AESEncryption, AccessControlledModel
+from girderformindlogger.models.account_profile import AccountProfile
 from girderformindlogger.utility.model_importer import ModelImporter
 from girderformindlogger.utility.progress import noProgress, \
     setResponseTimeLimit
@@ -229,6 +230,26 @@ class Invitation(AESEncryption):
         if not applet:
             raise ValidationException('invalid invitation')
 
+        invited_role = invitation.get('role','user')
+        from girderformindlogger.models.user import User as UserModel
+        
+        if not mail_utils.validateEmailAddress(userEmail):
+            raise ValidationException(
+                'Invalid email address.',
+                'email'
+            )
+        if invited_role != 'user' and user.get('email_encrypted', False):
+            if UserModel().hash(userEmail) != user['email']:
+                raise ValidationException(
+                    'Invalid email address.',
+                    'email'
+                )
+            user['email'] = userEmail
+            user['email_encrypted'] = False
+
+            UserModel().save(user)
+
+
         profiles = None
         if 'idCode' in invitation:
             profiles = IDCode().findProfile(invitation['idCode'])
@@ -269,7 +290,6 @@ class Invitation(AESEncryption):
         # append role value
         profile = Profile().load(profile['_id'], force=True)
         profile['roles'] = profile.get('roles', [])
-        invited_role = invitation.get('role','user')
 
         new_roles = []
         # manager has get all roles by default
@@ -285,25 +305,7 @@ class Invitation(AESEncryption):
 
         Profile().save(profile, validate=False)
 
-        from girderformindlogger.models.user import User as UserModel
-        
-        if not mail_utils.validateEmailAddress(userEmail):
-            raise ValidationException(
-                'Invalid email address.',
-                'email'
-            )
-        if invited_role != 'user' and user.get('email_encrypted', False):
-            if UserModel().hash(userEmail) != user['email']:
-                raise ValidationException(
-                    'Invalid email address.',
-                    'email'
-                )
-            user['email'] = userEmail
-            user['email_encrypted'] = False
-
-            UserModel().save(user)
-
-        UserModel().appendApplet(user, applet['_id'], new_roles)
+        AccountProfile().appendApplet(AccountProfile().createAccountProfile(applet['accountId'], user['_id']), applet['_id'], profile['roles'])
 
         return(Profile().displayProfileFields(
             Profile().load(profile['_id'], force=True),

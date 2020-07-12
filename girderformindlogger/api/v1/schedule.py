@@ -23,7 +23,7 @@ from girderformindlogger.api import access
 from girderformindlogger.constants import TokenScope
 from girderformindlogger.models.applet import Applet as AppletModel
 from girderformindlogger.utility import jsonld_expander, response
-
+from girderformindlogger.exceptions import AccessException, ValidationException
 
 class Schedule(Resource):
     """API Endpoint for schedules."""
@@ -33,7 +33,7 @@ class Schedule(Resource):
         self.resourceName = 'schedule'
         self.route('GET', (), self.getSchedule)
 
-    @access.public(scope=TokenScope.DATA_READ)
+    @access.user(scope=TokenScope.DATA_READ)
     @autoDescribeRoute(
         Description('Get schedule Array for the logged-in user.')
         .param(
@@ -50,4 +50,5 @@ class Schedule(Resource):
         Get a list of dictionaries keyed by activityID.
         """
         currentUser = self.getCurrentUser()
+
         return(response.getSchedule(currentUser, timezone))

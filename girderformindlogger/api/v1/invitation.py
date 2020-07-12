@@ -26,6 +26,7 @@ from girderformindlogger.models.applet import Applet as AppletModel
 from girderformindlogger.models.invitation import Invitation as InvitationModel
 from girderformindlogger.models.token import Token
 from girderformindlogger.models.user import User as UserModel
+from girderformindlogger.models.account_profile import AccountProfile
 from girderformindlogger.utility import jsonld_expander, response
 
 
@@ -160,6 +161,7 @@ class Invitation(Resource):
         InvitationModel().remove(invitation)
 
         return profile
+
     @access.public(scope=TokenScope.USER_INFO_READ)
     @autoDescribeRoute(
         Description('Accept an invitation by token.')

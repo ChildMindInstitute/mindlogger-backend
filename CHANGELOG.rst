@@ -8,6 +8,9 @@ Changes
 -------
 Unreleased
 ==========
+2020-07-10 v0.14.10
+notifyIfIncomplete parameter was removed from event dialog and set like default behaviour
+
 2020-06-01: v0.14.9
 insert endpoint to duplicate existing applet
 

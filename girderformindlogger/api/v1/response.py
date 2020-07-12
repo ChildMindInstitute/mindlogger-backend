@@ -19,6 +19,8 @@
 
 import itertools
 import tzlocal
+import pytz
+
 from ..describe import Description, autoDescribeRoute
 from ..rest import Resource, filtermodel, setResponseHeader, \
     setContentDisposition
@@ -282,6 +284,7 @@ class ResponseItem(Resource):
         try:
             appletInfo = AppletModel().findOne({'_id': ObjectId(applet)})
             user = self.getCurrentUser()
+
             return(last7Days(applet, appletInfo, user.get('_id'), user, referenceDate))
         except:
             import sys, traceback
@@ -371,7 +374,9 @@ class ResponseItem(Resource):
                 metadata['subject']['@id'] = subject_id
             else:
                 metadata['subject'] = {'@id': subject_id}
-            now = datetime.now(tzlocal.get_localzone())
+
+            now = datetime.now(tz=pytz.timezone("UTC"))
+
             appletName=AppletModel().preferredName(applet)
             UserResponsesFolder = ResponseFolderModel().load(
                 user=informant,
@@ -434,6 +439,27 @@ class ResponseItem(Resource):
                 aggregateAndSave(newItem, informant)
                 newItem['readOnly'] = True
             print(newItem)
+
+            # update profile activity
+            profile = Profile()
+            data = profile.findOne(query={
+                "_id": subject_id
+            })
+
+            updated = False
+            for activity in data['completed_activities']:
+                if activity["activity_id"] == metadata['activity']['@id']:
+                    activity["completed_time"] = now
+                    updated = True
+
+            if updated == False:
+                data['completed_activities'].append({
+                    "activity_id": metadata['activity']['@id'],
+                    "completed_time": now
+                })
+
+            profile.save(data, validate=False)
+
             return(newItem)
         except:
             import sys, traceback

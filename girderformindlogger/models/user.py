@@ -27,7 +27,7 @@ class User(AESEncryption):
     def initialize(self):
         self.name = 'user'
         self.ensureIndices(['login', 'email', 'groupInvites.groupId', 'size',
-                            'created', 'deviceId', 'timezone'])
+                            'created', 'deviceId', 'timezone', 'accountId'])
         self.prefixSearchFields = (
             'login', ('firstName', 'i'), ('displayName', 'i'), 'email')
         self.ensureTextIndex({
@@ -110,7 +110,7 @@ class User(AESEncryption):
             existing = self.findOne(q)
             if existing is not None:
                 raise ValidationException('That email is already registered in the system.', )
-            
+
         # Ensure unique logins
         if len(doc['login']):
             self._validateLogin(doc['login'])
@@ -440,6 +440,7 @@ class User(AESEncryption):
         """
         from girderformindlogger.models.group import Group
         from girderformindlogger.models.setting import Setting
+        from girderformindlogger.models.account_profile import AccountProfile
         requireApproval = Setting(
         ).get(SettingKey.REGISTRATION_POLICY) == 'approve'
         email = "" if not email else email
@@ -475,7 +476,8 @@ class User(AESEncryption):
                     "level": 0
                 } for gi in list(Group().find(query={"queue": email}))
             ] if len(email) else [],
-            'email_encrypted': encryptEmail
+            'email_encrypted': encryptEmail,
+            'accountName': ''
         }
         if encryptEmail:
             if len(email) == 0 or not mail_utils.validateEmailAddress(email):
@@ -513,6 +515,11 @@ class User(AESEncryption):
             update={"$pull": {"queue": user['email']}},
             multi=True
         )
+
+        account = AccountProfile().createOwner(user)
+        user['accountId'] = account['_id']
+        self.update({'_id': user['_id']}, {'$set': {'accountId': user['accountId']}})
+
         user = self._getGroupInvitesFromProtoUser(user)
         self._deleteProtoUser(user)
         return(user)
@@ -782,29 +789,3 @@ class User(AESEncryption):
                 'timezone', 'deviceId'
             ]
         )
-
-    def appendApplet(self, user, applet_id, roles = []):
-        if not user.get('applets'):
-            user['applets'] = {}
-            for role in USER_ROLES.keys():
-                user['applets'][role] = []
-        applet_id = ObjectId(applet_id)
-
-        for role in roles:
-            if applet_id not in user['applets'][role]:
-                user['applets'][role].append(applet_id)
-
-        self.update({'_id': user['_id']}, {'$set': {'applets': user['applets']}}, False)
-    
-    def removeApplet(self, user, applet_id):
-        if not user.get('applets'):
-            user['applets'] = {}
-            for role in USER_ROLES.keys():
-                user['applets'][role] = []
-        applet_id = ObjectId(applet_id)
-
-        for role in USER_ROLES.keys():
-            if applet_id in user['applets'][role]:
-                user['applets'][role].remove(applet_id)
-
-        self.update({'_id': user['_id']}, {'$set': {'applets': user['applets']}}, False)

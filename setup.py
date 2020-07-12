@@ -29,6 +29,8 @@ installReqs = [
     # CherryPy version is restricted due to a bug in versions >=11.1
     # https://github.com/cherrypy/cherrypy/issues/1662
     'CherryPy<11.1',
+    'rq',
+    'rq-scheduler',
     'pycryptodomex',
     'json5',
     'click',
@@ -54,7 +56,10 @@ installReqs = [
     'python-dateutil==2.6.1',
     'pytz',
     'qrcode[pil]',
+    'redis==3.5.2',
     'requests',
+    'rq==1.4.2',
+    'rq-scheduler==0.10.0',
     "shutilwhich ; python_version < '3'",
     'simplejson',
     'six>=1.9',

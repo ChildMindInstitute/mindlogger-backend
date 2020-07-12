@@ -50,7 +50,7 @@ def expandObj(contextSet, data):
 
     if '@context' in data:
         for key in data['@context']:
-            context.update(contextSet[key])
+            context.update(deepcopy(contextSet[key]))
 
     if len(context.keys()):
         obj['@context'] = context
@@ -84,7 +84,8 @@ def loadFromSingleFile(document, user):
 
     expandedProtocol = expandObj(contexts, document['protocol']['data'])
     protocol['protocol'][expandedProtocol['@id']] = {
-        'expanded': expandedProtocol
+        'expanded': expandedProtocol,
+        'ref2Document': document['protocol']['data']
     }
 
     protocolId = None
@@ -93,7 +94,8 @@ def loadFromSingleFile(document, user):
         protocol['activity'][expandedActivity['@id']] = {
             'parentKey': 'protocol',
             'parentId': expandedProtocol['@id'],
-            'expanded': expandedActivity
+            'expanded': expandedActivity,
+            'ref2Document': activity['data']
         }
 
         if 'items' not in activity:
@@ -106,7 +108,8 @@ def loadFromSingleFile(document, user):
             protocol['screen'][expandedItem['@id']] = {
                 'parentKey': 'activity',
                 'parentId': expandedActivity['@id'],
-                'expanded': expandedItem
+                'expanded': expandedItem,
+                'ref2Document': item
             }
 
     for modelType in ['protocol', 'activity', 'screen']:
@@ -117,15 +120,27 @@ def loadFromSingleFile(document, user):
             prefName = modelClass.preferredName(model['expanded'])
 
             if modelClass.name in ['folder', 'item']:
-                docFolder = FolderModel().createFolder(
-                    name=prefName,
-                    parent=docCollection,
-                    parentType='collection',
-                    public=True,
-                    creator=user,
-                    allowRename=True,
-                    reuseExisting=(modelType!='applet')
-                )
+                docFolder = None
+                if modelClass.name == 'folder' and model['ref2Document'].get('_id', None):
+                    try:
+                        docFolder = FolderModel().load(model['ref2Document']['_id'], force=True)
+                        docFolder['name'] = prefName
+
+                        FolderModel().updateFolder(docFolder)
+                    except Exception as e:
+                        print('wrong folder id', model['ref2Document']['_id'])
+                        print(e)
+
+                if not docFolder:
+                    docFolder = FolderModel().createFolder(
+                        name=prefName,
+                        parent=docCollection,
+                        parentType='collection',
+                        public=True,
+                        creator=user,
+                        allowRename=True,
+                        reuseExisting=(modelClass.name == 'item')
+                    )
 
                 metadata = {modelType: model['expanded']}
 
@@ -141,8 +156,27 @@ def loadFromSingleFile(document, user):
                         metadata
                     )
                 elif modelClass.name=='item':
-                    newModel = modelClass.setMetadata(
-                        modelClass.createItem(
+                    item = None
+                    name = prefName if prefName else str(len(list(FolderModel().childItems(
+                        FolderModel().load(
+                            docFolder,
+                            level=None,
+                            user=user,
+                            force=True
+                        ))
+                    )) + 1)
+                    if model['ref2Document'].get('_id', None):
+                        try:
+                            item = modelClass.load(model['ref2Document']['_id'],force=True)
+                            item['name'] = name
+                            item['folderId'] = docFolder['_id']
+                            modelClass.updateItem(item)
+                        except Exception as e:
+                            print('wrong item id', model['ref2Document']['_id'])
+                            print(e)
+
+                    if not item:
+                        item = modelClass.createItem(
                             name=prefName if prefName else str(len(list(
                                 FolderModel().childItems(
                                     FolderModel().load(
@@ -155,39 +189,70 @@ def loadFromSingleFile(document, user):
                             )) + 1),
                             creator=user,
                             folder=docFolder,
-                            reuseExisting=True
-                        ),
-                        metadata
-                    )
+                            reuseExisting=False
+                        )
 
-                # we don't need this in the future because we will only using single-file-format
+                    newModel = modelClass.setMetadata(item, metadata)
+
                 modelClass.update(
                     {'_id': newModel['_id']},
                     {'$set': {
-                        'loadedFromSingleFile': True
+                        'loadedFromSingleFile': True,
+                        'lastUpdatedBy': user['_id']
                     }})
                 if modelType != 'protocol':
                     formatted = _fixUpFormat(formatLdObject(
                         newModel,
-                        mesoPrefix = modelType,
-                        user = user,
-                        refreshCache = False
+                        mesoPrefix=modelType,
+                        user=user,
+                        refreshCache=True
                     ))
 
                     createCache(newModel, formatted, modelType, user)
+
                 model['_id'] = newModel['_id']
 
                 if modelType == 'protocol':
                     protocolId = newModel['_id']
 
+                model['ref2Document']['_id'] = newModel['_id']
+
+    protocol = ProtocolModel().load(protocolId, force=True)
+
+    protocolContent = None
+    if protocol.get('content_id', None):
+        protocolContent = FolderModel().load(protocol['content_id'], force=True)
+        protocolContent['name'] = 'content of ' + protocol['name']
+
+        FolderModel().validate(protocolContent, allowRename=True)
+
+    if not protocolContent:
+        protocolContent = FolderModel().createFolder(
+            name='content of ' + protocol['name'],
+            parent=protocol,
+            parentType='folder',
+            public=False,
+            creator=user,
+            allowRename=True,
+            reuseExisting=True
+        )
+
+        protocol['content_id'] = protocolContent['_id']
+        FolderModel().save(protocol)
+
+    protocolContent['content'] = json_util.dumps(document)
+    protocolContent['lastUpdatedBy'] = user['_id']
+
+    FolderModel().save(protocolContent)
+
     return formatLdObject(
-        ProtocolModel().load(protocolId, force=True),
-        mesoPrefix = 'protocol',
-        user = user,
-        refreshCache = False
+        protocol,
+        mesoPrefix='protocol',
+        user=user,
+        refreshCache=True
     )
 
-def importAndCompareModelType(model, url, user, modelType):
+def importAndCompareModelType(model, url, user, modelType, meta={}, existing=None):
     import threading
     from girderformindlogger.utility import firstLower
 
@@ -211,18 +276,28 @@ def importAndCompareModelType(model, url, user, modelType):
     prefName = modelClass.preferredName(model)
     cachedDocObj = {}
     model = expand(url)
+
     print("Loaded {}".format(": ".join([modelType, prefName])))
     docCollection=getModelCollection(modelType)
     if modelClass.name in ['folder', 'item']:
-        docFolder = FolderModel().createFolder(
-            name=prefName,
-            parent=docCollection,
-            parentType='collection',
-            public=True,
-            creator=user,
-            allowRename=True,
-            reuseExisting=(modelType!='applet')
-        )
+        docFolder = None
+
+        if modelClass.name == 'folder' and existing:
+            existing['name'] = prefName
+            FolderModel().updateFolder(existing)
+            docFolder = existing
+
+        if not docFolder:
+            docFolder = FolderModel().createFolder(
+                name=prefName,
+                parent=docCollection,
+                parentType='collection',
+                public=True,
+                creator=user,
+                allowRename=True,
+                reuseExisting=(modelClass.name=='item')
+            )
+
         if modelClass.name=='folder':
             newModel = modelClass.setMetadata(
                 docFolder,
@@ -231,32 +306,46 @@ def importAndCompareModelType(model, url, user, modelType):
                         **model,
                         'schema:url': url,
                         'url': url
-                    }
+                    },
+                    **meta
                 }
             )
         elif modelClass.name=='item':
-            newModel = modelClass.setMetadata(
-                modelClass.createItem(
-                    name=prefName if prefName else str(len(list(
-                        FolderModel().childItems(
-                            FolderModel().load(
-                                docFolder,
-                                level=None,
-                                user=user,
-                                force=True
-                            )
-                        )
-                    )) + 1),
+            item = None
+
+            name = prefName if prefName else str(len(list(
+                FolderModel().childItems(
+                    FolderModel().load(
+                        docFolder,
+                        level=None,
+                        user=user,
+                        force=True
+                    )
+                )
+            )) + 1)
+            if existing:
+                existing['name'] = name
+                existing['folderId'] = existing['_id']
+                modelClass.updateItem(existing)
+                item = existing
+
+            if not item:
+                item = modelClass.createItem(
+                    name=name,
                     creator=user,
                     folder=docFolder,
-                    reuseExisting=True
-                ),
+                    reuseExisting=False
+                )
+
+            newModel = modelClass.setMetadata(
+                item,
                 {
                     modelType: {
                         **model,
                         'schema:url': url,
                         'url': url
-                    }
+                    },
+                    **meta
                 }
             )
 
@@ -529,9 +618,7 @@ def schemaPrefix(s):
     a = "schema:"
     b = "http://schema.org/"
     if isinstance(s, str):
-        if s.startswith(a):
-            return(s.replace(a, b))
-        elif s.startswith(b):
+        if s.startswith(b):
             return(s.replace(b, a))
     return(s)
 
@@ -578,8 +665,9 @@ def delanguageTag(obj):
     """
     if not isinstance(obj, list):
         return(obj)
-    return((obj if len(obj) else [{}])[-1].get("@value", ""))
 
+    data = (obj if len(obj) else [{}])[-1]
+    return data['@value'] if data.get('@value', '') else data.get('@id', '')
 
 def expandOneLevel(obj):
     if obj is None:
@@ -630,7 +718,7 @@ def expandOneLevel(obj):
         newObj,
         dict
     ):
-        if not isinstance(obj, dict):
+        if not isinstance(obj, dict) or '@context' in obj:
             obj={}
         for k, v in deepcopy(newObj).items():
             if not bool(v):
@@ -693,7 +781,9 @@ def expand(obj, keepUndefined=False):
     """
     if obj is None:
         return(obj)
+
     newObj = expandOneLevel(obj)
+
     if isinstance(newObj, dict):
         for k in KEYS_TO_EXPAND:
             if k in newObj.keys():
@@ -830,6 +920,20 @@ def createCache(obj, formatted, modelType, user = None):
         MODELS()[modelType]().update({'_id': ObjectId(obj['_id'])}, {'$set': {'cached': obj['cached']}}, False)
     return obj
 
+def clearCache(obj, modelType):
+    if modelType in NONES:
+        print("No modelType!")
+        print(obj)
+
+    obj = MODELS()[modelType]().load(obj['_id'], force=True)
+
+    if obj.get('cached'):
+        cache_id = obj['cached']
+        obj['cached'] = None
+        MODELS()[modelType]().update({'_id': ObjectId(obj['_id'])}, {'$set': {'cached': None}}, False)
+        CacheModel().removeWithQuery({'_id': ObjectId(cache_id)})
+    return obj
+
 def loadCache(id):
     cache = CacheModel().getCacheData(id)
     return cache
@@ -856,7 +960,7 @@ def _fixUpFormat(obj):
                 newObj[rk] = c if c is not None else obj[k]
             s2k = schemaPrefix(rk)
             if s2k!=rk:
-                newObj[s2k] = deepcopy(newObj[rk])
+                newObj[s2k] = newObj.pop(rk)
         if "@context" in newObj:
             newObj["@context"] = reprolibCanonize(newObj["@context"])
         for k in ["schema:url", "http://schema.org/url"]:
@@ -1059,7 +1163,8 @@ def formatLdObject(
                         newObj,
                         deepcopy(protocol),
                         user,
-                        refreshCache=refreshCache
+                        refreshCache=refreshCache,
+                        meta={'protocolId': ObjectId(obj['_id'])}
                     )
                 except:
                     print("636")
@@ -1089,7 +1194,8 @@ def formatLdObject(
                                 deepcopy(activity),
                                 deepcopy(protocol),
                                 user,
-                                refreshCache=refreshCache
+                                refreshCache=refreshCache,
+                                meta={'protocolId': ObjectId(obj['_id']), 'activityId': ObjectId(protocol['activities'][activityURL]['_id'].split('/')[-1])}
                             )
                         except:
                             print("670")
@@ -1097,7 +1203,8 @@ def formatLdObject(
                                 deepcopy(activity),
                                 deepcopy(protocol),
                                 user,
-                                refreshCache=True
+                                refreshCache=True,
+                                meta={'protocolId': obj['_id'], 'activityId': activity['_id']}
                             )
                     for itemURL in newItems:
                         activity = protocol['items'][itemURL]
@@ -1130,7 +1237,7 @@ def formatLdObject(
                             protocol.get('items', {}).keys()
                         ) - itemsNow
                     )
-            
+
             formatted = _fixUpFormat(protocol)
 
             createCache(obj, formatted, 'protocol')
@@ -1158,7 +1265,8 @@ def componentImport(
     protocol,
     user=None,
     refreshCache=False,
-    modelType=['activity', 'item']
+    modelType=['activity', 'item'],
+    meta={}
 ):
     """
     :param modelType: model or models to search
@@ -1193,7 +1301,8 @@ def componentImport(
                         smartImport(
                             IRI,
                             user=user,
-                            refreshCache=refreshCache
+                            refreshCache=refreshCache,
+                            meta=meta
                         ) if (IRI is not None and not IRI.startswith(
                             "Document not found"
                         )) else (None, None, None)
