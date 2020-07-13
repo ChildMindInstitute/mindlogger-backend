@@ -60,24 +60,28 @@ def send_push_notification(applet_id, event_id, activity_id=None, send_time=None
                 }
             }
 
-        profiles = list(Profile().find(query=query, fields=['deviceId']))
+        profiles = list(Profile().find(query=query, fields=['deviceId', 'badge']))
 
         message_title = event['data']['title']
         message_body = event['data']['description']
 
-        result = push_service.notify_multiple_devices(
-            registration_ids=[profile['deviceId'] for profile in profiles],
-            message_title=message_title,
-            message_body=message_body,
-            data_message={
-                "event_id": str(event_id),
-                "applet_id": str(applet_id),
-                "activity_id": str(activity_id)
-            }
-        )
+        for profile in profiles:
+            if len(profile['deviceId']):
+                profile['badge'] = profile['badge'] + 1
+                result = push_service.notify_single_device(
+                    registration_id=profile['deviceId'],
+                    badge=profile.get('badge', 0),
+                    message_title=message_title,
+                    message_body=message_body,
+                    data_message={
+                        "event_id": str(event_id),
+                        "applet_id": str(applet_id),
+                        "activity_id": str(activity_id)
+                    }
+                )
 
-        print(f'Notifications with failure status - {str(result["failure"])}')
-        print(f'Notifications with success status - {str(result["success"])}')
+                print(f'Notifications with failure status - {str(result["failure"])}')
+                print(f'Notifications with success status - {str(result["success"])}')
 
         # if random time we will reschedule it in time between 23:45 and 23:59
         if event['data']['notifications'][0]['random'] and now.hour == 23 and 59 >= now.minute >= 45:
