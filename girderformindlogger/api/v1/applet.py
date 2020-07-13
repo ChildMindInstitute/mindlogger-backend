@@ -75,7 +75,7 @@ class Applet(Resource):
         self.route('GET', (':id', 'protocolData'), self.getProtocolData)
         self.route('PUT', (':id', 'fromJSON'), self.updateAppletFromProtocolData)
         self.route('POST', (':id', 'duplicate', ), self.duplicateApplet)
-        self.route('POST', ('resetBadge',), self.resetBadgeCount)
+        self.route('POST', ('setBadge',), self.setBadgeCount)
 
     @access.user(scope=TokenScope.DATA_WRITE)
     @autoDescribeRoute(
@@ -84,10 +84,16 @@ class Applet(Resource):
             'this endpoint is used to reset badge parameter in profile collection. <br>'
             'users who are associated with that group will be able to connect to this endpoint.'
         )
+        .param(
+            'badge',
+            'set badge status',
+            default=0,
+            required=False,
+        )
     )
-    def resetBadgeCount(self):
+    def setBadgeCount(self, badge):
         thisUser = self.getCurrentUser()
-        ProfileModel().updateProfiles(thisUser, {"badge": 0})
+        ProfileModel().updateProfiles(thisUser, {"badge": badge})
         return({"message": "Badge was successfully reseted"})
 
     @access.user(scope=TokenScope.DATA_OWN)
