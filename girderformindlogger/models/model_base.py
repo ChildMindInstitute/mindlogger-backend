@@ -47,7 +47,7 @@ def _permissionClauses(user=None, level=None, prefix=''):
         of match clauses, any one of which implies validation.
     """
     permissionClauses = []
-    if level is None or (user and user['admin']):
+    if level is None:
         # Without a level or with an admin user, match everything.
         return {}
     if level <= AccessType.READ:
@@ -56,7 +56,7 @@ def _permissionClauses(user=None, level=None, prefix=''):
         # If we have no user and asked for higher than read access, make a
         # query that will fail
         return {'__matchnothing': 'nothing'}
-    if user and not user['admin']:
+    if user:
         permissionClauses.extend([
             {prefix + 'access.users': {'$elemMatch': {
                 'id': user['_id'],
@@ -190,9 +190,6 @@ class Model(object):
             return None
 
         keys = set(self._filterKeys[AccessType.READ])
-
-        if user and user['admin']:
-            keys.update(self._filterKeys[AccessType.SITE_ADMIN])
 
         if additionalKeys:
             keys.update(additionalKeys)
@@ -973,8 +970,6 @@ class AccessControlledModel(Model):
             if level >= AccessType.ADMIN:
                 keys.update(self._filterKeys[AccessType.ADMIN])
 
-                if user['admin']:
-                    keys.update(self._filterKeys[AccessType.SITE_ADMIN])
 
         if additionalKeys:
             keys.update(additionalKeys)
@@ -1238,7 +1233,7 @@ class AccessControlledModel(Model):
 
         flags = set(flags) & set(ACCESS_FLAGS.keys())
 
-        if force or user['admin']:
+        if force:
             doc['publicFlags'] = list(flags)
         else:
             allowedFlags = []
@@ -1280,7 +1275,7 @@ class AccessControlledModel(Model):
 
         flags = set(flags) & set(ACCESS_FLAGS.keys())
 
-        if force or (user and user['admin']):
+        if force:
             return list(flags)
 
         allowedFlags = []
@@ -1447,11 +1442,6 @@ class AccessControlledModel(Model):
                 return(AccessType.READ)
             else:
                 return(AccessType.NONE)
-        elif user.get('admin', False):
-            if 'admin' not in user:
-                user['admin']=True
-                self.save(user, validate=False)
-            return(AccessType.ADMIN)
         else:
             access = doc.get('access', {})
             level = AccessType.NONE
@@ -1718,9 +1708,6 @@ class AccessControlledModel(Model):
         :type user: dict or None
         :param flags: A flag or set of flags to test.
         """
-        if user and user['admin']:
-            # Short-circuit the case of admins
-            return True
 
         if not flags:
             # Special case if no flags are passed
@@ -1766,10 +1753,6 @@ class AccessControlledModel(Model):
         elif user is None:
             # Anonymous users can only see public resources
             return False
-
-        if user['admin']:
-            # Short-circuit the case of admins
-            return True
 
         # If all that fails, descend into real permission checking.
         if 'access' in doc:
@@ -2050,7 +2033,7 @@ class AccessControlledModel(Model):
         :returns: A pymongo Cursor or CommandCursor.  If a CommandCursor, it
             has been augmented with a count function.
         """
-        if level is not None and (not user or not user['admin']):
+        if level is not None:
             query = {'$and': [query or {}, self.permissionClauses(user, level)]}
         return self.find(
             query=query, offset=offset, limit=limit, timeout=timeout,

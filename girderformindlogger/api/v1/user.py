@@ -62,8 +62,6 @@ class User(Resource):
         self.route('PUT', ('password',), self.changePassword)
         self.route('PUT', ('username',), self.changeUserName)
         self.route('PUT', ('accountName',), self.changeAccountName)
-
-        self.route('PUT', (':id', 'password'), self.changeUserPassword)
         self.route('GET', ('password', 'temporary', ':id'),
                    self.checkTemporaryPassword)
         self.route('PUT', ('password', 'temporary'),
@@ -940,8 +938,6 @@ class User(Resource):
             required=False
         )
         .param('email', "The user's email address.", required=False)
-        .param('admin', 'Whether this user should be a site administrator.',
-               required=False, dataType='boolean', default=False)
         .param(
             'lastName',
             'lastName of user.',
@@ -960,7 +956,6 @@ class User(Resource):
         password,
         displayName="",
         email="",
-        admin=False,
         lastName=None,
         firstName=None
     ):
@@ -984,7 +979,7 @@ class User(Resource):
                 displayName
             ) else firstName if firstName is not None else "",
             lastName=lastName,
-            admin=admin,
+            admin=False,
             currentUser=currentUser,
             encryptEmail=True
         )
@@ -1133,22 +1128,6 @@ class User(Resource):
         return(
             {'message': 'Update saved, but `PUT /user/{:id}` is deprecated.'}
         )
-
-    @access.admin
-    @autoDescribeRoute(
-        Description("Change a user's password.")
-        .notes(
-            'Only administrators may use this endpoint. <br>'
-            'This endpoint is used for updating password without checking original password.'
-        )
-        .modelParam('id', model=UserModel, level=AccessType.ADMIN)
-        .param('password', "The user's new password.")
-        .errorResponse('You are not an administrator.', 403)
-        .errorResponse('The new password is invalid.')
-    )
-    def changeUserPassword(self, user, password):
-        self._model.setPassword(user, password)
-        return {'message': 'Password changed.'}
 
     @access.user
     @autoDescribeRoute(

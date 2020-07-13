@@ -419,7 +419,7 @@ class Group(AccessControlledModel):
         if user is None:
             # Short-circuit the case of anonymous users
             return(level==AccessType.READ and doc.get('public', False) is True)
-        elif user['admin'] or user.get('_id') in [
+        elif user.get('_id') in [
             u.get('_id') for u in list(User().find(
                 {
                     'groups': {
@@ -499,8 +499,6 @@ class Group(AccessControlledModel):
                 return AccessType.READ
             else:
                 return AccessType.NONE
-        elif user['admin']:
-            return AccessType.ADMIN
         else:
             access = doc.get('access', {})
             level = AccessType.NONE
