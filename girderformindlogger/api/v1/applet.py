@@ -840,7 +840,7 @@ class Applet(Resource):
             userEmail=encryptedEmail
         )
 
-        url = 'web.mindlogger.org/#/invitation/%s' % (str(invitation['_id'], ))
+        url = 'https://web.mindlogger.org/#/invitation/%s' % (str(invitation['_id'], ))
 
         managers = mail_utils.htmlUserList(
             AppletModel().listUsers(applet, 'manager', force=True)
