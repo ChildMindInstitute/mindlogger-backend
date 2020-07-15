@@ -665,15 +665,9 @@ class Applet(FolderModel):
     def _hasRole(self, appletId, user, role):
 
         user = Profile()._canonicalUser(appletId, user)
-        return(bool(
-            str(appletId) in [
-                str(applet.get('_id')) for applet in self.getAppletsForUser(
-                    role,
-                    user,
-                    idOnly=True
-                ) if applet.get('_id') is not None
-            ]
-        ))
+        profile = Profile().findOne({'appletId': ObjectId(appletId), 'userId': user['_id']})
+
+        return (profile and not profile.get('deactivated', False) and role in profile.get('roles', []))
 
     def getAppletsForGroup(self, role, groupId, active=True):
         """
@@ -808,21 +802,8 @@ class Applet(FolderModel):
         userlist = {
             p['_id']: Profile().display(p, role) for p in list(Profile().find({
                 'appletId': applet['_id'],
-                'userId': {
-                    '$in': [
-                        user['_id'] for user in list(UserModel().find({
-                            'groups': {
-                                '$in': [
-                                    ObjectId(
-                                        group
-                                    ) for group in self.getAppletGroups(
-                                        applet
-                                    ).get(role, {}).keys()
-                                ]
-                            }
-                        }))
-                    ]
-                }
+                'roles': role,
+                'deactivated': {'$ne': True}
             }))
         }
         return(userlist)
