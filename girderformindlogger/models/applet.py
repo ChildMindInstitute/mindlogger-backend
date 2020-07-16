@@ -40,6 +40,7 @@ from girderformindlogger.utility.progress import noProgress,                   \
     setResponseTimeLimit
 from girderformindlogger.models.account_profile import AccountProfile
 from girderformindlogger.models.profile import Profile
+from girderformindlogger.models.events import Events as EventsModel
 
 class Applet(FolderModel):
     """
@@ -184,6 +185,17 @@ class Applet(FolderModel):
         Profile().updateOwnerProfile(applet)
 
         return formatted
+
+    def getSchedule(self, applet, user, getAllEvents):
+        if not getAllEvents:
+            schedule = EventsModel().getScheduleForUser(applet['_id'], user['_id'], self.isCoordinator(applet['_id'], user))
+        else:
+            if not self.isCoordinator(applet['_id'], user):
+                raise AccessException(
+                    "Only coordinators and managers can get all events."
+                )
+            schedule = EventsModel().getSchedule(applet['_id'])
+        return schedule
 
     # users won't use this endpoint, so all emails are plain text
     def grantAccessToApplet(self, user, applet, role, inviter):
