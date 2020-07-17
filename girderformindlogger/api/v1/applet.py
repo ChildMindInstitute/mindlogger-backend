@@ -18,6 +18,7 @@
 ###############################################################################
 
 import itertools
+import os
 import re
 import threading
 import uuid
@@ -843,7 +844,8 @@ class Applet(Resource):
             userEmail=encryptedEmail
         )
 
-        url = 'https://web.mindlogger.org/#/invitation/%s' % (str(invitation['_id'], ))
+        web_url = os.getenv('WEB_URI') or 'localhost:8082'
+        url = f'{web_url}/#/invitation/{str(invitation["_id"])}'
 
         managers = mail_utils.htmlUserList(
             AppletModel().listUsers(applet, 'manager', force=True)

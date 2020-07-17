@@ -180,7 +180,7 @@ class Invitation(AESEncryption):
         coordinator: the person who invites (should be manager/coordinator of applet)
         role: invited role
         user: invited person
-        displayName: name of invited person 
+        displayName: name of invited person
         """
         from girderformindlogger.models.applet import Applet
         from girderformindlogger.models.profile import Profile
@@ -232,7 +232,7 @@ class Invitation(AESEncryption):
 
         invited_role = invitation.get('role','user')
         from girderformindlogger.models.user import User as UserModel
-        
+
         if not mail_utils.validateEmailAddress(userEmail):
             raise ValidationException(
                 'Invalid email address.',
@@ -361,11 +361,11 @@ class Invitation(AESEncryption):
         from girderformindlogger.utility import context as contextUtil,        \
             mail_utils
 
+        web_url = os.getenv('WEB_URI') or 'localhost:8082'
+
         accept = (
             "To accept or decline, visit <a href=\"{u}\">{u}</a>".format(
-                u="https://web.mindlogger.org/#/invitation/{}".format(str(
-                    invitation['_id']
-                ))
+                u=f"https://{web_url}/#/invitation/{str(invitation['_id'])}"
             )
         ) if includeLink else ""
         applet = Applet().load(ObjectId(invitation['appletId']), force=True)
