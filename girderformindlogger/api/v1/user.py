@@ -62,8 +62,6 @@ class User(Resource):
         self.route('PUT', ('password',), self.changePassword)
         self.route('PUT', ('username',), self.changeUserName)
         self.route('PUT', ('accountName',), self.changeAccountName)
-
-        self.route('PUT', (':id', 'password'), self.changeUserPassword)
         self.route('GET', ('password', 'temporary', ':id'),
                    self.checkTemporaryPassword)
         self.route('PUT', ('password', 'temporary'),
@@ -586,10 +584,16 @@ class User(Resource):
             dataType='boolean'
         )
         .param(
-            'refreshCache',
-            'If true, refresh user cache.',
-            required=False,
-            dataType='boolean'
+            'retrieveSchedule',
+            'true if retrieve schedule info in applet metadata',
+            default=False,
+            required=False
+        )
+        .param(
+            'retrieveAllEvents',
+            'true if retrieve all events in applet metadata',
+            default=False,
+            required=False
         )
         .errorResponse('ID was invalid.')
         .errorResponse(
@@ -602,13 +606,17 @@ class User(Resource):
         role,
         ids_only=False,
         unexpanded=False,
-        refreshCache=False,
-        getAllApplets=False
+        getAllApplets=False,
+        retrieveSchedule=False,
+        retrieveAllEvents=False
     ):
         from bson.objectid import ObjectId
         from girderformindlogger.utility.jsonld_expander import loadCache
 
         from girderformindlogger.utility.response import responseDateList
+
+        if retrieveAllEvents and retrieveSchedule and role != 'coordinator' and role != 'manager':
+            raise AccessException("please set role as coordinator or manager to get all events for applet")
 
         reviewer = self.getCurrentUser()
         if reviewer is None:
@@ -647,7 +655,7 @@ class User(Resource):
                             applet,
                             'applet',
                             reviewer,
-                            refreshCache=refreshCache,
+                            refreshCache=False,
                             responseDates=False
                         ),
                         "users": AppletModel().getAppletUsers(applet, reviewer),
@@ -660,7 +668,7 @@ class User(Resource):
                             applet,
                             'applet',
                             reviewer,
-                            refreshCache=refreshCache,
+                            refreshCache=False,
                             responseDates=(role=="user")
                         ),
                         "groups": [
@@ -687,6 +695,10 @@ class User(Resource):
                         )
                     except:
                         formatted["applet"]["responseDates"] = []
+
+                    if retrieveSchedule:
+                        formatted["applet"]["schedule"] = AppletModel().getSchedule(applet, reviewer, retrieveAllEvents)
+
                     result.append(formatted)
 
             return(result)
@@ -940,8 +952,6 @@ class User(Resource):
             required=False
         )
         .param('email', "The user's email address.", required=False)
-        .param('admin', 'Whether this user should be a site administrator.',
-               required=False, dataType='boolean', default=False)
         .param(
             'lastName',
             'lastName of user.',
@@ -960,7 +970,6 @@ class User(Resource):
         password,
         displayName="",
         email="",
-        admin=False,
         lastName=None,
         firstName=None
     ):
@@ -984,7 +993,7 @@ class User(Resource):
                 displayName
             ) else firstName if firstName is not None else "",
             lastName=lastName,
-            admin=admin,
+            admin=False,
             currentUser=currentUser,
             encryptEmail=True
         )
@@ -1133,22 +1142,6 @@ class User(Resource):
         return(
             {'message': 'Update saved, but `PUT /user/{:id}` is deprecated.'}
         )
-
-    @access.admin
-    @autoDescribeRoute(
-        Description("Change a user's password.")
-        .notes(
-            'Only administrators may use this endpoint. <br>'
-            'This endpoint is used for updating password without checking original password.'
-        )
-        .modelParam('id', model=UserModel, level=AccessType.ADMIN)
-        .param('password', "The user's new password.")
-        .errorResponse('You are not an administrator.', 403)
-        .errorResponse('The new password is invalid.')
-    )
-    def changeUserPassword(self, user, password):
-        self._model.setPassword(user, password)
-        return {'message': 'Password changed.'}
 
     @access.user
     @autoDescribeRoute(

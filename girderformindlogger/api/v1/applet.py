@@ -18,6 +18,7 @@
 ###############################################################################
 
 import itertools
+import os
 import re
 import threading
 import uuid
@@ -578,39 +579,42 @@ class Applet(Resource):
             destName='applet'
         )
         .param(
-            'refreshCache',
-            'Reparse JSON-LD',
-            required=False,
-            dataType='boolean'
+            'retrieveSchedule',
+            'true if retrieve schedule info in applet metadata',
+            default=False,
+            required=False
+        )
+        .param(
+            'retrieveAllEvents',
+            'true if retrieve all events in applet metadata',
+            default=False,
+            required=False
+        )
+        .param(
+            'retrieveItems',
+            'true if retrieve items',
+            default=True,
+            required=False
         )
         .errorResponse('Invalid applet ID.')
         .errorResponse('Read access was denied for this applet.', 403)
     )
-    def getApplet(self, applet, refreshCache=False):
+    def getApplet(self, applet, retrieveSchedule=False, retrieveAllEvents=False, retrieveItems=True):
         user = self.getCurrentUser()
 
-        # we don't need to refreshCache here (cached data is automatically updated whenever original data changes).
-        refreshCache = False
-
-        if refreshCache:
-            thread = threading.Thread(
-                target=jsonld_expander.formatLdObject,
-                args=(applet, 'applet', user),
-                kwargs={'refreshCache': refreshCache}
-            )
-            thread.start()
-            return({
-                "message": "The applet is being refreshed. Please check back "
-                           "in several mintutes to see it."
-            })
-        return(
-            jsonld_expander.formatLdObject(
-                applet,
-                'applet',
-                user,
-                refreshCache=refreshCache
-            )
+        formatted = jsonld_expander.formatLdObject(
+            applet,
+            'applet',
+            user,
+            refreshCache=False
         )
+
+        if retrieveSchedule:
+            formatted['applet']['schedule'] = self._model.getSchedule(applet, user, retrieveAllEvents)
+        if not retrieveItems:
+            formatted.pop('items')
+
+        return formatted
 
     @access.user(scope=TokenScope.DATA_WRITE)
     @autoDescribeRoute(
@@ -846,7 +850,8 @@ class Applet(Resource):
             userEmail=encryptedEmail
         )
 
-        url = 'web.mindlogger.org/#/invitation/%s' % (str(invitation['_id'], ))
+        web_url = os.getenv('WEB_URI') or 'localhost:8082'
+        url = f'{web_url}/#/invitation/{str(invitation["_id"])}'
 
         managers = mail_utils.htmlUserList(
             AppletModel().listUsers(applet, 'manager', force=True)
@@ -942,16 +947,7 @@ class Applet(Resource):
     def getSchedule(self, applet, getAllEvents = False, refreshCache=False):
         user = self.getCurrentUser()
 
-        if not getAllEvents:
-            schedule = EventsModel().getScheduleForUser(applet['_id'], user['_id'], AppletModel().isCoordinator(applet['_id'], user))
-        else:
-            if not AppletModel().isCoordinator(applet['_id'], user):
-                raise AccessException(
-                    "Only coordinators and managers can get all events."
-                )
-            schedule = EventsModel().getSchedule(applet['_id'])
-
-        return schedule
+        return self._model.getSchedule(applet, user, getAllEvents)
 
     @access.user(scope=TokenScope.DATA_WRITE)
     @autoDescribeRoute(
