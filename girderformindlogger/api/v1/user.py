@@ -584,10 +584,16 @@ class User(Resource):
             dataType='boolean'
         )
         .param(
-            'refreshCache',
-            'If true, refresh user cache.',
-            required=False,
-            dataType='boolean'
+            'retrieveSchedule',
+            'true if retrieve schedule info in applet metadata',
+            default=False,
+            required=False
+        )
+        .param(
+            'retrieveAllEvents',
+            'true if retrieve all events in applet metadata',
+            default=False,
+            required=False
         )
         .errorResponse('ID was invalid.')
         .errorResponse(
@@ -600,13 +606,17 @@ class User(Resource):
         role,
         ids_only=False,
         unexpanded=False,
-        refreshCache=False,
-        getAllApplets=False
+        getAllApplets=False,
+        retrieveSchedule=False,
+        retrieveAllEvents=False
     ):
         from bson.objectid import ObjectId
         from girderformindlogger.utility.jsonld_expander import loadCache
 
         from girderformindlogger.utility.response import responseDateList
+
+        if retrieveAllEvents and retrieveSchedule and role != 'coordinator' and role != 'manager':
+            raise AccessException("please set role as coordinator or manager to get all events for applet")
 
         reviewer = self.getCurrentUser()
         if reviewer is None:
@@ -645,7 +655,7 @@ class User(Resource):
                             applet,
                             'applet',
                             reviewer,
-                            refreshCache=refreshCache,
+                            refreshCache=False,
                             responseDates=False
                         ),
                         "users": AppletModel().getAppletUsers(applet, reviewer),
@@ -658,7 +668,7 @@ class User(Resource):
                             applet,
                             'applet',
                             reviewer,
-                            refreshCache=refreshCache,
+                            refreshCache=False,
                             responseDates=(role=="user")
                         ),
                         "groups": [
@@ -685,6 +695,10 @@ class User(Resource):
                         )
                     except:
                         formatted["applet"]["responseDates"] = []
+
+                    if retrieveSchedule:
+                        formatted["applet"]["schedule"] = AppletModel().getSchedule(applet, reviewer, retrieveAllEvents)
+
                     result.append(formatted)
 
             return(result)
