@@ -10,7 +10,7 @@ import logging
 
 from girderformindlogger import plugin
 from girderformindlogger.api import access
-from girderformindlogger.constants import TokenScope, ACCESS_FLAGS, VERSION
+from girderformindlogger.constants import TokenScope, ACCESS_FLAGS, VERSION, ServerMode
 from girderformindlogger.exceptions import GirderException, ResourcePathNotFound
 from girderformindlogger.models.collection import Collection
 from girderformindlogger.models.file import File
@@ -39,23 +39,25 @@ class System(Resource):
     def __init__(self):
         super(System, self).__init__()
         self.resourceName = 'system'
-        self.route('DELETE', ('setting',), self.unsetSetting)
-        self.route('GET', ('version',), self.getVersion)
-        self.route('GET', ('configuration',), self.getConfigurationOption)
-        self.route('GET', ('setting',), self.getSetting)
-        self.route('GET', ('plugins',), self.getPlugins)
-        self.route('GET', ('access_flag',), self.getAccessFlags)
-        self.route('PUT', ('setting',), self.setSetting)
-        self.route('GET', ('uploads',), self.getPartialUploads)
-        self.route('DELETE', ('uploads',), self.discardPartialUploads)
-        self.route('GET', ('check',), self.systemStatus)
-        self.route('PUT', ('check',), self.systemConsistencyCheck)
-        self.route('GET', ('log',), self.getLog)
-        self.route('GET', ('log', 'level'), self.getLogLevel)
-        self.route('PUT', ('log', 'level'), self.setLogLevel)
-        self.route('GET', ('setting', 'collection_creation_policy', 'access'),
-                   self.getCollectionCreationPolicyAccess)
-        self.route('GET', ('skin',), self.getSkin)
+
+        if config.getServerMode() == ServerMode.DEVELOPMENT:
+            self.route('DELETE', ('setting',), self.unsetSetting)
+            self.route('GET', ('version',), self.getVersion)
+            self.route('GET', ('configuration',), self.getConfigurationOption)
+            self.route('GET', ('setting',), self.getSetting)
+            self.route('GET', ('plugins',), self.getPlugins)
+            self.route('GET', ('access_flag',), self.getAccessFlags)
+            self.route('PUT', ('setting',), self.setSetting)
+            self.route('GET', ('uploads',), self.getPartialUploads)
+            self.route('DELETE', ('uploads',), self.discardPartialUploads)
+            self.route('GET', ('check',), self.systemStatus)
+            self.route('PUT', ('check',), self.systemConsistencyCheck)
+            self.route('GET', ('log',), self.getLog)
+            self.route('GET', ('log', 'level'), self.getLogLevel)
+            self.route('PUT', ('log', 'level'), self.setLogLevel)
+            self.route('GET', ('setting', 'collection_creation_policy', 'access'),
+                    self.getCollectionCreationPolicyAccess)
+            self.route('GET', ('skin',), self.getSkin)
 
     @access.admin
     @autoDescribeRoute(

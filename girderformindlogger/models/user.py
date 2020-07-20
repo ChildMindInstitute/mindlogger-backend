@@ -9,7 +9,7 @@ import hashlib
 import six
 
 from girderformindlogger import events
-from girderformindlogger.constants import AccessType, CoreEventHandler, TokenScope, USER_ROLES
+from girderformindlogger.constants import AccessType, CoreEventHandler, TokenScope, USER_ROLES, ServerMode
 from girderformindlogger.exceptions import AccessException, ValidationException
 from girderformindlogger.models.aes_encrypt import AESEncryption, AccessControlledModel
 from girderformindlogger.models.setting import Setting
@@ -125,7 +125,7 @@ class User(AESEncryption):
 
         # If this is the first user being created, make it an admin
         existing = self.findOne({})
-        if existing is None:
+        if existing is None and config.getServerMode() == ServerMode.DEVELOPMENT:
             doc['admin'] = True
             # Ensure settings don't stop this user from logging in
             doc['emailVerified'] = True
