@@ -122,9 +122,8 @@ class ProtoUser(User):
         #
         # token = Token().createToken(
         #     user, days=1, scope=TokenScope.EMAIL_VERIFICATION)
-        url = 'https://web.mindlogger.org/#/signup?email={}'.format(
-            email
-        )
+        web_url = os.getenv('WEB_URI') or 'localhost:8082'
+        url = f'https://{web_url}/#/signup?email={email}'
         text = mail_utils.renderTemplate('emailCreateAccount.mako', {
             'url': url
         })
