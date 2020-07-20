@@ -38,7 +38,7 @@ def send_push_notification(applet_id, event_id, activity_id=None, send_time=None
 
         if event['individualized']:
             query['individual_events'] = {'$gte': 1}
-            query['userId'] = {
+            query['_id'] = {
                 '$in': [ObjectId(user) for user in event['data']['users']]
             }
 
