@@ -61,6 +61,7 @@ installReqs = [
     'rq==1.4.2',
     'rq-scheduler==0.10.0',
     "shutilwhich ; python_version < '3'",
+    'sentry-sdk==0.16.0',
     'simplejson',
     'six>=1.9',
     'tzlocal>=1.5.1'
