@@ -1,4 +1,6 @@
 import datetime
+
+from bson import ObjectId
 from pyfcm import FCMNotification
 
 push_service = FCMNotification(
@@ -37,7 +39,7 @@ def send_push_notification(applet_id, event_id, activity_id=None, send_time=None
         if event['individualized']:
             query['individual_events'] = {'$gte': 1}
             query['userId'] = {
-                '$in': event['data']['users']
+                '$in': [ObjectId(user) for user in event['data']['users']]
             }
 
         if activity_id:
