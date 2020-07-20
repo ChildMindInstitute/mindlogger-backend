@@ -652,16 +652,12 @@ def endpoint(fun):
                 val = list(val)
 
         except RestException as e:
-            print('RestException')
             val = _handleRestException(e)
         except AccessException as e:
-            print('AccessException')
             val = _handleAccessException(e)
         except GirderException as e:
-            print('GirderException')
             val = _handleGirderException(e)
         except ValidationException as e:
-            print('ValidationException')
             val = _handleValidationException(e)
         except cherrypy.HTTPRedirect:
             raise
