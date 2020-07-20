@@ -40,6 +40,7 @@ from girderformindlogger.utility.progress import noProgress,                   \
     setResponseTimeLimit
 from girderformindlogger.models.account_profile import AccountProfile
 from girderformindlogger.models.profile import Profile
+from girderformindlogger.models.events import Events as EventsModel
 
 class Applet(FolderModel):
     """
@@ -184,6 +185,17 @@ class Applet(FolderModel):
         Profile().updateOwnerProfile(applet)
 
         return formatted
+
+    def getSchedule(self, applet, user, getAllEvents):
+        if not getAllEvents:
+            schedule = EventsModel().getScheduleForUser(applet['_id'], user['_id'], self.isCoordinator(applet['_id'], user))
+        else:
+            if not self.isCoordinator(applet['_id'], user):
+                raise AccessException(
+                    "Only coordinators and managers can get all events."
+                )
+            schedule = EventsModel().getSchedule(applet['_id'])
+        return schedule
 
     # users won't use this endpoint, so all emails are plain text
     def grantAccessToApplet(self, user, applet, role, inviter):
@@ -665,15 +677,9 @@ class Applet(FolderModel):
     def _hasRole(self, appletId, user, role):
 
         user = Profile()._canonicalUser(appletId, user)
-        return(bool(
-            str(appletId) in [
-                str(applet.get('_id')) for applet in self.getAppletsForUser(
-                    role,
-                    user,
-                    idOnly=True
-                ) if applet.get('_id') is not None
-            ]
-        ))
+        profile = Profile().findOne({'appletId': ObjectId(appletId), 'userId': user['_id']})
+
+        return (profile and not profile.get('deactivated', False) and role in profile.get('roles', []))
 
     def getAppletsForGroup(self, role, groupId, active=True):
         """
@@ -808,21 +814,8 @@ class Applet(FolderModel):
         userlist = {
             p['_id']: Profile().display(p, role) for p in list(Profile().find({
                 'appletId': applet['_id'],
-                'userId': {
-                    '$in': [
-                        user['_id'] for user in list(UserModel().find({
-                            'groups': {
-                                '$in': [
-                                    ObjectId(
-                                        group
-                                    ) for group in self.getAppletGroups(
-                                        applet
-                                    ).get(role, {}).keys()
-                                ]
-                            }
-                        }))
-                    ]
-                }
+                'roles': role,
+                'deactivated': {'$ne': True}
             }))
         }
         return(userlist)
