@@ -20,6 +20,8 @@
 import itertools
 import tzlocal
 import pytz
+from datetime import date, datetime, timedelta
+from bson.objectid import ObjectId
 
 from ..describe import Description, autoDescribeRoute
 from ..rest import Resource, filtermodel, setResponseHeader, \
@@ -55,8 +57,141 @@ class ResponseItem(Resource):
         self.resourceName = 'response'
         self._model = ResponseItemModel()
         self.route('GET', (), self.getResponses)
+        self.route('GET', (':applet',), self.getResponsesForApplet)
         self.route('GET', ('last7Days', ':applet'), self.getLast7Days)
         self.route('POST', (':applet', ':activity'), self.createResponseItem)
+
+    @access.public(scope=TokenScope.DATA_READ)
+    @autoDescribeRoute(
+        Description(
+            'Get all responses for a given applet.'
+        )
+        .modelParam(
+            'applet',
+            model=AppletModel,
+            level=AccessType.READ,
+            destName='applet',
+            description='The ID of the applet'
+        )
+        .param(
+            'users',
+            'Only retrieves responses from the given users',
+            required=False,
+            dataType='array',
+        )
+        .param(
+            'activities',
+            'Only retrieves responses for the given activities',
+            required=False
+        )
+        .param(
+            'fromDate',
+            'Date for the oldest entry to retrieve',
+            required=False,
+            dataType='dateTime',
+        )
+        .param(
+            'toDate',
+            'Date for the newest entry to retrieve',
+            required=False,
+            dataType='dateTime',
+        )
+        .errorResponse('ID was invalid.')
+        .errorResponse(
+            'Read access was denied for this applet for this user.',
+            403
+        )
+    )
+    def getResponsesForApplet(
+        self,
+        applet=None,
+        users=[],
+        activities=[],
+        fromDate=None,
+        toDate=None,
+    ):
+        from girderformindlogger.models.profile import Profile
+        from girderformindlogger.utility.response import delocalize, _oneResponsePerDate
+
+
+        if toDate is None:
+            # Default toTime is today.
+            toDate = delocalize(datetime.now(tzlocal.get_localzone()))
+        else:
+            # Make sure the last day is included.
+            toDate = toDate + timedelta(days=1)
+
+        if fromDate is None:
+            # Default fromTime is one month ago.
+            fromDate = delocalize(toDate - timedelta(days=30))
+
+        if not users:
+            # Retrieve responses for the logged user.
+            users = [self.getCurrentUser().get('_id', None)]
+        else:
+            users = list(map(lambda x: ObjectId(x), users.split(',')))
+            profiles = Profile().find({'_id': { '$in': users }})
+            users = list(map(lambda p: p.get('userId'), profiles))
+
+        # If not speciied, retrieve responses for all activities.
+        if not activities:
+            activities = applet['meta']['protocol']['activities']
+        activities = list(map(lambda s: ObjectId(s), activities))
+
+        # Fetch applet and profiles.
+
+        data = dict();
+
+        for user in users:
+            visited_dates = []
+            responses = ResponseItemModel().find(
+                query={
+                    "baseParentType": 'user',
+                    "baseParentId": user,
+                    "updated": { "$lte": toDate, "$gt": fromDate },
+                    "meta.applet.@id": applet['_id'],
+                    "meta.activity.@id": { "$in": activities }
+                },
+                force=True,
+                sort=[("updated", DESCENDING)])
+
+            for response in responses:
+                response['updated'] = response['updated'].date()
+
+                if response['updated'] in visited_dates:
+                    continue
+
+                visited_dates.append(response['updated'])
+
+                for activity in response['meta']['responses']:
+                    date_not_found = True
+
+                    if activity not in data:
+                        data[activity] = []
+
+                    for current in data[activity]:
+                        if current['date'] == response['updated']:
+                            current['value'].extend(response['meta']['responses'][activity])
+                            date_not_found = False
+                            break
+
+                    if date_not_found:
+                        data[activity].append({"date": response['updated'],
+                                               "value": response['meta']['responses'][activity]})
+
+        for activity in data:
+            for n in range(int((toDate - fromDate).days)):
+                currentDate = toDate - timedelta(days=n)
+                dateExists = False
+
+                for response in data[activity]:
+                    if response['date'] == currentDate.date():
+                        dateExists = True
+                        break
+
+                if not dateExists:
+                    data[activity].append({"date": currentDate.date(), "value": []})
+        return data
 
     """
     TODO 🚧:
