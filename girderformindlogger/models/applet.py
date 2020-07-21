@@ -84,7 +84,7 @@ class Applet(FolderModel):
             CollectionModel().createCollection('Applets')
             appletsCollection = CollectionModel().findOne({"name": "Applets"})
 
-        appletName = self.validateAppletName(appletName, appletsCollection, user)
+        appletName = self.validateAppletName(appletName, appletsCollection, accountId)
 
         # create new applet
         applet = self.setMetadata(
@@ -230,7 +230,7 @@ class Applet(FolderModel):
         from girderformindlogger.utility import jsonld_expander
 
         appletsCollection = CollectionModel().findOne({"name": "Applets"})
-        appletName = self.validateAppletName('{}/'.format(name), appletsCollection, UserModel().load(applet['creatorId'], force=True))
+        appletName = self.validateAppletName('{}/'.format(name), appletsCollection, applet['accountId'])
 
         # create new applet
         newApplet = self.setMetadata(
@@ -336,7 +336,7 @@ class Applet(FolderModel):
 
         return successed
 
-    def validateAppletName(self, appletName, appletsCollection, user = None):
+    def validateAppletName(self, appletName, appletsCollection, accountId = None):
         name = appletName
         found = False
         n = 0
@@ -347,8 +347,8 @@ class Applet(FolderModel):
                 'appletName': name,
                 'parentCollection': 'collection'
             }
-            if user:
-                query['creatorId'] = user['_id']
+            if accountId:
+                query['accountId'] = ObjectId(accountId)
 
             existing = self.findOne(query)
             if existing:
@@ -495,7 +495,7 @@ class Applet(FolderModel):
 
         displayName = Protocol().preferredName(protocol)
 
-        applet['appletName'] = self.validateAppletName('{}/'.format(protocol.get('@id')), CollectionModel().findOne({'name': 'Applets'}), user)
+        applet['appletName'] = self.validateAppletName('{}/'.format(protocol.get('@id')), CollectionModel().findOne({'name': 'Applets'}), accountId)
         applet['name'] = name if name is not None and len(name) else displayName
 
         self.validate(applet, allowRename=True)
@@ -709,30 +709,32 @@ class Applet(FolderModel):
             applet.get('meta', {}).get('protocol', applet).get('url')
         )
 
-        if protocolUrl is not None:
-            protocol = Protocol().getFromUrl(
-                protocolUrl,
-                'protocol',
-                editor,
-                thread=False,
-                refreshCache=True
-            )
+        if protocolUrl is None:
+            raise AccessException('this applet is not uploaded from url')
 
-            protocol = protocol[0].get('protocol', protocol[0])
-            if protocol.get('_id'):
-                self.update({'_id': ObjectId(applet['_id'])}, {'$set': {'meta.protocol._id': protocol['_id']}})
-                if 'meta' in applet and 'protocol' in applet['meta']:
-                    applet['meta']['protocol']['_id'] = protocol['_id']
+        protocol = Protocol().getFromUrl(
+            protocolUrl,
+            'protocol',
+            editor,
+            thread=False,
+            refreshCache=True
+        )
 
-            from girderformindlogger.utility import jsonld_expander
+        protocol = protocol[0].get('protocol', protocol[0])
+        if protocol.get('_id'):
+            self.update({'_id': ObjectId(applet['_id'])}, {'$set': {'meta.protocol._id': protocol['_id']}})
+            if 'meta' in applet and 'protocol' in applet['meta']:
+                applet['meta']['protocol']['_id'] = protocol['_id']
 
-            jsonld_expander.formatLdObject(
-                applet,
-                'applet',
-                editor,
-                refreshCache=False,
-                responseDates=False
-            )
+        from girderformindlogger.utility import jsonld_expander
+
+        jsonld_expander.formatLdObject(
+            applet,
+            'applet',
+            editor,
+            refreshCache=False,
+            responseDates=False
+        )
 
     def getAppletsForUser(self, role, user, active=True, idOnly = False):
         """
@@ -753,54 +755,25 @@ class Applet(FolderModel):
             id=ObjectId(user["_id"]),
             force=True
         ) if "_id" in user else user
-        applets = [
-            *list(self.find(
-                {
-                    'roles.' + role + '.groups.id': {'$in': user.get(
-                        'groups',
-                        []
-                    )},
-                    'meta.applet.deleted': {'$ne': active}
-                }, fields = ['_id'] if idOnly else None
-            )),
-            *list(self.find(
-                {
-                    'roles.manager.groups.id': {'$in': user.get('groups', [])},
-                    'meta.applet.deleted': {'$ne': active}
-                }, fields = ['_id'] if idOnly else None
-            ))
-        ] if role=="coordinator" else list(self.find(
-            {
-                'roles.' + role + '.groups.id': {'$in': user.get('groups', [])},
-                'meta.applet.deleted': {'$ne': active}
-            }, fields = ['_id'] if idOnly else None
-        )) if active else [
-            *list(self.find(
-                {
-                    'roles.' + role + '.groups.id': {'$in': user.get(
-                        'groups',
-                        []
-                    )}
-                }, fields = ['_id'] if idOnly else None
-            )),
-            *list(self.find(
-                {
-                    'roles.manager.groups.id': {'$in': user.get('groups', [])}
-                }, fields = ['_id'] if idOnly else None
-            ))
-        ] if role=="coordinator" else list(self.find(
-            {
-                'roles.' + role + '.groups.id': {'$in': user.get('groups', [])}
-            }, fields = ['_id'] if idOnly else None
-        ))
 
-        # filter out duplicates for coordinators
-        temp = set()
-        applets = [
-            k for k in applets if '_id' in k and k[
-                '_id'
-            ] not in temp and not temp.add(k['_id'])
-        ] if isinstance(applets, list) else [applets]
+        query = {
+            'userId': user['_id'],
+            'profile': True,
+            'roles': role
+        }
+
+        if active:
+            query['deactivated'] = {
+                '$ne': True
+            }
+
+        profiles = list(Profile().find(query))
+
+        applets = []
+        for profile in profiles:
+            applets.append(self.findOne({
+                '_id': profile['appletId']
+            }, fields = ['_id'] if idOnly else None))
 
         return(applets)
 
