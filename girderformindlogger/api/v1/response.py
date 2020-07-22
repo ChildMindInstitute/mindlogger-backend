@@ -113,6 +113,12 @@ class ResponseItem(Resource):
         from girderformindlogger.models.profile import Profile
         from girderformindlogger.utility.response import delocalize, _oneResponsePerDate
 
+        user = self.getCurrentUser()
+        is_reviewer = AppletModel()._hasRole(applet['_id'], user, 'reviewer')
+        is_manager = AppletModel()._hasRole(applet['_id'], user, 'manager')
+        is_owner = applet['creatorId'] == user['_id']
+
+        assert is_reviewer or is_manager or is_owner,  'you don\'t have access to the requested resource'
 
         if toDate is None:
             # Default toTime is today.
@@ -130,18 +136,15 @@ class ResponseItem(Resource):
             users = [self.getCurrentUser().get('_id', None)]
         else:
             users = list(map(lambda x: ObjectId(x), users.split(',')))
-            profiles = Profile().find({'_id': { '$in': users }})
-            users = list(map(lambda p: p.get('userId'), profiles))
 
         # If not speciied, retrieve responses for all activities.
         if not activities:
             activities = applet['meta']['protocol']['activities']
         activities = list(map(lambda s: ObjectId(s), activities))
 
-        # Fetch applet and profiles.
-
         data = dict();
 
+        # Get the responses for each users and generate the group responses data.
         for user in users:
             visited_dates = []
             responses = ResponseItemModel().find(
@@ -179,18 +182,14 @@ class ResponseItem(Resource):
                         data[activity].append({"date": response['updated'],
                                                "value": response['meta']['responses'][activity]})
 
+        # Create an empty response for missing dates.
         for activity in data:
             for n in range(int((toDate - fromDate).days)):
-                currentDate = toDate - timedelta(days=n)
-                dateExists = False
+                currentDate = (toDate - timedelta(days=n)).date()
 
-                for response in data[activity]:
-                    if response['date'] == currentDate.date():
-                        dateExists = True
-                        break
-
-                if not dateExists:
-                    data[activity].append({"date": currentDate.date(), "value": []})
+                # If the date entry is not found, create it.
+                if not any([r['date'] == currentDate for r in data[activity]]):
+                    data[activity].append({"date": currentDate, "value": []})
         return data
 
     """
