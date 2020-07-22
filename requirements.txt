@@ -20,7 +20,7 @@ dnspython==1.16.0
 docutils==0.15.2
 dogpile.cache==0.7.1
 filelock==3.0.12
-firebase_admin=4.3.0
+firebase_admin==4.3.0
 girder_client==3.0.3
 idna==2.8
 isodate==0.6.0
