@@ -8,6 +8,9 @@ Changes
 -------
 Unreleased
 ==========
+2020-07-22 v0.14.11
+added new response endpoint
+
 2020-07-10 v0.14.10
 notifyIfIncomplete parameter was removed from event dialog and set like default behaviour
 
