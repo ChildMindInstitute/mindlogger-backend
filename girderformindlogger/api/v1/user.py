@@ -587,13 +587,15 @@ class User(Resource):
             'retrieveSchedule',
             'true if retrieve schedule info in applet metadata',
             default=False,
-            required=False
+            required=False,
+            dataType='boolean'
         )
         .param(
             'retrieveAllEvents',
             'true if retrieve all events in applet metadata',
             default=False,
-            required=False
+            required=False,
+            dataType='boolean'
         )
         .errorResponse('ID was invalid.')
         .errorResponse(

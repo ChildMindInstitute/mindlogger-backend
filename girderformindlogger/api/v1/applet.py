@@ -576,19 +576,22 @@ class Applet(Resource):
             'retrieveSchedule',
             'true if retrieve schedule info in applet metadata',
             default=False,
-            required=False
+            required=False,
+            dataType='boolean'
         )
         .param(
             'retrieveAllEvents',
             'true if retrieve all events in applet metadata',
             default=False,
-            required=False
+            required=False,
+            dataType='boolean'
         )
         .param(
             'retrieveItems',
             'true if retrieve items',
             default=True,
-            required=False
+            required=False,
+            dataType='boolean'
         )
         .errorResponse('Invalid applet ID.')
         .errorResponse('Read access was denied for this applet.', 403)
