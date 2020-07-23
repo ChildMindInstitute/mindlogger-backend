@@ -29,10 +29,7 @@ installReqs = [
     # CherryPy version is restricted due to a bug in versions >=11.1
     # https://github.com/cherrypy/cherrypy/issues/1662
     'CherryPy<11.1',
-    'rq',
-    'rq-scheduler',
     'pycryptodomex',
-    'json5',
     'click',
     'click-plugins',
     'cryptography>=2.3',
@@ -58,13 +55,14 @@ installReqs = [
     'qrcode[pil]',
     'redis==3.5.2',
     'requests',
-    'rq==1.4.2',
+    'rq==1.4.3',
     'rq-scheduler==0.10.0',
     "shutilwhich ; python_version < '3'",
     'sentry-sdk==0.16.0',
     'simplejson',
     'six>=1.9',
-    'tzlocal>=1.5.1'
+    'tzlocal>=1.5.1',
+    'firebase-admin==4.3.0'
 ]
 
 extrasReqs = {
