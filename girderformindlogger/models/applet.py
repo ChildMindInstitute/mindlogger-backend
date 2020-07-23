@@ -726,13 +726,14 @@ class Applet(FolderModel):
 
             from girderformindlogger.utility import jsonld_expander
 
-            jsonld_expander.formatLdObject(
-                applet,
-                'applet',
-                editor,
-                refreshCache=False,
-                responseDates=False
-            )
+        jsonld_expander.clearCache(applet, 'applet')
+        jsonld_expander.formatLdObject(
+            applet,
+            'applet',
+            editor,
+            refreshCache=False,
+            responseDates=False
+        )
 
     def getAppletsForUser(self, role, user, active=True, idOnly = False):
         """
