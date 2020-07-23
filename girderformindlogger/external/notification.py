@@ -1,9 +1,10 @@
 import datetime
 from pyfcm import FCMNotification
+from girderformindlogger.utility.notification import FirebaseNotification
 from collections import defaultdict
 
 
-push_service = FCMNotification(
+push_service = FirebaseNotification(
         api_key='AAAAJOyOEz4:APA91bFudM5Cc1Qynqy7QGxDBa-2zrttoRw6ZdvE9PQbfIuAB9SFvPje7DcFMmPuX1IizR1NAa7eHC3qXmE6nmOpgQxXbZ0sNO_n1NITc1sE5NH3d8W9ld-cfN7sXNr6IAOuodtEwQy-',
         proxy_dict={})
 
