@@ -822,9 +822,20 @@ class Applet(Resource):
         if not invitedUser:
             invitedUser = UserModel().findOne({'email': email, 'email_encrypted': {'$ne': True}})
 
-        if not AppletModel().isCoordinator(applet['_id'], thisUser):
+        inviterProfile = Profile().findOne({
+            'appletId': applet['_id'],
+            'userId': thisUser['_id'],
+            'deactivated': {'$ne': True}
+        })
+
+        if 'coordinator' not in inviterProfile.get('roles', []):
             raise AccessException(
                 "Only coordinators and managers can invite users."
+            )
+
+        if 'manager' not in inviterProfile.get('roles', []) and role != 'user' and (role != 'reviewer' or thisUser['email'] == email):
+            raise AccessException(
+                "You don't have enought permission to invite user for this role."
             )
 
         if role not in USER_ROLE_KEYS:
