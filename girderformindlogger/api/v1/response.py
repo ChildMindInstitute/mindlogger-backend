@@ -140,7 +140,8 @@ class ResponseItem(Resource):
         # If not speciied, retrieve responses for all activities.
         if not activities:
             activities = applet['meta']['protocol']['activities']
-        activities = list(map(lambda s: ObjectId(s), activities))
+        else:
+            activities = list(map(lambda s: ObjectId(s), activities))
 
         data = dict();
 
@@ -148,13 +149,10 @@ class ResponseItem(Resource):
         for user in users:
             visited_dates = []
             responses = ResponseItemModel().find(
-                query={
-                    "baseParentType": 'user',
-                    "baseParentId": user,
-                    "updated": { "$lte": toDate, "$gt": fromDate },
-                    "meta.applet.@id": applet['_id'],
-                    "meta.activity.@id": { "$in": activities }
-                },
+                query={"updated": { "$lte": toDate, "$gt": fromDate },
+                       "meta.applet.@id": ObjectId(applet['_id']),
+                       "meta.activity.@id": { "$in": activities },
+                       "meta.subject.@id": user},
                 force=True,
                 sort=[("updated", DESCENDING)])
 
