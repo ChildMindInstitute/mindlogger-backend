@@ -1,4 +1,6 @@
 import datetime
+
+from bson import ObjectId
 from pyfcm import FCMNotification
 from girderformindlogger.utility.notification import FirebaseNotification
 from collections import defaultdict
@@ -41,6 +43,9 @@ def send_push_notification(applet_id, event_id, activity_id=None, send_time=None
 
         if event['individualized']:
             query['individual_events'] = {'$gte': 1}
+            query['_id'] = {
+                '$in': event['data']['users']
+            }
 
         if activity_id:
             query['completed_activities'] = {

@@ -678,6 +678,9 @@ def expandOneLevel(obj):
             data = loadJSON(obj)
             if isinstance(data, dict):
                 data = loadJSON(reprolibCanonize(obj)) if len(data.keys()) == 0 else data
+
+                if '@context' in data and isinstance(data['@context'], list):
+                    data['@context'][0] = 'https://raw.githubusercontent.com/jj105/reproschema-context/master/context.json'
                 newObj = jsonld.expand(data)
             else:
                 print("Invalid Url: ", obj)
