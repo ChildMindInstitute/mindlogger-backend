@@ -629,9 +629,9 @@ class Applet(Resource):
     def refresh(self, applet):
         user = self.getCurrentUser()
 
-        if not AppletModel().isCoordinator(applet['_id'], user):
+        if not self._model._hasRole(applet['_id'], user, 'editor'):
             raise AccessException(
-                "Only coordinators and managers can update applet."
+                "Only editors and managers can update applet."
             )
 
         thread = threading.Thread(
