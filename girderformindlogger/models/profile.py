@@ -1,21 +1,15 @@
 # -*- coding: utf-8 -*-
-import copy
 import datetime
 import json
 import os
-import six
 
 from bson.objectid import ObjectId
-from girderformindlogger import events
-from girderformindlogger.constants import AccessType, DEFINED_RELATIONS,       \
-    PROFILE_FIELDS
-from girderformindlogger.exceptions import ValidationException, GirderException
-from girderformindlogger.models.folder import Folder
+from girderformindlogger.constants import AccessType, DEFINED_RELATIONS, PROFILE_FIELDS
+from girderformindlogger.exceptions import ValidationException, AccessException
 from girderformindlogger.models.aes_encrypt import AESEncryption, AccessControlledModel
-from girderformindlogger.utility.model_importer import ModelImporter
-from girderformindlogger.utility.progress import noProgress, \
-    setResponseTimeLimit
+from girderformindlogger.utility.progress import noProgress
 from girderformindlogger.constants import USER_ROLES
+
 
 class Profile(AESEncryption, dict):
     """
@@ -354,6 +348,7 @@ class Profile(AESEncryption, dict):
 
     def updateProfile(self, profileId, user, profileUpdate):
         from copy import deepcopy
+        from girderformindlogger.models.applet import Applet
         profile = self.load(profileId, force=True)
         if str(user["_id"]==profile["userId"]):
             update = deepcopy(profile.get("userDefined", {}))
@@ -383,6 +378,13 @@ class Profile(AESEncryption, dict):
             }, update=data, multi=True)
         except ValueError as e:
             print("Error  while updating Profile")
+
+    def updateProfileBadgets(self, profiles):
+        self.increment(query={
+            '_id': {
+                '$in': [profile['_id'] for profile in profiles]
+            }
+        }, field='badge', amount=1)
 
     def updateRelations(self, profileId):
         relations = list(self.find({
@@ -516,7 +518,7 @@ class Profile(AESEncryption, dict):
         if not filters:
             filters = {}
 
-        parentType = _verify_parentType(parentType)
+        parentType = self._verify_parentType(parentType)
 
         q = {
             'appletId': parent['_id'],
@@ -583,7 +585,7 @@ class Profile(AESEncryption, dict):
             if existing:
                 return existing
 
-        parentType = _verify_parentType(parentType)
+        parentType = self._verify_parentType(parentType)
 
         if parentType == 'folder':
             if 'baseParentId' not in parent:
