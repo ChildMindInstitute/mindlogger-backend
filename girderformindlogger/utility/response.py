@@ -24,7 +24,7 @@ def getSchedule(currentUser, timezone=None):
 
     accounts = AccountProfile().getAccounts(currentUser['_id'])
     applets = []
-   
+
     for account in accounts:
         for applet in account.get('applets', {}).get('user', []):
             applets.append(applet)
@@ -527,6 +527,44 @@ def responseDateList(appletId, userId, reviewer):
     ]))
     rdl.sort(reverse=True)
     return(rdl)
+
+
+def add_missing_dates(response_data, from_date, to_date):
+    for activity in response_data:
+        for n in range(int((to_date - from_date).days)):
+            current_date = (to_date - timedelta(days=n)).date()
+
+            # If the date entry is not found, create it.
+            if not any([r['date'] == current_date for r in response_data[activity]]):
+                response_data[activity].append({"date": current_date, "value": []})
+
+
+def add_latest_daily_response(data, responses):
+    visited_dates = []
+
+    for response in responses:
+        response['updated'] = response['updated'].date()  # Ignore the time.
+
+        if response['updated'] in visited_dates:
+            continue
+
+        visited_dates.append(response['updated'])
+
+        for activity in response['meta']['responses']:
+            date_not_found = True
+
+            if activity not in data:
+                data[activity] = []
+
+            for current in data[activity]:
+                if current['date'] == response['updated']:
+                    current['value'].extend(response['meta']['responses'][activity])
+                    date_not_found = False
+                    break
+
+            if date_not_found:
+                data[activity].append({"date": response['updated'],
+                                       "value": response['meta']['responses'][activity]})
 
 
 def _oneResponsePerDate(responses):
