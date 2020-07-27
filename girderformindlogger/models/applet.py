@@ -42,6 +42,7 @@ from girderformindlogger.models.account_profile import AccountProfile
 from girderformindlogger.models.profile import Profile
 from girderformindlogger.models.events import Events as EventsModel
 
+
 class Applet(FolderModel):
     """
     Applets are access-controlled Folders, each of which links to an
@@ -820,6 +821,61 @@ class Applet(FolderModel):
             }))
         }
         return(userlist)
+
+    def appletFormatted(self, applet, reviewer, role='user', retrieveSchedule=True, retrieveAllEvents=True):
+        from girderformindlogger.utility import jsonld_expander
+        from girderformindlogger.utility.response import responseDateList
+
+        formatted = {
+            **jsonld_expander.formatLdObject(
+                applet,
+                'applet',
+                reviewer,
+                refreshCache=False,
+                responseDates=False
+            ),
+            "users": self.getAppletUsers(applet, reviewer),
+            "groups": self.getAppletGroups(
+                applet,
+                arrayOfObjects=True
+            )
+        } if role in ["coordinator", "manager"] else {
+            **jsonld_expander.formatLdObject(
+                applet,
+                'applet',
+                reviewer,
+                refreshCache=False,
+                responseDates=(role == "user")
+            ),
+            "groups": [
+                group for group in self.getAppletGroups(applet).get(
+                    role
+                ) if ObjectId(
+                    group
+                ) in [
+                         *reviewer.get('groups', []),
+                         *reviewer.get('formerGroups', []),
+                         *[invite['groupId'] for invite in [
+                             *reviewer.get('groupInvites', []),
+                             *reviewer.get('declinedInvites', [])
+                         ]]
+                     ]
+            ]
+        }
+
+        try:
+            formatted["applet"]["responseDates"] = responseDateList(
+                applet.get('_id'),
+                reviewer.get('_id'),
+                reviewer
+            )
+        except:
+            formatted["applet"]["responseDates"] = []
+
+        if retrieveSchedule:
+            formatted["applet"]["schedule"] = self.getSchedule(applet, reviewer, retrieveAllEvents)
+
+        return formatted
 
     def getAppletUsers(self, applet, user=None, force=False):
         """
