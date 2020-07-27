@@ -72,10 +72,6 @@ class PushNotification(Scheduler):
 
         if end_time:
             end_time = datetime.strptime(f'{end_time} {self.start_time.strftime("%H:%M")}', '%Y/%m/%d %H:%M')
-        else:
-            end_time = datetime.strptime(
-                f'{self.current_time.year}/{self.current_time.month}/{self.current_time.day} {self.start_time.strftime("%H:%M")}',
-                '%Y/%m/%d %H:%M')
 
         start_time = datetime.strptime(
             f'{launch_time.year}/{launch_time.month}/{launch_time.day} {launch_time.strftime("%H:%M")}',
