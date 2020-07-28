@@ -391,7 +391,7 @@ class Invitation(AESEncryption):
             'applet',
             {}
         ).get(
-            "schema:desciription",
+            "schema:description",
             Protocol().load(
                 applet['meta']['protocol']['_id'].split('protocol/')[-1],
                 force=True

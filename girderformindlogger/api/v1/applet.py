@@ -582,19 +582,22 @@ class Applet(Resource):
             'retrieveSchedule',
             'true if retrieve schedule info in applet metadata',
             default=False,
-            required=False
+            required=False,
+            dataType='boolean'
         )
         .param(
             'retrieveAllEvents',
             'true if retrieve all events in applet metadata',
             default=False,
-            required=False
+            required=False,
+            dataType='boolean'
         )
         .param(
             'retrieveItems',
             'true if retrieve items',
             default=True,
-            required=False
+            required=False,
+            dataType='boolean'
         )
         .errorResponse('Invalid applet ID.')
         .errorResponse('Read access was denied for this applet.', 403)
@@ -635,9 +638,9 @@ class Applet(Resource):
     def refresh(self, applet):
         user = self.getCurrentUser()
 
-        if not AppletModel().isCoordinator(applet['_id'], user):
+        if not self._model._hasRole(applet['_id'], user, 'editor'):
             raise AccessException(
-                "Only coordinators and managers can update applet."
+                "Only editors and managers can update applet."
             )
 
         thread = threading.Thread(
@@ -828,9 +831,20 @@ class Applet(Resource):
         if not invitedUser:
             invitedUser = UserModel().findOne({'email': email, 'email_encrypted': {'$ne': True}})
 
-        if not AppletModel().isCoordinator(applet['_id'], thisUser):
+        inviterProfile = Profile().findOne({
+            'appletId': applet['_id'],
+            'userId': thisUser['_id'],
+            'deactivated': {'$ne': True}
+        })
+
+        if 'coordinator' not in inviterProfile.get('roles', []):
             raise AccessException(
                 "Only coordinators and managers can invite users."
+            )
+
+        if 'manager' not in inviterProfile.get('roles', []) and role != 'user' and (role != 'reviewer' or thisUser['email'] == email):
+            raise AccessException(
+                "You don't have enought permission to invite user for this role."
             )
 
         if role not in USER_ROLE_KEYS:
