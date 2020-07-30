@@ -795,7 +795,7 @@ class Applet(FolderModel):
         }
         return(userlist)
 
-    def appletFormatted(self, applet, reviewer, role='user', retrieveSchedule=True, retrieveAllEvents=True):
+    def appletFormatted(self, applet, reviewer, role='user', retrieveSchedule=True, retrieveAllEvents=True, eventFilter=None):
         from girderformindlogger.utility import jsonld_expander
         from girderformindlogger.utility.response import responseDateList
 
@@ -846,7 +846,7 @@ class Applet(FolderModel):
             formatted["applet"]["responseDates"] = []
 
         if retrieveSchedule:
-            formatted["applet"]["schedule"] = self.getSchedule(applet, reviewer, retrieveAllEvents)
+            formatted["applet"]["schedule"] = self.getSchedule(applet, reviewer, retrieveAllEvents, eventFilter if not retrieveAllEvents else None)
 
         return formatted
 
