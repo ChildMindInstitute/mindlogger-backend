@@ -177,7 +177,36 @@ class Events(Model):
             'events': events
         }
 
-    def getScheduleForUser(self, applet_id, user_id, is_coordinator):
+    def dateMatch(self, event, date): # filter only active events on specified date
+        if 'dayOfMonth' in event['schedule']: # one time schedule
+            return len(event['schedule'].get('dayOfMonth', [])) \
+                and len(event['schedule'].get('month', [])) \
+                and len(event['schedule'].get('year', [])) \
+                \
+                and event['schedule']['dayOfMonth'][0] == date.day \
+                and event['schedule']['month'][0] == date.month - 1 \
+                and event['schedule']['year'][0] == date.year
+
+        else:
+            start = event['schedule'].get('start', None)
+            end = event['schedule'].get('end', None)
+
+            startDate = datetime.datetime.fromtimestamp(start/1000) if start else None
+            endDate = datetime.datetime.fromtimestamp(end/1000) if end else None
+
+            if startDate and startDate - datetime.timedelta(days=1) >= date:
+                return False
+
+            if endDate and endDate < date:
+                return False
+
+            if 'dayOfWeek' in event['schedule']: # weekly schedule
+                if not len(event['schedule']['dayOfWeek']) or event['schedule']['dayOfWeek'][0] != date.weekday() + 1:
+                    return False
+
+            return True
+
+    def getScheduleForUser(self, applet_id, user_id, is_coordinator, dayFilter=None):
         if is_coordinator:
             individualized = False
             events = self.getEvents(applet_id, False)
@@ -190,6 +219,10 @@ class Events(Model):
             event['id'] = event['_id']
             event.pop('_id')
 
+            event['invalid'] = False
+            if dayFilter:
+                event['invalid'] = not self.dateMatch(event, dayFilter)
+
         return {
             "type": 2,
             "size": 1,
@@ -201,5 +234,7 @@ class Events(Model):
             "updateRows": True,
             "updateColumns": False,
             "around": 1585724400000,
-            'events': events
+            'events': [
+                event for event in events if not event['invalid']
+            ]
         }
