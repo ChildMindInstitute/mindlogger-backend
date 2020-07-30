@@ -963,8 +963,8 @@ class Applet(Resource):
     def getSchedule(self, applet, getAllEvents = False, getTodayEvents = False):
         user = self.getCurrentUser()
 
-        current_user_date = datetime.datetime.utcnow() + datetime.timedelta(hours=int(user['timezone']))
-        return self._model.getSchedule(applet, user, getAllEvents, current_user_date.replace(hour=0, minute=0, second=0, microsecond=0) if getTodayEvents and not getAllEvents else None)
+        currentUserDate = datetime.datetime.utcnow() + datetime.timedelta(hours=int(user['timezone']))
+        return self._model.getSchedule(applet, user, getAllEvents, currentUserDate.replace(hour=0, minute=0, second=0, microsecond=0) if getTodayEvents and not getAllEvents else None)
 
     @access.user(scope=TokenScope.DATA_WRITE)
     @autoDescribeRoute(
