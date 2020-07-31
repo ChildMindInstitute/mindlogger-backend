@@ -178,33 +178,60 @@ class Events(Model):
         }
 
     def dateMatch(self, event, date): # filter only active events on specified date
+        eventTimeout = event['data'].get('timeout', None)
+
+        timeout = datetime.timedelta(days=0)
+
+        if eventTimeout and eventTimeout.get('allow', False):
+            timeout = datetime.timedelta(
+                days=eventTimeout.get('day', 0), 
+                hours=eventTimeout.get('hour', 0), 
+                minutes=eventTimeout.get('minute', 0)
+            )
+
         if 'dayOfMonth' in event['schedule']: # one time schedule
-            return len(event['schedule'].get('dayOfMonth', [])) \
-                and len(event['schedule'].get('month', [])) \
-                and len(event['schedule'].get('year', [])) \
-                \
-                and event['schedule']['dayOfMonth'][0] == date.day \
-                and event['schedule']['month'][0] == date.month - 1 \
-                and event['schedule']['year'][0] == date.year
+            if not len(event['schedule'].get('dayOfMonth', [])) \
+                or not len(event['schedule'].get('month', [])) \
+                or not len(event['schedule'].get('year', [])):
+
+                return False
+
+            launchDate = datetime.datetime.strptime(
+                f'{event["schedule"]["year"][0]}/{event["schedule"]["month"][0]+1}/{event["schedule"]["dayOfMonth"][0]} {event["schedule"]["times"][0]}',
+                '%Y/%m/%d %H'
+            )
+
+            return launchDate.date() == date.date() or (launchDate + timeout).date() == date.date()
 
         else:
             start = event['schedule'].get('start', None)
             end = event['schedule'].get('end', None)
 
-            startDate = datetime.datetime.fromtimestamp(start/1000) if start else None
-            endDate = datetime.datetime.fromtimestamp(end/1000) if end else None
+            eventTime = int(event['schedule']['times'][0])
+            startDate = datetime.datetime.fromtimestamp(start/1000) + datetime.timedelta(hours=eventTime) if start else None
+            endDate = datetime.datetime.fromtimestamp(end/1000) + datetime.timedelta(hours=eventTime) if end else None
 
-            if startDate and startDate - datetime.timedelta(days=1) >= date:
-                return False
-
-            if endDate and endDate < date:
+            if startDate and startDate.date() > date.date():
                 return False
 
             if 'dayOfWeek' in event['schedule']: # weekly schedule
-                if not len(event['schedule']['dayOfWeek']) or event['schedule']['dayOfWeek'][0] != date.weekday() + 1:
-                    return False
+                if len(event['schedule']['dayOfWeek']) or event['schedule']['dayOfWeek'][0] == date.weekday() + 1:
+                    return True
 
-            return True
+                if endDate < date:
+                    latestScheduledDay = endDate - datetime.timedelta(
+                        days=(endDate.weekday()+1 - event['schedule']['dayOfWeek'][0] + 7) % 7,
+                    )
+                else:
+                    latestScheduledDay = date - datetime.timedelta(
+                        days=(date.weekday()+1 - event['schedule']['dayOfWeek'][0] + 7) % 7
+                    )
+
+                return (not startDate or startDate.date() <= latestScheduledDay.date()) \
+                        and latestScheduledDay + datetime.timedelta(hours=eventTime) + timeout >= date
+
+            # daily schedule
+            return (not endDate or endDate + timeout >= date)
 
     def getScheduleForUser(self, applet_id, user_id, is_coordinator, dayFilter=None):
         if is_coordinator:
