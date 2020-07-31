@@ -179,6 +179,7 @@ class Events(Model):
 
     def dateMatch(self, event, date): # filter only active events on specified date
         eventTimeout = event['data'].get('timeout', None)
+        eventTime = int(event['schedule']['times'][0]) if 'times' in event['schedule'] else 0
 
         timeout = datetime.timedelta(days=0)
 
@@ -197,7 +198,7 @@ class Events(Model):
                 return False
 
             launchDate = datetime.datetime.strptime(
-                f'{event["schedule"]["year"][0]}/{event["schedule"]["month"][0]+1}/{event["schedule"]["dayOfMonth"][0]} {event["schedule"]["times"][0]}',
+                f'{event["schedule"]["year"][0]}/{event["schedule"]["month"][0]+1}/{event["schedule"]["dayOfMonth"][0]} {eventTime}',
                 '%Y/%m/%d %H'
             )
 
@@ -207,7 +208,6 @@ class Events(Model):
             start = event['schedule'].get('start', None)
             end = event['schedule'].get('end', None)
 
-            eventTime = int(event['schedule']['times'][0])
             startDate = datetime.datetime.fromtimestamp(start/1000) + datetime.timedelta(hours=eventTime) if start else None
             endDate = datetime.datetime.fromtimestamp(end/1000) + datetime.timedelta(hours=eventTime) if end else None
 
