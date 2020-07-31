@@ -7,7 +7,7 @@ from collections import defaultdict
 
 
 push_service = FirebaseNotification(
-        api_key='AAAAFJ8ftiI:APA91bHBMM89DDAXsnNf1w7vR3wBlvX-UyntZycFE1l-2XkVYZwjMijVm5onBopCPxp7QEJBXn-XAhXS6f66sZ_G51NF5nt_eTwsWRZxYPQmWjCUtrcXa5Nr4eLKzTXV4Gb8yMpqdPEN',
+        api_key='AAAAJOyOEz4:APA91bFudM5Cc1Qynqy7QGxDBa-2zrttoRw6ZdvE9PQbfIuAB9SFvPje7DcFMmPuX1IizR1NAa7eHC3qXmE6nmOpgQxXbZ0sNO_n1NITc1sE5NH3d8W9ld-cfN7sXNr6IAOuodtEwQy-',
         proxy_dict={})
 
 AMOUNT_MESSAGES_PER_REQUEST = 1000
@@ -87,7 +87,7 @@ def send_push_notification(applet_id, event_id, activity_id=None, send_time=None
                     "applet_id": str(applet_id),
                     "activity_id": str(activity_id)
                 },
-                badge=badge+1
+                badge=int(badge) +1
             )
 
             print(f'Notifications with failure status - {str(result["failure"])}')
