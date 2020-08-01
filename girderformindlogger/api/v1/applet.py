@@ -22,7 +22,7 @@ import os
 import re
 import threading
 import uuid
-from datetime import datetime
+import datetime
 from ..describe import Description, autoDescribeRoute
 from ..rest import Resource, rawResponse
 from bson.objectid import ObjectId
@@ -576,19 +576,22 @@ class Applet(Resource):
             'retrieveSchedule',
             'true if retrieve schedule info in applet metadata',
             default=False,
-            required=False
+            required=False,
+            dataType='boolean'
         )
         .param(
             'retrieveAllEvents',
             'true if retrieve all events in applet metadata',
             default=False,
-            required=False
+            required=False,
+            dataType='boolean'
         )
         .param(
             'retrieveItems',
             'true if retrieve items',
             default=True,
-            required=False
+            required=False,
+            dataType='boolean'
         )
         .errorResponse('Invalid applet ID.')
         .errorResponse('Read access was denied for this applet.', 403)
@@ -629,9 +632,9 @@ class Applet(Resource):
     def refresh(self, applet):
         user = self.getCurrentUser()
 
-        if not AppletModel().isCoordinator(applet['_id'], user):
+        if not self._model._hasRole(applet['_id'], user, 'editor'):
             raise AccessException(
-                "Only coordinators and managers can update applet."
+                "Only editors and managers can update applet."
             )
 
         thread = threading.Thread(
@@ -822,9 +825,20 @@ class Applet(Resource):
         if not invitedUser:
             invitedUser = UserModel().findOne({'email': email, 'email_encrypted': {'$ne': True}})
 
-        if not AppletModel().isCoordinator(applet['_id'], thisUser):
+        inviterProfile = Profile().findOne({
+            'appletId': applet['_id'],
+            'userId': thisUser['_id'],
+            'deactivated': {'$ne': True}
+        })
+
+        if 'coordinator' not in inviterProfile.get('roles', []):
             raise AccessException(
                 "Only coordinators and managers can invite users."
+            )
+
+        if 'manager' not in inviterProfile.get('roles', []) and role != 'user' and (role != 'reviewer' or thisUser['email'] == email):
+            raise AccessException(
+                "You don't have enought permission to invite user for this role."
             )
 
         if role not in USER_ROLE_KEYS:
@@ -927,21 +941,24 @@ class Applet(Resource):
             'getAllEvents',
             'return all events for an applet if true',
             required=False,
+            default=False,
             dataType='boolean'
         )
         .param(
-            'refreshCache',
-            'Reparse JSON-LD',
+            'getTodayEvents',
+            'true only if get today\'s event, valid only if getAllEvents is set to false',
             required=False,
+            default=False,
             dataType='boolean'
         )
         .errorResponse('Invalid applet ID.')
         .errorResponse('Read access was denied for this applet.', 403)
     )
-    def getSchedule(self, applet, getAllEvents = False, refreshCache=False):
+    def getSchedule(self, applet, getAllEvents = False, getTodayEvents = False):
         user = self.getCurrentUser()
 
-        return self._model.getSchedule(applet, user, getAllEvents)
+        currentUserDate = datetime.datetime.utcnow() + datetime.timedelta(hours=int(user['timezone']))
+        return self._model.getSchedule(applet, user, getAllEvents, currentUserDate.replace(hour=0, minute=0, second=0, microsecond=0) if getTodayEvents and not getAllEvents else None)
 
     @access.user(scope=TokenScope.DATA_WRITE)
     @autoDescribeRoute(

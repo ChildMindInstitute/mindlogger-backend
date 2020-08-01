@@ -585,13 +585,22 @@ class User(Resource):
             'retrieveSchedule',
             'true if retrieve schedule info in applet metadata',
             default=False,
-            required=False
+            required=False,
+            dataType='boolean'
         )
         .param(
             'retrieveAllEvents',
             'true if retrieve all events in applet metadata',
             default=False,
-            required=False
+            required=False,
+            dataType='boolean'
+        )
+        .param(
+            'getTodayEvents',
+            'true only if get today\'s event, valid only if getAllEvents is set to false',
+            required=False,
+            default=False,
+            dataType='boolean'
         )
         .errorResponse('ID was invalid.')
         .errorResponse(
@@ -606,7 +615,8 @@ class User(Resource):
         unexpanded=False,
         getAllApplets=False,
         retrieveSchedule=False,
-        retrieveAllEvents=False
+        retrieveAllEvents=False,
+        getTodayEvents=False
     ):
         from bson.objectid import ObjectId
         from girderformindlogger.utility.jsonld_expander import loadCache
@@ -617,6 +627,10 @@ class User(Resource):
             raise AccessException("please set role as coordinator or manager to get all events for applet")
 
         reviewer = self.getCurrentUser()
+
+        currentUserDate = datetime.datetime.utcnow() + datetime.timedelta(hours=int(reviewer['timezone']))
+        currentUserDate = currentUserDate.replace(hour=0, minute=0, second=0, microsecond=0)
+
         if reviewer is None:
             raise AccessException("You must be logged in to get user applets.")
         role = role.lower()
@@ -652,7 +666,8 @@ class User(Resource):
                                                               reviewer=reviewer,
                                                               role=role,
                                                               retrieveSchedule=retrieveSchedule,
-                                                              retrieveAllEvents=retrieveAllEvents)
+                                                              retrieveAllEvents=retrieveAllEvents,
+                                                              eventFilter=currentUserDate if getTodayEvents else None)
                     result.append(formatted)
 
             return(result)
