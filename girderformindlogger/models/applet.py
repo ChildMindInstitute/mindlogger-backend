@@ -187,9 +187,9 @@ class Applet(FolderModel):
 
         return formatted
 
-    def getSchedule(self, applet, user, getAllEvents):
+    def getSchedule(self, applet, user, getAllEvents, dayFilter=None):
         if not getAllEvents:
-            schedule = EventsModel().getScheduleForUser(applet['_id'], user['_id'], self.isCoordinator(applet['_id'], user))
+            schedule = EventsModel().getScheduleForUser(applet['_id'], user['_id'], self.isCoordinator(applet['_id'], user), dayFilter)
         else:
             if not self.isCoordinator(applet['_id'], user):
                 raise AccessException(
@@ -795,7 +795,7 @@ class Applet(FolderModel):
         }
         return(userlist)
 
-    def appletFormatted(self, applet, reviewer, role='user', retrieveSchedule=True, retrieveAllEvents=True):
+    def appletFormatted(self, applet, reviewer, role='user', retrieveSchedule=True, retrieveAllEvents=True, eventFilter=None):
         from girderformindlogger.utility import jsonld_expander
         from girderformindlogger.utility.response import responseDateList
 
@@ -846,7 +846,7 @@ class Applet(FolderModel):
             formatted["applet"]["responseDates"] = []
 
         if retrieveSchedule:
-            formatted["applet"]["schedule"] = self.getSchedule(applet, reviewer, retrieveAllEvents)
+            formatted["applet"]["schedule"] = self.getSchedule(applet, reviewer, retrieveAllEvents, eventFilter if not retrieveAllEvents else None)
 
         return formatted
 
