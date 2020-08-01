@@ -94,7 +94,7 @@ class Applet(Resource):
     )
     def setBadgeCount(self, badge):
         thisUser = self.getCurrentUser()
-        ProfileModel().updateProfiles(thisUser, {"badge": badge})
+        ProfileModel().updateProfiles(thisUser, {"badge": int(badge)})
         return({"message": "Badge was successfully reseted"})
 
     @access.user(scope=TokenScope.DATA_OWN)
