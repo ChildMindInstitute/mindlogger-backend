@@ -235,7 +235,7 @@ class Events(Model):
                         and latestScheduledDay + timeDelta + timeout >= date
 
             # daily schedule
-            return (not endDate or endDate + timeout >= date)
+            return (not endDate or endDate + timeDelta + timeout >= date)
 
     def getScheduleForUser(self, applet_id, user_id, is_coordinator, dayFilter=None):
         if is_coordinator:
