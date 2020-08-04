@@ -128,7 +128,7 @@ class Notification(Resource):
     def sendTestPushNotification(self, applet_id, event_id, activity_id):
         user = self.getCurrentUser()
         if user is None:
-            raise AccessException("You must be logged in to get user applets.")
+            raise AccessException("You must be logged in to send push-notification for this user.")
 
         event = EventModel().findOne({'_id': ObjectId(event_id)})
 
@@ -144,8 +144,8 @@ class Notification(Resource):
                 },
                 badge=1
             )
-            return 'All push notifications were successfully sent'
-        return 'No any event was found'
+            return 'push notification was successfully sent'
+        return 'No any event was found by ID'
 
     @disableAuditLog
     @access.token(cookie=True)
