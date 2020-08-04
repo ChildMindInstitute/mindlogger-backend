@@ -1,19 +1,21 @@
 # -*- coding: utf-8 -*-
 import random
+from collections import defaultdict
 
 import cherrypy
 import json
 import bson
 import time
 
-from pyfcm import FCMNotification
+from bson import ObjectId
+from girderformindlogger.utility.notification import FirebaseNotification
 import datetime
 
 from ..describe import Description, autoDescribeRoute
 from ..rest import Resource, disableAuditLog, setResponseHeader
-from girderformindlogger.models.applet import Applet as AppletModel
-from girderformindlogger.constants import SortDir
-from girderformindlogger.exceptions import RestException
+from girderformindlogger.models.events import Events as EventModel
+from girderformindlogger.constants import SortDir, TokenScope
+from girderformindlogger.exceptions import RestException, AccessException
 from girderformindlogger.models.notification import Notification as NotificationModel
 from girderformindlogger.models.user import User as UserModel
 from girderformindlogger.models.profile import Profile as ProfileModel
@@ -48,9 +50,10 @@ def sseMessage(event):
 def sayHello():
     print('hello world!')
 
+
 class Notification(Resource):
     api_key = 'AAAAJOyOEz4:APA91bFudM5Cc1Qynqy7QGxDBa-2zrttoRw6ZdvE9PQbfIuAB9SFvPje7DcFMmPuX1IizR1NAa7eHC3qXmE6nmOpgQxXbZ0sNO_n1NITc1sE5NH3d8W9ld-cfN7sXNr6IAOuodtEwQy-'
-    push_service = FCMNotification(api_key=api_key, proxy_dict={})
+    push_service = FirebaseNotification(api_key=api_key, proxy_dict={})
     user_timezone_time = None
     current_time = None
     success = 0
@@ -59,10 +62,7 @@ class Notification(Resource):
     def __init__(self):
         super(Notification, self).__init__()
         self.resourceName = 'notification'
-        self.route('GET', ('stream',), self.stream)
-        self.route('GET', ('send-push-notifications',), self.sendPushNotifications)
-        self.route('GET', (), self.listNotifications)
-        self.route('GET', ('test-scheduling', ), self.testScheduling)
+        self.route('POST', ('send-test-push-notification',), self.sendTestPushNotification)
 
     @disableAuditLog
     @access.token(cookie=True)
@@ -114,6 +114,38 @@ class Notification(Resource):
                 time.sleep(wait)
 
         return streamGen
+
+    @access.public(scope=TokenScope.DATA_READ)
+    @autoDescribeRoute(
+        Description('Send push notifications').notes(
+            'This endpoint is used to send push notifications to users using FCMNotification.'
+        )
+            .param('applet_id', 'ID of the applet', required=True, dataType='string')
+            .param('event_id', 'ID of the event', required=True, dataType='string')
+            .param('activity_id', 'ID of the activity', required=True, dataType='string')
+            .errorResponse()
+    )
+    def sendTestPushNotification(self, applet_id, event_id, activity_id):
+        user = self.getCurrentUser()
+        if user is None:
+            raise AccessException("You must be logged in to get user applets.")
+
+        event = EventModel().findOne({'_id': ObjectId(event_id)})
+
+        if event:
+            self.push_service.notify_multiple_devices(
+                registration_ids=[user['deviceId']],
+                message_title=event['data']['title'],
+                message_body=event['data']['description'],
+                data_message={
+                    "event_id": str(event_id),
+                    "applet_id": str(applet_id),
+                    "activity_id": str(activity_id)
+                },
+                badge=1
+            )
+            return 'All push notifications were successfully sent'
+        return 'No any event was found'
 
     @disableAuditLog
     @access.token(cookie=True)
