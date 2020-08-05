@@ -199,14 +199,19 @@ class Events(Model):
                 or not len(event['schedule'].get('month', [])) \
                 or not len(event['schedule'].get('year', [])):
 
-                return False
+                return (False, None)
 
             launchDate = datetime.datetime.strptime(
                 f'{event["schedule"]["year"][0]}/{event["schedule"]["month"][0]+1}/{event["schedule"]["dayOfMonth"][0]}',
                 '%Y/%m/%d'
             ) + timeDelta
 
-            return launchDate.date() == date.date() or (launchDate + timeout).date() == date.date()
+            lastAvailableTime = launchDate + timeout
+
+            if lastAvailableTime.date() >= date.date():
+                return (launchDate.date() <= date.date(), None)
+
+            return (False, lastAvailableTime)
 
         else:
             start = event['schedule'].get('start', None)
@@ -216,11 +221,11 @@ class Events(Model):
             endDate = datetime.datetime.fromtimestamp(end/1000) + timeDelta if end else None
 
             if startDate and startDate.date() > date.date():
-                return False
+                return (False, None)
 
             if 'dayOfWeek' in event['schedule']: # weekly schedule
                 if len(event['schedule']['dayOfWeek']) or event['schedule']['dayOfWeek'][0] == date.weekday() + 1:
-                    return True
+                    return (True, None)
 
                 if endDate < date:
                     latestScheduledDay = endDate - datetime.timedelta(
@@ -231,11 +236,15 @@ class Events(Model):
                         days=(date.weekday()+1 - event['schedule']['dayOfWeek'][0] + 7) % 7
                     )
 
-                return (not startDate or startDate.date() <= latestScheduledDay.date()) \
-                        and latestScheduledDay + timeDelta + timeout >= date
+                if (not startDate or startDate.date() <= latestScheduledDay.date()):
+                    lastAvailableTime = latestScheduledDay + timeDelta + timeout
+                    return ( lastAvailableTime >= date, lastAvailableTime )
+
+                return (False, None)
 
             # daily schedule
-            return (not endDate or endDate + timeDelta + timeout >= date)
+            lastAvailableTime = endDate + timeDelta + timeout if endDate else None
+            return ( (not endDate or lastAvailableTime >= date), lastAvailableTime )
 
     def getScheduleForUser(self, applet_id, user_id, is_coordinator, dayFilter=None):
         if is_coordinator:
@@ -246,13 +255,28 @@ class Events(Model):
             individualized = profile['individual_events'] > 0
             events = self.getEvents(applet_id, individualized, profile['_id'])
 
+        lastEvent = {}
+
         for event in events:
             event['id'] = event['_id']
             event.pop('_id')
 
-            event['invalid'] = False
+            event['valid'] = True
             if dayFilter:
-                event['invalid'] = not self.dateMatch(event, dayFilter)
+                event['valid'], lastAvailableTime = self.dateMatch(event, dayFilter)
+
+                activityId = event.get('data', {}).get('activity_id', None)
+
+                if not activityId:
+                    event['valid'] = False
+                    continue
+
+                if not event['valid']:
+                    if lastAvailableTime:
+                        if activityId not in lastEvent or (lastEvent[activityId] and lastAvailableTime > lastEvent[activityId][0]):
+                            lastEvent[activityId] = (lastAvailableTime, event)
+                else:
+                    lastEvent[activityId] = None
 
         return {
             "type": 2,
@@ -265,7 +289,9 @@ class Events(Model):
             "updateRows": True,
             "updateColumns": False,
             "around": 1585724400000,
-            'events': [
-                event for event in events if not event['invalid']
-            ]
+            'events': ([
+                event for event in events if event['valid']
+            ] + [
+                value[1] for value in lastEvent.values() if value and value[1].get('data', {}).get('completion', False)
+            ])
         }
