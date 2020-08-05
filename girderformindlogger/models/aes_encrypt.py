@@ -28,11 +28,12 @@ class AESEncryption(AccessControlledModel):
         self.fields = []
         super(AESEncryption, self).__init__()
 
-    def initAES(self, fields=[]):
-        self.AES_KEY = cherrypy.config['aes_key'] if 'aes_key' in cherrypy.config else b'a!z%C*f4JanU5kap2te45v9y/A?D(G+K'
+    def initAES(self, fields=[], maxCount=4):
+        self.baseKey = cherrypy.config['aes_key'] if 'aes_key' in cherrypy.config else b'a!z%C*f4JanU5kap2te45v9y/A?D(G+K'
 
+        self.AES_KEY = self.baseKey
         self.fields = fields
-        self.maxCount = 4
+        self.maxCount = maxCount
 
     # basic function for aes-encryption
     def encrypt(self, data, maxLength):
@@ -73,6 +74,15 @@ class AESEncryption(AccessControlledModel):
         if not document:
             return document
 
+        updateAESKey = getattr(self, 'updateAESKey', None)
+
+        if callable(updateAESKey):
+            updateAESKey(document, self.baseKey)
+
+        encodeDocument = getattr(self, 'encodeDocument', None)
+        if callable(encodeDocument):
+            encodeDocument(document)
+
         for field in fields:
             path = field[0].split('.')
 
@@ -82,12 +92,18 @@ class AESEncryption(AccessControlledModel):
             if data and data.get(key, None) and isinstance(data[key], str):
                 encrypted = self.encrypt(data[key], field[1])
                 data[key] = encrypted
+
+        self.AES_KEY = self.baseKey
         return document
 
     # decrypt selected fields using AES
     def decryptFields(self, document, fields):
         if not document:
             return document
+
+        updateAESKey = getattr(self, 'updateAESKey', None)
+        if callable(updateAESKey):
+            updateAESKey(document, self.baseKey)
 
         for field in fields:
             path = field[0].split('.')
@@ -99,6 +115,12 @@ class AESEncryption(AccessControlledModel):
                 status, decrypted = self.decrypt(data[key])
                 if status == 'ok':
                     data[key] = decrypted
+
+        decodeDocument = getattr(self, 'decodeDocument', None)
+        if callable(decodeDocument):
+            decodeDocument(document)
+
+        self.AES_KEY = self.baseKey
         return document
 
     # overwrite functions which save data in mongodb
