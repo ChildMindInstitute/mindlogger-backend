@@ -10,7 +10,7 @@ from girderformindlogger import constants, logprint, __version__, logStdoutStder
 from girderformindlogger.models.setting import Setting
 from girderformindlogger import plugin
 from girderformindlogger.settings import SettingKey
-from girderformindlogger.utility import config
+from girderformindlogger.utility import config, reconnect
 from girderformindlogger.constants import ServerMode
 from . import webroot
 
@@ -37,6 +37,16 @@ def getApiRoot():
 
 def getStaticPublicPath():
     return config.getConfig()['server']['static_public_path']
+
+
+@reconnect(name='Worker')
+def startWorker(redis):
+    Worker(['default'], connection=redis).work(with_scheduler=True)
+
+
+@reconnect(name='Scheduler')
+def startScheduler(redis):
+    Scheduler(connection=redis).run()
 
 
 def configureServer(mode=None, plugins=None, curConfig=None):
@@ -88,10 +98,8 @@ def configureServer(mode=None, plugins=None, curConfig=None):
     girderformindlogger.events.setupDaemon()
 
     redis = getRedisConnection()
-    with Connection(connection=redis):
-        worker = Process(target=Worker(['default']).work, args=())
-
-    scheduler = Process(target=Scheduler(connection=redis).run, args=())
+    worker = Process(target=startWorker, args=(redis,))
+    scheduler = Process(target=startScheduler, args=(redis,))
 
     def startEngine():
         girderformindlogger.events.daemon.start()
