@@ -46,7 +46,7 @@ installReqs = [
     'json5==0.9.5',
     'jsonschema',
     'Mako',
-    'pandas==0.25.1',
+    'pandas==0.25.3',
     'passlib [bcrypt,totp]',
     'pymongo>=3.6',
     'PyYAML',

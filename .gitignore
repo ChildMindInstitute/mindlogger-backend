@@ -24,6 +24,9 @@ __pycache__
 .*.swo
 .*.swp
 
+# Virtual environment
+.venv
+
 # Elastic Beanstalk Files
 .elasticbeanstalk/*
 !.elasticbeanstalk/*.cfg.yml

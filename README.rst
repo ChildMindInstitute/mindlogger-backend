@@ -17,9 +17,10 @@ Requirements
 ------------
 
 - MongoDB >= 3.6
-- Python >= 3.5
+- Python >= 3.5 and <= 3.7
   - CherryPy <=11.0.0
 - Node >= 8.0
+- Redis
 
 Installation
 ------------
