@@ -11,9 +11,12 @@ import re
 import requests
 import string
 import six
+import time
 
 import girderformindlogger
 import girderformindlogger.events
+
+from redis.exceptions import ConnectionError
 
 try:
     from random import SystemRandom
@@ -23,6 +26,19 @@ except NotImplementedError:
     girderformindlogger.logprint.warning(
         'WARNING: using non-cryptographically secure PRNG.')
     import random
+
+
+def reconnect(name='default'):
+    def repeat(func):
+        def wrapper(*args, **kwargs):
+            while True:
+                try:
+                    func(*args, **kwargs)
+                except ConnectionError as e:
+                    print(f'{name} was disconnected. Try to reconnect...')
+                    time.sleep(2)
+        return wrapper
+    return repeat
 
 
 def clean_empty(d):
