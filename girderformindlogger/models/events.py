@@ -187,7 +187,7 @@ class Events(Model):
 
         timeout = datetime.timedelta(days=0)
 
-        if eventTimeout and eventTimeout.get('allow', False):
+        if eventTimeout and eventTimeout.get('allow', False) and event['data'].get('completion', False):
             timeout = datetime.timedelta(
                 days=eventTimeout.get('day', 0), 
                 hours=eventTimeout.get('hour', 0), 
