@@ -739,11 +739,13 @@ class User(Resource):
 
         response = []
         for account in accounts:
-            response.append({
-                'accountName': account['accountName'],
-                'accountId': account['accountId'],
-                'owned': (account['_id'] == account['accountId'])
-            })
+            applets = account.get('applets', {})
+            if len(applets.get('reviewer', [])) or len(applets.get('coordinator', [])) or len(applets.get('editor', [])) or len(applets.get('manager', [])):
+                response.append({
+                    'accountName': account['accountName'],
+                    'accountId': account['accountId'],
+                    'owned': (account['_id'] == account['accountId'])
+                })
 
         return response
 
