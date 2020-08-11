@@ -246,14 +246,10 @@ class Events(Model):
             lastAvailableTime = endDate + timeDelta + timeout if endDate else None
             return ( (not endDate or lastAvailableTime >= date), lastAvailableTime )
 
-    def getScheduleForUser(self, applet_id, user_id, is_coordinator, dayFilter=None):
-        if is_coordinator:
-            individualized = False
-            events = self.getEvents(applet_id, False)
-        else:
-            profile = Profile().findOne({'appletId': ObjectId(applet_id), 'userId': ObjectId(user_id)})
-            individualized = profile['individual_events'] > 0
-            events = self.getEvents(applet_id, individualized, profile['_id'])
+    def getScheduleForUser(self, applet_id, user_id, dayFilter=None):
+        profile = Profile().findOne({'appletId': ObjectId(applet_id), 'userId': ObjectId(user_id)})
+        individualized = profile['individual_events'] > 0
+        events = self.getEvents(applet_id, individualized, profile['_id'])
 
         lastEvent = {}
 
