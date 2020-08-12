@@ -374,53 +374,82 @@ class Applet(FolderModel):
         from girderformindlogger.models.protocol import Protocol
         from girderformindlogger.utility import mail_utils
 
-        # we have cases to show manager's email to users
-        if mail_utils.validateEmailAddress(email):
-            user['email'] = email
-            user['email_encrypted'] = False
-            UserModel().save(user)
+        subject = 'applet upload success!'
+        try:
+            # we have cases to show manager's email to users
+            if mail_utils.validateEmailAddress(email) and \
+                'email' in user and (user['email'] == email and not user['email_encrypted'] or user['email'] == UserModel().hash(email) and user['email_encrypted']):
 
-        # get a protocol from a URL
-        protocol = Protocol().getFromUrl(
-            protocolUrl,
-            'protocol',
-            user,
-            thread=False,
-            refreshCache=True
-        )
+                user['email'] = email
+                user['email_encrypted'] = False
+                UserModel().save(user)
+            else:
+                raise ValidationException('email is not valid')
+            # get a protocol from a URL
+            protocol = Protocol().getFromUrl(
+                protocolUrl,
+                'protocol',
+                user,
+                thread=False,
+                refreshCache=True
+            )
 
-        protocol = protocol[0].get('protocol', protocol[0])
+            protocol = protocol[0].get('protocol', protocol[0])
 
-        displayName = Protocol(
-        ).preferredName(
-            protocol
-        )
+            displayName = Protocol(
+            ).preferredName(
+                protocol
+            )
 
-        name = name if name is not None and len(name) else displayName
+            name = name if name is not None and len(name) else displayName
 
-        appletName = '{}/'.format(protocolUrl)
+            appletName = '{}/'.format(protocolUrl)
 
-        applet = self.createApplet(
-            name=name,
-            protocol={
-                '_id': 'protocol/{}'.format(
-                    str(protocol.get('_id')).split('/')[-1]
-                ),
-                'url': protocol.get(
-                    'meta',
-                    {}
-                ).get(
-                    'protocol',
-                    {}
-                ).get('url', protocolUrl)
-            },
-            user=user,
-            roles=roles,
-            constraints=constraints,
-            appletName=appletName,
-            appletRole=appletRole,
-            accountId=accountId
-        )
+            applet = self.createApplet(
+                name=name,
+                protocol={
+                    '_id': 'protocol/{}'.format(
+                        str(protocol.get('_id')).split('/')[-1]
+                    ),
+                    'url': protocol.get(
+                        'meta',
+                        {}
+                    ).get(
+                        'protocol',
+                        {}
+                    ).get('url', protocolUrl)
+                },
+                user=user,
+                roles=roles,
+                constraints=constraints,
+                appletName=appletName,
+                appletRole=appletRole,
+                accountId=accountId
+            )
+
+            emailMessage = "Hi {}.  <br>" \
+                "Your applet {} was successfully uploaded! <br>" \
+                "It is ready to have invitations sent out and schedule created.".format(
+                    user['firstName'],
+                    name
+                )
+
+        except Exception as e:
+            emailMessage = "Hi, {}. <br>" \
+                "Your applet ({}), unfortunately, was not able to be uploaded. <br>" \
+                "Please double check your applet and try again".format(
+                    user['firstName'],
+                    protocolUrl
+                )
+            subject = 'applet upload failed!'
+
+        if 'email' in user and not user.get('email_encrypted', True):
+            from girderformindlogger.utility.mail_utils import sendMail
+            sendMail(
+                subject=subject,
+                text=emailMessage,
+                to=[user['email']]
+            )
 
     def createAppletFromProtocolData(
         self,

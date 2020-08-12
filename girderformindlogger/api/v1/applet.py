@@ -272,8 +272,7 @@ class Applet(Resource):
         )
         thread.start()
         return({
-            "message": "The applet is being created. Please check back in "
-                       "several mintutes to see it."
+            "message": "The applet is being created. We'll send you email when applet is created or failed. "
         })
 
     @access.user(scope=TokenScope.DATA_WRITE)
