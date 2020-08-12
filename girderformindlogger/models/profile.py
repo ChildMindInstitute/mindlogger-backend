@@ -24,7 +24,8 @@ class Profile(AESEncryption, dict):
                 'appletId',
                 'userId',
                 'individual_events',
-                'completed_activities'
+                'completed_activities',
+                'reviewers'
             )
         )
 
@@ -456,7 +457,7 @@ class Profile(AESEncryption, dict):
         # Remove the contents underneath this folder recursively.
         from girderformindlogger.models.upload import Upload
 
-        self.clean(folder, progress, **kwargs)
+        # self.clean(folder, progress, **kwargs)
 
         # Delete pending uploads into this folder
         uploadModel = Upload()
@@ -721,6 +722,53 @@ class Profile(AESEncryption, dict):
 
         return self.save(appletProfile, validate=False)
 
+    def updateReviewerList(self, reviewer, users=None, operation='replace'):
+        profiles = self.find({'appletId': reviewer['appletId']})
+
+        for profile in profiles:
+            if reviewer['_id'] == profile['_id']:
+                continue
+
+            if operation == 'delete': # delete
+                if users and profile['_id'] in users and reviewer['_id'] in profile['reviewers']:
+                    profile['reviewers'].remove(reviewer['_id'])
+                    self.update({
+                        '_id': profile['_id']
+                    }, {
+                        '$set': {
+                            'reviewers': profile['reviewers']
+                        }
+                    })
+
+            else:   # add/replace
+                if reviewer['_id'] not in profile.get('reviewers', []):
+                    if not users or profile['_id'] in users and operation:
+                        self.update({
+                            '_id': profile['_id']
+                        }, {
+                            '$push': {
+                                'reviewers': reviewer['_id']
+                            }
+                        }, multi=False)
+
+                elif operation == 'replace':
+                    if users and profile['_id'] not in users:
+                        profile['reviewers'].remove(reviewer['_id'])
+                        self.update({
+                            '_id': profile['_id']
+                        }, {
+                            '$set': {
+                                'reviewers': profile['reviewers']
+                            }
+                        })
+
+    def getReviewerListForUser(self, appletId, userProfile, user):
+        reviewers = []
+        for reviewer in userProfile['reviewers']:
+            reviewers.append(self.displayProfileFields(self.findOne({'_id': reviewer}), user, forceManager=True))
+
+        return reviewers
+
     def createProfile(self, applet, user, role="user"):
         """
         Create a new profile to store information specific to a given (applet ∩
@@ -783,6 +831,7 @@ class Profile(AESEncryption, dict):
 
         now = datetime.datetime.utcnow()
 
+        managers = list(self.find(query={'appletId': applet['_id'], 'roles': 'manager'}, fields=['_id']))
         profile = {
             k: v for k, v in {
                 'appletId': ObjectId(applet['_id']),
@@ -808,7 +857,10 @@ class Profile(AESEncryption, dict):
                         user.get('firstName')
                     ),
                     'email': user.get('email') if not user.get('email_encrypted', None) else ''
-                }
+                },
+                'reviewers': [
+                    manager['_id'] for manager in managers
+                ]
             }.items() if v is not None
         }
 

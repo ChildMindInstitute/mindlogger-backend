@@ -1021,15 +1021,16 @@ class User(Resource):
 
         # Assign all new users to a "New Users" Group
         newUserGroup = GroupModel().findOne({'name': 'New Users'})
+        adminUser = UserModel().findOne(
+            query={'admin': True},
+            sort=[('created', SortDir.ASCENDING)]
+        )
         newUserGroup = newUserGroup if (
             newUserGroup is not None and bool(newUserGroup)
         ) else GroupModel(
         ).createGroup(
             name="New Users",
-            creator=UserModel().findOne(
-                query={'admin': True},
-                sort=[('created', SortDir.ASCENDING)]
-            ),
+            creator=adminUser if adminUser else user,
             public=False
         )
         group = GroupModel().addUser(

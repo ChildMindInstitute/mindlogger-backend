@@ -198,29 +198,32 @@ class Applet(FolderModel):
             schedule = EventsModel().getSchedule(applet['_id'])
         return schedule
 
-    # users won't use this endpoint, so all emails are plain text
+    # users won't use this function, so all emails are plain text
     def grantAccessToApplet(self, user, applet, role, inviter):
         from girderformindlogger.models.invitation import Invitation
 
-        if Profile().findOne({'appletId': applet['_id'], 'userId': user['_id']}):
-            return
+        appletProfile = Profile().findOne({'appletId': applet['_id'], 'userId': user['_id']})
+        if not appletProfile:
+            accountId = applet.get('accountId', None)
+            if not accountId:
+                return
 
-        accountId = applet.get('accountId', None)
-        if not accountId:
-            return
+            newInvitation = Invitation().createInvitationForSpecifiedUser(
+                applet,
+                inviter,
+                role,
+                user,
+                user['firstName'],
+                user['lastName'],
+                '',
+                user['email']
+            )
 
-        newInvitation = Invitation().createInvitationForSpecifiedUser(
-            applet,
-            inviter,
-            role,
-            user,
-            user['firstName'],
-            user['lastName'],
-            user['email']
-        )
+            appletProfile = Invitation().acceptInvitation(Invitation().load(newInvitation['_id'], force=True), user, user['email'])
+            Invitation().remove(newInvitation)
 
-        Invitation().acceptInvitation(Invitation().load(newInvitation['_id'], force=True), user, user['email'])
-        Invitation().remove(newInvitation)
+        if role == 'manager':
+            Profile().updateReviewerList(Profile().load(appletProfile['_id'], force=True))
 
     def duplicateApplet(
         self,
@@ -336,6 +339,72 @@ class Applet(FolderModel):
             successed = False
 
         return successed
+
+    def receiveOwnerShip(self, applet, thisUser, email):
+        from girderformindlogger.utility import mail_utils
+        from girderformindlogger.models.group import Group
+        from girderformindlogger.models.response_folder import ResponseItem
+        from girderformindlogger.models.invitation import Invitation
+
+        if not mail_utils.validateEmailAddress(email):
+            raise ValidationException(
+                'Invalid email address.',
+                'email'
+            )
+
+        if thisUser.get('email_encrypted', False):
+            if UserModel().hash(email) != thisUser['email']:
+                raise ValidationException(
+                    'Invalid email address.',
+                    'email'
+                )
+            thisUser['email'] = email
+            thisUser['email_encrypted'] = False
+
+            UserModel().save(thisUser)
+
+        Invitation().removeWithQuery({
+            'appletId': applet['_id']
+        })
+
+        accountId = thisUser['accountId']
+
+        appletUsers = list(Profile().find({'appletId': applet['_id']}))
+
+        appletGroups=self.getAppletGroups(applet)
+        groups = []
+        for role in list(USER_ROLES.keys()):
+            group = appletGroups.get(role)
+            if bool(group):
+                groups.append(Group().load(
+                    ObjectId(list(group.keys())[0]),
+                    force=True
+                ))
+
+        for user in appletUsers:
+            appletUser = UserModel().load(user['userId'], force=True)
+            for group in groups:
+                Group().removeUser(group, appletUser)
+
+            Profile().remove(user)
+
+        ResponseItem().removeWithQuery(
+            query={
+                "baseParentType": 'user',
+                "meta.applet.@id": applet['_id']
+            }
+        )
+
+        accountProfiles = list(AccountProfile().find({'accountId': applet['accountId'], 'applets.user': applet['_id'] }))
+
+        for accountProfile in accountProfiles:
+            AccountProfile().removeApplet(accountProfile, applet['_id'])
+
+        applet['accountId'] = accountId
+        self.save(applet)
+        self.grantAccessToApplet(thisUser, applet, 'manager', thisUser)
+
+        return Profile().displayProfileFields(Profile().updateOwnerProfile(applet), thisUser, forceManager=True)
 
     def validateAppletName(self, appletName, appletsCollection, accountId = None):
         name = appletName
@@ -927,9 +996,10 @@ class Applet(FolderModel):
 
             for p in list(Invitation().find(query={'appletId': applet['_id']})):
                 fields = ['_id', 'firstName', 'lastName', 'role', 'MRN', 'created']
-                userDict['pending'].append({
-                    key: p[key] for key in fields if p.get(key, None)
-                })
+                if role != 'owner':
+                    userDict['pending'].append({
+                        key: p[key] for key in fields if p.get(key, None)
+                    })
 
 
             missing = threading.Thread(

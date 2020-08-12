@@ -170,7 +170,8 @@ class Invitation(AESEncryption):
         firstName,
         lastName,
         MRN,
-        userEmail = ""
+        userEmail = "",
+        accessibleUsers = []
     ):
         """
         create new invitation
@@ -203,6 +204,9 @@ class Invitation(AESEncryption):
             if user:
                 invitation['userId'] = user['_id']
 
+        if role == 'reviewer':
+            accessibleUsers = [ObjectId(accessibleUser) for accessibleUser in accessibleUsers]
+
         invitation.update({
             'inviterId': coordinator['_id'],
             'role': role,
@@ -215,7 +219,8 @@ class Invitation(AESEncryption):
             'invitedBy': Profile().coordinatorProfile(
                 applet['_id'],
                 coordinator
-            )
+            ),
+            'accessibleUsers': accessibleUsers if role == 'reviewer' else None
         })
 
         return self.save(invitation, validate=False)
@@ -225,12 +230,6 @@ class Invitation(AESEncryption):
         from girderformindlogger.models.ID_code import IDCode
         from girderformindlogger.models.profile import Profile
         from girderformindlogger.utility import mail_utils
-
-        applet = Applet().load(invitation['appletId'], force=True)
-        if not applet:
-            raise ValidationException('invalid invitation')
-
-        invited_role = invitation.get('role','user')
         from girderformindlogger.models.user import User as UserModel
 
         if not mail_utils.validateEmailAddress(userEmail):
@@ -238,6 +237,8 @@ class Invitation(AESEncryption):
                 'Invalid email address.',
                 'email'
             )
+
+        invited_role = invitation.get('role','user')
         if invited_role != 'user' and user.get('email_encrypted', False):
             if UserModel().hash(userEmail) != user['email']:
                 raise ValidationException(
@@ -249,6 +250,10 @@ class Invitation(AESEncryption):
 
             UserModel().save(user)
 
+
+        applet = Applet().load(invitation['appletId'], force=True)
+        if not applet:
+            raise ValidationException('invalid invitation')
 
         profiles = None
         if 'idCode' in invitation:
@@ -304,6 +309,9 @@ class Invitation(AESEncryption):
         profile['MRN'] = invitation.get('MRN', '')
 
         Profile().save(profile, validate=False)
+
+        if invited_role == 'reviewer':
+            Profile().updateReviewerList(profile, invitation.get('accessibleUsers'))
 
         AccountProfile().appendApplet(AccountProfile().createAccountProfile(applet['accountId'], user['_id']), applet['_id'], profile['roles'])
 
