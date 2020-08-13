@@ -996,7 +996,7 @@ class Applet(FolderModel):
 
             for p in list(Invitation().find(query={'appletId': applet['_id']})):
                 fields = ['_id', 'firstName', 'lastName', 'role', 'MRN', 'created']
-                if role != 'owner':
+                if p['role'] != 'owner':
                     userDict['pending'].append({
                         key: p[key] for key in fields if p.get(key, None)
                     })
