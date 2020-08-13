@@ -46,7 +46,7 @@ def startWorker(redis):
 
 @reconnect(name='Scheduler')
 def startScheduler(redis):
-    Scheduler(connection=redis).run()
+    Scheduler(connection=redis, interval=10).run()
 
 
 def configureServer(mode=None, plugins=None, curConfig=None):
