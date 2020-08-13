@@ -46,7 +46,7 @@ def startWorker(redis):
 
 @reconnect(name='Scheduler')
 def startScheduler(redis):
-    Scheduler(connection=redis).run()
+    Scheduler(connection=redis, interval=5).run()
 
 
 def configureServer(mode=None, plugins=None, curConfig=None):
@@ -84,7 +84,7 @@ def configureServer(mode=None, plugins=None, curConfig=None):
         curConfig['server']['mode'] = mode
 
     logprint.info('Running in mode: ' + curConfig['server']['mode'])
-    cherrypy.config['engine.autoreload.on'] = mode == ServerMode.DEVELOPMENT
+    cherrypy.config['engine.autoreload.on'] = mode in [ServerMode.DEVELOPMENT, ServerMode.PRODUCTION, None]
 
     _setupCache()
 
