@@ -69,6 +69,11 @@ class Applet(Resource):
         self.route('GET', (':id', 'schedule'), self.getSchedule)
         self.route('POST', (':id', 'invite'), self.invite)
         self.route('POST', (':id', 'inviteUser'), self.inviteUser)
+
+        self.route('PUT', (':id', 'reviewer', 'userList'), self.updateUserListForReviewer)
+        self.route('GET', (':id', 'reviewer', 'userList'), self.getUserListForReviewer)
+        self.route('GET', (':id', 'reviewerList'), self.getReviewerListForUser)
+
         self.route('GET', (':id', 'roles'), self.getAppletRoles)
         self.route('GET', (':id', 'users'), self.getAppletUsers)
         self.route('DELETE', (':id',), self.deactivateApplet)
@@ -77,6 +82,9 @@ class Applet(Resource):
         self.route('PUT', (':id', 'fromJSON'), self.updateAppletFromProtocolData)
         self.route('POST', (':id', 'duplicate', ), self.duplicateApplet)
         self.route('POST', ('setBadge',), self.setBadgeCount)
+
+        self.route('PUT', (':id', 'transferOwnerShip', ), self.transferOwnerShip)
+        self.route('DELETE', (':id', 'deleteUser', ), self.deleteUserFromApplet)
 
     @access.user(scope=TokenScope.DATA_WRITE)
     @autoDescribeRoute(
@@ -96,6 +104,140 @@ class Applet(Resource):
         thisUser = self.getCurrentUser()
         ProfileModel().updateProfiles(thisUser, {"badge": int(badge)})
         return({"message": "Badge was successfully reseted"})
+
+    @access.user(scope=TokenScope.DATA_OWN)
+    @autoDescribeRoute(
+        Description('Update user list that reviewer can view.')
+        .notes(
+            'this endpoint will be used to update user list that reviewer can view.'
+        )
+        .modelParam(
+            'id',
+            model=AppletModel,
+            level=AccessType.ADMIN,
+            destName='applet'
+        )
+        .param(
+            'reviewerId',
+            'id of reviewer',
+            required=True,
+            default=None
+        )
+        .jsonParam(
+            'users',
+            'user list that reviewer can view',
+            paramType='form',
+            required=False,
+            default=[]
+        )
+        .param(
+            'operation',
+            'one of ["replace", "add", "delete"]',
+            required=False,
+            default='replace'
+        )
+    )
+    def updateUserListForReviewer(self, applet, reviewerId, users, operation):
+        if operation not in ['replace', 'add', 'delete']:
+            raise ValidationException('invalid operation type')
+
+        reviewerProfile = ProfileModel().findOne({'_id': ObjectId(reviewerId)})
+
+        accountProfile = self.getAccountProfile()
+
+        if not accountProfile or applet['_id'] not in accountProfile.get('applets', {}).get('manager', []) or \
+            (reviewerProfile and 'manager' in reviewerProfile.get('roles', []) and applet['_id'] not in accountProfile.get('applets', {}).get('owner', [])):
+            raise AccessException('You don\'t have enough permission to update user list for this reviewer.')
+
+        if not reviewerProfile or 'reviewer' not in reviewerProfile.get('roles', []) or applet['_id'] != reviewerProfile['appletId']:
+            raise AccessException('unable to find reviewer with specified id')
+
+        ProfileModel().updateReviewerList(reviewerProfile, [ObjectId(userId) for userId in users], operation)
+
+        return "success"
+
+    @access.user(scope=TokenScope.DATA_READ)
+    @autoDescribeRoute(
+        Description('GET user list that reviewer can view.')
+        .notes(
+            'this endpoint will be used for managers/reviewers to view users that reviewer can access.'
+        )
+        .modelParam(
+            'id',
+            model=AppletModel,
+            level=AccessType.READ,
+            destName='applet'
+        )
+        .param(
+            'reviewerId',
+            'id of reviewer, we do not need to set this value when reviewer want to see his user list',
+            required=False,
+            default=None
+        )
+    )
+    def getUserListForReviewer(self, applet, reviewerId):
+        accountProfile = self.getAccountProfile()
+        thisUser = self.getCurrentUser()
+
+        if not accountProfile or reviewerId and applet['_id'] not in accountProfile.get('applets', {}).get('manager', []) or \
+            not reviewerId and applet['_id'] not in accountProfile.get('applets', {}).get('reviewer', []):
+            raise AccessException('You don\'t have enough permission to get list of users that specified reviewer can view.')
+
+        profileModel = ProfileModel()
+        reviewerProfile = profileModel.findOne({'_id': ObjectId(reviewerId)}) if reviewerId else profileModel.findOne({
+            'appletId': applet['_id'],
+            'userId': accountProfile['userId']
+        })
+        if not reviewerProfile or 'reviewer' not in reviewerProfile.get('roles', []) or applet['_id'] != reviewerProfile['appletId']:
+            raise AccessException('unable to find reviewer with specified id')
+
+        users = [
+            profileModel.displayProfileFields(
+                p,
+                thisUser,
+                forceManager=True
+            )
+            for p in list(
+                profileModel.find({'appletId': applet['_id'], 'reviewers': reviewerProfile['_id']})
+            )
+        ]
+        return users
+
+    @access.user(scope=TokenScope.DATA_READ)
+    @autoDescribeRoute(
+        Description('GET reviewer list for user.')
+        .notes(
+            'this endpoint will be used for users to retrieve reviewer list that review his response.'
+        )
+        .modelParam(
+            'id',
+            model=AppletModel,
+            level=AccessType.READ,
+            destName='applet'
+        )
+        .param(
+            'userId',
+            'id of user to see reviewer list, we do not need to set this field if user want to see his reviewers',
+            required=False,
+            default=None
+        )
+    )
+    def getReviewerListForUser(self, applet, userId):
+        accountProfile = self.getAccountProfile()
+        thisUser = self.getCurrentUser()
+        if not accountProfile or userId and applet['_id'] not in accountProfile.get('applets', {}).get('manager', {}):
+            raise AccessException('You do not have enough permission to get reviewer list')
+
+        userProfile = ProfileModel().findOne({'_id': ObjectId(userId)}) if userId else ProfileModel().findOne({
+            'appletId': applet['_id'],
+            'userId': accountProfile['userId']
+        })
+
+        if not userProfile or 'user' not in userProfile.get('roles', []) or applet['_id'] != userProfile['appletId']:
+            raise AccessException('unable to find user with specified id')
+
+        return ProfileModel().getReviewerListForUser(applet['_id'], userProfile, thisUser)
+
 
     @access.user(scope=TokenScope.DATA_OWN)
     @autoDescribeRoute(
@@ -137,6 +279,68 @@ class Applet(Resource):
         protocolContent = FolderModel().load(protocol['content_id'], force=True)
 
         return None if not protocolContent['content'] else json_util.loads(protocolContent['content'])
+
+
+    @access.user(scope=TokenScope.DATA_WRITE)
+    @autoDescribeRoute(
+        Description('Deactivate an applet by ID.')
+        .notes(
+            'this endpoint is used for deleting user\'s access to applet. <br>'
+        )
+        .modelParam(
+            'id',
+            model=AppletModel,
+            description='ID of the applet',
+            destName='applet',
+            level=AccessType.WRITE
+        )
+        .param(
+            'profileId',
+            'id of profile to be deleted',
+            required=True,
+            default=None
+        )
+        .param(
+            'deleteResponse',
+            'true if delete response',
+            required=False,
+            default=True
+        )
+        .errorResponse('Invalid applet ID.')
+        .errorResponse('Write access was denied for this applet.', 403)
+    )
+    def deleteUserFromApplet(self, applet, profileId, deleteResponse=True):
+        thisUser = self.getCurrentUser()
+        accountProfile = self.getAccountProfile()
+
+        profile = None
+        if profileId:
+            profile = ProfileModel().findOne({'_id': ObjectId(profileId)})
+        if not profile:
+            raise AccessException('unable to find user')
+
+        if 'manager' in profile.get('roles', []) and applet.get('accountId', None) != thisUser['accountId'] or \
+            (deleteResponse or len(profile.get('roles')) > 1) and applet['_id'] not in accountProfile.get('applets', {}).get('manager', []) or \
+            applet['_id'] not in accountProfile.get('applets', {}).get('coordinator', []):
+            raise AccessException('You don\'t have enough permission to perform this action')
+
+        if 'reviewer' in profile.get('roles', []) or 'manager' in profile.get('roles', []):
+            ProfileModel().updateReviewerList(profile, [])
+
+        ProfileModel().remove(profile)
+
+        AccountProfile().removeApplet(AccountProfile().findOne({'userId': profile['userId'], 'accountId': applet['accountId']}), applet['_id'])
+
+        if deleteResponse:
+            from girderformindlogger.models.response_folder import ResponseItem
+
+            ResponseItem().removeWithQuery(
+                query={
+                    "baseParentType": 'user',
+                    "baseParentId": profile['userId'],
+                    "meta.applet.@id": applet['_id']
+                }
+            )
 
     @access.user(scope=TokenScope.DATA_WRITE)
     @autoDescribeRoute(
@@ -272,8 +476,7 @@ class Applet(Resource):
         )
         thread.start()
         return({
-            "message": "The applet is being created. Please check back in "
-                       "several mintutes to see it."
+            "message": "The applet is being created. We'll send you email when applet is created or failed. "
         })
 
     @access.user(scope=TokenScope.DATA_WRITE)
@@ -812,9 +1015,17 @@ class Applet(Resource):
             default='',
             required=False
         )
+        .jsonParam(
+            'users',
+            'list of user_id that reviewer can review. <br>'
+            'this field will be used only if manager invites reviewer.',
+            paramType='form',
+            default=[],
+            required=False
+        )
         .errorResponse('Write access was denied for the folder or its new parent object.', 403)
     )
-    def inviteUser(self, applet, role="user", email='', firstName='', lastName='', MRN=''):
+    def inviteUser(self, applet, role="user", email='', firstName='', lastName='', MRN='', users=[]):
         from girderformindlogger.models.invitation import Invitation
         from girderformindlogger.models.profile import Profile
 
@@ -824,6 +1035,12 @@ class Applet(Resource):
             )
 
         thisUser = self.getCurrentUser()
+
+        appletProfile = ProfileModel().findOne({'appletId': applet['_id'], 'userId': thisUser['_id']})
+
+        if not appletProfile or 'coordinator' not in appletProfile.get('roles', []) or \
+                (role != 'user' and role !='reviewer' and 'manager' not in appletProfile.get('roles', [])):
+            raise AccessException('You don\'t have enough permission to invite other user to specified role')
 
         encryptedEmail = UserModel().hash(email)
         invitedUser = UserModel().findOne({'email': encryptedEmail, 'email_encrypted': True})
@@ -836,16 +1053,6 @@ class Applet(Resource):
             'userId': thisUser['_id'],
             'deactivated': {'$ne': True}
         })
-
-        if 'coordinator' not in inviterProfile.get('roles', []):
-            raise AccessException(
-                "Only coordinators and managers can invite users."
-            )
-
-        if 'manager' not in inviterProfile.get('roles', []) and role != 'user' and (role != 'reviewer' or thisUser['email'] == email):
-            raise AccessException(
-                "You don't have enought permission to invite user for this role."
-            )
 
         if role not in USER_ROLE_KEYS:
             raise ValidationException(
@@ -861,7 +1068,8 @@ class Applet(Resource):
             firstName=firstName,
             lastName=lastName,
             MRN=MRN,
-            userEmail=encryptedEmail
+            userEmail=encryptedEmail,
+            accessibleUsers=users
         )
 
         web_url = os.getenv('WEB_URI') or 'localhost:8082'
@@ -885,12 +1093,72 @@ class Applet(Resource):
             'MRN': MRN,
             'managers': managers,
             'coordinators': coordinators,
-            'reviewers': reviewers,
+            'reviewers': managers,
             'role': role
         })
 
         mail_utils.sendMail(
             'invitation for an applet',
+            html,
+            [email]
+        )
+
+        return 'sent invitation mail to {}'.format(email)
+
+
+    @access.user(scope=TokenScope.DATA_WRITE)
+    @autoDescribeRoute(
+        Description('Invite a user to a role in an applet.')
+        .notes(
+            'this endpoint will be used for owners to transfer ownership for an applet to another owner'
+        )
+        .modelParam(
+            'id',
+            model=AppletModel,
+            level=AccessType.ADMIN,
+            destName='applet'
+        )
+        .param(
+            'email',
+            'email of user who will get ownership',
+            required=True
+        )
+    )
+    def transferOwnerShip(self, applet, email):
+        from girderformindlogger.models.invitation import Invitation
+
+        accountProfile = self.getAccountProfile()
+        thisUser = self.getCurrentUser()
+
+        if applet['_id'] not in accountProfile.get('applets', {}).get('owner', []):
+            raise AccessException('only owners can transfer ownership')
+
+        if not mail_utils.validateEmailAddress(email):
+            raise ValidationException(
+                'invalid email', 'email'
+            )
+
+        encryptedEmail = UserModel().hash(email)
+        invitedUser = UserModel().findOne({'email': encryptedEmail, 'email_encrypted': True})
+
+        if not invitedUser:
+            invitedUser = UserModel().findOne({'email': email, 'email_encrypted': {'$ne': True}})
+        if not invitedUser:
+            raise ValidationException('unable to find user with specified email address')
+
+        invitation = Invitation().createInvitationForSpecifiedUser(applet, thisUser, 'owner', invitedUser, firstName=invitedUser['firstName'], lastName=invitedUser['lastName'], MRN='', userEmail=email)
+
+        url = 'web.mindlogger.org/#/invitation/%s' % (str(invitation['_id'], ))
+
+        html = mail_utils.renderTemplate('transferOwnerShip.mako', {
+            'url': url,
+            'userName': invitedUser['firstName'],
+            'ownerName': thisUser['firstName'],
+            'appletName': applet['displayName'],
+        })
+
+        mail_utils.sendMail(
+            'Transfer ownership of an applet',
             html,
             [email]
         )
