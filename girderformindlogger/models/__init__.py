@@ -22,13 +22,14 @@ _redisClient = None
 def getRedisConnection():
     global _redisClient
 
-    from redis import Redis
+    from redis import Redis, ConnectionPool
 
     if _redisClient:
         return _redisClient
 
     cfg = config.getConfig()
-    _redisClient = Redis(**cfg['redis'])
+    pool = ConnectionPool(**cfg['redis'])
+    _redisClient = Redis(connection_pool=pool)
     return _redisClient
 
 def getDbConnection(uri=None, replicaSet=None, autoRetry=True, quiet=False, **kwargs):

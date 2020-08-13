@@ -177,18 +177,102 @@ class Events(Model):
             'events': events
         }
 
-    def getScheduleForUser(self, applet_id, user_id, is_coordinator):
-        if is_coordinator:
-            individualized = False
-            events = self.getEvents(applet_id, False)
+    def dateMatch(self, event, date): # filter only active events on specified date
+        eventTimeout = event['data'].get('timeout', None)
+        eventTime = event['schedule']['times'][0] if 'times' in event['schedule'] else '00:00'
+        if ':' not in eventTime:
+            eventTime = f'{eventTime}:00'
+
+        timeDelta = datetime.timedelta(hours=int(eventTime[:2]), minutes=int(eventTime[-2:]))
+
+        timeout = datetime.timedelta(days=0)
+
+        if eventTimeout and eventTimeout.get('allow', False) and event['data'].get('completion', False):
+            timeout = datetime.timedelta(
+                days=eventTimeout.get('day', 0), 
+                hours=eventTimeout.get('hour', 0), 
+                minutes=eventTimeout.get('minute', 0)
+            )
+
+        if 'dayOfMonth' in event['schedule']: # one time schedule
+            if not len(event['schedule'].get('dayOfMonth', [])) \
+                or not len(event['schedule'].get('month', [])) \
+                or not len(event['schedule'].get('year', [])):
+
+                return (False, None)
+
+            launchDate = datetime.datetime.strptime(
+                f'{event["schedule"]["year"][0]}/{event["schedule"]["month"][0]+1}/{event["schedule"]["dayOfMonth"][0]}',
+                '%Y/%m/%d'
+            ) + timeDelta
+
+            lastAvailableTime = launchDate + timeout
+
+            if lastAvailableTime.date() >= date.date():
+                return (launchDate.date() <= date.date(), None)
+
+            return (False, lastAvailableTime)
+
         else:
-            profile = Profile().findOne({'appletId': ObjectId(applet_id), 'userId': ObjectId(user_id)})
-            individualized = profile['individual_events'] > 0
-            events = self.getEvents(applet_id, individualized, profile['_id'])
+            start = event['schedule'].get('start', None)
+            end = event['schedule'].get('end', None)
+
+            startDate = datetime.datetime.fromtimestamp(start/1000) + timeDelta if start else None
+            endDate = datetime.datetime.fromtimestamp(end/1000) + timeDelta if end else None
+
+            if startDate and startDate.date() > date.date():
+                return (False, None)
+
+            if 'dayOfWeek' in event['schedule']: # weekly schedule
+                if len(event['schedule']['dayOfWeek']) or event['schedule']['dayOfWeek'][0] == date.weekday() + 1:
+                    return (True, None)
+
+                if endDate < date:
+                    latestScheduledDay = endDate - datetime.timedelta(
+                        days=(endDate.weekday()+1 - event['schedule']['dayOfWeek'][0] + 7) % 7,
+                    )
+                else:
+                    latestScheduledDay = date - datetime.timedelta(
+                        days=(date.weekday()+1 - event['schedule']['dayOfWeek'][0] + 7) % 7
+                    )
+
+                if (not startDate or startDate.date() <= latestScheduledDay.date()):
+                    lastAvailableTime = latestScheduledDay + timeDelta + timeout
+                    return ( lastAvailableTime >= date, lastAvailableTime )
+
+                return (False, None)
+
+            # daily schedule
+            lastAvailableTime = endDate + timeDelta + timeout if endDate else None
+            return ( (not endDate or lastAvailableTime >= date), lastAvailableTime )
+
+    def getScheduleForUser(self, applet_id, user_id, dayFilter=None):
+        profile = Profile().findOne({'appletId': ObjectId(applet_id), 'userId': ObjectId(user_id)})
+        individualized = profile['individual_events'] > 0
+        events = self.getEvents(applet_id, individualized, profile['_id'])
+
+        lastEvent = {}
 
         for event in events:
             event['id'] = event['_id']
             event.pop('_id')
+
+            event['valid'] = True
+            if dayFilter:
+                event['valid'], lastAvailableTime = self.dateMatch(event, dayFilter)
+
+                activityId = event.get('data', {}).get('activity_id', None)
+
+                if not activityId:
+                    event['valid'] = False
+                    continue
+
+                if not event['valid']:
+                    if lastAvailableTime:
+                        if activityId not in lastEvent or (lastEvent[activityId] and lastAvailableTime > lastEvent[activityId][0]):
+                            lastEvent[activityId] = (lastAvailableTime, event)
+                else:
+                    lastEvent[activityId] = None
 
         return {
             "type": 2,
@@ -201,5 +285,9 @@ class Events(Model):
             "updateRows": True,
             "updateColumns": False,
             "around": 1585724400000,
-            'events': events
+            'events': ([
+                event for event in events if event['valid']
+            ] + [
+                value[1] for value in lastEvent.values() if value and value[1].get('data', {}).get('completion', False)
+            ])
         }

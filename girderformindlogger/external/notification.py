@@ -2,10 +2,15 @@ import datetime
 
 from bson import ObjectId
 from pyfcm import FCMNotification
+from girderformindlogger.utility.notification import FirebaseNotification
+from collections import defaultdict
 
-push_service = FCMNotification(
+
+push_service = FirebaseNotification(
         api_key='AAAAJOyOEz4:APA91bFudM5Cc1Qynqy7QGxDBa-2zrttoRw6ZdvE9PQbfIuAB9SFvPje7DcFMmPuX1IizR1NAa7eHC3qXmE6nmOpgQxXbZ0sNO_n1NITc1sE5NH3d8W9ld-cfN7sXNr6IAOuodtEwQy-',
         proxy_dict={})
+
+AMOUNT_MESSAGES_PER_REQUEST = 1000
 
 
 def send_push_notification(applet_id, event_id, activity_id=None, send_time=None):
@@ -67,27 +72,28 @@ def send_push_notification(applet_id, event_id, activity_id=None, send_time=None
 
         profiles = list(Profile().find(query=query, fields=['deviceId', 'badge']))
 
-        message_title = event['data']['title']
-        message_body = event['data']['description']
-
+        # ordered by badge
+        message_requests = defaultdict(list)
         for profile in profiles:
-            if len(profile['deviceId']):
-                profile['badge'] = profile['badge'] + 1
-                result = push_service.notify_single_device(
-                    registration_id=profile['deviceId'],
-                    badge=profile.get('badge', 0),
-                    message_title=message_title,
-                    message_body=message_body,
-                    data_message={
-                        "event_id": str(event_id),
-                        "applet_id": str(applet_id),
-                        "activity_id": str(activity_id)
-                    }
-                )
-                print(
-                    f'Status - {"failed " + str(result["failure"]) if result["failure"] else "success " + str(result["success"])}')
-                if 'success' in result:
-                    Profile().increment(query={"_id": profile['_id']}, field='badge', amount=1)
+            message_requests[profile["badge"]].append(profile["deviceId"])
+
+        for badge in message_requests:
+            result = push_service.notify_multiple_devices(
+                registration_ids=message_requests[badge],
+                message_title=event['data']['title'],
+                message_body=event['data']['description'],
+                data_message={
+                    "event_id": str(event_id),
+                    "applet_id": str(applet_id),
+                    "activity_id": str(activity_id)
+                },
+                badge=int(badge) +1
+            )
+
+            print(f'Notifications with failure status - {str(result["failure"])}')
+            print(f'Notifications with success status - {str(result["success"])}')
+
+        Profile().updateProfileBadgets(profiles)
 
         # if random time we will reschedule it in time between 23:45 and 23:59
         if event['data']['notifications'][0]['random'] and now.hour == 23 and 59 >= now.minute >= 45:

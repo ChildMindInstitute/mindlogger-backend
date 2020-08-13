@@ -36,7 +36,7 @@ pillow==6.2.1
 portend==2.5
 psutil==5.6.6
 pycparser==2.19
-PyLD==1.0.5
+PyLD==2.0.2
 pymongo==3.9.0
 pyOpenSSL==19.0.0
 pyrsistent==0.15.4

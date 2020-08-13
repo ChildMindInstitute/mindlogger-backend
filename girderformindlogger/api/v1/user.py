@@ -2,17 +2,15 @@
 import base64
 import cherrypy
 import datetime
-import itertools
+
+from bson import ObjectId
 
 from ..describe import Description, autoDescribeRoute
 from girderformindlogger.api import access
 from girderformindlogger.api.rest import Resource, filtermodel, setCurrentUser
-from girderformindlogger.constants import AccessType, SortDir, TokenScope,     \
-    USER_ROLES
+from girderformindlogger.constants import AccessType, SortDir, TokenScope, USER_ROLES
 from girderformindlogger.exceptions import RestException, AccessException
 from girderformindlogger.models.applet import Applet as AppletModel
-from girderformindlogger.models.collection import Collection as CollectionModel
-from girderformindlogger.models.folder import Folder as FolderModel
 from girderformindlogger.models.group import Group as GroupModel
 from girderformindlogger.models.ID_code import IDCode
 from girderformindlogger.models.profile import Profile as ProfileModel
@@ -22,7 +20,6 @@ from girderformindlogger.models.user import User as UserModel
 from girderformindlogger.models.account_profile import AccountProfile
 from girderformindlogger.settings import SettingKey
 from girderformindlogger.utility import jsonld_expander, mail_utils
-from sys import exc_info
 
 
 class User(Resource):
@@ -51,6 +48,7 @@ class User(Resource):
         self.route('PUT', (':id', 'code'), self.updateIDCode)
         self.route('DELETE', (':id', 'code'), self.removeIDCode)
         self.route('GET', ('applets',), self.getOwnApplets)
+        self.route('GET', ('applet', ':id'), self.getOwnAppletById)
         self.route('GET', ('accounts',), self.getAccounts)
         self.route('PUT', ('switchAccount', ), self.switchAccount)
         self.route('GET', (':id', 'details'), self.getUserDetails)
@@ -587,13 +585,22 @@ class User(Resource):
             'retrieveSchedule',
             'true if retrieve schedule info in applet metadata',
             default=False,
-            required=False
+            required=False,
+            dataType='boolean'
         )
         .param(
             'retrieveAllEvents',
             'true if retrieve all events in applet metadata',
             default=False,
-            required=False
+            required=False,
+            dataType='boolean'
+        )
+        .param(
+            'getTodayEvents',
+            'true only if get today\'s event, valid only if getAllEvents is set to false',
+            required=False,
+            default=False,
+            dataType='boolean'
         )
         .errorResponse('ID was invalid.')
         .errorResponse(
@@ -608,7 +615,8 @@ class User(Resource):
         unexpanded=False,
         getAllApplets=False,
         retrieveSchedule=False,
-        retrieveAllEvents=False
+        retrieveAllEvents=False,
+        getTodayEvents=False
     ):
         from bson.objectid import ObjectId
         from girderformindlogger.utility.jsonld_expander import loadCache
@@ -619,6 +627,10 @@ class User(Resource):
             raise AccessException("please set role as coordinator or manager to get all events for applet")
 
         reviewer = self.getCurrentUser()
+
+        currentUserDate = datetime.datetime.utcnow() + datetime.timedelta(hours=int(reviewer['timezone']))
+        currentUserDate = currentUserDate.replace(hour=0, minute=0, second=0, microsecond=0)
+
         if reviewer is None:
             raise AccessException("You must be logged in to get user applets.")
         role = role.lower()
@@ -650,55 +662,12 @@ class User(Resource):
             result = []
             for applet in applets:
                 if applet.get('cached'):
-                    formatted = {
-                        **jsonld_expander.formatLdObject(
-                            applet,
-                            'applet',
-                            reviewer,
-                            refreshCache=False,
-                            responseDates=False
-                        ),
-                        "users": AppletModel().getAppletUsers(applet, reviewer),
-                        "groups": AppletModel().getAppletGroups(
-                            applet,
-                            arrayOfObjects=True
-                        )
-                    } if role in ["coordinator", "manager"] else {
-                        **jsonld_expander.formatLdObject(
-                            applet,
-                            'applet',
-                            reviewer,
-                            refreshCache=False,
-                            responseDates=(role=="user")
-                        ),
-                        "groups": [
-                            group for group in AppletModel().getAppletGroups(applet).get(
-                                role
-                            ) if ObjectId(
-                                group
-                            ) in [
-                                *reviewer.get('groups', []),
-                                *reviewer.get('formerGroups', []),
-                                *[invite['groupId'] for invite in [
-                                    *reviewer.get('groupInvites', []),
-                                    *reviewer.get('declinedInvites', [])
-                                ]]
-                            ]
-                        ]
-                    }
-
-                    try:
-                        formatted["applet"]["responseDates"] = responseDateList(
-                            applet.get('_id'),
-                            reviewer.get('_id'),
-                            reviewer
-                        )
-                    except:
-                        formatted["applet"]["responseDates"] = []
-
-                    if retrieveSchedule:
-                        formatted["applet"]["schedule"] = AppletModel().getSchedule(applet, reviewer, retrieveAllEvents)
-
+                    formatted = AppletModel().appletFormatted(applet=applet,
+                                                              reviewer=reviewer,
+                                                              role=role,
+                                                              retrieveSchedule=retrieveSchedule,
+                                                              retrieveAllEvents=retrieveAllEvents,
+                                                              eventFilter=currentUserDate if getTodayEvents else None)
                     result.append(formatted)
 
             return(result)
@@ -706,6 +675,47 @@ class User(Resource):
             import sys, traceback
             print(sys.exc_info())
             return([])
+
+    @access.public(scope=TokenScope.DATA_READ)
+    @autoDescribeRoute(
+        Description('Get your specific applet by id.')
+        .modelParam(
+            'id',
+            model=AppletModel,
+            level=AccessType.READ,
+            destName='applet'
+        )
+        .param(
+            'role',
+            'One of ' + str(USER_ROLES.keys()),
+            required=False,
+            default='user'
+        )
+        .param(
+            'retrieveSchedule',
+            'true if retrieve schedule info in applet metadata',
+            default=False,
+            required=False
+        )
+        .param(
+            'retrieveAllEvents',
+            'true if retrieve all events in applet metadata',
+            default=False,
+            required=False
+        )
+    )
+    def getOwnAppletById(self, applet, role, retrieveSchedule, retrieveAllEvents):
+        reviewer = self.getCurrentUser()
+        if reviewer is None:
+            raise AccessException("You must be logged in to get user applets.")
+
+        if applet.get('cached'):
+            return AppletModel().appletFormatted(applet=applet,
+                                                 reviewer=reviewer,
+                                                 role=role,
+                                                 retrieveSchedule=retrieveSchedule,
+                                                 retrieveAllEvents=retrieveAllEvents)
+        return applet
 
     @access.public(scope=TokenScope.DATA_READ)
     @autoDescribeRoute(
@@ -729,11 +739,13 @@ class User(Resource):
 
         response = []
         for account in accounts:
-            response.append({
-                'accountName': account['accountName'],
-                'accountId': account['accountId'],
-                'owned': (account['_id'] == account['accountId'])
-            })
+            applets = account.get('applets', {})
+            if len(applets.get('reviewer', [])) or len(applets.get('coordinator', [])) or len(applets.get('editor', [])) or len(applets.get('manager', [])):
+                response.append({
+                    'accountName': account['accountName'],
+                    'accountId': account['accountId'],
+                    'owned': (account['_id'] == account['accountId'])
+                })
 
         return response
 
@@ -1009,15 +1021,16 @@ class User(Resource):
 
         # Assign all new users to a "New Users" Group
         newUserGroup = GroupModel().findOne({'name': 'New Users'})
+        adminUser = UserModel().findOne(
+            query={'admin': True},
+            sort=[('created', SortDir.ASCENDING)]
+        )
         newUserGroup = newUserGroup if (
             newUserGroup is not None and bool(newUserGroup)
         ) else GroupModel(
         ).createGroup(
             name="New Users",
-            creator=UserModel().findOne(
-                query={'admin': True},
-                sort=[('created', SortDir.ASCENDING)]
-            ),
+            creator=adminUser if adminUser else user,
             public=False
         )
         group = GroupModel().addUser(
