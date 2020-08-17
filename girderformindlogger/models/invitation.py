@@ -296,12 +296,10 @@ class Invitation(AESEncryption):
         profile = Profile().load(profile['_id'], force=True)
         profile['roles'] = profile.get('roles', [])
 
-        new_roles = []
         # manager has get all roles by default
         for role in USER_ROLES.keys():
             if role not in profile['roles']:
                 if invited_role == 'manager' or invited_role == role or role == 'user':
-                    new_roles.append(role)
                     profile['roles'].append(role)
 
         profile['firstName'] = invitation.get('firstName', '')
@@ -312,6 +310,8 @@ class Invitation(AESEncryption):
 
         if invited_role == 'reviewer':
             Profile().updateReviewerList(profile, invitation.get('accessibleUsers'))
+        elif invited_role == 'manager':
+            Profile().updateReviewerList(profile)
 
         AccountProfile().appendApplet(AccountProfile().createAccountProfile(applet['accountId'], user['_id']), applet['_id'], profile['roles'])
 
