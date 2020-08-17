@@ -948,7 +948,7 @@ class Applet(FolderModel):
 
         return formatted
 
-    def getAppletUsers(self, applet, user=None, force=False):
+    def getAppletUsers(self, applet, user=None, force=False, retrieveRoles=False):
         """
         Function to return a list of Applet Users
 
@@ -959,8 +959,6 @@ class Applet(FolderModel):
         :returns: list of dicts
         """
         from girderformindlogger.models.invitation import Invitation
-
-        profileFields = ["_id", "coordinatorDefined", "userDefined"]
 
         try:
 
@@ -977,22 +975,20 @@ class Applet(FolderModel):
 
             profileModel = Profile()
             userDict = {
-                'active': [
-                    profileModel.displayProfileFields(
+                'active': [],
+                'pending': []
+            }
+
+            for p in list(profileModel.find(query={'appletId': applet['_id'], 'userId': {'$exists': True}, 'profile': True, 'deactivated': {'$ne': True}})):
+                    profile = profileModel.displayProfileFields(
                         p,
                         user,
                         forceManager=True
                     )
-                    for p in list(
-                        profileModel.find(
-                            query={'appletId': applet['_id'], 'userId': {'$exists': True}, 'profile': True, 'deactivated': {'$ne': True}}
-                        )
-                    )
-                ],
-                'pending': [
 
-                ]
-            }
+                    if retrieveRoles:
+                        profile['roles'] = p['roles']
+                    userDict['active'].append(profile)
 
             for p in list(Invitation().find(query={'appletId': applet['_id']})):
                 fields = ['_id', 'firstName', 'lastName', 'role', 'MRN', 'created']
