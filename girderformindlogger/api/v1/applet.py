@@ -153,8 +153,11 @@ class Applet(Resource):
         profileModel = ProfileModel()
         userProfile = profileModel.findOne({'_id': ObjectId(userId)})
 
-        if not userProfile:
+        if not userProfile or userProfile['appletId'] != applet['_id']:
             raise ValidationException('unable to find user with specified id')
+
+        if 'user' in userProfile['roles'] and len(userProfile['roles']) == 1:
+            raise AccessException('you can grant roles only to employers')
 
         profileModel.createProfile(applet, userProfile)
         userProfile = profileModel.load(userProfile['_id'], force=True)
@@ -216,7 +219,7 @@ class Applet(Resource):
 
         userProfile = ProfileModel().findOne({'_id': ObjectId(userId)})
 
-        if not userProfile:
+        if not userProfile or userProfile['appletId'] != applet['_id']:
             raise ValidationException('unable to find user with specified id')
 
         if role not in userProfile.get('roles', []):
@@ -230,6 +233,9 @@ class Applet(Resource):
             applet['_id'] not in accountProfile.get('applets', {}).get('coordinator', []):
 
             raise AccessException('You don\'t have enough permission to revoke this role from user.')
+
+        if 'user' in userProfile['roles'] and len(userProfile['roles']) == 1:
+            raise AccessException('you can revoke roles only from employers')
 
         group = self._model.getAppletGroups(applet).get(role)
         GroupModel().removeUser(GroupModel().load(
