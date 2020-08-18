@@ -412,7 +412,7 @@ class Applet(Resource):
         )
         .param(
             'retrieveRoles',
-            'True if retrieve roles for each user. only owner and managers can use this endpoint.',
+            'True if retrieve roles for each user. only owner/managers/coordinators can use this field.',
             dataType='boolean',
             required=False,
             default=False
@@ -420,7 +420,7 @@ class Applet(Resource):
     )
     def getAppletUsers(self, applet, retrieveRoles=False):
         thisUser=self.getCurrentUser()
-        if AppletModel().isManager(applet['_id'], thisUser) or (AppletModel().isCoordinator(applet['_id'], thisUser) and not retrieveRoles):
+        if AppletModel().isCoordinator(applet['_id'], thisUser):
             appletUsers = AppletModel().getAppletUsers(applet, thisUser, force=True, retrieveRoles=retrieveRoles)
             return appletUsers
         else:
