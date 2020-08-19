@@ -105,7 +105,7 @@ class Applet(Resource):
         ProfileModel().updateProfiles(thisUser, {"badge": int(badge)})
         return({"message": "Badge was successfully reseted"})
 
-    @access.user(scope=TokenScope.DATA_OWN)
+    @access.user(scope=TokenScope.DATA_READ)
     @autoDescribeRoute(
         Description('Update user list that reviewer can view.')
         .notes(
@@ -249,19 +249,39 @@ class Applet(Resource):
         .modelParam(
             'id',
             model=FolderModel,
-            level=AccessType.ADMIN,
+            level=AccessType.READ,
             destName='applet'
         )
     )
     def getAppletUsers(self, applet):
-        thisUser=self.getCurrentUser()
-        if AppletModel().isCoordinator(applet['_id'], thisUser):
-            appletUsers = AppletModel().getAppletUsers(applet, thisUser, force=True)
-            return appletUsers
-        else:
+        user = self.getCurrentUser()
+        is_reviewer = AppletModel()._hasRole(applet['_id'], user, 'reviewer')
+        is_coordinator = AppletModel().isCoordinator(applet['_id'], user)
+
+        if not (is_coordinator or is_reviewer):
             raise AccessException(
-                "Only coordinators and managers can see user lists."
+                "Only coordinators, managers and reviewers can see user lists."
             )
+
+        profile = ProfileModel().findOne({'appletId': applet['_id'],
+                                          'userId': user['_id']})
+
+        account = self.getAccountProfile()
+        is_owner = applet['_id'] in account.get('applets', {}).get('owner', [])
+
+        if (not is_owner) and is_reviewer:
+            # Only include the users this reviewer has access to.
+            users = ProfileModel().find(query={'appletId': applet['_id'],
+                                               'userId': {'$exists': True},
+                                               'profile': True,
+                                               'deactivated': {'$ne': True},
+                                               'reviewers': profile['_id']})
+            return {'active': [
+                ProfileModel().displayProfileFields(p, user, forceManager=True)
+                for p in list(users)
+            ]}
+
+        return AppletModel().getAppletUsers(applet, user, force=True)
 
     @access.user(scope=TokenScope.DATA_READ)
     @autoDescribeRoute(
@@ -1033,7 +1053,6 @@ class Applet(Resource):
             raise ValidationException(
                 'invalid email', 'email'
             )
-
         thisUser = self.getCurrentUser()
 
         appletProfile = ProfileModel().findOne({'appletId': applet['_id'], 'userId': thisUser['_id']})
