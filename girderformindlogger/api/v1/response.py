@@ -73,7 +73,7 @@ class ResponseItem(Resource):
             destName='applet',
             description='The ID of the applet'
         )
-        .param(
+        .jsonParam(
             'users',
             'List of profile IDs. If given, it only retrieves responses from the given users',
             required=False,
@@ -137,15 +137,16 @@ class ResponseItem(Resource):
         if not users:
             # Retrieve responses for the logged user.
             users = [self.getCurrentUser().get('_id', None)]
-        elif is_reviewer:
-            # Only include the users the reviewer has access to.
-            profile_ids = list(map(lambda x: ObjectId(x), users.split(',')))
+        elif is_manager:
+            # Manager or owner.
+            users = list(map(lambda x: ObjectId(x), users))
+        else:
+            # Reviewer.
+            profile_ids = list(map(lambda x: ObjectId(x), users))
             authorized_users = Profile().find({'_id': { '$in': profile_ids },
                                                'reviewers': profile['_id']})
             users = list(map(lambda profile: profile['_id'], authorized_users))
-        else:
-            # Manager or owner.
-            users = list(map(lambda x: ObjectId(x), users.split(',')))
+
 
         # If not speciied, retrieve responses for all activities.
         if not activities:
