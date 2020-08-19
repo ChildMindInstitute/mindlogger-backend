@@ -586,8 +586,7 @@ class Applet(FolderModel):
             emailMessage = "Hi, {}. <br>" \
                 "Your applet, unfortunately, was not able to be uploaded. <br>" \
                 "Please double check your applet and try again".format(
-                    user['firstName'],
-                    protocolUrl
+                    user['firstName']
                 )
             subject = 'applet upload failed!'
 
