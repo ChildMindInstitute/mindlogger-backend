@@ -61,7 +61,7 @@ class ResponseItem(Resource):
         self.route('GET', ('last7Days', ':applet'), self.getLast7Days)
         self.route('POST', (':applet', ':activity'), self.createResponseItem)
 
-    @access.public(scope=TokenScope.DATA_READ)
+    @access.user(scope=TokenScope.DATA_READ)
     @autoDescribeRoute(
         Description(
             'Get all responses for a given applet.'
@@ -75,7 +75,7 @@ class ResponseItem(Resource):
         )
         .param(
             'users',
-            'Only retrieves responses from the given users',
+            'List of profile IDs. If given, it only retrieves responses from the given users',
             required=False,
             dataType='array',
         )
@@ -115,7 +115,8 @@ class ResponseItem(Resource):
             delocalize, add_missing_dates, add_latest_daily_response)
 
         user = self.getCurrentUser()
-        profile = self.getAccountProfile()
+        profile = Profile().findOne({'appletId': applet['_id'],
+                                     'userId': user['_id']})
         is_reviewer = AppletModel()._hasRole(applet['_id'], user, 'reviewer')
         is_manager = AppletModel()._hasRole(applet['_id'], user, 'manager')
         is_owner = applet['creatorId'] == user['_id']
@@ -136,7 +137,14 @@ class ResponseItem(Resource):
         if not users:
             # Retrieve responses for the logged user.
             users = [self.getCurrentUser().get('_id', None)]
+        elif is_reviewer:
+            # Only include the users the reviewer has access to.
+            profile_ids = list(map(lambda x: ObjectId(x), users.split(',')))
+            authorized_users = Profile().find({'_id': { '$in': profile_ids },
+                                               'reviewers': profile['_id']})
+            users = list(map(lambda profile: profile['_id'], authorized_users))
         else:
+            # Manager or owner.
             users = list(map(lambda x: ObjectId(x), users.split(',')))
 
         # If not speciied, retrieve responses for all activities.
