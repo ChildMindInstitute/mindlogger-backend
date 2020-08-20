@@ -70,6 +70,9 @@ class Applet(Resource):
         self.route('POST', (':id', 'invite'), self.invite)
         self.route('POST', (':id', 'inviteUser'), self.inviteUser)
 
+        self.route('POST', (':id', 'grantRole'), self.grantRole)
+        self.route('DELETE', (':id', 'revokeRole'), self.revokeRole)
+
         self.route('PUT', (':id', 'reviewer', 'userList'), self.updateUserListForReviewer)
         self.route('GET', (':id', 'reviewer', 'userList'), self.getUserListForReviewer)
         self.route('GET', (':id', 'reviewerList'), self.getReviewerListForUser)
@@ -104,6 +107,161 @@ class Applet(Resource):
         thisUser = self.getCurrentUser()
         ProfileModel().updateProfiles(thisUser, {"badge": int(badge)})
         return({"message": "Badge was successfully reseted"})
+
+    @access.user(scope=TokenScope.DATA_OWN)
+    @autoDescribeRoute(
+        Description('Grant role to user of applet.')
+        .modelParam(
+            'id',
+            model=AppletModel,
+            level=AccessType.ADMIN,
+            destName='applet'
+        )
+        .param(
+            'userId',
+            'id of reviewer',
+            required=True,
+            default=None
+        )
+        .param(
+            'newRole',
+            'Role to grant this user. One of ' + str(set(USER_ROLE_KEYS)),
+            required=True
+        )
+        .param(
+            'users',
+            'users that reviewer can access. <br>'
+            'valid only if role param is reviewer',
+            default=[],
+            required=False
+        )
+    )
+    def grantRole(self, applet, userId, newRole, users):
+        if newRole not in USER_ROLE_KEYS:
+            raise ValidationException(
+                'Invalid role.',
+                'role'
+            )
+
+        accountProfile = self.getAccountProfile()
+        thisUser = self.getCurrentUser()
+
+        if not accountProfile or newRole != 'reviewer' and applet['_id'] not in accountProfile.get('applets', {}).get('manager', []) or \
+            applet['_id'] not in accountProfile.get('applets', {}).get('coordinator', []):
+            raise AccessException('You don\'t have enough permission to grant this role to user.')
+
+        profileModel = ProfileModel()
+        userProfile = profileModel.findOne({'_id': ObjectId(userId)})
+
+        if not userProfile or userProfile['appletId'] != applet['_id']:
+            raise ValidationException('unable to find user with specified id')
+
+        if 'user' in userProfile['roles'] and len(userProfile['roles']) == 1:
+            raise AccessException('you can grant roles only to employers')
+
+        profileModel.createProfile(applet, userProfile)
+        userProfile = profileModel.load(userProfile['_id'], force=True)
+
+        for role in USER_ROLE_KEYS:
+            if role not in userProfile['roles']:
+                if newRole == 'manager' or newRole == role:
+                    userProfile['roles'].append(newRole)
+
+        profileModel.save(userProfile, validate=False)
+
+        if newRole == 'reviewer':
+            profileModel.updateReviewerList(userProfile, users)
+        elif newRole == 'manager':
+            profileModel.updateReviewerList(userProfile)
+
+        AccountProfile().appendApplet(
+            AccountProfile().findOne({
+                'accountId': applet['accountId'],
+                'userId': userProfile['userId']
+            }), 
+            applet['_id'],
+            userProfile['roles']
+        )
+
+        return profileModel.displayProfileFields(
+            userProfile,
+            thisUser,
+            forceManager=True
+        )
+
+    @access.user(scope=TokenScope.DATA_OWN)
+    @autoDescribeRoute(
+        Description('Revoke role from user of applet.')
+        .modelParam(
+            'id',
+            model=AppletModel,
+            level=AccessType.ADMIN,
+            destName='applet'
+        )
+        .param(
+            'userId',
+            'id of reviewer',
+            required=True,
+            default=None
+        )
+        .param(
+            'role',
+            'Role to grant this user. One of ' + str(set(USER_ROLE_KEYS)),
+            required=True
+        )
+    )
+    def revokeRole(self, applet, userId, role):
+        if role not in USER_ROLE_KEYS or role == 'user':
+            raise ValidationException(
+                'Invalid role.',
+                'role'
+            )
+
+        userProfile = ProfileModel().findOne({'_id': ObjectId(userId)})
+
+        if not userProfile or userProfile['appletId'] != applet['_id']:
+            raise ValidationException('unable to find user with specified id')
+
+        if role not in userProfile.get('roles', []):
+            raise ValidationException('user does not have specified role')
+
+        accountProfile = self.getAccountProfile()
+        thisUser = self.getCurrentUser()
+
+        if not accountProfile or 'manager' in userProfile.get('roles') and applet['_id'] not in accountProfile.get('applets', {}).get('owner', []) or \
+            role != 'reviewer' and applet['_id'] not in accountProfile.get('applets', {}).get('manager', []) or \
+            applet['_id'] not in accountProfile.get('applets', {}).get('coordinator', []):
+
+            raise AccessException('You don\'t have enough permission to revoke this role from user.')
+
+        if 'user' in userProfile['roles'] and len(userProfile['roles']) == 1:
+            raise AccessException('you can revoke roles only from employers')
+
+        group = self._model.getAppletGroups(applet).get(role)
+        GroupModel().removeUser(GroupModel().load(
+            ObjectId(list(group.keys())[0]),
+            force=True
+        ), UserModel().load(userProfile['userId'], force=True))
+
+        userProfile['roles'].remove(role)
+
+        AccountProfile().removeApplet(
+            AccountProfile().findOne({
+                'accountId': applet['accountId'],
+                'userId': userProfile['userId']
+            }), 
+            applet['_id'],
+            [role]
+        )
+
+        ProfileModel().save(userProfile, validate=False)
+
+        return ProfileModel().displayProfileFields(
+            userProfile,
+            thisUser,
+            forceManager=True
+        )
+
 
     @access.user(scope=TokenScope.DATA_OWN)
     @autoDescribeRoute(
@@ -252,15 +410,22 @@ class Applet(Resource):
             level=AccessType.ADMIN,
             destName='applet'
         )
+        .param(
+            'retrieveRoles',
+            'True if retrieve roles for each user. only owner/managers/coordinators can use this field.',
+            dataType='boolean',
+            required=False,
+            default=False
+        )
     )
-    def getAppletUsers(self, applet):
+    def getAppletUsers(self, applet, retrieveRoles=False):
         thisUser=self.getCurrentUser()
         if AppletModel().isCoordinator(applet['_id'], thisUser):
-            appletUsers = AppletModel().getAppletUsers(applet, thisUser, force=True)
+            appletUsers = AppletModel().getAppletUsers(applet, thisUser, force=True, retrieveRoles=retrieveRoles)
             return appletUsers
         else:
             raise AccessException(
-                "Only coordinators and managers can see user lists."
+                "You don't have enough permission."
             )
 
     @access.user(scope=TokenScope.DATA_READ)
