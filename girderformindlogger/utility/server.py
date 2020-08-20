@@ -10,14 +10,10 @@ from girderformindlogger import constants, logprint, __version__, logStdoutStder
 from girderformindlogger.models.setting import Setting
 from girderformindlogger import plugin
 from girderformindlogger.settings import SettingKey
-from girderformindlogger.utility import config, reconnect
+from girderformindlogger.utility import config
 from girderformindlogger.constants import ServerMode
 from . import webroot
 
-from rq import Connection, Worker
-from multiprocessing import Process
-from rq_scheduler import Scheduler
-from girderformindlogger.models import getRedisConnection
 
 with open(os.path.join(os.path.dirname(__file__), 'error.mako')) as f:
     _errorTemplate = f.read()
@@ -37,16 +33,6 @@ def getApiRoot():
 
 def getStaticPublicPath():
     return config.getConfig()['server']['static_public_path']
-
-
-@reconnect(name='Worker')
-def startWorker(redis):
-    Worker(['default'], connection=redis).work(with_scheduler=True)
-
-
-@reconnect(name='Scheduler')
-def startScheduler(redis):
-    Scheduler(connection=redis, interval=5).run()
 
 
 def configureServer(mode=None, plugins=None, curConfig=None):
@@ -84,7 +70,7 @@ def configureServer(mode=None, plugins=None, curConfig=None):
         curConfig['server']['mode'] = mode
 
     logprint.info('Running in mode: ' + curConfig['server']['mode'])
-    cherrypy.config['engine.autoreload.on'] = mode in [ServerMode.DEVELOPMENT, ServerMode.PRODUCTION, None]
+    cherrypy.config['engine.autoreload.on'] = mode in [ServerMode.DEVELOPMENT]
 
     _setupCache()
 
@@ -96,24 +82,6 @@ def configureServer(mode=None, plugins=None, curConfig=None):
     api_main.addApiToNode(root)
 
     girderformindlogger.events.setupDaemon()
-
-    redis = getRedisConnection()
-    worker = Process(target=startWorker, args=(redis,))
-    scheduler = Process(target=startScheduler, args=(redis,))
-
-    def startEngine():
-        girderformindlogger.events.daemon.start()
-        worker.start()
-        scheduler.start()
-
-    def stopEngine():
-        girderformindlogger.events.daemon.stop()
-        worker.terminate()
-        scheduler.terminate()
-
-    cherrypy.engine.subscribe('start', startEngine)
-    cherrypy.engine.subscribe('stop', stopEngine)
-
 
     routeTable = loadRouteTable()
     info = {

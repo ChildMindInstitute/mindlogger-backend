@@ -29,6 +29,8 @@ def send_push_notification(applet_id, event_id, activity_id=None, send_time=None
         elif timezone < -12:
             timezone = timezone + 24
 
+        print(f'Timezone - {timezone}')
+
         query = {
             'appletId': applet_id,
             'timezone': round(timezone, 2),
@@ -75,7 +77,7 @@ def send_push_notification(applet_id, event_id, activity_id=None, send_time=None
                 profile['badge'] = profile['badge'] + 1
                 result = push_service.notify_single_device(
                     registration_id=profile['deviceId'],
-                    badge=profile.get('badge', 0),
+                    badge=int(profile.get('badge', 0)),
                     message_title=message_title,
                     message_body=message_body,
                     data_message={

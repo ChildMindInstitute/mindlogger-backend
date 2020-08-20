@@ -189,8 +189,8 @@ class Events(Model):
 
         if eventTimeout and eventTimeout.get('allow', False):
             timeout = datetime.timedelta(
-                days=eventTimeout.get('day', 0), 
-                hours=eventTimeout.get('hour', 0), 
+                days=eventTimeout.get('day', 0),
+                hours=eventTimeout.get('hour', 0),
                 minutes=eventTimeout.get('minute', 0)
             )
 
