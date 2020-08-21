@@ -608,9 +608,15 @@ class Applet(Resource):
             ]),
             required=False
         )
+        .jsonParam(
+            'encryption',
+            'encryption info',
+            paramType='form',
+            required=False
+        )
         .errorResponse('Write access was denied for this applet.', 403)
     )
-    def createApplet(self, protocolUrl=None, email='', name=None, informant=None):
+    def createApplet(self, protocolUrl=None, email='', name=None, informant=None, encryption={}):
         accountProfile = AccountProfile()
 
         thisUser = self.getCurrentUser()
@@ -636,7 +642,8 @@ class Applet(Resource):
                     'informantRelationship': informant
                 } if informant is not None else None,
                 'appletRole': appletRole,
-                'accountId': profile['accountId']
+                'accountId': profile['accountId'],
+                'encryption': encryption
             }
         )
         thread.start()
@@ -711,9 +718,15 @@ class Applet(Resource):
             ]),
             required=False
         )
+        .jsonParam(
+            'encryption',
+            'encryption info',
+            paramType='form',
+            required=False
+        )
         .errorResponse('Write access was denied for this applet.', 403)
     )
-    def createAppletFromProtocolData(self, protocol, email='', name=None, informant=None):
+    def createAppletFromProtocolData(self, protocol, email='', name=None, informant=None, encryption={}):
         accountProfile = AccountProfile()
 
         thisUser = self.getCurrentUser()
@@ -739,7 +752,8 @@ class Applet(Resource):
                     'informantRelationship': informant
                 } if informant is not None else None,
                 'appletRole': appletRole,
-                'accountId': profile['accountId']
+                'accountId': profile['accountId'],
+                'encryption': encryption
             }
         )
         thread.start()
