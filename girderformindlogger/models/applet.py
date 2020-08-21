@@ -189,7 +189,7 @@ class Applet(FolderModel):
 
     def getSchedule(self, applet, user, getAllEvents, dayFilter=None):
         if not getAllEvents:
-            schedule = EventsModel().getScheduleForUser(applet['_id'], user['_id'], self.isCoordinator(applet['_id'], user), dayFilter)
+            schedule = EventsModel().getScheduleForUser(applet['_id'], user['_id'], dayFilter)
         else:
             if not self.isCoordinator(applet['_id'], user):
                 raise AccessException(
@@ -198,29 +198,32 @@ class Applet(FolderModel):
             schedule = EventsModel().getSchedule(applet['_id'])
         return schedule
 
-    # users won't use this endpoint, so all emails are plain text
+    # users won't use this function, so all emails are plain text
     def grantAccessToApplet(self, user, applet, role, inviter):
         from girderformindlogger.models.invitation import Invitation
 
-        if Profile().findOne({'appletId': applet['_id'], 'userId': user['_id']}):
-            return
+        appletProfile = Profile().findOne({'appletId': applet['_id'], 'userId': user['_id']})
+        if not appletProfile:
+            accountId = applet.get('accountId', None)
+            if not accountId:
+                return
 
-        accountId = applet.get('accountId', None)
-        if not accountId:
-            return
+            newInvitation = Invitation().createInvitationForSpecifiedUser(
+                applet,
+                inviter,
+                role,
+                user,
+                user['firstName'],
+                user['lastName'],
+                '',
+                user['email']
+            )
 
-        newInvitation = Invitation().createInvitationForSpecifiedUser(
-            applet,
-            inviter,
-            role,
-            user,
-            user['firstName'],
-            user['lastName'],
-            user['email']
-        )
+            appletProfile = Invitation().acceptInvitation(Invitation().load(newInvitation['_id'], force=True), user, user['email'])
+            Invitation().remove(newInvitation)
 
-        Invitation().acceptInvitation(Invitation().load(newInvitation['_id'], force=True), user, user['email'])
-        Invitation().remove(newInvitation)
+        if role == 'manager':
+            Profile().updateReviewerList(Profile().load(appletProfile['_id'], force=True))
 
     def duplicateApplet(
         self,
@@ -337,6 +340,72 @@ class Applet(FolderModel):
 
         return successed
 
+    def receiveOwnerShip(self, applet, thisUser, email):
+        from girderformindlogger.utility import mail_utils
+        from girderformindlogger.models.group import Group
+        from girderformindlogger.models.response_folder import ResponseItem
+        from girderformindlogger.models.invitation import Invitation
+
+        if not mail_utils.validateEmailAddress(email):
+            raise ValidationException(
+                'Invalid email address.',
+                'email'
+            )
+
+        if thisUser.get('email_encrypted', False):
+            if UserModel().hash(email) != thisUser['email']:
+                raise ValidationException(
+                    'Invalid email address.',
+                    'email'
+                )
+            thisUser['email'] = email
+            thisUser['email_encrypted'] = False
+
+            UserModel().save(thisUser)
+
+        Invitation().removeWithQuery({
+            'appletId': applet['_id']
+        })
+
+        accountId = thisUser['accountId']
+
+        appletUsers = list(Profile().find({'appletId': applet['_id']}))
+
+        appletGroups=self.getAppletGroups(applet)
+        groups = []
+        for role in list(USER_ROLES.keys()):
+            group = appletGroups.get(role)
+            if bool(group):
+                groups.append(Group().load(
+                    ObjectId(list(group.keys())[0]),
+                    force=True
+                ))
+
+        for user in appletUsers:
+            appletUser = UserModel().load(user['userId'], force=True)
+            for group in groups:
+                Group().removeUser(group, appletUser)
+
+            Profile().remove(user)
+
+        ResponseItem().removeWithQuery(
+            query={
+                "baseParentType": 'user',
+                "meta.applet.@id": applet['_id']
+            }
+        )
+
+        accountProfiles = list(AccountProfile().find({'accountId': applet['accountId'], 'applets.user': applet['_id'] }))
+
+        for accountProfile in accountProfiles:
+            AccountProfile().removeApplet(accountProfile, applet['_id'])
+
+        applet['accountId'] = accountId
+        self.save(applet)
+        self.grantAccessToApplet(thisUser, applet, 'manager', thisUser)
+
+        return Profile().displayProfileFields(Profile().updateOwnerProfile(applet), thisUser, forceManager=True)
+
     def validateAppletName(self, appletName, appletsCollection, accountId = None):
         name = appletName
         found = False
@@ -374,53 +443,82 @@ class Applet(FolderModel):
         from girderformindlogger.models.protocol import Protocol
         from girderformindlogger.utility import mail_utils
 
-        # we have cases to show manager's email to users
-        if mail_utils.validateEmailAddress(email):
-            user['email'] = email
-            user['email_encrypted'] = False
-            UserModel().save(user)
+        subject = 'applet upload success!'
+        try:
+            # we have cases to show manager's email to users
+            if mail_utils.validateEmailAddress(email) and \
+                'email' in user and (user['email'] == email and not user['email_encrypted'] or user['email'] == UserModel().hash(email) and user['email_encrypted']):
 
-        # get a protocol from a URL
-        protocol = Protocol().getFromUrl(
-            protocolUrl,
-            'protocol',
-            user,
-            thread=False,
-            refreshCache=True
-        )
+                user['email'] = email
+                user['email_encrypted'] = False
+                UserModel().save(user)
+            else:
+                raise ValidationException('email is not valid')
+            # get a protocol from a URL
+            protocol = Protocol().getFromUrl(
+                protocolUrl,
+                'protocol',
+                user,
+                thread=False,
+                refreshCache=True
+            )
 
-        protocol = protocol[0].get('protocol', protocol[0])
+            protocol = protocol[0].get('protocol', protocol[0])
 
-        displayName = Protocol(
-        ).preferredName(
-            protocol
-        )
+            displayName = Protocol(
+            ).preferredName(
+                protocol
+            )
 
-        name = name if name is not None and len(name) else displayName
+            name = name if name is not None and len(name) else displayName
 
-        appletName = '{}/'.format(protocolUrl)
+            appletName = '{}/'.format(protocolUrl)
 
-        applet = self.createApplet(
-            name=name,
-            protocol={
-                '_id': 'protocol/{}'.format(
-                    str(protocol.get('_id')).split('/')[-1]
-                ),
-                'url': protocol.get(
-                    'meta',
-                    {}
-                ).get(
-                    'protocol',
-                    {}
-                ).get('url', protocolUrl)
-            },
-            user=user,
-            roles=roles,
-            constraints=constraints,
-            appletName=appletName,
-            appletRole=appletRole,
-            accountId=accountId
-        )
+            applet = self.createApplet(
+                name=name,
+                protocol={
+                    '_id': 'protocol/{}'.format(
+                        str(protocol.get('_id')).split('/')[-1]
+                    ),
+                    'url': protocol.get(
+                        'meta',
+                        {}
+                    ).get(
+                        'protocol',
+                        {}
+                    ).get('url', protocolUrl)
+                },
+                user=user,
+                roles=roles,
+                constraints=constraints,
+                appletName=appletName,
+                appletRole=appletRole,
+                accountId=accountId
+            )
+
+            emailMessage = "Hi {}.  <br>" \
+                "Your applet {} was successfully uploaded! <br>" \
+                "It is ready to have invitations sent out and schedule created.".format(
+                    user['firstName'],
+                    name
+                )
+
+        except Exception as e:
+            emailMessage = "Hi, {}. <br>" \
+                "Your applet ({}), unfortunately, was not able to be uploaded. <br>" \
+                "Please double check your applet and try again".format(
+                    user['firstName'],
+                    protocolUrl
+                )
+            subject = 'applet upload failed!'
+
+        if 'email' in user and not user.get('email_encrypted', True):
+            from girderformindlogger.utility.mail_utils import sendMail
+            sendMail(
+                subject=subject,
+                text=emailMessage,
+                to=[user['email']]
+            )
 
     def createAppletFromProtocolData(
         self,
@@ -437,43 +535,68 @@ class Applet(FolderModel):
         from girderformindlogger.models.protocol import Protocol
         from girderformindlogger.utility import mail_utils
 
-        # we have cases to show manager's email to users
-        if mail_utils.validateEmailAddress(email):
-            user['email'] = email
-            user['email_encrypted'] = False
-            UserModel().save(user)
+        subject = 'applet upload success!'
+        try:
+            # we have cases to show manager's email to users
+            if mail_utils.validateEmailAddress(email) and \
+                'email' in user and (user['email'] == email and not user['email_encrypted'] or user['email'] == UserModel().hash(email) and user['email_encrypted']):
+                user['email'] = email
+                user['email_encrypted'] = False
+                UserModel().save(user)
 
-        # get a protocol from single json file
-        protocol = Protocol().createProtocol(
-            protocol,
-            user
-        )
+            # get a protocol from single json file
+            protocol = Protocol().createProtocol(
+                protocol,
+                user
+            )
 
-        protocol = protocol.get('protocol', protocol)
+            protocol = protocol.get('protocol', protocol)
 
-        displayName = Protocol(
-        ).preferredName(
-            protocol
-        )
+            displayName = Protocol(
+            ).preferredName(
+                protocol
+            )
 
-        name = name if name is not None and len(name) else displayName
+            name = name if name is not None and len(name) else displayName
 
-        appletName = '{}/'.format(protocol.get('@id'))
+            appletName = '{}/'.format(protocol.get('@id'))
 
-        applet = self.createApplet(
-            name=name,
-            protocol={
-                '_id': 'protocol/{}'.format(
-                    str(protocol.get('_id')).split('/')[-1]
+            applet = self.createApplet(
+                name=name,
+                protocol={
+                    '_id': 'protocol/{}'.format(
+                        str(protocol.get('_id')).split('/')[-1]
+                    )
+                },
+                user=user,
+                roles=roles,
+                constraints=constraints,
+                appletName=appletName,
+                appletRole=appletRole,
+                accountId=accountId
+            )
+            emailMessage = "Hi {}.  <br>" \
+                "Your applet {} was successfully uploaded! <br>" \
+                "It is ready to have invitations sent out and schedule created.".format(
+                    user['firstName'],
+                    name
                 )
-            },
-            user=user,
-            roles=roles,
-            constraints=constraints,
-            appletName=appletName,
-            appletRole=appletRole,
-            accountId=accountId
-        )
+
+        except Exception as e:
+            emailMessage = "Hi, {}. <br>" \
+                "Your applet, unfortunately, was not able to be uploaded. <br>" \
+                "Please double check your applet and try again".format(
+                    user['firstName']
+                )
+            subject = 'applet upload failed!'
+
+        if 'email' in user and not user.get('email_encrypted', True):
+            from girderformindlogger.utility.mail_utils import sendMail
+            sendMail(
+                subject=subject,
+                text=emailMessage,
+                to=[user['email']]
+            )
 
     def updateAppletFromProtocolData(
         self,
@@ -850,7 +973,7 @@ class Applet(FolderModel):
 
         return formatted
 
-    def getAppletUsers(self, applet, user=None, force=False):
+    def getAppletUsers(self, applet, user=None, force=False, retrieveRoles=False):
         """
         Function to return a list of Applet Users
 
@@ -861,8 +984,6 @@ class Applet(FolderModel):
         :returns: list of dicts
         """
         from girderformindlogger.models.invitation import Invitation
-
-        profileFields = ["_id", "coordinatorDefined", "userDefined"]
 
         try:
 
@@ -879,28 +1000,27 @@ class Applet(FolderModel):
 
             profileModel = Profile()
             userDict = {
-                'active': [
-                    profileModel.displayProfileFields(
+                'active': [],
+                'pending': []
+            }
+
+            for p in list(profileModel.find(query={'appletId': applet['_id'], 'userId': {'$exists': True}, 'profile': True, 'deactivated': {'$ne': True}})):
+                    profile = profileModel.displayProfileFields(
                         p,
                         user,
                         forceManager=True
                     )
-                    for p in list(
-                        profileModel.find(
-                            query={'appletId': applet['_id'], 'userId': {'$exists': True}, 'profile': True, 'deactivated': {'$ne': True}}
-                        )
-                    )
-                ],
-                'pending': [
 
-                ]
-            }
+                    if retrieveRoles:
+                        profile['roles'] = p['roles']
+                    userDict['active'].append(profile)
 
             for p in list(Invitation().find(query={'appletId': applet['_id']})):
                 fields = ['_id', 'firstName', 'lastName', 'role', 'MRN', 'created']
-                userDict['pending'].append({
-                    key: p[key] for key in fields if p.get(key, None)
-                })
+                if p['role'] != 'owner':
+                    userDict['pending'].append({
+                        key: p[key] for key in fields if p.get(key, None)
+                    })
 
 
             missing = threading.Thread(
