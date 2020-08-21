@@ -113,6 +113,7 @@ class PushNotification(Scheduler):
         self.__set_cron()
 
     def __set_job(self, first_launch=datetime.utcnow(), repeat=None):
+        print(f'Repeat time - {repeat}')
         if repeat == 0:
             return
 
@@ -207,3 +208,4 @@ class PushNotification(Scheduler):
             self.cancel(job)
 
         self.event['schedulers'] = []
+        self.event['sendTime'] = []

@@ -178,7 +178,7 @@ class Applet(Resource):
             AccountProfile().findOne({
                 'accountId': applet['accountId'],
                 'userId': userProfile['userId']
-            }), 
+            }),
             applet['_id'],
             userProfile['roles']
         )
@@ -249,7 +249,7 @@ class Applet(Resource):
             AccountProfile().findOne({
                 'accountId': applet['accountId'],
                 'userId': userProfile['userId']
-            }), 
+            }),
             applet['_id'],
             [role]
         )
