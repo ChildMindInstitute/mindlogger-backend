@@ -641,7 +641,7 @@ class Applet(Resource):
         )
         thread.start()
         return({
-            "message": "The applet is being created. We'll send you email when applet is created or failed. "
+            "message": "The applet is building. We will send you an email in 10 mins or less when it has been successfully created or failed."
         })
 
     @access.user(scope=TokenScope.DATA_WRITE)
@@ -744,8 +744,7 @@ class Applet(Resource):
         )
         thread.start()
         return({
-            "message": "The applet is being created. Please check back in "
-                       "several seconds to see it."
+            "message": "The applet is building. We will send you an email in 10 mins or less when it has been successfully created or failed."
         })
 
 
