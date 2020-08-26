@@ -150,10 +150,11 @@ class Events(Model):
         return events
 
     def setSchedule(self, event):
+        push_notification = PushNotificationModel(event=event)
+        push_notification.remove_schedules()
         if 'data' in event and 'useNotifications' in event['data'] and event['data'][
             'useNotifications']:
             if 'notifications' in event['data'] and event['data']['notifications'][0]['start']:
-                push_notification = PushNotificationModel(event=event)
                 push_notification.set_schedules()
 
     def getSchedule(self, applet_id):
