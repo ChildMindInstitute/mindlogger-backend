@@ -550,21 +550,21 @@ def add_latest_daily_response(data, responses):
 
         visited_dates.append(response['updated'])
 
-        for activity in response['meta']['responses']:
+        for item in response['meta']['responses']:
             date_not_found = True
 
-            if activity not in data:
-                data[activity] = []
+            if item not in data:
+                data[item] = []
 
-            for current in data[activity]:
-                if current['date'] == response['updated']:
-                    current['value'].extend(response['meta']['responses'][activity])
+            for current_response in data[item]:
+                if current_response['date'] == response['updated']:
+                    current_response['value'].extend(response['meta']['responses'][item])
                     date_not_found = False
                     break
 
             if date_not_found:
-                data[activity].append({"date": response['updated'],
-                                       "value": response['meta']['responses'][activity]})
+                data[item].append({"date": response['updated'],
+                                       "value": response['meta']['responses'][item]})
 
 
 def _oneResponsePerDate(responses):
