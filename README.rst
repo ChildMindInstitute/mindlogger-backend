@@ -20,6 +20,7 @@ Requirements
 - Python >= 3.5
   - CherryPy <=11.0.0
 - Node >= 8.0
+- Redis
 
 Installation
 ------------

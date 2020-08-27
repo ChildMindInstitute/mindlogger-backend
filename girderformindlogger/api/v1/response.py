@@ -20,6 +20,8 @@
 import itertools
 import tzlocal
 import pytz
+from datetime import date, datetime, timedelta
+from bson.objectid import ObjectId
 
 from ..describe import Description, autoDescribeRoute
 from ..rest import Resource, filtermodel, setResponseHeader, \
@@ -55,8 +57,119 @@ class ResponseItem(Resource):
         self.resourceName = 'response'
         self._model = ResponseItemModel()
         self.route('GET', (), self.getResponses)
+        self.route('GET', (':applet',), self.getResponsesForApplet)
         self.route('GET', ('last7Days', ':applet'), self.getLast7Days)
         self.route('POST', (':applet', ':activity'), self.createResponseItem)
+
+    @access.user(scope=TokenScope.DATA_READ)
+    @autoDescribeRoute(
+        Description(
+            'Get all responses for a given applet.'
+        )
+        .modelParam(
+            'applet',
+            model=AppletModel,
+            level=AccessType.READ,
+            destName='applet',
+            description='The ID of the applet'
+        )
+        .jsonParam(
+            'users',
+            'List of profile IDs. If given, it only retrieves responses from the given users',
+            required=False,
+            dataType='array',
+        )
+        .param(
+            'activities',
+            'Only retrieves responses for the given activities',
+            required=False
+        )
+        .param(
+            'fromDate',
+            'Date for the oldest entry to retrieve',
+            required=False,
+            dataType='dateTime',
+        )
+        .param(
+            'toDate',
+            'Date for the newest entry to retrieve',
+            required=False,
+            dataType='dateTime',
+        )
+        .errorResponse('ID was invalid.')
+        .errorResponse(
+            'Read access was denied for this applet for this user.',
+            403
+        )
+    )
+    def getResponsesForApplet(
+        self,
+        applet=None,
+        users=[],
+        activities=[],
+        fromDate=None,
+        toDate=None,
+    ):
+        from girderformindlogger.models.profile import Profile
+        from girderformindlogger.utility.response import (
+            delocalize, add_missing_dates, add_latest_daily_response)
+
+        user = self.getCurrentUser()
+        profile = Profile().findOne({'appletId': applet['_id'],
+                                     'userId': user['_id']})
+        is_reviewer = AppletModel()._hasRole(applet['_id'], user, 'reviewer')
+        is_manager = AppletModel()._hasRole(applet['_id'], user, 'manager')
+        is_owner = applet['creatorId'] == user['_id']
+
+        assert is_reviewer or is_manager or is_owner,  'you don\'t have access to the requested resource'
+
+        if toDate is None:
+            # Default toTime is today.
+            toDate = delocalize(datetime.now(tzlocal.get_localzone()))
+        else:
+            # Make sure the last day is included.
+            toDate = toDate + timedelta(days=1)
+
+        if fromDate is None:
+            # Default fromTime is one month ago.
+            fromDate = delocalize(toDate - timedelta(days=30))
+
+        if not users:
+            # Retrieve responses for the logged user.
+            users = [self.getCurrentUser().get('_id', None)]
+        elif is_manager:
+            # Manager or owner.
+            users = list(map(lambda x: ObjectId(x), users))
+        else:
+            # Reviewer.
+            profile_ids = list(map(lambda x: ObjectId(x), users))
+            authorized_users = Profile().find({'_id': { '$in': profile_ids },
+                                               'reviewers': profile['_id']})
+            users = list(map(lambda profile: profile['_id'], authorized_users))
+
+
+        # If not speciied, retrieve responses for all activities.
+        if not activities:
+            activities = applet['meta']['protocol']['activities']
+        else:
+            activities = list(map(lambda s: ObjectId(s), activities))
+
+        data = dict();
+
+        # Get the responses for each users and generate the group responses data.
+        for user in users:
+            responses = ResponseItemModel().find(
+                query={"updated": { "$lte": toDate, "$gt": fromDate },
+                       "meta.applet.@id": ObjectId(applet['_id']),
+                       "meta.activity.@id": { "$in": activities },
+                       "meta.subject.@id": user},
+                force=True,
+                sort=[("updated", DESCENDING)])
+
+            add_latest_daily_response(data, responses)
+        add_missing_dates(data, fromDate, toDate)
+
+        return data
 
     """
     TODO 🚧:

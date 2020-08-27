@@ -24,7 +24,7 @@ def getSchedule(currentUser, timezone=None):
 
     accounts = AccountProfile().getAccounts(currentUser['_id'])
     applets = []
-   
+
     for account in accounts:
         for applet in account.get('applets', {}).get('user', []):
             applets.append(applet)
@@ -527,6 +527,49 @@ def responseDateList(appletId, userId, reviewer):
     ]))
     rdl.sort(reverse=True)
     return(rdl)
+
+
+def add_missing_dates(response_data, from_date, to_date):
+    for activity in response_data:
+        for n in range(int((to_date - from_date).days)):
+            current_date = (to_date - timedelta(days=n)).date()
+
+            # If the date entry is not found, create it.
+            if not any([r['date'] == current_date for r in response_data[activity]]):
+                response_data[activity].append({"date": current_date, "value": []})
+
+
+def add_latest_daily_response(data, responses):
+    visited_dates = {}
+
+    for response in responses:
+        activity_id = str(response['meta']['activity']['@id'])
+        response['updated'] = response['updated'].date()  # Ignore the time.
+
+        if activity_id not in visited_dates:
+            # First time we process an item from this activity.
+            visited_dates[activity_id] = []
+        elif response['updated'] in visited_dates[activity_id]:
+            # There is a response for this date and activity already.
+            continue
+
+        visited_dates[activity_id].append(response['updated'])
+
+        for item in response['meta']['responses']:
+            date_not_found = True
+
+            if item not in data:
+                data[item] = []
+
+            for current_response in data[item]:
+                if current_response['date'] == response['updated']:
+                    current_response['value'].extend(response['meta']['responses'][item])
+                    date_not_found = False
+                    break
+
+            if date_not_found:
+                data[item].append({"date": response['updated'],
+                                       "value": response['meta']['responses'][item]})
 
 
 def _oneResponsePerDate(responses):
