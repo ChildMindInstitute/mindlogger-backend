@@ -550,7 +550,7 @@ class Applet(FolderModel):
             refreshCache=True
         )
 
-    def getResponseData(self, appletId, reviewer, filter={}):
+    def getResponseData(self, appletId, reviewer, users):
         """
         Function to collect response data available to given reviewer.
 
@@ -558,8 +558,6 @@ class Applet(FolderModel):
         :type appletId: ObjectId or str
         :param reviewer: Reviewer making request
         :type reviewer: dict
-        :param filter: reduction criteria (not yet implemented)
-        :type filter: dict
         :reutrns: TBD
         """
         from girderformindlogger.models.ID_code import IDCode
@@ -567,12 +565,25 @@ class Applet(FolderModel):
         from girderformindlogger.models.user import User
         from pymongo import DESCENDING
 
-        if not self._hasRole(appletId, reviewer, 'reviewer'):
-            raise AccessException("You are not a reviewer for this applet.")
+        if not self._hasRole(appletId, reviewer, 'owner') or not self.isManager(appletId, reviewer):
+            raise AccessException("You are not a owner or manager for this applet.")
+
         query = {
             "baseParentType": "user",
             "meta.applet.@id": ObjectId(appletId)
         }
+
+        if len(users):
+            profiles = list(Profile().find(query={
+                "_id": {
+                    "$in": [ObjectId(user) for user in users]
+                },
+                "profile": True
+            }, fields=["userId"]))
+            query["creatorId"] = {
+                "$in": [profile['userId'] for profile in profiles]
+            }
+
         responses = list(ResponseItem().find(
             query=query,
             user=reviewer,
