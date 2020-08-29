@@ -539,6 +539,13 @@ class ResponseItem(Resource):
                 metadata['responses'][key] = "file::{}".format(newUpload['_id'])
 
             if metadata:
+                if metadata.get('dataSource', None):
+                    for item in metadata.get('responses', {}):
+                        metadata['responses'][item] = {
+                            'src': newItem['_id'],
+                            'ptr': metadata['responses'][item]
+                        }
+
                 newItem = self._model.setMetadata(newItem, metadata)
 
             print(metadata)
