@@ -15,6 +15,8 @@ from girderformindlogger.models.account_profile import AccountProfile
 from girderformindlogger.utility import clean_empty
 from pandas.api.types import is_numeric_dtype
 from pymongo import ASCENDING, DESCENDING
+from bson import json_util
+
 MonkeyPatch.patch_fromisoformat()
 
 def getSchedule(currentUser, timezone=None):
@@ -188,6 +190,12 @@ def aggregate(metadata, informant, startDate=None, endDate=None, getAll=False):
             ] for itemIRI in responseIRIs
         } if getAll else countResponseValues(definedRange, responseIRIs)
     }
+
+    aggregated['dataSources'] = {}
+    for response in definedRange:
+        if 'dataSource' in response.get('meta', {}):
+            aggregated['dataSources'][str(response['_id'])] = response['meta']['dataSource']
+
     return(aggregated)
 
 
@@ -397,7 +405,6 @@ def last7Days(
     subject=None,
     referenceDate=None
 ):
-    from bson import json_util
     from girderformindlogger.models.profile import Profile
 
     if referenceDate is None:
@@ -448,6 +455,7 @@ def last7Days(
 
     outputResponses = {}
 
+    dataSources = {}
     for resp in latestResponses:
         if len(resp):
             latest = resp[0]
@@ -455,6 +463,7 @@ def last7Days(
             # the last 7 days for the most recent entry for the activity
             l7 = latest.get('meta', {}).get('last7Days', {}).get('responses', {})
 
+            dataSources.update(latest.get('meta', {}).get('last7Days', {}).get('dataSources', {}))
             # the current response for the most recent entry for the activity
             currentResp = latest.get('meta', {}).get('responses', {})
 
@@ -469,6 +478,8 @@ def last7Days(
 
     l7d = {}
     l7d["responses"] = _oneResponsePerDate(outputResponses)
+    l7d['dataSources'] = dataSources
+
     endDate = referenceDate.date()
     l7d["schema:endDate"] = endDate.isoformat()
     startDate = endDate - timedelta(days=7)
@@ -530,17 +541,19 @@ def responseDateList(appletId, userId, reviewer):
 
 
 def add_missing_dates(response_data, from_date, to_date):
-    for activity in response_data:
+    for activity in response_data['responses']:
         for n in range(int((to_date - from_date).days)):
             current_date = (to_date - timedelta(days=n)).date()
 
             # If the date entry is not found, create it.
-            if not any([r['date'] == current_date for r in response_data[activity]]):
-                response_data[activity].append({"date": current_date, "value": []})
+            if not any([r['date'] == current_date for r in response_data['responses'][activity]]):
+                response_data['responses'][activity].append({"date": current_date, "value": []})
 
 
 def add_latest_daily_response(data, responses):
     visited_dates = {}
+
+    user_keys = {}
 
     for response in responses:
         activity_id = str(response['meta']['activity']['@id'])
@@ -558,19 +571,30 @@ def add_latest_daily_response(data, responses):
         for item in response['meta']['responses']:
             date_not_found = True
 
-            if item not in data:
-                data[item] = []
+            if item not in data['responses']:
+                data['responses'][item] = []
 
-            for current_response in data[item]:
+            for current_response in data['responses'][item]:
                 if current_response['date'] == response['updated']:
                     current_response['value'].extend(response['meta']['responses'][item])
                     date_not_found = False
                     break
 
             if date_not_found:
-                data[item].append({"date": response['updated'],
+                data['responses'][item].append({"date": response['updated'],
                                        "value": response['meta']['responses'][item]})
 
+                if str(response['_id']) not in data['dataSources'] and 'dataSource' in response['meta']:
+                    key_dump = json_util.dumps(response['meta']['userPublicKey'])
+
+                    if key_dump not in user_keys:
+                        user_keys[key_dump] = len(data['keys'])
+                        data['keys'].append(response['meta']['userPublicKey'])
+
+                    data['dataSources'][str(response['_id'])] = {
+                        'key': user_keys[key_dump],
+                        'data': response['meta']['dataSource']
+                    }
 
 def _oneResponsePerDate(responses):
     newResponses = {}
