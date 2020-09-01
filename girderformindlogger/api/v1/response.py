@@ -591,5 +591,59 @@ class ResponseItem(Resource):
             print(traceback.print_tb(sys.exc_info()[2]))
             return(str(traceback.print_tb(sys.exc_info()[2])))
 
+    @access.user(scope=TokenScope.DATA_WRITE)
+    @autoDescribeRoute(
+        Description('update user response items.')
+        .notes(
+            'This endpoint is used when user wants to update previous responses.'
+        )
+        .modelParam(
+            'applet',
+            model=AppletModel,
+            level=AccessType.READ,
+            destName='applet',
+            description='The ID of the Applet this response is to.'
+        )
+        .jsonParam('responses',
+                   'A JSON object containing the new response data and public key.',
+                   paramType='form', requireObject=True, required=True)
+        .errorResponse()
+        .errorResponse('Write access was denied on the parent folder.', 403)
+    )
+    def updateReponseItems(self, applet, responses):
+        from girderformindlogger.models.profile import Profile
+
+        user = self.getCurrentUser()
+        profile = Profile().findOne({
+            'appletId': applet['_id'],
+            'userId': user['_id']
+        })
+
+        is_manager = 'manager' in profile.get('roles', [])
+
+        now = datetime.utcnow()
+
+        for responseId in responses['dataSources']:
+            query = {
+                "meta.applet.@id": applet['_id'], 
+                "_id": ObjectId(responseId)
+            }
+            if not is_manager:
+                query["meta.subject.@id"] = profile['_id']
+
+            ResponseItemModel().update(
+                query,
+                {
+                    '$set': {
+                        'meta.dataSource': responses['dataSources'][responseId],
+                        'meta.userPublicKey': responses['userPublicKey'],
+                        'updated': now
+                    }
+                }, 
+                multi=False
+            )
+        return ({
+            "message": "responses are updated successfully."
+        })
 def save():
     return(lambda x: x)
