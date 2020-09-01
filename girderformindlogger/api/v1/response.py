@@ -56,10 +56,10 @@ class ResponseItem(Resource):
         super(ResponseItem, self).__init__()
         self.resourceName = 'response'
         self._model = ResponseItemModel()
-        self.route('GET', (), self.getResponses)
         self.route('GET', (':applet',), self.getResponsesForApplet)
         self.route('GET', ('last7Days', ':applet'), self.getLast7Days)
         self.route('POST', (':applet', ':activity'), self.createResponseItem)
+        self.route('PUT', (':applet',), self.updateReponseItems)
 
     @access.user(scope=TokenScope.DATA_READ)
     @autoDescribeRoute(
@@ -163,207 +163,17 @@ class ResponseItem(Resource):
         # Get the responses for each users and generate the group responses data.
         for user in users:
             responses = ResponseItemModel().find(
-                query={"updated": { "$lte": toDate, "$gt": fromDate },
+                query={"created": { "$lte": toDate, "$gt": fromDate },
                        "meta.applet.@id": ObjectId(applet['_id']),
                        "meta.activity.@id": { "$in": activities },
                        "meta.subject.@id": user},
                 force=True,
-                sort=[("updated", DESCENDING)])
+                sort=[("created", DESCENDING)])
 
             add_latest_daily_response(data, responses)
         add_missing_dates(data, fromDate, toDate)
 
         return data
-
-    """
-    TODO 🚧:
-        '…, applet, and/or activity. '
-        'Parameters act as cumulative filters, so mutually '
-        'exclusive combinations will return an empty Array; called without '
-        'any parameters returns all responses to which the logged-in user '
-        'has access.'
-        .param(
-            'subject',
-            'The ID (canonical or applet-specific) of the subject about whom '
-            'to get responses or an Array thereof.',
-            required=False
-        )
-        .param(
-            'activity',
-            'The ID of the activity for which to get responses or an Array '
-            'thereof.',
-            required=False
-        )
-        .param(
-            'screen',
-            'The ID of the screen for which to get responses or an Array '
-            'thereof.',
-            required=False
-        )
-    """
-    @access.public(scope=TokenScope.DATA_READ)
-    @autoDescribeRoute(
-        Description(
-            'Get all responses for a given user.'
-        )
-        .param(
-            'informant',
-            'The ID (canonical or applet-specific) of the informant for whom '
-            'to get responses or an Array thereof.',
-            required=False
-        )
-        .param(
-            'applet',
-            'The ID of the applet for which to get responses or an Array '
-            'thereof.',
-            required=False
-        )
-        .errorResponse('ID was invalid.')
-        .errorResponse(
-            'Read access was denied for this applet for this user.',
-            403
-        )
-    )
-    def getResponses(
-        self,
-        informant=[],
-        subject=[],
-        applet=[],
-        # activity=[],
-        # screen=[]
-    ):
-        assert applet,  'you need to specify an applet'
-
-        # grab the current user
-        reviewer = self.getCurrentUser()
-
-        # check that they are a reviewer for the applet.
-
-        # get the applet information
-        appletInfo = AppletModel().findOne({'_id': ObjectId(applet)})
-
-        # TODO: for now, an applet only has one group
-        reviewerGroupOfApplet = appletInfo['roles']['reviewer']['groups']
-
-        assert len(reviewerGroupOfApplet) == 1, 'there should be only 1 group for an applet, for now.'
-        reviewerGroupOfApplet = reviewerGroupOfApplet[0]['id']
-
-
-        # check that the current user's userId is in the list of reveiwersOfApplet
-        isAReviewer = list(filter(lambda x: x == reviewerGroupOfApplet, reviewer['groups']))
-
-        # TODO: for now, if the user is not a reviewer, then fail.
-        assert len(isAReviewer) == 1, 'the current user is not a reviewer'
-
-
-        # Build a query to get all the data.
-        # TODO: enable the query to filter by subjects, informants, and activities.
-
-        props = {
-            # "informant": [
-            #     list(itertools.chain.from_iterable(
-            #         [string_or_ObjectID(s) for s in listFromString(informant)]
-            #     )),
-            #     "baseParentId"
-            # ],
-            # "subject": [
-            #     list(itertools.chain.from_iterable(
-            #         [string_or_ObjectID(s) for s in listFromString(subject)]
-            #     )),
-            #     "meta.subject.@id"
-            # ],
-            "applet": [
-                list(itertools.chain.from_iterable(
-                    [string_or_ObjectID(s) for s in listFromString(applet)]
-                )),
-                "meta.applet.@id"
-            ],
-            # "activity": [
-            # list(itertools.chain.from_iterable(
-            #         [string_or_ObjectID(s) for s in listFromString(activity)]
-            #     )),
-            #     "meta.activity.@id"
-            # ] # TODO: Add screen
-        }
-
-        # if not(len(props["informant"][0])):
-        #     props["informant"][0] = [reviewer.get('_id')] # TODO: allow getting all available
-
-        q = {
-            props[prop][1]: {
-                "$in": props[prop][0]
-            } for prop in props if len(
-                props[prop][0]
-            )
-        }
-
-        allResponses = list(ResponseItemModel().find(
-            query=q,
-            user=reviewer,
-            sort=[("created", DESCENDING)]
-        ))
-
-        # TODO: for now, an applet only has one group
-        # get the manager group and make sure there is just 1:
-        managerGroupOfApplet = appletInfo['roles']['manager']['groups']
-        assert len(managerGroupOfApplet) == 1, 'there should be only 1 group '
-        'for an applet, for now.'
-        managerGroupOfApplet = managerGroupOfApplet[0]['id']
-
-        # check to see if the current user is a manager too.
-        isAManager = len(list(filter(
-            lambda x: x == managerGroupOfApplet,
-            reviewer['groups']
-        )))
-
-        # Format the output response.
-        # else, get the userCipher and use that for the userId.
-        outputResponse = []
-        for response in allResponses:
-            userId = response['baseParentId']
-
-            # encode the userId below:
-            # TODO: create a user cipher, which is the hash of
-            # an appletid concatenated with the user id
-            appletIdUserId = applet + str(userId)
-            # hash it:
-            hash_object = hashlib.md5(appletIdUserId.encode())
-            encodedId = hash_object.hexdigest()
-
-            # format the response and add the userId
-            formattedResponse = formatResponse(response)['thisResponse']
-            formattedResponse['userId'] = encodedId
-            outputResponse.append(formattedResponse)
-
-        # lets format the output response in tidy format.
-        # a list of objects, with columns:
-        # ['itemURI', 'value', 'userId', 'schema:startDate', 'schema:endDate']
-
-        formattedOutputResponse = []
-
-        for response in outputResponse:
-            tmp = {
-                'schema:startDate': response['schema:startDate'],
-                'schema:endDate': response['schema:endDate'],
-                'userId': response['userId'],
-            }
-            for key, value in response['responses'].items():
-                tmp['itemURI'] = key
-                tmp['value'] = value
-                formattedOutputResponse.append(tmp)
-
-        return formattedOutputResponse
-
-        # responseArray = [
-        #     formatResponse(response) for response in allResponses
-        # ]
-        # return([
-        #     response for response in responseArray if response not in [
-        #         {},
-        #         None
-        #     ]
-        # ])
-
 
     @access.public(scope=TokenScope.DATA_READ)
     @autoDescribeRoute(
@@ -457,7 +267,6 @@ class ResponseItem(Resource):
     ):
         from girderformindlogger.models.profile import Profile
         try:
-            from girderformindlogger.utility.response import aggregateAndSave
             # TODO: pending
             metadata['applet'] = {
                 "@id": applet.get('_id'),
@@ -552,15 +361,7 @@ class ResponseItem(Resource):
 
                 newItem = self._model.setMetadata(newItem, metadata)
 
-            print(metadata)
             if not pending:
-                # create a Thread to calculate and save aggregates
-
-                # TODO: probably uncomment this as we scale.
-                # idea: thread all time, but synchronously do last7 days
-                # agg = threading.Thread(target=aggregateAndSave, args=(newItem, informant))
-                # agg.start()
-                aggregateAndSave(newItem, informant)
                 newItem['readOnly'] = True
             print(newItem)
 
@@ -645,5 +446,6 @@ class ResponseItem(Resource):
         return ({
             "message": "responses are updated successfully."
         })
+
 def save():
     return(lambda x: x)

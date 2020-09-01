@@ -40,7 +40,7 @@ from bson import json_util
 class ResponseItem(Item):
     def initialize(self):
         self.name = 'item'
-        self.ensureIndices(('folderId', 'name', 'lowerName',
+        self.ensureIndices(('folderId', 'name', 'lowerName', 'created',
                             ([('folderId', 1), ('name', 1)], {})))
         self.ensureTextIndex({
             'name': 1,
