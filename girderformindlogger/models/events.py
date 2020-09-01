@@ -195,6 +195,11 @@ class Events(Model):
                 minutes=eventTimeout.get('minute', 0)
             )
 
+        if event['data'].get('extendedTime', {}).get('allow', False):
+            timeout = timeout + datetime.timedelta(
+                days=event['data']['extendedTime'].get('days', 0)
+            )
+
         if 'dayOfMonth' in event['schedule']: # one time schedule
             if not len(event['schedule'].get('dayOfMonth', [])) \
                 or not len(event['schedule'].get('month', [])) \
