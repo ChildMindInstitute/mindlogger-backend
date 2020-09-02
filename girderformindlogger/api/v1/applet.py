@@ -183,7 +183,7 @@ class Applet(Resource):
         )
         .param(
             'role',
-            'Role to grant this user. One of ' + str(set(USER_ROLE_KEYS)),
+            'Role to revoke from this user. One of ' + str(set(USER_ROLE_KEYS)),
             required=True
         )
     )
