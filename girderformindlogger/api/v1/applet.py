@@ -152,7 +152,7 @@ class Applet(Resource):
                 if role != 'reviewer' and not isManager or role == 'user':
                     continue
 
-                if roleInfo[role]:
+                if roleInfo[role] != 0:
                     userProfile = self._model.grantRole(
                         applet, 
                         userProfile, 
