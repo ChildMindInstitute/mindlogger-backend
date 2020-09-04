@@ -369,7 +369,7 @@ class Applet(Resource):
 
     @access.user(scope=TokenScope.DATA_WRITE)
     @autoDescribeRoute(
-        Description('Deactivate an applet by ID.')
+        Description('delete user from applet.')
         .notes(
             'this endpoint is used for deleting user\'s access to applet. <br>'
         )
