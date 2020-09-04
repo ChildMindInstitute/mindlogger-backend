@@ -262,7 +262,7 @@ class Applet(Resource):
 
         for role in roleInfo:
             if role in USER_ROLE_KEYS:
-                if role != 'reviewer' and not isManager:
+                if role != 'reviewer' and not isManager or role == 'user':
                     continue
 
                 if roleInfo[role]:
@@ -523,12 +523,13 @@ class Applet(Resource):
             applet['_id'] not in accountProfile.get('applets', {}).get('coordinator', []):
             raise AccessException('You don\'t have enough permission to perform this action')
 
-        if 'reviewer' in profile.get('roles', []) or 'manager' in profile.get('roles', []):
-            ProfileModel().updateReviewerList(profile, [])
+        for role in USER_ROLE_KEYS:
+            if role != 'user':
+                profile = self._model.revokeRole(applet, profile, role)
+
+        profile = self._model.revokeRole(applet, profile, 'user')
 
         ProfileModel().remove(profile)
-
-        AccountProfile().removeApplet(AccountProfile().findOne({'userId': profile['userId'], 'accountId': applet['accountId']}), applet['_id'])
 
         if deleteResponse:
             from girderformindlogger.models.response_folder import ResponseItem
@@ -540,6 +541,10 @@ class Applet(Resource):
                     "meta.applet.@id": applet['_id']
                 }
             )
+
+        return ({
+            'message': 'successfully removed user from applet'
+        })
 
     @access.user(scope=TokenScope.DATA_WRITE)
     @autoDescribeRoute(

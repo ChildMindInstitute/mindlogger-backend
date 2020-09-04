@@ -100,7 +100,7 @@ class AccountProfile(AccessControlledModel):
         roles = list(USER_ROLES.keys()) if not rolesToRevoke else rolesToRevoke
         roles.append('owner')
 
-        if not profile.get('applets'):
+        if not profile.get('applets', None):
             profile['applets'] = {}
 
         appletId = ObjectId(appletId)
