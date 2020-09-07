@@ -332,10 +332,7 @@ class Applet(Resource):
         profile = ProfileModel().findOne({'appletId': applet['_id'],
                                           'userId': user['_id']})
 
-        account = self.getAccountProfile()
-        is_manager = applet['_id'] in account.get('applets', {}).get('manager', [])
-
-        if (not is_manager) and is_reviewer:
+        if (not is_coordinator) and is_reviewer:
             # Only include the users this reviewer has access to.
             users = ProfileModel().find(query={'appletId': applet['_id'],
                                                'userId': {'$exists': True},
