@@ -829,12 +829,26 @@ class Applet(Resource):
         Description('Get all data you are authorized to see for an applet.')
         .notes(
             'This endpoint returns user\'s response data for your applet by json/csv format. <br>'
-            'You\'ll need to access this endpoint only if you are manager/reviewer of this applet.'
+            'You\'ll need to access this endpoint only if you are owner/manager of this applet.'
         )
         .param(
             'id',
             'ID of the applet for which to fetch data',
             required=True
+        )
+        .param(
+            'users',
+            'Only retrieves responses from the given users',
+            required=False,
+            dataType='array',
+            default=''
+        )
+        .param(
+            'password',
+            'owner\manager password to receive user\'s data',
+            required=True,
+            dataType='string',
+            default=''
         )
         .param(
             'format',
@@ -843,14 +857,23 @@ class Applet(Resource):
         )
         .errorResponse('Write access was denied for this applet.', 403)
     )
-    def getAppletData(self, id, format='json'):
+    def getAppletData(self, id, users, password, format='json'):
         import pandas as pd
         from datetime import datetime
         from ..rest import setContentDisposition, setRawResponse, setResponseHeader
 
         format = ('json' if format is None else format).lower()
         thisUser = self.getCurrentUser()
-        data = AppletModel().getResponseData(id, thisUser)
+        print(users)
+
+        if not UserModel()._cryptContext.verify(password, thisUser['salt']):
+            raise AccessException('IncorrectPassword.')
+
+        if isinstance(users, str):
+            users = users.replace(' ', '').split(",")
+
+        users = users if users else []
+        data = AppletModel().getResponseData(id, thisUser, users)
 
         setContentDisposition("{}-{}.{}".format(
             str(id),
