@@ -869,7 +869,7 @@ class Applet(Resource):
         if not UserModel()._cryptContext.verify(password, thisUser['salt']):
             raise AccessException('IncorrectPassword.')
 
-        if isinstance(users, str):
+        if users and isinstance(users, str):
             users = users.replace(' ', '').split(",")
 
         users = users if users else []
