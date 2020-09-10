@@ -87,6 +87,7 @@ class Applet(Resource):
 
         self.route('PUT', (':id', 'transferOwnerShip', ), self.transferOwnerShip)
         self.route('DELETE', (':id', 'deleteUser', ), self.deleteUserFromApplet)
+        self.route('POST', (':id', ), self.requestResponseReUpload)
 
     @access.user(scope=TokenScope.DATA_WRITE)
     @autoDescribeRoute(
@@ -165,6 +166,44 @@ class Applet(Resource):
         return ({
             'roles': userProfile.get('roles', [])
         })
+
+    @access.user(scope=TokenScope.DATA_READ)
+    @autoDescribeRoute(
+        Description('Revoke role from user of applet.')
+        .modelParam(
+            'id',
+            model=AppletModel,
+            level=AccessType.READ,
+            destName='applet'
+        )
+        .param(
+            'userPublicKey',
+            'public key for applet user',
+            required=True,
+            default=[]
+        )
+    )
+    def requestResponseReUpload(self, applet, userPublicKey):
+        from datetime import datetime
+
+        currentUser = getCurrentUser()
+
+        appletProfile = ProfileModel().findOne({
+            'appletId': applet['_id'],
+            'userId': currentUser['_id']
+        })
+
+        if appletProfile is None:
+            raise AccessException('unable to find user')
+
+        appletProfile['refreshRequest'] = {
+            'userPublicKey': userPublicKey,
+            'requestDate': datetime.utcnow()
+        }
+
+        ProfileModel().save(appletProfile, validate=False)
+
+        return { 'message': 'success' }
 
     @access.user(scope=TokenScope.DATA_OWN)
     @autoDescribeRoute(

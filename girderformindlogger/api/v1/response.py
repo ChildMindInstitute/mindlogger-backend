@@ -443,6 +443,11 @@ class ResponseItem(Resource):
                 }, 
                 multi=False
             )
+
+        if profile.get('refreshRequest', None):
+            profile.pop('refreshRequest')
+            Profile().save(profile, validate=False)
+
         return ({
             "message": "responses are updated successfully."
         })

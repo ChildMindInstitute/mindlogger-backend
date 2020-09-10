@@ -1098,6 +1098,9 @@ class Applet(FolderModel):
 
                     if retrieveRoles:
                         profile['roles'] = p['roles']
+                    if 'refreshRequest' in p:
+                        profile['hasRefreshRequest'] = True
+
                     userDict['active'].append(profile)
 
             for p in list(Invitation().find(query={'appletId': applet['_id']})):
