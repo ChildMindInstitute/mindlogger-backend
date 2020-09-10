@@ -57,8 +57,7 @@ class Applet(FolderModel):
         constraints=None,
         appletName=None,
         appletRole='editor',
-        accountId=None,
-        encryption={}
+        accountId=None
     ):
         """
         Method to create an Applet.
@@ -105,8 +104,7 @@ class Applet(FolderModel):
                 'applet': constraints if constraints is not None and isinstance(
                     constraints,
                     dict
-                ) else {},
-                'encryption': encryption
+                ) else {}
             }
         )
 
@@ -509,8 +507,7 @@ class Applet(FolderModel):
         email='',
         sendEmail=True,
         appletRole='editor',
-        accountId=None,
-        encryption={}
+        accountId=None
     ):
         from girderformindlogger.models.protocol import Protocol
         from girderformindlogger.utility import mail_utils
@@ -565,8 +562,7 @@ class Applet(FolderModel):
                 constraints=constraints,
                 appletName=appletName,
                 appletRole=appletRole,
-                accountId=accountId,
-                encryption=encryption
+                accountId=accountId
             )
 
             emailMessage = "Hi {}.  <br>" \
@@ -603,8 +599,7 @@ class Applet(FolderModel):
         email='',
         sendEmail=True,
         appletRole='editor',
-        accountId=None,
-        encryption={}
+        accountId=None
     ):
         from girderformindlogger.models.protocol import Protocol
         from girderformindlogger.utility import mail_utils

@@ -136,7 +136,7 @@ class ResponseItem(Resource):
 
         if not users:
             # Retrieve responses for the logged user.
-            users = [profile['_id']]
+            users = [self.getCurrentUser().get('_id', None)]
         elif is_manager:
             # Manager or owner.
             users = list(map(lambda x: ObjectId(x), users))
@@ -154,11 +154,7 @@ class ResponseItem(Resource):
         else:
             activities = list(map(lambda s: ObjectId(s), activities))
 
-        data = {
-            'responses': {},
-            'dataSources': {},
-            'keys': []
-        }
+        data = dict();
 
         # Get the responses for each users and generate the group responses data.
         for user in users:
@@ -543,13 +539,6 @@ class ResponseItem(Resource):
                 metadata['responses'][key] = "file::{}".format(newUpload['_id'])
 
             if metadata:
-                if metadata.get('dataSource', None):
-                    for item in metadata.get('responses', {}):
-                        metadata['responses'][item] = {
-                            'src': newItem['_id'],
-                            'ptr': metadata['responses'][item]
-                        }
-
                 newItem = self._model.setMetadata(newItem, metadata)
 
             print(metadata)
