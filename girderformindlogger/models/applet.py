@@ -200,7 +200,76 @@ class Applet(FolderModel):
             schedule = EventsModel().getSchedule(applet['_id'])
         return schedule
 
-    # users won't use this function, so all emails are plain text
+    def grantRole(self, applet, userProfile, newRole, users):
+        if newRole != 'reviewer' and newRole in userProfile.get('roles', []):
+            return userProfile
+
+        profile = Profile()
+
+        user = UserModel().load(userProfile['userId'], force=True)
+        appletGroups = self.getAppletGroups(applet)
+
+        for role in USER_ROLES.keys():
+            if role not in userProfile['roles']:
+                if newRole == 'manager' or newRole == role:
+                    userProfile['roles'].append(role)
+
+                    group = GroupModel().load(
+                        ObjectId(list(appletGroups.get(newRole).keys())[0]),
+                        force=True
+                    )
+
+                    if group['_id'] not in user.get('groups', []):
+                        GroupModel().inviteUser(group, user, level=AccessType.READ)
+                        GroupModel().joinGroup(group, user)
+
+        profile.save(userProfile, validate=False)
+
+        if newRole == 'reviewer':
+            profile.updateReviewerList(userProfile, users)
+        elif newRole == 'manager':
+            profile.updateReviewerList(userProfile)
+
+        AccountProfile().appendApplet(
+            AccountProfile().findOne({
+                'accountId': applet['accountId'],
+                'userId': userProfile['userId']
+            }),
+            applet['_id'],
+            userProfile['roles']
+        )
+
+        return userProfile
+
+    def revokeRole(self, applet, userProfile, role):
+        if role not in userProfile.get('roles', []):
+            return userProfile
+
+        if role == 'reviewer':
+            Profile().updateReviewerList(userProfile, [])
+
+        group = self.getAppletGroups(applet).get(role)
+        GroupModel().removeUser(GroupModel().load(
+            ObjectId(list(group.keys())[0]),
+            force=True
+        ), UserModel().load(userProfile['userId'], force=True))
+
+        userProfile['roles'].remove(role)
+
+        AccountProfile().removeApplet(
+            AccountProfile().findOne({
+                'accountId': applet['accountId'],
+                'userId': userProfile['userId']
+            }),
+            applet['_id'],
+            [role]
+        )
+
+        Profile().save(userProfile, validate=False)
+
+        return userProfile
+
+    # users won't use this function, so all emails are plain text (this endpoint is used for owners/managers to get access to new applet automatically)
     def grantAccessToApplet(self, user, applet, role, inviter):
         from girderformindlogger.models.invitation import Invitation
 

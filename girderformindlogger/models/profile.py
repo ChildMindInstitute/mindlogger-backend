@@ -742,7 +742,7 @@ class Profile(AESEncryption, dict):
 
             else:   # add/replace
                 if reviewer['_id'] not in profile.get('reviewers', []):
-                    if not users or profile['_id'] in users and operation:
+                    if users is None or profile['_id'] in users and operation:
                         self.update({
                             '_id': profile['_id']
                         }, {
@@ -752,7 +752,7 @@ class Profile(AESEncryption, dict):
                         }, multi=False)
 
                 elif operation == 'replace':
-                    if users and profile['_id'] not in users:
+                    if users is not None and profile['_id'] not in users:
                         profile['reviewers'].remove(reviewer['_id'])
                         self.update({
                             '_id': profile['_id']

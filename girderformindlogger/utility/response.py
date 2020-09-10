@@ -476,6 +476,10 @@ def last7Days(
 
             outputResponses.update(l7)
 
+    for item in outputResponses:
+        for resp in outputResponses[item]:
+            resp['date'] = delocalize(resp['date'])
+
     l7d = {}
     l7d["responses"] = _oneResponsePerDate(outputResponses)
     l7d['dataSources'] = dataSources
