@@ -71,7 +71,7 @@ class AESEncryption(AccessControlledModel):
 
     # encrypt selected fields using AES
     def encryptFields(self, document, fields):
-        if not document or not len(fields):
+        if not document:
             return document
 
         updateAESKey = getattr(self, 'updateAESKey', None)
@@ -98,7 +98,7 @@ class AESEncryption(AccessControlledModel):
 
     # decrypt selected fields using AES
     def decryptFields(self, document, fields):
-        if not document or not len(fields):
+        if not document:
             return document
 
         updateAESKey = getattr(self, 'updateAESKey', None)

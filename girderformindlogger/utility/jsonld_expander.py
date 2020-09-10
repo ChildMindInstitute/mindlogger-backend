@@ -1111,7 +1111,6 @@ def formatLdObject(
             applet['applet'] = {
                 **protocol.pop('protocol', {}),
                 **obj.get('meta', {}).get(mesoPrefix, {}),
-                'encryption': obj.get('meta', {}).get('encryption', {}),
                 '_id': "/".join([snake_case(mesoPrefix), objID]),
                 'url': "#".join([
                     obj.get('meta', {}).get('protocol', {}).get("url", "")
