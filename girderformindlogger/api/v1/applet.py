@@ -383,7 +383,7 @@ class Applet(Resource):
                 for p in list(users)
             ]}
 
-        return AppletModel().getAppletUsers(applet, user, force=True, retrieveRoles=retrieveRoles)
+        return AppletModel().getAppletUsers(applet, user, force=True, retrieveRoles=retrieveRoles, retrieveRequests=AppletModel().isManager(applet['_id'], user))
 
     @access.user(scope=TokenScope.DATA_READ)
     @autoDescribeRoute(

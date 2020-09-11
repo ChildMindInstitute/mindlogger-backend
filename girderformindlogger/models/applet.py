@@ -1058,7 +1058,7 @@ class Applet(FolderModel):
 
         return formatted
 
-    def getAppletUsers(self, applet, user=None, force=False, retrieveRoles=False):
+    def getAppletUsers(self, applet, user=None, force=False, retrieveRoles=False, retrieveRequests=False):
         """
         Function to return a list of Applet Users
 
@@ -1098,8 +1098,8 @@ class Applet(FolderModel):
 
                     if retrieveRoles:
                         profile['roles'] = p['roles']
-                    if 'refreshRequest' in p:
-                        profile['hasRefreshRequest'] = True
+                    if 'refreshRequest' in p and retrieveRequests:
+                        profile['refreshRequest'] = p['refreshRequest']
 
                     userDict['active'].append(profile)
 
