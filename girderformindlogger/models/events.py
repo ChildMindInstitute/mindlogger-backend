@@ -193,7 +193,7 @@ class Events(Model):
                 days=event['data']['extendedTime'].get('days', 0)
             )
 
-        if 'dayOfMonth' in event['schedule']: # one time schedule
+        if not event['data'].get('eventType', None) or event['data']['eventType'] == 'onetime': # one time schedule
             if not len(event['schedule'].get('dayOfMonth', [])) \
                 or not len(event['schedule'].get('month', [])) \
                 or not len(event['schedule'].get('year', [])):
@@ -222,7 +222,7 @@ class Events(Model):
             if startDate and startDate.date() > date.date():
                 return (False, None)
 
-            if 'dayOfWeek' in event['schedule']: # weekly schedule
+            if event['data'].get('eventType', None) == 'weekly': # weekly schedule
                 if len(event['schedule']['dayOfWeek']) or event['schedule']['dayOfWeek'][0] == date.weekday() + 1:
                     return (True, None)
 
@@ -241,6 +241,27 @@ class Events(Model):
 
                 return (False, None)
 
+            elif event['data'].get('eventType', None) == 'monthly': # monthly schedule
+                if len(event['schedule']['dayOfMonth']) or event['schedule']['dayOfMonth'][0] == date.day:
+                    return (True, None)
+
+                if endDate < date:
+                    latestScheduledDay = datetime.datetime(endDate.year, endDate.month, event['schedule']['dayOfMonth'][0])
+
+                    if endDate.day < event['schedule']['dayOfMonth'][0]:
+                        latestScheduledDay = latestScheduledDay - datetime.timedelta(months=1)
+                else:
+                    latestScheduledDay = datetime.datetime(date.year, date.month, event['schedule']['dayOfMonth'][0])
+
+                    if date.day < event['schedule']['dayOfMonth'][0]:
+                        latestScheduledDay = latestScheduledDay - datetime.timedelta(months=1)
+
+                if (not startDate or startDate.date() <= latestScheduledDay.date()):
+                    lastAvailableTime = latestScheduledDay + timeDelta + timeout
+                    return ( lastAvailableTime >= date, lastAvailableTime )
+
+                return (False, None)
+
             # daily schedule
             lastAvailableTime = endDate + timeDelta + timeout if endDate else None
             return ( (not endDate or lastAvailableTime >= date), lastAvailableTime )
@@ -251,7 +272,7 @@ class Events(Model):
         events = self.getEvents(applet_id, individualized, profile['_id'])
 
         lastEvent = {}
-
+        onlyScheduledDay = {}
         for event in events:
             event['id'] = event['_id']
             event.pop('_id')
@@ -273,6 +294,9 @@ class Events(Model):
                 else:
                     lastEvent[activityId] = None
 
+                if event['data'].get('only_scheduled_day', None):
+                    onlyScheduledDay[activityId] = True
+
         return {
             "type": 2,
             "size": 1,
@@ -287,6 +311,6 @@ class Events(Model):
             'events': ([
                 event for event in events if event['valid']
             ] + [
-                value[1] for value in lastEvent.values() if value and value[1].get('data', {}).get('completion', False)
+                value[1] for value in lastEvent.values() if value and (value[1]['data'].get('completion', False) or value[1]['data'].get('activity_id', None) in onlyScheduledDay)
             ])
         }
