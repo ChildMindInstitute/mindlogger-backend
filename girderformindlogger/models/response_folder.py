@@ -34,10 +34,12 @@ from girderformindlogger.models.folder import Folder
 from girderformindlogger.models.item import Item
 from girderformindlogger.models.model_base import AccessControlledModel
 from girderformindlogger.models.roles import getUserCipher
+from girderformindlogger.models.aes_encrypt import AESEncryption 
+
 from girderformindlogger.utility.progress import noProgress, setResponseTimeLimit
 from bson import json_util
 
-class ResponseItem(Item):
+class ResponseItem(AESEncryption, Item):
     def initialize(self):
         self.name = 'item'
         self.ensureIndices(('folderId', 'name', 'lowerName', 'created',
@@ -53,6 +55,35 @@ class ResponseItem(Item):
             '_id', 'size', 'updated', 'description', 'created', 'meta',
             'creatorId', 'folderId', 'name', 'baseParentType', 'baseParentId',
             'copyOfItem'))
+
+    def decodeDocument(self, document):
+        metadata = document.get('meta', None)
+        if metadata:
+            if 'responses' in metadata and isinstance(metadata['responses'], str):
+                metadata['responses'] = json_util.loads(metadata['responses'])
+
+                for i in range(0, len(metadata.get('items', []))):
+                    metadata['responses'][metadata['items'][i]] = metadata['responses'].pop(str(i))
+
+            last7Days = metadata.get('last7Days', {}).get('responses')
+            if last7Days and isinstance(last7Days, str):
+                last7Days = metadata['last7Days']['responses'] = json_util.loads(last7Days)
+
+                for i in range(0, len(metadata.get('items', []))):
+                    last7Days[str(i)][0]['date'] = last7Days[str(i)][0]['date'].replace(tzinfo=None)
+                    last7Days[metadata['items'][i]] = last7Days.pop(str(i))
+
+            metadata.pop('items')
+
+        return document
+
+    def updateAESKey(self, document, baseKey):
+        responseStartTime = document.get('meta', {}).get('responseStarted', None)
+        if responseStartTime:
+            timestamp = datetime.datetime.fromtimestamp(responseStartTime//1000).isoformat()[-32:].encode('utf-8')
+            length = len(timestamp)
+            self.AES_KEY = bytes( (baseKey[i] ^ timestamp[i%length] ^ 0x34) for i in range(0, 32))
+
 
     def createResponseItem(self, name, creator, folder, description='',
                    reuseExisting=False, readOnly=False):
