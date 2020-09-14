@@ -566,8 +566,16 @@ def add_latest_daily_response(data, responses):
                 data[item] = []
 
             for current_response in data[item]:
+                if not isinstance(current_response['value'], list):
+                    current_response['value'] = [current_response['value']]
+
+                new_responses = response['meta']['responses'][item]
+
+                if not isinstance(new_responses, list):
+                    new_responses = [new_responses]
+
                 if current_response['date'] == response['updated']:
-                    current_response['value'].extend(response['meta']['responses'][item])
+                    current_response['value'].extend(new_responses)
                     date_not_found = False
                     break
 
