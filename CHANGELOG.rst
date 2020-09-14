@@ -8,6 +8,9 @@ Changes
 -------
 Unreleased
 ==========
+2020-09-14 v0.14.13
+fix user responses endpoint failing to process the response data
+
 2020-08-23 v0.14.12
 fix permissions on response endpoint
 
