@@ -380,7 +380,7 @@ def last7Days(
             if sourceId and sourceId not in l7d['dataSources']:
                 l7d['dataSources'][sourceId] = dataSources[sourceId]
 
-    l7d['refreshRequest'] = profile.get('refreshRequest', None)
+    # l7d['refreshRequest'] = profile.get('refreshRequest', None)
 
     return l7d
 

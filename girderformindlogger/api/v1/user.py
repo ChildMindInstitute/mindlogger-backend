@@ -1561,4 +1561,4 @@ class User(Resource):
         if len(notifications):
             send_custom_notification(notifications[0])
 
-        # Notification().deleteNotificationByType(user, 'response-data-alert')
+        Notification().deleteNotificationByType(user, 'response-data-alert')
