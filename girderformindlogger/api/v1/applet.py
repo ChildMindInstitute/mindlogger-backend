@@ -61,6 +61,7 @@ class Applet(Resource):
         self.route('GET', (':id', 'data'), self.getAppletData)
         self.route('GET', (':id', 'groups'), self.getAppletGroups)
         self.route('POST', (), self.createApplet)
+        self.route('PUT', (':id', 'encryption'), self.setAppletEncryption)
         self.route('PUT', (':id', 'informant'), self.updateInformant)
         self.route('PUT', (':id', 'assign'), self.assignGroup)
         self.route('PUT', (':id', 'constraints'), self.setConstraints)
@@ -106,6 +107,33 @@ class Applet(Resource):
         thisUser = self.getCurrentUser()
         ProfileModel().updateProfiles(thisUser, {"badge": int(badge)})
         return({"message": "Badge was successfully reseted"})
+
+    @access.user(scope=TokenScope.DATA_OWN)
+    @autoDescribeRoute(
+        Description('update encryption info for applet.')
+        .modelParam(
+            'id',
+            model=AppletModel,
+            level=AccessType.ADMIN,
+            destName='applet'
+        )
+        .jsonParam(
+            'encryption',
+            'encryption info which public key and prime for applet',
+            paramType='form',
+            required=True
+        )
+    )
+    def setAppletEncryption(self, applet, encryption):
+        thisUser = self.getCurrentUser()
+        if not self._model.isManager(applet['_id'], thisUser):
+            raise AccessException('only manager/owners can change applet encryption info')
+
+        applet['meta']['encryption'] = encryption
+        self._model.setMetadata(applet, applet['meta'])
+
+        jsonld_expander.clearCache(applet, 'applet')
+        return { 'message': 'successed' }
 
     @access.user(scope=TokenScope.DATA_OWN)
     @autoDescribeRoute(
