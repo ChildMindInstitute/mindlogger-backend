@@ -414,8 +414,9 @@ class Applet(Resource):
         .param(
             'deleteResponse',
             'true if delete response',
-            required=False,
-            default=True
+            dataType='boolean',
+            required=True,
+            default=True,
         )
         .errorResponse('Invalid applet ID.')
         .errorResponse('Write access was denied for this applet.', 403)
