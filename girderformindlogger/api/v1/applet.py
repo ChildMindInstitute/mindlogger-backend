@@ -154,9 +154,9 @@ class Applet(Resource):
 
                 if roleInfo[role] != 0:
                     userProfile = self._model.grantRole(
-                        applet, 
-                        userProfile, 
-                        role, 
+                        applet,
+                        userProfile,
+                        role,
                         [ObjectId(userId) for userId in roleInfo[role]] if role == 'reviewer' and isinstance(roleInfo[role], list) else []
                     )
                 else:
@@ -1138,6 +1138,16 @@ class Applet(Resource):
     def inviteUser(self, applet, role="user", email='', firstName='', lastName='', MRN='', users=[]):
         from girderformindlogger.models.invitation import Invitation
         from girderformindlogger.models.profile import Profile
+
+        try:
+            accessibleUsers = list(map(lambda userId: ObjectId(userId), users))
+        except Exception:
+            accessibleUsers = Profile().find({
+                'appletId': applet['_id'],
+                'MRN': { '$in': users },
+            })
+            # Convert the "Institutional ID" to the corresponding "ObjectId"
+            users = list(map(lambda u: str(u['_id']), accessibleUsers))
 
         if not mail_utils.validateEmailAddress(email):
             raise ValidationException(
