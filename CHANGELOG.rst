@@ -8,6 +8,9 @@ Changes
 -------
 Unreleased
 ==========
+2020-09-17 v0.14.13
+fix reviewer invites (add support for Institutional IDs)
+
 2020-08-23 v0.14.12
 fix permissions on response endpoint
 
