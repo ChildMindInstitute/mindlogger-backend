@@ -798,6 +798,7 @@ class Applet(FolderModel):
             meta = response.get('meta', {})
 
             data['responses'].append({
+                '_id': response['_id'],
                 'activity': meta.get('activity', {}),
                 'userId': meta.get('subject', {}).get('@id', None),
                 'data': meta.get('responses', {}),

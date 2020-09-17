@@ -73,7 +73,8 @@ class ResponseItem(AESEncryption, Item):
                     last7Days[str(i)][0]['date'] = last7Days[str(i)][0]['date'].replace(tzinfo=None)
                     last7Days[metadata['items'][i]] = last7Days.pop(str(i))
 
-            metadata.pop('items')
+            if 'items' in metadata:
+                metadata.pop('items')
 
         return document
 
