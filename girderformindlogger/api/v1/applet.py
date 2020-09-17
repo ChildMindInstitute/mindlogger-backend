@@ -791,31 +791,13 @@ class Applet(Resource):
             dataType='array',
             default=''
         )
-        .param(
-            'password',
-            'owner\manager password to receive user\'s data',
-            required=True,
-            dataType='string',
-            default=''
-        )
-        .param(
-            'format',
-            'JSON or CSV (json by default)',
-            required=False
-        )
         .errorResponse('Write access was denied for this applet.', 403)
     )
-    def getAppletData(self, id, users, password, format='json'):
-        import pandas as pd
+    def getAppletData(self, id, users):
         from datetime import datetime
         from ..rest import setContentDisposition, setRawResponse, setResponseHeader
 
-        format = ('json' if format is None else format).lower()
         thisUser = self.getCurrentUser()
-        print(users)
-
-        if not UserModel()._cryptContext.verify(password, thisUser['salt']):
-            raise AccessException('IncorrectPassword.')
 
         if users and isinstance(users, str):
             users = users.replace(' ', '').split(",")
@@ -826,14 +808,9 @@ class Applet(Resource):
         setContentDisposition("{}-{}.{}".format(
             str(id),
             datetime.now().isoformat(),
-            format
+            'json'
         ))
-        if format=='csv':
-            setRawResponse()
-            setResponseHeader('Content-Type', 'text/{}'.format(format))
-            csv = pd.DataFrame(data).to_csv(index=False)
-            return(csv)
-        setResponseHeader('Content-Type', 'application/{}'.format(format))
+
         return(data)
 
 

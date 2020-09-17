@@ -41,7 +41,7 @@ from girderformindlogger.utility.progress import noProgress,                   \
 from girderformindlogger.models.account_profile import AccountProfile
 from girderformindlogger.models.profile import Profile
 from girderformindlogger.models.events import Events as EventsModel
-
+from bson import json_util
 
 class Applet(FolderModel):
     """
@@ -762,7 +762,7 @@ class Applet(FolderModel):
         from girderformindlogger.models.user import User
         from pymongo import DESCENDING
 
-        if not self._hasRole(appletId, reviewer, 'owner') or not self.isManager(appletId, reviewer):
+        if not self.isManager(appletId, reviewer):
             raise AccessException("You are not a owner or manager for this applet.")
 
         query = {
@@ -786,23 +786,36 @@ class Applet(FolderModel):
             user=reviewer,
             sort=[("created", DESCENDING)]
         ))
-        respondents = {
-            str(response['baseParentId']): IDCode().findIdCodes(
-                Profile().createProfile(
-                    appletId,
-                    User().load(response['baseParentId'], force=True),
-                    'user'
-                )['_id']
-            ) for response in responses if 'baseParentId' in response
+
+        data = {
+            'dataSources': {},
+            'keys': [],
+            'responses': []
         }
-        return([
-            {
-                "respondent": code,
-                **response.get('meta', {})
-            } for response in responses for code in respondents[
-                str(response['baseParentId'])
-            ]
-        ])
+
+        userKeys = {}
+        for response in responses:
+            meta = response.get('meta', {})
+
+            data['responses'].append({
+                'activity': meta.get('activity', {}),
+                'userId': meta.get('subject', {}).get('@id', None),
+                'data': meta.get('responses', {}),
+                'created': response.get('created', None),
+            })
+
+            if 'userPublicKey' in meta:
+                keyDump = json_util.dumps(meta['userPublicKey'])
+                if keyDump not in userKeys:
+                    userKeys[keyDump] = len(data['keys'])
+                    data['keys'].append(meta['userPublicKey'])
+
+                data['dataSources'][str(response['_id'])] = {
+                    'key': userKeys[keyDump],
+                    'data': meta['dataSource']
+                }
+
+        return data
 
     def updateRelationship(self, applet, relationship):
         """
