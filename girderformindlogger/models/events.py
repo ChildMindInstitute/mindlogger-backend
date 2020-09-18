@@ -91,7 +91,7 @@ class Events(Model):
             newEvent['schedule'] = event['schedule']
 
         newEvent = self.save(newEvent)
-        self.setSchedule(newEvent)
+        # self.setSchedule(newEvent)
 
         return self.save(newEvent)
 
