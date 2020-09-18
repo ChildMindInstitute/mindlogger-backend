@@ -758,9 +758,9 @@ class Applet(FolderModel):
         from pymongo import DESCENDING
 
         if not any([
-            not self.isReviewer(appletId, reviewer),
-            not self.isOwner(appletId, reviewer),
-            not self.isManager(appletId, reviewer)]):
+            self.isReviewer(appletId, reviewer),
+            self.isOwner(appletId, reviewer),
+            self.isManager(appletId, reviewer)]):
             raise AccessException("You are not a owner or manager for this applet.")
 
         query = {
