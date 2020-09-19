@@ -472,8 +472,14 @@ class Applet(FolderModel):
             AccountProfile().removeApplet(accountProfile, applet['_id'])
 
         applet['accountId'] = accountId
+
+        if 'encryption' in applet['meta']:
+            applet['meta'].pop('encrypton')
+
         self.save(applet)
         self.grantAccessToApplet(thisUser, applet, 'manager', thisUser)
+
+        jsonld_expander.clearCache(applet, 'applet')
 
         return Profile().displayProfileFields(Profile().updateOwnerProfile(applet), thisUser, forceManager=True)
 
