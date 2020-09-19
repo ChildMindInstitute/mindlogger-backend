@@ -274,7 +274,7 @@ class Applet(FolderModel):
         from girderformindlogger.models.invitation import Invitation
 
         appletProfile = Profile().findOne({'appletId': applet['_id'], 'userId': user['_id']})
-        if not appletProfile:
+        if not appletProfile or role not in appletProfile.get('roles', []):
             accountId = applet.get('accountId', None)
             if not accountId:
                 return

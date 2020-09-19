@@ -633,7 +633,7 @@ class Applet(Resource):
             )
         AppletModel().duplicateApplet(applet, name, thisUser)
 
-        return "duplicate successed"
+        return "duplicate success"
 
     @access.user(scope=TokenScope.DATA_WRITE)
     @autoDescribeRoute(
