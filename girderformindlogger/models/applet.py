@@ -653,7 +653,8 @@ class Applet(FolderModel):
                 constraints=constraints,
                 appletName=appletName,
                 appletRole=appletRole,
-                accountId=accountId
+                accountId=accountId,
+                encryption=encryption
             )
             emailMessage = "Hi {}.  <br>" \
                 "Your applet {} was successfully uploaded! <br>" \
