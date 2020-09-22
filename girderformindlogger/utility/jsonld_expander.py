@@ -64,6 +64,121 @@ def expandObj(contextSet, data):
 
     return expanded
 
+def createProtocolFromExpandedDocument(protocol, user):
+    protocolId = None
+
+    for modelType in ['protocol', 'activity', 'screen']:
+        modelClass = MODELS()[modelType]()
+        docCollection = getModelCollection(modelType)
+
+        for model in protocol[modelType].values():
+            prefName = modelClass.preferredName(model['expanded'])
+
+            if modelClass.name in ['folder', 'item']:
+                docFolder = None
+                if modelClass.name == 'folder' and model['ref2Document'].get('_id', None):
+                    try:
+                        docFolder = FolderModel().load(model['ref2Document']['_id'], force=True)
+                        docFolder['name'] = prefName
+
+                        FolderModel().updateFolder(docFolder)
+                    except Exception as e:
+                        print('wrong folder id', model['ref2Document']['_id'])
+                        print(e)
+
+                if not docFolder:
+                    docFolder = FolderModel().createFolder(
+                        name=prefName,
+                        parent=docCollection,
+                        parentType='collection',
+                        public=True,
+                        creator=user,
+                        allowRename=True,
+                        reuseExisting=(modelClass.name == 'item')
+                    )
+
+                metadata = {modelType: model['expanded']}
+
+                tmp = model
+                while tmp.get('parentId', None):
+                    key = tmp['parentKey']
+                    tmp = protocol[key][tmp['parentId']]
+                    metadata['{}Id'.format(key)] = tmp['_id']
+
+                if modelClass.name=='folder':
+                    newModel = modelClass.setMetadata(
+                        docFolder,
+                        metadata
+                    )
+                elif modelClass.name=='item':
+                    item = None
+                    name = prefName if prefName else str(len(list(FolderModel().childItems(
+                        FolderModel().load(
+                            docFolder,
+                            level=None,
+                            user=user,
+                            force=True
+                        ))
+                    )) + 1)
+                    if model['ref2Document'].get('_id', None):
+                        try:
+                            item = modelClass.load(model['ref2Document']['_id'],force=True)
+                            item['name'] = name
+                            item['folderId'] = docFolder['_id']
+                            modelClass.updateItem(item)
+                        except Exception as e:
+                            print('wrong item id', model['ref2Document']['_id'])
+                            print(e)
+
+                    if not item:
+                        item = modelClass.createItem(
+                            name=prefName if prefName else str(len(list(
+                                FolderModel().childItems(
+                                    FolderModel().load(
+                                        docFolder,
+                                        level=None,
+                                        user=user,
+                                        force=True
+                                    )
+                                )
+                            )) + 1),
+                            creator=user,
+                            folder=docFolder,
+                            reuseExisting=False
+                        )
+
+                    newModel = modelClass.setMetadata(item, metadata)
+
+                update = {
+                    'loadedFromSingleFile': True,
+                    'lastUpdatedBy': user['_id']
+                }
+                if 'duplicateOf' in model['ref2Document']:
+                    update['duplicateOf'] = ObjectId(model['ref2Document']['duplicateOf'])
+                modelClass.update(
+                    {'_id': newModel['_id']},
+                    {'$set': update }
+                )
+
+                if modelType != 'protocol':
+                    formatted = _fixUpFormat(formatLdObject(
+                        newModel,
+                        mesoPrefix=modelType,
+                        user=user,
+                        refreshCache=True
+                    ))
+
+                    createCache(newModel, formatted, modelType, user)
+
+                model['_id'] = newModel['_id']
+
+                if modelType == 'protocol':
+                    protocolId = newModel['_id']
+
+                model['ref2Document']['_id'] = newModel['_id']
+
+    return protocolId
+
 def loadFromSingleFile(document, user):
     if 'protocol' not in document or 'data' not in document['protocol']:
         raise ValidationException(
@@ -112,111 +227,7 @@ def loadFromSingleFile(document, user):
                 'ref2Document': item
             }
 
-    for modelType in ['protocol', 'activity', 'screen']:
-        modelClass = MODELS()[modelType]()
-        docCollection = getModelCollection(modelType)
-
-        for model in protocol[modelType].values():
-            prefName = modelClass.preferredName(model['expanded'])
-
-            if modelClass.name in ['folder', 'item']:
-                docFolder = None
-                if modelClass.name == 'folder' and model['ref2Document'].get('_id', None):
-                    try:
-                        docFolder = FolderModel().load(model['ref2Document']['_id'], force=True)
-                        docFolder['name'] = prefName
-
-                        FolderModel().updateFolder(docFolder)
-                    except Exception as e:
-                        print('wrong folder id', model['ref2Document']['_id'])
-                        print(e)
-
-                if not docFolder:
-                    docFolder = FolderModel().createFolder(
-                        name=prefName,
-                        parent=docCollection,
-                        parentType='collection',
-                        public=True,
-                        creator=user,
-                        allowRename=True,
-                        reuseExisting=(modelClass.name == 'item')
-                    )
-
-                metadata = {modelType: model['expanded']}
-
-                tmp = model
-                while tmp.get('parentId', None):
-                    key = tmp['parentKey']
-                    tmp = protocol[key][tmp['parentId']]
-                    metadata['{}Id'.format(key)] = '{}/{}'.format(MODELS()[key]().name, tmp['_id'])
-
-                if modelClass.name=='folder':
-                    newModel = modelClass.setMetadata(
-                        docFolder,
-                        metadata
-                    )
-                elif modelClass.name=='item':
-                    item = None
-                    name = prefName if prefName else str(len(list(FolderModel().childItems(
-                        FolderModel().load(
-                            docFolder,
-                            level=None,
-                            user=user,
-                            force=True
-                        ))
-                    )) + 1)
-                    if model['ref2Document'].get('_id', None):
-                        try:
-                            item = modelClass.load(model['ref2Document']['_id'],force=True)
-                            item['name'] = name
-                            item['folderId'] = docFolder['_id']
-                            modelClass.updateItem(item)
-                        except Exception as e:
-                            print('wrong item id', model['ref2Document']['_id'])
-                            print(e)
-
-                    if not item:
-                        item = modelClass.createItem(
-                            name=prefName if prefName else str(len(list(
-                                FolderModel().childItems(
-                                    FolderModel().load(
-                                        docFolder,
-                                        level=None,
-                                        user=user,
-                                        force=True
-                                    )
-                                )
-                            )) + 1),
-                            creator=user,
-                            folder=docFolder,
-                            reuseExisting=False
-                        )
-
-                    newModel = modelClass.setMetadata(item, metadata)
-
-                modelClass.update(
-                    {'_id': newModel['_id']},
-                    {'$set': {
-                        'loadedFromSingleFile': True,
-                        'lastUpdatedBy': user['_id']
-                    }})
-                if modelType != 'protocol':
-                    formatted = _fixUpFormat(formatLdObject(
-                        newModel,
-                        mesoPrefix=modelType,
-                        user=user,
-                        refreshCache=True
-                    ))
-
-                    createCache(newModel, formatted, modelType, user)
-
-                model['_id'] = newModel['_id']
-
-                if modelType == 'protocol':
-                    protocolId = newModel['_id']
-
-                model['ref2Document']['_id'] = newModel['_id']
-
+    protocolId = createProtocolFromExpandedDocument(protocol, user)
     protocol = ProtocolModel().load(protocolId, force=True)
 
     protocolContent = None
@@ -1153,8 +1164,8 @@ def formatLdObject(
             }
 
             if obj.get('loadedFromSingleFile', False):
-                activities = list(ActivityModel().find({'meta.protocolId': '{}/{}'.format(MODELS()['protocol']().name, obj['_id'])}))
-                items = list(ScreenModel().find({'meta.protocolId': '{}/{}'.format(MODELS()['protocol']().name, obj['_id'])}))
+                activities = list(ActivityModel().find({'meta.protocolId': obj['_id']}))
+                items = list(ScreenModel().find({'meta.protocolId': obj['_id']}))
 
                 for activity in activities:
                     formatted = formatLdObject(activity, 'activity', user)

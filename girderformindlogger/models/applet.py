@@ -303,9 +303,16 @@ class Applet(FolderModel):
         editor
     ):
         from girderformindlogger.utility import jsonld_expander
+        from girderformindlogger.models.protocol import Protocol
 
         appletsCollection = CollectionModel().findOne({"name": "Applets"})
         appletName = self.validateAppletName('{}/'.format(name), appletsCollection, applet['accountId'])
+
+        protocolId = applet.get('meta', {}).get('protocol', {}).get('_id', None)
+        if not protocolId:
+            raise ValidationException('this applet does not have protocol id')
+
+        protocol = Protocol().duplicateProtocol(ObjectId(protocolId.split("/")[1]), editor)
 
         # create new applet
         newApplet = self.setMetadata(
@@ -319,7 +326,15 @@ class Applet(FolderModel):
                 appletName=appletName,
                 accountId=applet['accountId']
             ),
-            metadata=applet.get('meta', {})
+            metadata={
+                **applet.get('meta', {}),
+                'protocol': {
+                    '_id': protocol['protocol']['_id'],
+                    'activities': [
+                        ObjectId(protocol['activities'][activity]['_id'].split('/')[-1]) for activity in protocol['activities']
+                    ]
+                }
+            }
         )
 
         appletGroupName = "Default {} ({})".format(

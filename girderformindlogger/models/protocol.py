@@ -120,3 +120,78 @@ class Protocol(FolderModel):
         from girderformindlogger.utility import jsonld_expander
 
         return jsonld_expander.loadFromSingleFile(document, user)
+
+    def duplicateProtocol(self, protocolId, editor):
+        from girderformindlogger.models.screen import Screen
+        from girderformindlogger.utility import jsonld_expander
+
+        formatted = jsonld_expander.formatLdObject(self.load(protocolId, force=True), 'protocol', editor)
+
+        for key in ['url', 'schema:url']:
+            if key in formatted['protocol']:
+                formatted['protocol'].pop(key)
+
+        formatted['protocol'].pop('_id')
+        protocol = {
+            'protocol': {
+                formatted['protocol']['@id']: {
+                    'expanded': formatted['protocol'],
+                    'ref2Document': {
+                        'duplicateOf': protocolId
+                    }
+                }
+            },
+            'activity': {},
+            'screen': {}
+        }
+
+        activityId2Key = {}
+
+        for activityKey in formatted['activities']:
+            activity = formatted['activities'][activityKey]
+            activityId = activity.pop('_id').split('/')[-1]
+
+            for key in ['url', 'schema:url']:
+                if key in activity:
+                    activity.pop(key)
+            protocol['activity'][activityKey] = {
+                'parentKey': 'protocol',
+                'parentId': formatted['protocol']['@id'],
+                'expanded': activity,
+                'ref2Document': {
+                    'duplicateOf': activityId
+                }
+            }
+            activityId2Key[activityId] = activityKey
+
+        itemId2ActivityId = {}
+        
+        items = list(Screen().find({'meta.protocolId': protocolId}))
+        for item in items:
+            itemId2ActivityId[str(item['_id'])] = str(item['meta'].get('activityId', None))
+
+        for itemKey in formatted['items']:
+            item = formatted['items'][itemKey]
+            itemId = item.pop('_id').split('/')[-1]
+
+            for key in ['url', 'schema:url']:
+                if key in item:
+                    item.pop(key)
+
+            protocol['screen'][itemKey] = {
+                'parentKey': 'activity',
+                'parentId': activityId2Key[itemId2ActivityId[itemId]],
+                'expanded': item,
+                'ref2Document': {
+                    'duplicateOf': itemId
+                }
+            }
+
+        protocolId = jsonld_expander.createProtocolFromExpandedDocument(protocol, editor)
+
+        return jsonld_expander.formatLdObject(
+            self.load(protocolId, force=True),
+            mesoPrefix='protocol',
+            user=editor,
+            refreshCache=True
+        )
