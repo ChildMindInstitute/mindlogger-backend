@@ -756,21 +756,13 @@ class Applet(Resource):
         if appletRole is None:
             raise AccessException("You don't have enough permission to create applet on this account.")
 
-        thread = threading.Thread(
-            target=AppletModel().updateAppletFromProtocolData,
-            kwargs={
-                'applet': applet,
-                'name': name,
-                'protocol': protocol,
-                'user': thisUser,
-                'accountId': profile['accountId']
-            }
+        return AppletModel().updateAppletFromProtocolData(
+            applet=applet,
+            name=name,
+            protocol=protocol,
+            user=thisUser,
+            accountId=profile['accountId']
         )
-        thread.start()
-        return({
-            "message": "The applet is being updated. Please check back in "
-                       "several seconds to see it."
-        })
 
     @access.user(scope=TokenScope.DATA_WRITE)
     @autoDescribeRoute(
