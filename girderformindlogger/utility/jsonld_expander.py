@@ -64,7 +64,7 @@ def expandObj(contextSet, data):
 
     return expanded
 
-def createProtocolFromExpandedDocument(protocol, user):
+def createProtocolFromExpandedDocument(protocol, user, editExisting=False):
     protocolId = None
 
     for modelType in ['protocol', 'activity', 'screen']:
@@ -76,7 +76,7 @@ def createProtocolFromExpandedDocument(protocol, user):
 
             if modelClass.name in ['folder', 'item']:
                 docFolder = None
-                if modelClass.name == 'folder' and model['ref2Document'].get('_id', None):
+                if modelClass.name == 'folder' and model['ref2Document'].get('_id', None) and editExisting:
                     try:
                         docFolder = FolderModel().load(model['ref2Document']['_id'], force=True)
                         docFolder['name'] = prefName
@@ -120,7 +120,7 @@ def createProtocolFromExpandedDocument(protocol, user):
                             force=True
                         ))
                     )) + 1)
-                    if model['ref2Document'].get('_id', None):
+                    if model['ref2Document'].get('_id', None) and editExisting:
                         try:
                             item = modelClass.load(model['ref2Document']['_id'],force=True)
                             item['name'] = name
@@ -179,7 +179,7 @@ def createProtocolFromExpandedDocument(protocol, user):
 
     return protocolId
 
-def loadFromSingleFile(document, user):
+def loadFromSingleFile(document, user, editExisting=False):
     if 'protocol' not in document or 'data' not in document['protocol']:
         raise ValidationException(
             'should contain protocol field in the json file.',
@@ -227,7 +227,7 @@ def loadFromSingleFile(document, user):
                 'ref2Document': item
             }
 
-    protocolId = createProtocolFromExpandedDocument(protocol, user)
+    protocolId = createProtocolFromExpandedDocument(protocol, user, editExisting)
     protocol = ProtocolModel().load(protocolId, force=True)
 
     protocolContent = None

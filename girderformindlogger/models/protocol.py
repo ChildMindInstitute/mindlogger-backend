@@ -116,10 +116,10 @@ class Protocol(FolderModel):
                     "Invalid Protocol ID."
                 )
 
-    def createProtocol(self, document, user):
+    def createProtocol(self, document, user, editExisting=False):
         from girderformindlogger.utility import jsonld_expander
 
-        return jsonld_expander.loadFromSingleFile(document, user)
+        return jsonld_expander.loadFromSingleFile(document, user, editExisting)
 
     def duplicateProtocol(self, protocolId, editor):
         from girderformindlogger.models.screen import Screen

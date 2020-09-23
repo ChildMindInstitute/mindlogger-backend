@@ -708,17 +708,14 @@ class Applet(FolderModel):
         # get a protocol from single json file
         protocol = Protocol().createProtocol(
             protocol,
-            user
+            user,
+            True
         )
 
         protocol = protocol.get('protocol', protocol)
 
         displayName = Protocol().preferredName(protocol)
 
-        applet['appletName'] = self.validateAppletName('{}/'.format(protocol.get('@id')), CollectionModel().findOne({'name': 'Applets'}), accountId)
-        applet['name'] = name if name is not None and len(name) else displayName
-
-        self.validate(applet, allowRename=True)
         self.save(applet)
         # update appletProfile according to updated applet
         formatted = jsonld_expander.formatLdObject(
