@@ -380,7 +380,7 @@ class Applet(FolderModel):
                 force=False
             )
 
-        newApplet['duplicateOf'] = applet['_id']
+        newApplet['duplicateOf'] = applet['duplicateOf'] if applet.get('duplicateOf', None) else applet['_id']
         self.setAccessList(newApplet, accessList)
         self.save(newApplet)
 
