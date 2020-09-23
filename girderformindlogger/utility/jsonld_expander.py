@@ -67,6 +67,9 @@ def expandObj(contextSet, data):
 def createProtocolFromExpandedDocument(protocol, user, editExisting=False):
     protocolId = None
 
+    folderIds = []
+    itemIds = []
+
     for modelType in ['protocol', 'activity', 'screen']:
         modelClass = MODELS()[modelType]()
         docCollection = getModelCollection(modelType)
@@ -110,6 +113,8 @@ def createProtocolFromExpandedDocument(protocol, user, editExisting=False):
                         docFolder,
                         metadata
                     )
+                    folderIds.append(newModel['_id'])
+
                 elif modelClass.name=='item':
                     item = None
                     name = prefName if prefName else str(len(list(FolderModel().childItems(
@@ -148,6 +153,7 @@ def createProtocolFromExpandedDocument(protocol, user, editExisting=False):
                         )
 
                     newModel = modelClass.setMetadata(item, metadata)
+                    itemIds.append(newModel['_id'])
 
                 update = {
                     'loadedFromSingleFile': True,
@@ -176,6 +182,29 @@ def createProtocolFromExpandedDocument(protocol, user, editExisting=False):
                     protocolId = newModel['_id']
 
                 model['ref2Document']['_id'] = newModel['_id']
+
+    # handle deleted items and activites
+    removedActivities = list(ActivityModel().find({
+        'meta.protocolId': protocolId, 
+        '_id': {
+            '$nin': folderIds
+        }
+    }))
+
+    for activity in removedActivities:
+        clearCache(activity, 'activity')
+        ActivityModel().remove(activity)
+
+    removedItems = list(ScreenModel().find({
+        'meta.protocolId': protocolId, 
+        '_id': {
+            '$nin': itemIds
+        }
+    }))
+
+    for item in removedItems:
+        clearCache(item, 'screen')
+        ScreenModel().remove(item)
 
     return protocolId
 

@@ -28,6 +28,8 @@ class Item(acl_mixin.AccessControlMixin, Model):
                 'folderId',
                 'name',
                 'lowerName',
+                'meta.protocolId',
+                'meta.activityId',
                 'meta.screen.@type',
                 'meta.screen.url',
                 ([
