@@ -769,7 +769,9 @@ class Applet(FolderModel):
         from girderformindlogger.models.user import User
         from pymongo import DESCENDING
 
-        if not self.isManager(appletId, reviewer):
+        if not any([
+            self.isReviewer(appletId, reviewer),
+            self.isManager(appletId, reviewer)]):
             raise AccessException("You are not a owner or manager for this applet.")
 
         query = {
@@ -902,7 +904,10 @@ class Applet(FolderModel):
             return(False)
 
     def isManager(self, appletId, user):
-        return(self._hasRole(appletId, user, 'manager'))
+        return self._hasRole(appletId, user, 'manager')
+
+    def isReviewer(self, appletId, user):
+        return self._hasRole(appletId, user, 'reviewer')
 
     def _hasRole(self, appletId, user, role):
 
