@@ -1101,9 +1101,7 @@ girderformindlogger
         response
             UserModel
             aggregate
-            aggregateAndSave
             completedDate
-            countResponseValues
             delocalize
             determine_date
             formatResponse

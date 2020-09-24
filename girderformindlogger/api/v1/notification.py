@@ -45,9 +45,6 @@ def sseMessage(event):
     event['_girderTime'] = int(time.time())
     return 'data: %s\n\n' % json.dumps(event, sort_keys=True, allow_nan=False, cls=JsonEncoder)
 
-def sayHello():
-    print('hello world!')
-
 class Notification(Resource):
     api_key = 'AAAAJOyOEz4:APA91bFudM5Cc1Qynqy7QGxDBa-2zrttoRw6ZdvE9PQbfIuAB9SFvPje7DcFMmPuX1IizR1NAa7eHC3qXmE6nmOpgQxXbZ0sNO_n1NITc1sE5NH3d8W9ld-cfN7sXNr6IAOuodtEwQy-'
     push_service = FCMNotification(api_key=api_key, proxy_dict={})
@@ -62,7 +59,6 @@ class Notification(Resource):
         self.route('GET', ('stream',), self.stream)
         self.route('GET', ('send-push-notifications',), self.sendPushNotifications)
         self.route('GET', (), self.listNotifications)
-        self.route('GET', ('test-scheduling', ), self.testScheduling)
 
     @disableAuditLog
     @access.token(cookie=True)
@@ -132,22 +128,6 @@ class Notification(Resource):
         return list(NotificationModel().get(
             user, since, token=token, sort=[('updated', SortDir.ASCENDING)]))
 
-
-    @disableAuditLog
-    @access.public
-    @autoDescribeRoute(
-        Description('Send push notifications')
-        .notes(
-            'This endpoint is used to send push notifications to users using FCMNotification. <br>'
-            'This endpoint is going to be removed soon.'
-        )
-            .errorResponse()
-            .errorResponse('You are not logged in.', 403)
-    )
-    def testScheduling(self):
-        redis = getRedisConnection()
-        scheduler = Scheduler(connection=redis)
-        job_id = scheduler.enqueue_in(datetime.timedelta(minutes=1), sayHello)
 
     @disableAuditLog
     @access.public

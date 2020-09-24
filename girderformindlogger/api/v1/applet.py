@@ -61,6 +61,7 @@ class Applet(Resource):
         self.route('GET', (':id', 'data'), self.getAppletData)
         self.route('GET', (':id', 'groups'), self.getAppletGroups)
         self.route('POST', (), self.createApplet)
+        self.route('PUT', (':id', 'encryption'), self.setAppletEncryption)
         self.route('PUT', (':id', 'informant'), self.updateInformant)
         self.route('PUT', (':id', 'assign'), self.assignGroup)
         self.route('PUT', (':id', 'constraints'), self.setConstraints)
@@ -106,6 +107,33 @@ class Applet(Resource):
         thisUser = self.getCurrentUser()
         ProfileModel().updateProfiles(thisUser, {"badge": int(badge)})
         return({"message": "Badge was successfully reseted"})
+
+    @access.user(scope=TokenScope.DATA_OWN)
+    @autoDescribeRoute(
+        Description('update encryption info for applet.')
+        .modelParam(
+            'id',
+            model=AppletModel,
+            level=AccessType.ADMIN,
+            destName='applet'
+        )
+        .jsonParam(
+            'encryption',
+            'encryption info which public key and prime for applet',
+            paramType='form',
+            required=True
+        )
+    )
+    def setAppletEncryption(self, applet, encryption):
+        thisUser = self.getCurrentUser()
+        if not self._model.isManager(applet['_id'], thisUser):
+            raise AccessException('only manager/owners can change applet encryption info')
+
+        applet['meta']['encryption'] = encryption
+        self._model.setMetadata(applet, applet['meta'])
+
+        jsonld_expander.clearCache(applet, 'applet')
+        return { 'message': 'successed' }
 
     @access.user(scope=TokenScope.DATA_OWN)
     @autoDescribeRoute(
@@ -344,7 +372,7 @@ class Applet(Resource):
                 for p in list(users)
             ]}
 
-        return AppletModel().getAppletUsers(applet, user, force=True, retrieveRoles=retrieveRoles)
+        return AppletModel().getAppletUsers(applet, user, force=True, retrieveRoles=retrieveRoles, retrieveRequests=AppletModel().isManager(applet['_id'], user))
 
     @access.user(scope=TokenScope.DATA_READ)
     @autoDescribeRoute(
@@ -386,8 +414,9 @@ class Applet(Resource):
         .param(
             'deleteResponse',
             'true if delete response',
-            required=False,
-            default=True
+            dataType='boolean',
+            required=True,
+            default=True,
         )
         .errorResponse('Invalid applet ID.')
         .errorResponse('Write access was denied for this applet.', 403)
@@ -531,9 +560,15 @@ class Applet(Resource):
             ]),
             required=False
         )
+        .jsonParam(
+            'encryption',
+            'encryption info',
+            paramType='form',
+            required=False
+        )
         .errorResponse('Write access was denied for this applet.', 403)
     )
-    def createApplet(self, protocolUrl=None, email='', name=None, informant=None):
+    def createApplet(self, protocolUrl=None, email='', name=None, informant=None, encryption={}):
         accountProfile = AccountProfile()
 
         thisUser = self.getCurrentUser()
@@ -559,7 +594,8 @@ class Applet(Resource):
                     'informantRelationship': informant
                 } if informant is not None else None,
                 'appletRole': appletRole,
-                'accountId': profile['accountId']
+                'accountId': profile['accountId'],
+                'encryption': encryption
             }
         )
         thread.start()
@@ -597,7 +633,7 @@ class Applet(Resource):
             )
         AppletModel().duplicateApplet(applet, name, thisUser)
 
-        return "duplicate successed"
+        return "duplicate success"
 
     @access.user(scope=TokenScope.DATA_WRITE)
     @autoDescribeRoute(
@@ -634,9 +670,15 @@ class Applet(Resource):
             ]),
             required=False
         )
+        .jsonParam(
+            'encryption',
+            'encryption info',
+            paramType='form',
+            required=False
+        )
         .errorResponse('Write access was denied for this applet.', 403)
     )
-    def createAppletFromProtocolData(self, protocol, email='', name=None, informant=None):
+    def createAppletFromProtocolData(self, protocol, email='', name=None, informant=None, encryption={}):
         accountProfile = AccountProfile()
 
         thisUser = self.getCurrentUser()
@@ -662,7 +704,8 @@ class Applet(Resource):
                     'informantRelationship': informant
                 } if informant is not None else None,
                 'appletRole': appletRole,
-                'accountId': profile['accountId']
+                'accountId': profile['accountId'],
+                'encryption': encryption
             }
         )
         thread.start()
@@ -748,31 +791,13 @@ class Applet(Resource):
             dataType='array',
             default=''
         )
-        .param(
-            'password',
-            'owner\manager password to receive user\'s data',
-            required=True,
-            dataType='string',
-            default=''
-        )
-        .param(
-            'format',
-            'JSON or CSV (json by default)',
-            required=False
-        )
         .errorResponse('Write access was denied for this applet.', 403)
     )
-    def getAppletData(self, id, users, password, format='json'):
-        import pandas as pd
+    def getAppletData(self, id, users):
         from datetime import datetime
         from ..rest import setContentDisposition, setRawResponse, setResponseHeader
 
-        format = ('json' if format is None else format).lower()
         thisUser = self.getCurrentUser()
-        print(users)
-
-        if not UserModel()._cryptContext.verify(password, thisUser['salt']):
-            raise AccessException('IncorrectPassword.')
 
         if users and isinstance(users, str):
             users = users.replace(' ', '').split(",")
@@ -783,14 +808,9 @@ class Applet(Resource):
         setContentDisposition("{}-{}.{}".format(
             str(id),
             datetime.now().isoformat(),
-            format
+            'json'
         ))
-        if format=='csv':
-            setRawResponse()
-            setResponseHeader('Content-Type', 'text/{}'.format(format))
-            csv = pd.DataFrame(data).to_csv(index=False)
-            return(csv)
-        setResponseHeader('Content-Type', 'application/{}'.format(format))
+
         return(data)
 
 

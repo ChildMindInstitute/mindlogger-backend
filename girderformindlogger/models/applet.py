@@ -41,7 +41,7 @@ from girderformindlogger.utility.progress import noProgress,                   \
 from girderformindlogger.models.account_profile import AccountProfile
 from girderformindlogger.models.profile import Profile
 from girderformindlogger.models.events import Events as EventsModel
-
+from bson import json_util
 
 class Applet(FolderModel):
     """
@@ -57,7 +57,8 @@ class Applet(FolderModel):
         constraints=None,
         appletName=None,
         appletRole='editor',
-        accountId=None
+        accountId=None,
+        encryption={}
     ):
         """
         Method to create an Applet.
@@ -104,7 +105,8 @@ class Applet(FolderModel):
                 'applet': constraints if constraints is not None and isinstance(
                     constraints,
                     dict
-                ) else {}
+                ) else {},
+                'encryption': encryption
             }
         )
 
@@ -272,7 +274,7 @@ class Applet(FolderModel):
         from girderformindlogger.models.invitation import Invitation
 
         appletProfile = Profile().findOne({'appletId': applet['_id'], 'userId': user['_id']})
-        if not appletProfile:
+        if not appletProfile or role not in appletProfile.get('roles', []):
             accountId = applet.get('accountId', None)
             if not accountId:
                 return
@@ -470,8 +472,14 @@ class Applet(FolderModel):
             AccountProfile().removeApplet(accountProfile, applet['_id'])
 
         applet['accountId'] = accountId
+
+        if 'encryption' in applet['meta']:
+            applet['meta'].pop('encrypton')
+
         self.save(applet)
         self.grantAccessToApplet(thisUser, applet, 'manager', thisUser)
+
+        jsonld_expander.clearCache(applet, 'applet')
 
         return Profile().displayProfileFields(Profile().updateOwnerProfile(applet), thisUser, forceManager=True)
 
@@ -507,7 +515,8 @@ class Applet(FolderModel):
         email='',
         sendEmail=True,
         appletRole='editor',
-        accountId=None
+        accountId=None,
+        encryption={}
     ):
         from girderformindlogger.models.protocol import Protocol
         from girderformindlogger.utility import mail_utils
@@ -562,7 +571,8 @@ class Applet(FolderModel):
                 constraints=constraints,
                 appletName=appletName,
                 appletRole=appletRole,
-                accountId=accountId
+                accountId=accountId,
+                encryption=encryption
             )
 
             emailMessage = "Hi {}.  <br>" \
@@ -599,7 +609,8 @@ class Applet(FolderModel):
         email='',
         sendEmail=True,
         appletRole='editor',
-        accountId=None
+        accountId=None,
+        encryption={}
     ):
         from girderformindlogger.models.protocol import Protocol
         from girderformindlogger.utility import mail_utils
@@ -642,7 +653,8 @@ class Applet(FolderModel):
                 constraints=constraints,
                 appletName=appletName,
                 appletRole=appletRole,
-                accountId=accountId
+                accountId=accountId,
+                encryption=encryption
             )
             emailMessage = "Hi {}.  <br>" \
                 "Your applet {} was successfully uploaded! <br>" \
@@ -759,7 +771,6 @@ class Applet(FolderModel):
 
         if not any([
             self.isReviewer(appletId, reviewer),
-            self.isOwner(appletId, reviewer),
             self.isManager(appletId, reviewer)]):
             raise AccessException("You are not a owner or manager for this applet.")
 
@@ -784,23 +795,37 @@ class Applet(FolderModel):
             user=reviewer,
             sort=[("created", DESCENDING)]
         ))
-        respondents = {
-            str(response['baseParentId']): IDCode().findIdCodes(
-                Profile().createProfile(
-                    appletId,
-                    User().load(response['baseParentId'], force=True),
-                    'user'
-                )['_id']
-            ) for response in responses if 'baseParentId' in response
+
+        data = {
+            'dataSources': {},
+            'keys': [],
+            'responses': []
         }
-        return([
-            {
-                "respondent": code,
-                **response.get('meta', {})
-            } for response in responses for code in respondents[
-                str(response['baseParentId'])
-            ]
-        ])
+
+        userKeys = {}
+        for response in responses:
+            meta = response.get('meta', {})
+
+            data['responses'].append({
+                '_id': response['_id'],
+                'activity': meta.get('activity', {}),
+                'userId': meta.get('subject', {}).get('@id', None),
+                'data': meta.get('responses', {}),
+                'created': response.get('created', None),
+            })
+
+            if 'userPublicKey' in meta:
+                keyDump = json_util.dumps(meta['userPublicKey'])
+                if keyDump not in userKeys:
+                    userKeys[keyDump] = len(data['keys'])
+                    data['keys'].append(meta['userPublicKey'])
+
+                data['dataSources'][str(response['_id'])] = {
+                    'key': userKeys[keyDump],
+                    'data': meta['dataSource']
+                }
+
+        return data
 
     def updateRelationship(self, applet, relationship):
         """
@@ -883,9 +908,6 @@ class Applet(FolderModel):
 
     def isReviewer(self, appletId, user):
         return self._hasRole(appletId, user, 'reviewer')
-
-    def isOwner(self, appletId, user):
-        return self._hasRole(appletId, user, 'owner')
 
     def _hasRole(self, appletId, user, role):
 
@@ -1062,7 +1084,7 @@ class Applet(FolderModel):
 
         return formatted
 
-    def getAppletUsers(self, applet, user=None, force=False, retrieveRoles=False):
+    def getAppletUsers(self, applet, user=None, force=False, retrieveRoles=False, retrieveRequests=False):
         """
         Function to return a list of Applet Users
 
@@ -1102,6 +1124,9 @@ class Applet(FolderModel):
 
                     if retrieveRoles:
                         profile['roles'] = p['roles']
+                    if 'refreshRequest' in p and retrieveRequests:
+                        profile['refreshRequest'] = p['refreshRequest']
+
                     userDict['active'].append(profile)
 
             for p in list(Invitation().find(query={'appletId': applet['_id']})):

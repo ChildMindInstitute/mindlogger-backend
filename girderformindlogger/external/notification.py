@@ -13,6 +13,7 @@ push_service = FirebaseNotification(
 AMOUNT_MESSAGES_PER_REQUEST = 1000
 
 
+# this handles notifications for activities
 def send_push_notification(applet_id, event_id, activity_id=None, send_time=None):
     from girderformindlogger.models.events import Events
     from girderformindlogger.models.profile import Profile
@@ -85,7 +86,8 @@ def send_push_notification(applet_id, event_id, activity_id=None, send_time=None
                 data_message={
                     "event_id": str(event_id),
                     "applet_id": str(applet_id),
-                    "activity_id": str(activity_id)
+                    "activity_id": str(activity_id),
+                    "type": 'event-alert'
                 },
                 badge=int(badge) +1
             )
@@ -98,3 +100,22 @@ def send_push_notification(applet_id, event_id, activity_id=None, send_time=None
         # if random time we will reschedule it in time between 23:45 and 23:59
         if event['data']['notifications'][0]['random'] and now.hour == 23 and 59 >= now.minute >= 45:
             Events().rescheduleRandomNotifications(event)
+
+# this handles other custom notifications
+def send_custom_notification(notification):
+    from girderformindlogger.models.user import User as UserModel
+    from girderformindlogger.models.profile import Profile
+
+    if notification['type'] == 'response-data-alert':
+        user = UserModel().load(notification['userId'], force=True)
+
+        if user['deviceId']:
+            push_service.notify_single_device(
+                registration_id=user['deviceId'],
+                message_title=notification['data'].get('title', 'Response Alert'),
+                message_body=notification['data'].get('description', ''),
+                data_message={
+                    "user_id": str(user['_id']),
+                    "type": notification['type']
+                }
+            )
