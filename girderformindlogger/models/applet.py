@@ -427,7 +427,7 @@ class Applet(FolderModel):
         return successed
 
     def receiveOwnerShip(self, applet, thisUser, email):
-        from girderformindlogger.utility import mail_utils
+        from girderformindlogger.utility import mail_utils, jsonld_expander
         from girderformindlogger.models.group import Group
         from girderformindlogger.models.response_folder import ResponseItem
         from girderformindlogger.models.invitation import Invitation
@@ -489,7 +489,7 @@ class Applet(FolderModel):
         applet['accountId'] = accountId
 
         if 'encryption' in applet['meta']:
-            applet['meta'].pop('encrypton')
+            applet['meta'].pop('encryption')
 
         self.save(applet)
         self.grantAccessToApplet(thisUser, applet, 'manager', thisUser)
@@ -791,16 +791,27 @@ class Applet(FolderModel):
             "meta.applet.@id": ObjectId(appletId)
         }
 
+        reviewerProfile = Profile().findOne(query={
+            'appletId': ObjectId(appletId),
+            'userId': reviewer['_id']
+        })
         if len(users):
             profiles = list(Profile().find(query={
                 "_id": {
                     "$in": [ObjectId(user) for user in users]
                 },
-                "profile": True
+                "profile": True,
+                "reviewers": reviewerProfile["_id"]
             }, fields=["userId"]))
-            query["creatorId"] = {
-                "$in": [profile['userId'] for profile in profiles]
-            }
+        else:
+            profiles = list(Profile().find(query={
+                "reviewers": reviewerProfile["_id"],
+                "profile": True,
+            }))
+
+        query["creatorId"] = {
+            "$in": [profile['userId'] for profile in profiles]
+        }
 
         responses = list(ResponseItem().find(
             query=query,
