@@ -78,15 +78,8 @@ class Events(Model):
         if 'data' in event:
             newEvent['data'] = event['data']
 
-            activities = list(Folder().find(query={
-                'meta.activity.url': event['data']['URI']
-            }, fields=['_id']))
-
-            activity_id = list(set(applet["meta"]["protocol"]["activities"]) & set(
-                [activity['_id'] for activity in activities]))
-
-            if len(activity_id):
-                newEvent['data']['activity_id'] = activity_id[0]
+            if 'activity_id' in newEvent['data']:
+                newEvent['data']['activity_id'] = ObjectId(newEvent['data']['activity_id'])
 
             if 'users' in event['data'] and isinstance(event['data']['users'], list):
                 newEvent['individualized'] = True
