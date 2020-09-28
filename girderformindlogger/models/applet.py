@@ -416,6 +416,7 @@ class Applet(FolderModel):
         from girderformindlogger.models.group import Group
         from girderformindlogger.models.response_folder import ResponseItem
         from girderformindlogger.models.invitation import Invitation
+        from girderformindlogger.utility import jsonld_expander
 
         if not mail_utils.validateEmailAddress(email):
             raise ValidationException(
@@ -474,7 +475,7 @@ class Applet(FolderModel):
         applet['accountId'] = accountId
 
         if 'encryption' in applet['meta']:
-            applet['meta'].pop('encrypton')
+            applet['meta'].pop('encryption')
 
         self.save(applet)
         self.grantAccessToApplet(thisUser, applet, 'manager', thisUser)
