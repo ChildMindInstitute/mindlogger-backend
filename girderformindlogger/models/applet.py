@@ -757,6 +757,99 @@ class Applet(FolderModel):
 
         return formatted
 
+    def prepareAppletForEdit(
+        self,
+        applet,
+        protocol,
+        user,
+        accountId
+    ):
+        from girderformindlogger.models.protocol import Protocol
+        from girderformindlogger.models.screen import Screen
+        from girderformindlogger.models.activity import Activity
+        from girderformindlogger.utility import jsonld_expander
+
+        metadata = applet.get('meta', {})
+        protocolId = metadata.get('protocol', {}).get('_id', '/').split('/')[-1]
+
+        if metadata.get('protocol', {}).get('url', None):
+            if not protocolId:
+                raise ValidationException('this applet does not have protocol id')
+
+            duplicated = Protocol().duplicateProtocol(ObjectId(protocolId), user)
+            protocolId = duplicated['protocol']['_id'].split('/')[-1]
+
+            # replace with duplicated content
+            ActivityModel = Activity()
+            ItemModel = Screen()
+            activities = list(ActivityModel.find({ 'meta.protocolId': ObjectId(protocolId) }))
+            items = list(ItemModel.find({ 'meta.protocolId': ObjectId(protocolId) }))
+
+            activityIDRef = {}
+            for activity in activities:
+                activityIDRef[str(activity['duplicateOf'])] = activity['_id']
+
+                ActivityModel.update({
+                    'duplicateOf': activity['duplicateOf']
+                }, {
+                    '$set': {
+                        'duplicateOf': activity['_id']
+                    }
+                })
+
+                activity.pop('duplicateOf')
+
+                ActivityModel.update({
+                    '_id': activity['_id']
+                }, {
+                    '$unset': {
+                        'duplicateOf': ''
+                    }
+                })
+            
+            for item in items:
+                ItemModel.update({
+                    'duplicateOf': item['duplicateOf']
+                }, {
+                    '$set': {
+                        'duplicateOf': item['_id']
+                    }
+                })
+
+                item.pop('duplicateOf')
+
+                ItemModel.update({
+                    '_id': item['_id']
+                }, {
+                    '$unset': {
+                        'duplicateOf': ''
+                    }
+                })
+
+            # update profiles
+            appletProfiles = Profile().get_profiles_by_applet_id(applet['_id'])
+
+            for profile in appletProfiles:
+                for activity in profile.get('completed_activities', []):
+                    activity['activity_id'] = activityIDRef[str(activity['activity_id'])]
+
+                Profile().save(profile, validate=False)
+
+            metadata['protocol'] = {
+                '_id': duplicated['protocol']['_id'],
+                'activities': [activity['activity_id'] for activity in profile.get('completed_activities', [])]
+            }
+            self.setMetadata(applet, metadata)
+
+        jsonld_expander.cacheProtocolContent(Protocol().load(protocolId, force=True), protocol, user)
+
+        return jsonld_expander.formatLdObject(
+            applet,
+            'applet',
+            user,
+            refreshCache=True
+        )
+
     def formatThenUpdate(self, applet, user):
         from girderformindlogger.utility import jsonld_expander
         jsonld_expander.formatLdObject(

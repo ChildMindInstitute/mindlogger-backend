@@ -208,6 +208,48 @@ def createProtocolFromExpandedDocument(protocol, user, editExisting=False):
 
     return protocolId
 
+def cacheProtocolContent(protocol, document, user):
+    contentFolder = None
+    if protocol.get('content_id', None):
+        contentFolder = FolderModel().load(protocol['content_id'], force=True)
+        contentFolder['name'] = 'content of ' + protocol['name']
+
+        FolderModel().validate(contentFolder, allowRename=True)
+
+    if not contentFolder:
+        contentFolder = FolderModel().createFolder(
+            name='content of ' + protocol['name'],
+            parent=protocol,
+            parentType='folder',
+            public=False,
+            creator=user,
+            allowRename=True,
+            reuseExisting=True
+        )
+
+        protocol['content_id'] = contentFolder['_id']
+        FolderModel().save(protocol)
+
+    contentFolder['lastUpdatedBy'] = user['_id']
+
+    FolderModel().save(contentFolder)
+
+    version = protocol.get('meta', {}).get('protocol', {}).get('schema:version', None)
+
+    if version and len(version):
+        version = version[0].get('@value', None)
+
+        item = ItemModel().createItem(
+            name='content of {} ({})'.format(protocol['name'], version),
+            creator=user,
+            folder=contentFolder
+        )
+
+        item['content'] = json_util.dumps(document)
+        item['version'] = version
+
+        ItemModel().save(item)
+
 def loadFromSingleFile(document, user, editExisting=False):
     if 'protocol' not in document or 'data' not in document['protocol']:
         raise ValidationException(
@@ -259,31 +301,7 @@ def loadFromSingleFile(document, user, editExisting=False):
     protocolId = createProtocolFromExpandedDocument(protocol, user, editExisting)
     protocol = ProtocolModel().load(protocolId, force=True)
 
-    protocolContent = None
-    if protocol.get('content_id', None):
-        protocolContent = FolderModel().load(protocol['content_id'], force=True)
-        protocolContent['name'] = 'content of ' + protocol['name']
-
-        FolderModel().validate(protocolContent, allowRename=True)
-
-    if not protocolContent:
-        protocolContent = FolderModel().createFolder(
-            name='content of ' + protocol['name'],
-            parent=protocol,
-            parentType='folder',
-            public=False,
-            creator=user,
-            allowRename=True,
-            reuseExisting=True
-        )
-
-        protocol['content_id'] = protocolContent['_id']
-        FolderModel().save(protocol)
-
-    protocolContent['content'] = json_util.dumps(document)
-    protocolContent['lastUpdatedBy'] = user['_id']
-
-    FolderModel().save(protocolContent)
+    cacheProtocolContent(protocol, document, user)
 
     return formatLdObject(
         protocol,
