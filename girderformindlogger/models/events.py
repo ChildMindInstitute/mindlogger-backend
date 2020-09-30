@@ -145,7 +145,7 @@ class Events(Model):
     def setSchedule(self, event):
         push_notification = PushNotificationModel(event=event)
         push_notification.remove_schedules()
-        useNotifications = event.get('data', {}).get('userNotifications', false)
+        useNotifications = event.get('data', {}).get('useNotifications', False)
         notifications = event.get('data', {}).get('notifications', [])
         hasNotifications = len(notifications) > 0
 
