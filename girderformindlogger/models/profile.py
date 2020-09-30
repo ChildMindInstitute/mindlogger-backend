@@ -38,7 +38,8 @@ class Profile(AESEncryption, dict):
             ('firstName', 64),
             ('lastName', 64),
             ('userDefined.displayName', 64),
-            ('coordinatorDefined.displayName', 64)
+            ('coordinatorDefined.displayName', 64),
+            ('cachedDisplay.manager.displayName', 64)
         ])
 
     def display(self, p, role):
