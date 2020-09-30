@@ -679,7 +679,19 @@ class Applet(Resource):
             )
         AppletModel().duplicateApplet(applet, name, thisUser)
 
-        return "duplicate success"
+        thread = threading.Thread(
+            target=AppletModel().duplicateApplet,
+            kwargs={
+                'applet': applet,
+                'name': name,
+                'editor': thisUser,
+            }
+        )
+        thread.start()
+
+        return({
+            "message": "The applet is being duplicated. Please check back in 1 min to use duplicated applet."
+        })
 
     @access.user(scope=TokenScope.DATA_WRITE)
     @autoDescribeRoute(
@@ -756,7 +768,7 @@ class Applet(Resource):
         )
         thread.start()
         return({
-            "message": "The applet is building. We will send you an email in 10 mins or less when it has been successfully created or failed."
+            "message": "The applet is building. We will send you an email in 1 min or less when it has been successfully created or failed."
         })
 
 
