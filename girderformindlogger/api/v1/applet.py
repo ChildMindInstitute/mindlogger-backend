@@ -1348,7 +1348,8 @@ class Applet(Resource):
 
         invitation = Invitation().createInvitationForSpecifiedUser(applet, thisUser, 'owner', invitedUser, firstName=invitedUser['firstName'], lastName=invitedUser['lastName'], MRN='', userEmail=email)
 
-        url = 'web.mindlogger.org/#/invitation/%s' % (str(invitation['_id'], ))
+        web_url = os.getenv('WEB_URI') or 'localhost:8082'
+        url = f'https://{web_url}/#/invitation/{str(invitation["_id"])}'
 
         html = mail_utils.renderTemplate('transferOwnerShip.mako', {
             'url': url,

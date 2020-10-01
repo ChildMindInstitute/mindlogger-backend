@@ -431,6 +431,7 @@ class Applet(FolderModel):
         from girderformindlogger.models.group import Group
         from girderformindlogger.models.response_folder import ResponseItem
         from girderformindlogger.models.invitation import Invitation
+        from girderformindlogger.utility import jsonld_expander
 
         if not mail_utils.validateEmailAddress(email):
             raise ValidationException(

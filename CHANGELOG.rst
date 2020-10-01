@@ -8,6 +8,9 @@ Changes
 -------
 Unreleased
 ==========
+2020-09-28 v0.14.14
+fix transferownership endpoint
+
 2020-09-14 v0.14.13
 fix user responses endpoint failing to process the response data
 
