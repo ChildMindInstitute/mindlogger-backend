@@ -19,6 +19,7 @@ from girderformindlogger.utility.response import responseDateList
 from girderformindlogger.models.cache import Cache as CacheModel
 from bson.objectid import ObjectId
 from pyld import jsonld
+from pymongo import ASCENDING, DESCENDING
 
 
 def getModelCollection(modelType):
@@ -64,11 +65,8 @@ def expandObj(contextSet, data):
 
     return expanded
 
-def createProtocolFromExpandedDocument(protocol, user, editExisting=False):
+def createProtocolFromExpandedDocument(protocol, user, editExisting=False, removed={}):
     protocolId = None
-
-    folderIds = []
-    itemIds = []
 
     for modelType in ['protocol', 'activity', 'screen']:
         modelClass = MODELS()[modelType]()
@@ -113,7 +111,6 @@ def createProtocolFromExpandedDocument(protocol, user, editExisting=False):
                         docFolder,
                         metadata
                     )
-                    folderIds.append(newModel['_id'])
 
                 elif modelClass.name=='item':
                     item = None
@@ -153,7 +150,6 @@ def createProtocolFromExpandedDocument(protocol, user, editExisting=False):
                         )
 
                     newModel = modelClass.setMetadata(item, metadata)
-                    itemIds.append(newModel['_id'])
 
                 update = {
                     'loadedFromSingleFile': True,
@@ -184,31 +180,97 @@ def createProtocolFromExpandedDocument(protocol, user, editExisting=False):
                 model['ref2Document']['_id'] = newModel['_id']
 
     # handle deleted items and activites
-    removedActivities = list(ActivityModel().find({
-        'meta.protocolId': protocolId, 
-        '_id': {
-            '$nin': folderIds
-        }
-    }))
+    if 'activities' in removed:
+        removedActivities = list(ActivityModel().find({
+            'meta.protocolId': protocolId, 
+            '_id': {
+                '$in': [
+                    ObjectId(activityId) for activityId in removed['activities']
+                ]
+            }
+        }))
 
-    for activity in removedActivities:
-        clearCache(activity, 'activity')
-        ActivityModel().remove(activity)
+        for activity in removedActivities:
+            clearCache(activity, 'activity')
+            ActivityModel().remove(activity)
 
-    removedItems = list(ScreenModel().find({
-        'meta.protocolId': protocolId, 
-        '_id': {
-            '$nin': itemIds
-        }
-    }))
+    if 'items' in removed:
+        removedItems = list(ScreenModel().find({
+            'meta.protocolId': protocolId, 
+            '_id': {
+                '$in': [
+                    ObjectId(itemId) for itemId in removed['items']
+                ]
+            }
+        }))
 
-    for item in removedItems:
-        clearCache(item, 'screen')
-        ScreenModel().remove(item)
+        for item in removedItems:
+            clearCache(item, 'screen')
+            ScreenModel().remove(item)
 
     return protocolId
 
-def cacheProtocolContent(protocol, document, user):
+def getUpdatedContent(updates, document):
+    # document: previous version of protocol data
+    # updates: contains only changes
+    # retrieve: newDocument = document + updates
+
+    document['contexts'] = updates['contexts']
+    document['protocol']['data'] = updates['protocol']['data']
+
+    removedItems = updates.get('removed', {}).get('items', [])
+    removedActivities = updates.get('removed', {}).get('activities', [])
+
+    activityUpdates = updates['protocol'].get('activities', {})
+    activityID2Key = { 
+        str(activityUpdates[key]['data']['_id']): key for key in activityUpdates 
+    }
+
+    activities = document['protocol']['activities']
+    for key in list(dict.keys(activities)):
+        activityId = str(activities[key]['data']['_id'])
+
+        if activityId in removedActivities:
+            activities.pop(key)
+
+        if activityId in activityID2Key:
+            activity = activities[key]
+            activityUpdate = activityUpdates[activityID2Key[activityId]]
+            itemUpdates = activityUpdate.get('items', {})
+
+            itemID2Key = {
+                str(itemUpdates[key]['_id']): key for key in itemUpdates
+            }
+            items = activity.get('items', {})
+            activity['data'] = activityUpdate['data']
+
+            # handle updates on activity level
+            for itemKey in list(dict.keys(items)):
+                itemId = str(items[itemKey]['_id'])
+
+                if itemId in removedItems:
+                    items.pop(itemKey)
+                if itemId in itemID2Key:
+                    items[itemKey] = itemUpdates[itemID2Key[itemId]]
+                    itemID2Key.pop(itemId)
+
+            # handle newly inserted items
+            for itemId in itemID2Key:
+                itemKey = itemID2Key[itemId]
+
+                items[itemKey] = itemUpdates[itemKey]
+
+            activityID2Key.pop(activityId)
+    
+    # handle newly inserted activities
+    for activityId in activityID2Key:
+        key = activityID2Key[activityId]
+
+        activities[key] = activityUpdates[key]
+
+    return document
+
+def cacheProtocolContent(protocol, document, user, editExisting=False):
     contentFolder = None
     if protocol.get('content_id', None):
         contentFolder = FolderModel().load(protocol['content_id'], force=True)
@@ -245,7 +307,19 @@ def cacheProtocolContent(protocol, document, user):
             folder=contentFolder
         )
 
-        item['content'] = json_util.dumps(document)
+        if editExisting and 'baseVersion' in document:
+            latestItem = ItemModel().findOne({
+                'folderId': contentFolder['_id'],
+                'version': document['baseVersion']
+            })
+
+            latestDocument = json_util.loads(latestItem['content'])
+
+            # item['updates'] = json_util.dumps(document)
+            item['content'] = json_util.dumps(getUpdatedContent(document, latestDocument))
+            item['baseVersion'] = document['baseVersion']
+        else:
+            item['content'] = json_util.dumps(document)
         item['version'] = version
 
         ItemModel().save(item)
@@ -255,10 +329,6 @@ def loadFromSingleFile(document, user, editExisting=False):
         raise ValidationException(
             'should contain protocol field in the json file.',
         )
-    if 'activities' not in document['protocol']:
-        raise ValidationException(
-            'should contain activities field in the json file.',
-    )
 
     contexts = document.get('contexts', {})
 
@@ -284,24 +354,25 @@ def loadFromSingleFile(document, user, editExisting=False):
             'ref2Document': activity['data']
         }
 
-        if 'items' not in activity:
+        if 'items' not in activity and not editExisting:
             raise ValidationException(
                 'should contain at least one item in each activity.',
             )
 
-        for item in activity['items'].values():
-            expandedItem = expandObj(contexts, item)
-            protocol['screen'][expandedItem['@id']] = {
-                'parentKey': 'activity',
-                'parentId': expandedActivity['@id'],
-                'expanded': expandedItem,
-                'ref2Document': item
-            }
+        if 'items' in activity:
+            for item in activity['items'].values():
+                expandedItem = expandObj(contexts, item)
+                protocol['screen'][expandedItem['@id']] = {
+                    'parentKey': 'activity',
+                    'parentId': expandedActivity['@id'],
+                    'expanded': expandedItem,
+                    'ref2Document': item
+                }
 
-    protocolId = createProtocolFromExpandedDocument(protocol, user, editExisting)
+    protocolId = createProtocolFromExpandedDocument(protocol, user, editExisting, document.get('removed', {}))
     protocol = ProtocolModel().load(protocolId, force=True)
 
-    cacheProtocolContent(protocol, document, user)
+    cacheProtocolContent(protocol, document, user, editExisting)
 
     return formatLdObject(
         protocol,

@@ -402,12 +402,14 @@ class Applet(FolderModel):
 
         Profile().updateOwnerProfile(newApplet)
 
-        return(jsonld_expander.formatLdObject(
+        formatted = jsonld_expander.formatLdObject(
             newApplet,
             'applet',
             editor,
             refreshCache=False
-        ))
+        )
+
+        return formatted
 
     def deactivateApplet(self, applet):
         applet['meta']['applet']['deleted'] = True
@@ -719,11 +721,12 @@ class Applet(FolderModel):
 
         self.save(applet)
         # update appletProfile according to updated applet
+        jsonld_expander.clearCache(applet, 'applet')
+
         formatted = jsonld_expander.formatLdObject(
             applet,
             'applet',
-            user,
-            refreshCache=True
+            user
         )
 
         activities = []
@@ -768,6 +771,7 @@ class Applet(FolderModel):
         from girderformindlogger.models.protocol import Protocol
         from girderformindlogger.models.screen import Screen
         from girderformindlogger.models.activity import Activity
+        from girderformindlogger.models.response_folder import ResponseItem
         from girderformindlogger.utility import jsonld_expander
 
         metadata = applet.get('meta', {})
@@ -789,6 +793,29 @@ class Applet(FolderModel):
             activityIDRef = {}
             for activity in activities:
                 activityIDRef[str(activity['duplicateOf'])] = activity['_id']
+
+                ResponseItem().update({
+                    'meta.activity.@id': activity['duplicateOf'],
+                    'meta.applet.@id': applet['_id']
+                }, {
+                    '$set': {
+                        'meta.activity.@id': activity['_id'],
+                    },
+                    '$unset': {
+                        'meta.activity.url': ''
+                    }
+                })
+
+                EventsModel().update({
+                    'data.activity_id': activity['duplicateOf']
+                }, {
+                    '$set': {
+                        'data.activity_id': activity['_id'],
+                    },
+                    '$unset': {
+                        'data.URI': ''
+                    }
+                })
 
                 ActivityModel.update({
                     'duplicateOf': activity['duplicateOf']

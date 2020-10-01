@@ -30,7 +30,8 @@ class Events(Model):
             (
                 'applet_id',
                 'individualized',
-                'data.users'
+                'data.users',
+                'data.activity_id'
             )
         )
 
