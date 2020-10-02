@@ -732,9 +732,23 @@ class Applet(FolderModel):
         activities = []
         if 'activities' in formatted:
             for activity in formatted['activities']:
-                activities.append(ObjectId(formatted['activities'][activity]['_id'].split('/')[-1]))
+                activityId = ObjectId(formatted['activities'][activity]['_id'].split('/')[-1])
+                activities.append(activityId)
+
+                EventsModel().update({
+                    'data.activity_id': activityId
+                }, {
+                    '$set': {
+                        'data.title': self.preferredName(formatted['activities'][activity]),
+                    },
+                })
 
             self.update({'_id': ObjectId(applet['_id'])}, {'$set': {'meta.protocol.activities': activities}})
+
+        removedActivities = protocol.get('removed', {}).get('activities', [])
+
+        for activityId in removedActivities:
+            EventsModel().deleteEventsByActivityId(applet['_id'], activityId)
 
         appletProfiles = Profile().get_profiles_by_applet_id(applet['_id'])
 

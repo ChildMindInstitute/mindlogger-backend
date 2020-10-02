@@ -234,7 +234,7 @@ def getUpdatedContent(updates, document):
             activities.pop(key)
 
         if activityId in activityID2Key:
-            activity = activities[key]
+            activity = activities[activityID2Key[activityId]] = activities.pop(key)
             activityUpdate = activityUpdates[activityID2Key[activityId]]
             itemUpdates = activityUpdate.get('items', {})
 
@@ -252,6 +252,7 @@ def getUpdatedContent(updates, document):
                     items.pop(itemKey)
                 if itemId in itemID2Key:
                     items[itemKey] = itemUpdates[itemID2Key[itemId]]
+                    items[itemID2Key[itemId]] = items.pop(itemKey)
                     itemID2Key.pop(itemId)
 
             # handle newly inserted items

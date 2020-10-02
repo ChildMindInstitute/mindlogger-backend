@@ -62,6 +62,12 @@ class Events(Model):
         for event in events:
             self.deleteEvent(event.get('_id'))
 
+    def deleteEventsByActivityId(self, applet_id, activity_id):
+        events = self.find({'applet_id': ObjectId(applet_id), 'data.activity_id': ObjectId(activity_id)})
+
+        for event in events:
+            self.deleteEvent(event.get('_id'))
+
     def upsertEvent(self, event, applet, event_id=None):
         newEvent = {
             'applet_id': applet['_id'],
