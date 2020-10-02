@@ -412,10 +412,17 @@ def importAndCompareModelType(model, url, user, modelType, meta={}, existing=Non
     if modelClass.name in ['folder', 'item']:
         docFolder = None
 
-        if modelClass.name == 'folder' and existing:
-            existing['name'] = prefName
-            FolderModel().updateFolder(existing)
-            docFolder = existing
+        if existing:
+            if modelClass.name == 'folder':
+                existing['name'] = prefName
+                FolderModel().updateFolder(existing)
+                docFolder = existing
+            elif modelClass.name == 'item':
+                docFolder = FolderModel().findOne({'_id': existing['folderId']})
+
+                if docFolder:
+                    docFolder['name'] = prefName
+                    FolderModel().updateFolder(docFolder)
 
         if not docFolder:
             docFolder = FolderModel().createFolder(
@@ -455,7 +462,7 @@ def importAndCompareModelType(model, url, user, modelType, meta={}, existing=Non
             )) + 1)
             if existing:
                 existing['name'] = name
-                existing['folderId'] = existing['_id']
+                existing['folderId'] = docFolder['_id']
                 modelClass.updateItem(existing)
                 item = existing
 
@@ -1207,7 +1214,10 @@ def formatLdObject(
                             'protocol',
                             user,
                             thread=False,
-                            refreshCache=refreshCache
+                            refreshCache=refreshCache,
+                            meta={
+                                'appletId': obj['_id']
+                            }
                         )[0]
 
             # format protocol data

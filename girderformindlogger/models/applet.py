@@ -110,6 +110,14 @@ class Applet(FolderModel):
             }
         )
 
+        FolderModel().update({
+            '_id': ObjectId(protocol['_id'].split('/')[-1])
+        }, {
+            '$set': {
+                'meta.appletId': applet['_id']
+            }
+        })
+
         appletGroupName = "Default {} ({})".format(
             name,
             str(applet.get('_id', ''))
@@ -409,6 +417,21 @@ class Applet(FolderModel):
             refreshCache=False
         )
 
+        emailMessage = "Hi, {}. <br>" \
+                "Your applet ({}) was successfully created. <br>".format(
+                    editor['firstName'],
+                    appletName
+                )
+        subject = 'applet duplicate success!'
+
+        if 'email' in editor and not editor.get('email_encrypted', True):
+            from girderformindlogger.utility.mail_utils import sendMail
+            sendMail(
+                subject=subject,
+                text=emailMessage,
+                to=[editor['email']]
+            )
+
         return formatted
 
     def deactivateApplet(self, applet):
@@ -556,7 +579,8 @@ class Applet(FolderModel):
                 'protocol',
                 user,
                 thread=False,
-                refreshCache=True
+                refreshCache=True,
+                meta={'appletId': 'None'}
             )
 
             protocol = protocol[0].get('protocol', protocol[0])
