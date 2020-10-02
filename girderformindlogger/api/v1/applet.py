@@ -677,7 +677,6 @@ class Applet(Resource):
             raise AccessException(
                 "Only managers and editors are able to duplicate applet."
             )
-        AppletModel().duplicateApplet(applet, name, thisUser)
 
         thread = threading.Thread(
             target=AppletModel().duplicateApplet,
