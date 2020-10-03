@@ -8,6 +8,9 @@ Changes
 -------
 Unreleased
 ==========
+2020-10-03 v0.14.15
+update applet data structure for version controlling
+
 2020-09-28 v0.14.14
 fix transferownership endpoint
 
