@@ -321,7 +321,6 @@ class Applet(FolderModel):
             raise ValidationException('this applet does not have protocol id')
 
         protocol = Protocol().duplicateProtocol(ObjectId(protocolId.split("/")[1]), editor)
-
         # create new applet
         newApplet = self.setMetadata(
             folder=self.createFolder(
@@ -819,101 +818,131 @@ class Applet(FolderModel):
             if not protocolId:
                 raise ValidationException('this applet does not have protocol id')
 
-            duplicated = Protocol().duplicateProtocol(ObjectId(protocolId), user)
-            protocolId = duplicated['protocol']['_id'].split('/')[-1]
-
-            # replace with duplicated content
             ActivityModel = Activity()
             ItemModel = Screen()
+
+            protocolFolder = FolderModel().load(protocolId, force=True)
+
+            if not protocolFolder.get('meta', {}).get('appletId', None): # old schema ( we'll not need this in the future )
+                duplicated = Protocol().duplicateProtocol(ObjectId(protocolId), user)
+                protocolId = duplicated['protocol']['_id'].split('/')[-1]
+
+                # replace with duplicated content
+                activities = list(ActivityModel.find({ 'meta.protocolId': ObjectId(protocolId) }))
+                items = list(ItemModel.find({ 'meta.protocolId': ObjectId(protocolId) }))
+
+                activityIDRef = {}
+                for activity in activities:
+                    activityIDRef[str(activity['duplicateOf'])] = activity['_id']
+
+                    ResponseItem().update({
+                        'meta.activity.@id': activity['duplicateOf'],
+                        'meta.applet.@id': applet['_id']
+                    }, {
+                        '$set': {
+                            'meta.activity.@id': activity['_id'],
+                        }
+                    })
+
+                    EventsModel().update({
+                        'data.activity_id': activity['duplicateOf']
+                    }, {
+                        '$set': {
+                            'data.activity_id': activity['_id'],
+                        }
+                    })
+
+                    ActivityModel.update({
+                        'duplicateOf': activity['duplicateOf']
+                    }, {
+                        '$set': {
+                            'duplicateOf': activity['_id']
+                        }
+                    })
+
+                    activity.pop('duplicateOf')
+
+                    ActivityModel.update({
+                        '_id': activity['_id']
+                    }, {
+                        '$unset': {
+                            'duplicateOf': ''
+                        }
+                    })
+                
+                for item in items:
+                    ItemModel.update({
+                        'duplicateOf': item['duplicateOf']
+                    }, {
+                        '$set': {
+                            'duplicateOf': item['_id']
+                        }
+                    })
+
+                    item.pop('duplicateOf')
+
+                    ItemModel.update({
+                        '_id': item['_id']
+                    }, {
+                        '$unset': {
+                            'duplicateOf': ''
+                        }
+                    })
+
+                # update profiles
+                appletProfiles = Profile().get_profiles_by_applet_id(applet['_id'])
+
+                for profile in appletProfiles:
+                    for activity in profile.get('completed_activities', []):
+                        activity['activity_id'] = activityIDRef[str(activity['activity_id'])]
+
+                    Profile().save(profile, validate=False)
+
+                metadata['protocol'] = {
+                    '_id': duplicated['protocol']['_id'],
+                    'activities': [activity['activity_id'] for activity in profile.get('completed_activities', [])]
+                }
+                self.setMetadata(applet, metadata)
+
             activities = list(ActivityModel.find({ 'meta.protocolId': ObjectId(protocolId) }))
             items = list(ItemModel.find({ 'meta.protocolId': ObjectId(protocolId) }))
+            for item in items:
+                jsonld_expander.convertObjectToSingleFileFormat(item, 'screen', user)
 
-            activityIDRef = {}
             for activity in activities:
-                activityIDRef[str(activity['duplicateOf'])] = activity['_id']
-
                 ResponseItem().update({
-                    'meta.activity.@id': activity['duplicateOf'],
+                    'meta.activity.@id': activity['_id'],
                     'meta.applet.@id': applet['_id']
                 }, {
-                    '$set': {
-                        'meta.activity.@id': activity['_id'],
-                    },
                     '$unset': {
                         'meta.activity.url': ''
                     }
                 })
 
                 EventsModel().update({
-                    'data.activity_id': activity['duplicateOf']
+                    'data.activity_id': activity['_id']
                 }, {
                     '$set': {
-                        'data.activity_id': activity['_id'],
-                    },
-                    '$unset': {
-                        'data.URI': ''
+                        'data.URI': self.preferredName(activity)
                     }
                 })
 
-                ActivityModel.update({
-                    'duplicateOf': activity['duplicateOf']
-                }, {
-                    '$set': {
-                        'duplicateOf': activity['_id']
-                    }
-                })
+                jsonld_expander.convertObjectToSingleFileFormat(activity, 'activity', user)
 
-                activity.pop('duplicateOf')
+            jsonld_expander.convertObjectToSingleFileFormat(protocolFolder, 'protocol', user)
 
-                ActivityModel.update({
-                    '_id': activity['_id']
-                }, {
-                    '$unset': {
-                        'duplicateOf': ''
-                    }
-                })
-            
-            for item in items:
-                ItemModel.update({
-                    'duplicateOf': item['duplicateOf']
-                }, {
-                    '$set': {
-                        'duplicateOf': item['_id']
-                    }
-                })
-
-                item.pop('duplicateOf')
-
-                ItemModel.update({
-                    '_id': item['_id']
-                }, {
-                    '$unset': {
-                        'duplicateOf': ''
-                    }
-                })
-
-            # update profiles
-            appletProfiles = Profile().get_profiles_by_applet_id(applet['_id'])
-
-            for profile in appletProfiles:
-                for activity in profile.get('completed_activities', []):
-                    activity['activity_id'] = activityIDRef[str(activity['activity_id'])]
-
-                Profile().save(profile, validate=False)
-
-            metadata['protocol'] = {
-                '_id': duplicated['protocol']['_id'],
-                'activities': [activity['activity_id'] for activity in profile.get('completed_activities', [])]
-            }
-            self.setMetadata(applet, metadata)
+            if 'url' in metadata['protocol']:
+                metadata['protocol'].pop('url')
+                self.setMetadata(applet, metadata)
 
         jsonld_expander.cacheProtocolContent(Protocol().load(protocolId, force=True), protocol, user)
 
+        jsonld_expander.clearCache(applet, 'applet')
         return jsonld_expander.formatLdObject(
             applet,
             'applet',
             user,
-            refreshCache=True
+            refreshCache=False
         )
 
     def formatThenUpdate(self, applet, user):

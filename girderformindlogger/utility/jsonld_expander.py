@@ -65,6 +65,35 @@ def expandObj(contextSet, data):
 
     return expanded
 
+def convertObjectToSingleFileFormat(obj, modelType, user):
+    modelClass = MODELS()[modelType]()
+
+    model = obj.get('meta', {}).get(modelType, None)   
+    if model:
+        fixUpOrderList(model, modelType)
+
+        for key in ['url', 'schema:url']:
+            if key in model:
+                model.pop(key)
+
+    obj.update({
+        'loadedFromSingleFile': True,
+        'lastUpdatedBy': user['_id']
+    })
+    modelClass.setMetadata(obj, obj.get('meta', {}))
+
+    clearCache(obj, modelType)
+
+    formatted = formatLdObject(
+        obj,
+        mesoPrefix=modelType,
+        user=user,
+        refreshCache=True
+    )
+
+    if modelType != 'protocol':
+        createCache(obj, _fixUpFormat(formatted), modelType, user)
+
 def createProtocolFromExpandedDocument(protocol, user, editExisting=False, removed={}):
     protocolId = None
 
@@ -351,7 +380,7 @@ def loadFromSingleFile(document, user, editExisting=False):
         protocol['activity'][expandedActivity['@id']] = {
             'parentKey': 'protocol',
             'parentId': expandedProtocol['@id'],
-            'expanded': expandedActivity,
+            'expanded': fixUpOrderList(expandedActivity, 'activity'),
             'ref2Document': activity['data']
         }
 
@@ -363,7 +392,7 @@ def loadFromSingleFile(document, user, editExisting=False):
         if 'items' in activity:
             for item in activity['items'].values():
                 expandedItem = expandObj(contexts, item)
-                protocol['screen'][expandedItem['@id']] = {
+                protocol['screen']['{}.{}'.format(expandedActivity['@id'], expandedItem['@id'])] = {
                     'parentKey': 'activity',
                     'parentId': expandedActivity['@id'],
                     'expanded': expandedItem,
@@ -1116,6 +1145,19 @@ def _fixUpFormat(obj):
     else:
         return(obj)
 
+def fixUpOrderList(obj, modelType):
+    if "reprolib:terms/order" in obj:
+        order = obj["reprolib:terms/order"][0]["@list"]
+        objId = obj.get("@id", None)
+        for child in order:
+            uri = child.get("@id", None)
+            if uri.startswith("https://"):
+                child["@id"] = uri.split("/")[-1]
+
+            if objId and modelType == 'activity':
+                child["@id"] = '{}.{}'.format(objId, child["@id"])
+
+    return obj
 
 def formatLdObject(
     obj,
@@ -1209,6 +1251,12 @@ def formatLdObject(
 
             if protocolUrl is not None and not protocol:
                 # get protocol from url
+                protocol = ProtocolModel().load(ObjectId(protocolId), user)
+
+                if 'appletId' not in protocol.get('meta', {}):
+                    protocol['meta']['appletId'] = None
+                    ProtocolModel().setMetadata(protocol, protocol['meta'])
+
                 protocol = ProtocolModel().getFromUrl(
                             protocolUrl,
                             'protocol',
@@ -1216,7 +1264,7 @@ def formatLdObject(
                             thread=False,
                             refreshCache=refreshCache,
                             meta={
-                                'appletId': obj['_id']
+                                'appletId': protocol['meta']['appletId']
                             }
                         )[0]
 
@@ -1296,12 +1344,18 @@ def formatLdObject(
                 activities = list(ActivityModel().find({'meta.protocolId': obj['_id']}))
                 items = list(ScreenModel().find({'meta.protocolId': obj['_id']}))
 
+                activityID2Data = {}
+
                 for activity in activities:
                     formatted = formatLdObject(activity, 'activity', user)
                     protocol['activities'][formatted['@id']] = formatted
+
+                    activityID2Data[str(activity['_id'])] = formatted
                 for item in items:
                     formatted = formatLdObject(item, 'screen', user)
-                    protocol['items'][formatted['@id']] = formatted
+
+                    activityData = activityID2Data[str(item['meta']['activityId'])]
+                    protocol['items']['{}.{}'.format(activityData['@id'], formatted['@id'])] = formatted
             else:
                 try:
                     protocol = componentImport(

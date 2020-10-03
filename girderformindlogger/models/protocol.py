@@ -135,7 +135,7 @@ class Protocol(FolderModel):
         protocol = {
             'protocol': {
                 formatted['protocol']['@id']: {
-                    'expanded': formatted['protocol'],
+                    'expanded': jsonld_expander.fixUpOrderList(formatted['protocol'], 'screen'),
                     'ref2Document': {
                         'duplicateOf': protocolId
                     }
@@ -157,7 +157,7 @@ class Protocol(FolderModel):
             protocol['activity'][activityKey] = {
                 'parentKey': 'protocol',
                 'parentId': formatted['protocol']['@id'],
-                'expanded': activity,
+                'expanded': jsonld_expander.fixUpOrderList(activity, 'activity'),
                 'ref2Document': {
                     'duplicateOf': activityId
                 }
