@@ -376,7 +376,7 @@ def last7Days(
     l7d['dataSources'] = {}
     for itemResponses in dict.values(l7d["responses"]):
         for response in itemResponses:
-            sourceId = str(response['value']['src']) if 'src' in response['value'] else None
+            sourceId = str(response['value']['src']) if isinstance(response['value'], dict) and 'src' in response['value'] else None
             if sourceId and sourceId not in l7d['dataSources']:
                 l7d['dataSources'][sourceId] = dataSources[sourceId]
 
