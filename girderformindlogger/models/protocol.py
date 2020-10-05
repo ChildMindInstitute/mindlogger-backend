@@ -195,3 +195,63 @@ class Protocol(FolderModel):
             user=editor,
             refreshCache=True
         )
+
+    def createHistoryFolders(
+        self,
+        protocolId,
+        user
+    ):
+        protocol = self.load(protocolId, force=True)
+        updated = False
+
+        if not protocol['meta'].get('historyId', None):
+            historyFolder = FolderModel().createFolder(
+                name='history of ' + protocol['name'],
+                parent=protocol,
+                parentType='folder',
+                public=False,
+                creator=user,
+                allowRename=True,
+                reuseExisting=False
+            )
+
+            protocol['meta']['historyId'] = historyFolder['_id']
+            updated = True
+        else:
+            historyFolder = FolderModel().load(protocol['meta']['historyId'], force=True)
+        
+        if historyFolder.get('meta', {}).get('referenceId', None):
+            referencesFolder = FolderModel().createFolder(
+                name='reference of history data for ' + protocol['name'],
+                parent=historyFolder,
+                parentType='folder',
+                public=False,
+                creator=user,
+                allowRename=True,
+                reuseExisting=False,
+            )
+
+            FolderModel().setMetadata(historyFolder, {
+                'referenceId': referencesFolder['_id']
+            })
+
+
+        # add folder to save contents
+        if not protocol['meta'].get('contentId', None):
+            contentFolder = FolderModel().createFolder(
+                name='content of ' + protocol['name'],
+                parent=protocol,
+                parentType='folder',
+                public=False,
+                creator=user,
+                allowRename=True,
+                reuseExisting=False
+            )
+
+            protocol['meta']['contentId'] = contentFolder['_id']
+            updated = True
+
+        if updated:
+            protocol = self.setMetadata(protocol, protocol['meta'])
+
+        return protocol

@@ -138,7 +138,10 @@ def createProtocolFromExpandedDocument(protocol, user, editExisting=False, remov
                 if modelClass.name=='folder':
                     newModel = modelClass.setMetadata(
                         docFolder,
-                        metadata
+                        {
+                            **docFolder.get('meta', {}),
+                            **metadata
+                        }
                     )
 
                 elif modelClass.name=='item':
@@ -178,7 +181,13 @@ def createProtocolFromExpandedDocument(protocol, user, editExisting=False, remov
                             reuseExisting=False
                         )
 
-                    newModel = modelClass.setMetadata(item, metadata)
+                    newModel = modelClass.setMetadata(
+                        item, 
+                        {
+                            **item.get('meta', {}),
+                            **metadata
+                        }
+                    )
 
                 update = {
                     'loadedFromSingleFile': True,
@@ -302,8 +311,8 @@ def getUpdatedContent(updates, document):
 
 def cacheProtocolContent(protocol, document, user, editExisting=False):
     contentFolder = None
-    if protocol.get('content_id', None):
-        contentFolder = FolderModel().load(protocol['content_id'], force=True)
+    if protocol.get('meta', {}).get('contentId', None):
+        contentFolder = FolderModel().load(protocol['meta']['contentId'], force=True)
         contentFolder['name'] = 'content of ' + protocol['name']
 
         FolderModel().validate(contentFolder, allowRename=True)
@@ -319,8 +328,8 @@ def cacheProtocolContent(protocol, document, user, editExisting=False):
             reuseExisting=True
         )
 
-        protocol['content_id'] = contentFolder['_id']
-        FolderModel().save(protocol)
+        protocol['meta']['contentId'] = contentFolder['_id']
+        FolderModel().setMetadata(protocol, protocol['meta'])
 
     contentFolder['lastUpdatedBy'] = user['_id']
 
@@ -1151,11 +1160,10 @@ def fixUpOrderList(obj, modelType):
         objId = obj.get("@id", None)
         for child in order:
             uri = child.get("@id", None)
-            if uri.startswith("https://"):
-                child["@id"] = uri.split("/")[-1]
 
+            child["@id"] = uri.split("/")[-1]
             if objId and modelType == 'activity':
-                child["@id"] = '{}.{}'.format(objId, child["@id"])
+                child["@id"] = '{}/{}'.format(objId, child["@id"])
 
     return obj
 
@@ -1355,7 +1363,7 @@ def formatLdObject(
                     formatted = formatLdObject(item, 'screen', user)
 
                     activityData = activityID2Data[str(item['meta']['activityId'])]
-                    protocol['items']['{}.{}'.format(activityData['@id'], formatted['@id'])] = formatted
+                    protocol['items']['{}/{}'.format(activityData['@id'], formatted['@id'])] = formatted
             else:
                 try:
                     protocol = componentImport(

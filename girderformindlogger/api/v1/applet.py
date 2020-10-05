@@ -402,7 +402,7 @@ class Applet(Resource):
         protocol = ProtocolModel().load(applet.get('meta', {}).get('protocol', {}).get('_id', '').split('/')[-1], force=True)
 
         items = list(ItemModel().find({
-            'folderId': protocol['content_id'],
+            'folderId': protocol['meta'].get('contentId', None),
             'version': {
                 '$in': versions
             }
@@ -431,8 +431,8 @@ class Applet(Resource):
         protocol = ProtocolModel().load(applet.get('meta', {}).get('protocol', {}).get('_id', '').split('/')[-1], force=True)
 
         items = list(ItemModel().find({
-            'folderId': protocol['content_id'],
-        }, fields=['version'], sort=[("created", DESCENDING)])) if 'content_id' in protocol else []
+            'folderId': protocol['meta'].get('contentId', None),
+        }, fields=['version'], sort=[("created", DESCENDING)])) if 'contentId' in protocol['meta'] else []
 
         return [
             item['version'] for item in items

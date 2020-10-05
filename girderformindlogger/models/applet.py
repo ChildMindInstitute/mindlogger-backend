@@ -76,6 +76,7 @@ class Applet(FolderModel):
         :type constraints: dict or None
         """
         from girderformindlogger.utility import jsonld_expander
+        from girderformindlogger.models.protocol import Protocol
 
         if user==None:
             raise AccessException("You must be logged in to create an applet.")
@@ -163,6 +164,8 @@ class Applet(FolderModel):
 
         self.setAccessList(applet, accessList)
         self.update({'_id': ObjectId(applet['_id'])}, {'$set': {'access': applet.get('access', {})}})
+
+        Protocol().createHistoryFolders(protocol.get('_id', '').split('/')[-1], user)
 
         formatted = jsonld_expander.formatLdObject(
             applet,
@@ -408,6 +411,8 @@ class Applet(FolderModel):
 
 
         Profile().updateOwnerProfile(newApplet)
+
+        Protocol().createHistoryFolders(protocol['protocol']['_id'].split('/')[-1], editor)
 
         formatted = jsonld_expander.formatLdObject(
             newApplet,
@@ -934,6 +939,8 @@ class Applet(FolderModel):
             if 'url' in metadata['protocol']:
                 metadata['protocol'].pop('url')
                 self.setMetadata(applet, metadata)
+
+        Protocol().createHistoryFolders(protocolId, user)
 
         jsonld_expander.cacheProtocolContent(Protocol().load(protocolId, force=True), protocol, user)
 
