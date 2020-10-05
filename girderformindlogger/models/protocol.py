@@ -220,7 +220,7 @@ class Protocol(FolderModel):
         else:
             historyFolder = FolderModel().load(protocol['meta']['historyId'], force=True)
         
-        if historyFolder.get('meta', {}).get('referenceId', None):
+        if not historyFolder.get('meta', {}).get('referenceId', None):
             referencesFolder = FolderModel().createFolder(
                 name='reference of history data for ' + protocol['name'],
                 parent=historyFolder,
