@@ -65,7 +65,7 @@ def expandObj(contextSet, data):
 
     return expanded
 
-def convertObjectToSingleFileFormat(obj, modelType, user):
+def convertObjectToSingleFileFormat(obj, modelType, user, identifier=None):
     modelClass = MODELS()[modelType]()
 
     model = obj.get('meta', {}).get(modelType, None)   
@@ -80,6 +80,10 @@ def convertObjectToSingleFileFormat(obj, modelType, user):
         'loadedFromSingleFile': True,
         'lastUpdatedBy': user['_id']
     })
+
+    if identifier:
+        obj['meta']['identifier'] = identifier
+
     modelClass.setMetadata(obj, obj.get('meta', {}))
 
     clearCache(obj, modelType)
@@ -94,8 +98,98 @@ def convertObjectToSingleFileFormat(obj, modelType, user):
     if modelType != 'protocol':
         createCache(obj, _fixUpFormat(formatted), modelType, user)
 
-def createProtocolFromExpandedDocument(protocol, user, editExisting=False, removed={}):
+# insert historical data in the database
+def insertHistoryData(obj, identifier, modelType, baseVersion, historyFolder, historyReferenceFolder, user):
+    if modelType not in ['activity', 'screen']:
+        return
+
+    modelClass = MODELS()[modelType]()
+
+    # insert historical data
+    if obj:
+        if '_id' in obj:
+            obj['meta']['originalId'] = obj.pop('_id')
+        if 'cached' in obj:
+            obj.pop('cached')
+
+        if 'protocolId' in obj['meta']:
+            obj['meta'].pop('protocolId')
+
+        obj['meta']['historyId'] = historyFolder['_id']
+        obj['meta']['version'] = baseVersion
+        if modelClass.name == 'folder':
+            obj['parentId'] = historyFolder['_id']
+        elif modelClass.name == 'item':
+            obj['folderId'] = historyFolder['_id']
+
+        meta = obj.pop('meta')
+
+        if modelClass.name == 'folder':
+            obj = FolderModel().createFolder(
+                name=obj['name'],
+                parent=historyFolder,
+                parentType='folder',
+                public=True,
+                creator=user,
+                allowRename=True,
+                reuseExisting=False
+            )
+        else:
+            obj = modelClass.createItem(
+                name=obj['name'],
+                creator=user,
+                folder=historyFolder,
+                reuseExisting=False
+            )
+
+        obj = modelClass.setMetadata(obj, meta)
+        formatted = _fixUpFormat(formatLdObject(
+            obj,
+            mesoPrefix=modelType,
+            user=user,
+            refreshCache=True
+        ))
+
+        obj = createCache(obj, formatted, modelClass.name, user)
+
+    itemModel = ItemModel()
+    # update references
+    referenceObj = itemModel.findOne({
+        'folderId': historyReferenceFolder['_id'],
+        'meta.identifier': identifier
+    })
+    if not referenceObj:
+        referenceObj = itemModel.setMetadata(itemModel.createItem(
+            name='history of {}'.format(identifier),
+            creator=user,
+            folder=historyReferenceFolder,
+            reuseExisting=False
+        ), {
+            'identifier': identifier,
+            'history': []
+        })
+
+    now = datetime.utcnow()
+
+    itemModel.update({'_id': referenceObj['_id']}, {
+        '$push': {
+            'meta.history': { 
+                'version': baseVersion,
+                'reference': '{}/{}'.format(modelType, str(obj['_id'])) if obj else None,
+                'updated': now
+            }
+        },
+        '$set': {
+            'updated': now
+        }
+    })
+
+    return obj
+
+def createProtocolFromExpandedDocument(protocol, user, editExisting=False, removed={}, baseVersion=None):
     protocolId = None
+    historyFolder = None
+    historyReferenceFolder = None
 
     for modelType in ['protocol', 'activity', 'screen']:
         modelClass = MODELS()[modelType]()
@@ -106,15 +200,64 @@ def createProtocolFromExpandedDocument(protocol, user, editExisting=False, remov
 
             if modelClass.name in ['folder', 'item']:
                 docFolder = None
-                if modelClass.name == 'folder' and model['ref2Document'].get('_id', None) and editExisting:
-                    try:
-                        docFolder = FolderModel().load(model['ref2Document']['_id'], force=True)
-                        docFolder['name'] = prefName
+                item = None
 
-                        FolderModel().updateFolder(docFolder)
-                    except Exception as e:
-                        print('wrong folder id', model['ref2Document']['_id'])
-                        print(e)
+                metadata = {modelType: model['expanded']}
+
+                if modelType != 'protocol':
+                    metadata['identifier'] = model['expanded'].get('@id', '')
+
+                tmp = model
+                while tmp.get('parentId', None):
+                    key = tmp['parentKey']
+                    tmp = protocol[key][tmp['parentId']]
+
+                    if tmp.get('parentId', None):
+                        metadata['identifier'] = '{}/{}'.format(tmp['expanded']['@id'], metadata['identifier'])
+
+                    metadata['{}Id'.format(key)] = tmp['_id']
+
+                if model['ref2Document'].get('_id', None) and editExisting:
+                    # in case of edit existing item/activity
+                    if modelClass.name == 'folder':
+                        try:
+                            docFolder = FolderModel().load(model['ref2Document']['_id'], force=True)
+
+                            if 'identifier' in docFolder['meta']:
+                                if modelType == 'activity':
+                                    insertHistoryData(deepcopy(docFolder), docFolder['meta']['identifier'], modelType, baseVersion, historyFolder, historyReferenceFolder, user)
+
+                                if metadata['identifier'] != docFolder['meta']['identifier']:
+                                    insertHistoryData(None, modelType, baseVersion, historyFolder, historyReferenceFolder, user)
+
+                            docFolder['name'] = prefName
+
+                            FolderModel().updateFolder(docFolder)
+                        except Exception as e:
+                            print('wrong folder id', model['ref2Document']['_id'])
+                            print(e)
+                    elif modelClass.name == 'item':
+                        try:
+                            item = modelClass.load(model['ref2Document']['_id'],force=True)
+
+                            if 'identifier' in item['meta']:
+                                insertHistoryData(item, item['meta']['identifier'], modelType, baseVersion, historyFolder, historyReferenceFolder, user)
+
+                                if metadata['identifier'] != item['meta']['identifier']:
+                                    insertHistoryData(None, item['meta']['identifier'], modelType, baseVersion, historyFolder, historyReferenceFolder, user)
+
+                            docFolder = FolderModel().findOne({'_id': item['folderId']})
+
+                            if docFolder:
+                                docFolder['name'] = prefName
+                                FolderModel().updateFolder(docFolder)
+                        except Exception as e:
+                            print('wrong item id', model['ref2Document']['_id'])
+                            print(e)
+
+                elif editExisting:
+                    # new item/activity will be inserted
+                    insertHistoryData(None, modelType, baseVersion, historyFolder, historyReferenceFolder, user)
 
                 if not docFolder:
                     docFolder = FolderModel().createFolder(
@@ -127,14 +270,6 @@ def createProtocolFromExpandedDocument(protocol, user, editExisting=False, remov
                         reuseExisting=(modelClass.name == 'item')
                     )
 
-                metadata = {modelType: model['expanded']}
-
-                tmp = model
-                while tmp.get('parentId', None):
-                    key = tmp['parentKey']
-                    tmp = protocol[key][tmp['parentId']]
-                    metadata['{}Id'.format(key)] = tmp['_id']
-
                 if modelClass.name=='folder':
                     newModel = modelClass.setMetadata(
                         docFolder,
@@ -145,7 +280,6 @@ def createProtocolFromExpandedDocument(protocol, user, editExisting=False, remov
                     )
 
                 elif modelClass.name=='item':
-                    item = None
                     name = prefName if prefName else str(len(list(FolderModel().childItems(
                         FolderModel().load(
                             docFolder,
@@ -154,17 +288,11 @@ def createProtocolFromExpandedDocument(protocol, user, editExisting=False, remov
                             force=True
                         ))
                     )) + 1)
-                    if model['ref2Document'].get('_id', None) and editExisting:
-                        try:
-                            item = modelClass.load(model['ref2Document']['_id'],force=True)
-                            item['name'] = name
-                            item['folderId'] = docFolder['_id']
-                            modelClass.updateItem(item)
-                        except Exception as e:
-                            print('wrong item id', model['ref2Document']['_id'])
-                            print(e)
-
-                    if not item:
+                    if item:
+                        item['name'] = name
+                        item['folderId'] = docFolder['_id']
+                        modelClass.updateItem(item)
+                    else:
                         item = modelClass.createItem(
                             name=prefName if prefName else str(len(list(
                                 FolderModel().childItems(
@@ -214,37 +342,47 @@ def createProtocolFromExpandedDocument(protocol, user, editExisting=False, remov
 
                 if modelType == 'protocol':
                     protocolId = newModel['_id']
+                    if editExisting and baseVersion and newModel.get('meta', {}).get('historyId', None):
+                        historyFolder = FolderModel().load(newModel['meta']['historyId'], force=True)
+                        historyReferenceFolder = FolderModel().load(historyFolder['meta']['referenceId'], force=True)
+
+                        # handle deleted activites
+                        if 'activities' in removed:
+                            removedActivities = list(ActivityModel().find({
+                                'meta.protocolId': protocolId, 
+                                '_id': {
+                                    '$in': [
+                                        ObjectId(activityId) for activityId in removed['activities']
+                                    ]
+                                }
+                            }))
+
+                            for activity in removedActivities:
+                                clearCache(activity, 'activity')
+                                ActivityModel().remove(activity)
+
+                                if 'identifier' in activity['meta']:
+                                    insertHistoryData(activity, activity['meta']['identifier'], activity, baseVersion, historyFolder, historyReferenceFolder, user)
+
+                        # handle deleted items
+                        if 'items' in removed:
+                            removedItems = list(ScreenModel().find({
+                                'meta.protocolId': protocolId, 
+                                '_id': {
+                                    '$in': [
+                                        ObjectId(itemId) for itemId in removed['items']
+                                    ]
+                                }
+                            }))
+
+                            for item in removedItems:
+                                clearCache(item, 'screen')
+                                ScreenModel().remove(item)
+                                
+                                if 'identifier' in item['meta']:
+                                    insertHistoryData(item, item['meta']['identifier'], 'screen', baseVersion, historyFolder, historyReferenceFolder, user)
 
                 model['ref2Document']['_id'] = newModel['_id']
-
-    # handle deleted items and activites
-    if 'activities' in removed:
-        removedActivities = list(ActivityModel().find({
-            'meta.protocolId': protocolId, 
-            '_id': {
-                '$in': [
-                    ObjectId(activityId) for activityId in removed['activities']
-                ]
-            }
-        }))
-
-        for activity in removedActivities:
-            clearCache(activity, 'activity')
-            ActivityModel().remove(activity)
-
-    if 'items' in removed:
-        removedItems = list(ScreenModel().find({
-            'meta.protocolId': protocolId, 
-            '_id': {
-                '$in': [
-                    ObjectId(itemId) for itemId in removed['items']
-                ]
-            }
-        }))
-
-        for item in removedItems:
-            clearCache(item, 'screen')
-            ScreenModel().remove(item)
 
     return protocolId
 
@@ -408,7 +546,7 @@ def loadFromSingleFile(document, user, editExisting=False):
                     'ref2Document': item
                 }
 
-    protocolId = createProtocolFromExpandedDocument(protocol, user, editExisting, document.get('removed', {}))
+    protocolId = createProtocolFromExpandedDocument(protocol, user, editExisting, document.get('removed', {}), document.get('baseVersion', None))
     protocol = ProtocolModel().load(protocolId, force=True)
 
     cacheProtocolContent(protocol, document, user, editExisting)

@@ -832,6 +832,9 @@ class Applet(FolderModel):
                 duplicated = Protocol().duplicateProtocol(ObjectId(protocolId), user)
                 protocolId = duplicated['protocol']['_id'].split('/')[-1]
 
+                (historyFolder, referencesFolder) = Protocol().createHistoryFolders(protocolId, user)
+                Protocol().initHistoryData(historyFolder, referencesFolder, metadata['protocol']['_id'].split('/')[-1], user)
+
                 # replace with duplicated content
                 activities = list(ActivityModel.find({ 'meta.protocolId': ObjectId(protocolId) }))
                 items = list(ItemModel.find({ 'meta.protocolId': ObjectId(protocolId) }))
@@ -865,6 +868,24 @@ class Applet(FolderModel):
                         }
                     })
 
+                    ActivityModel.update({
+                        'meta.historyId': historyFolder['_id'],
+                        'meta.originalId': activity['duplicateOf']
+                    }, {
+                        '$set': {
+                            'meta.originalId': activity['_id']
+                        }
+                    })
+
+                    ItemModel.update({
+                        'meta.historyId': historyFolder['_id'],
+                        'meta.activityId': activity['duplicateOf']
+                    }, {
+                        '$set': {
+                            'meta.activityId': activity['_id']
+                        }
+                    })
+
                     activity.pop('duplicateOf')
 
                     ActivityModel.update({
@@ -881,6 +902,15 @@ class Applet(FolderModel):
                     }, {
                         '$set': {
                             'duplicateOf': item['_id']
+                        }
+                    })
+
+                    ItemModel.update({
+                        'meta.historyId': historyFolder['_id'],
+                        'meta.originalId': item['duplicateOf']
+                    }, {
+                        '$set': {
+                            'meta.originalId': item['_id']
                         }
                     })
 
@@ -908,11 +938,19 @@ class Applet(FolderModel):
                     'activities': [activity['activity_id'] for activity in profile.get('completed_activities', [])]
                 }
                 self.setMetadata(applet, metadata)
+            else:
+                (historyFolder, referencesFolder) = Protocol().createHistoryFolders(protocolId, user)
+                Protocol().initHistoryData(historyFolder, referencesFolder, protocolId, user)
 
             activities = list(ActivityModel.find({ 'meta.protocolId': ObjectId(protocolId) }))
             items = list(ItemModel.find({ 'meta.protocolId': ObjectId(protocolId) }))
+            activityIdToData = {
+                str(activity['_id']): activity for activity in activities
+            }
+
             for item in items:
-                jsonld_expander.convertObjectToSingleFileFormat(item, 'screen', user)
+                activity = activityIdToData[str(item['meta']['activityId'])]
+                jsonld_expander.convertObjectToSingleFileFormat(item, 'screen', user, '{}/{}'.format(activity['meta']['activity']['@id'], item['meta']['screen']['@id']))
 
             for activity in activities:
                 ResponseItem().update({
@@ -932,7 +970,7 @@ class Applet(FolderModel):
                     }
                 })
 
-                jsonld_expander.convertObjectToSingleFileFormat(activity, 'activity', user)
+                jsonld_expander.convertObjectToSingleFileFormat(activity, 'activity', user, activity['meta']['activity']['@id'])
 
             jsonld_expander.convertObjectToSingleFileFormat(protocolFolder, 'protocol', user)
 
@@ -940,7 +978,8 @@ class Applet(FolderModel):
                 metadata['protocol'].pop('url')
                 self.setMetadata(applet, metadata)
 
-        Protocol().createHistoryFolders(protocolId, user)
+        else:
+            Protocol().createHistoryFolders(protocolId, user)
 
         jsonld_expander.cacheProtocolContent(Protocol().load(protocolId, force=True), protocol, user)
 

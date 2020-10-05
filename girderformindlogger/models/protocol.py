@@ -204,6 +204,7 @@ class Protocol(FolderModel):
         protocol = self.load(protocolId, force=True)
         updated = False
 
+        # add folder to save historical data
         if not protocol['meta'].get('historyId', None):
             historyFolder = FolderModel().createFolder(
                 name='history of ' + protocol['name'],
@@ -219,7 +220,7 @@ class Protocol(FolderModel):
             updated = True
         else:
             historyFolder = FolderModel().load(protocol['meta']['historyId'], force=True)
-        
+
         if not historyFolder.get('meta', {}).get('referenceId', None):
             referencesFolder = FolderModel().createFolder(
                 name='reference of history data for ' + protocol['name'],
@@ -231,10 +232,11 @@ class Protocol(FolderModel):
                 reuseExisting=False,
             )
 
-            FolderModel().setMetadata(historyFolder, {
+            historyFolder = FolderModel().setMetadata(historyFolder, {
                 'referenceId': referencesFolder['_id']
             })
-
+        else:
+            referencesFolder = FolderModel().load(historyFolder['meta']['referenceId'], force=True)
 
         # add folder to save contents
         if not protocol['meta'].get('contentId', None):
@@ -254,4 +256,22 @@ class Protocol(FolderModel):
         if updated:
             protocol = self.setMetadata(protocol, protocol['meta'])
 
-        return protocol
+        return (historyFolder, referencesFolder)
+
+    def initHistoryData(self, historyFolder, referencesFolder, protocolId, user):
+        from girderformindlogger.utility import jsonld_expander
+        from girderformindlogger.models.item import Item as ItemModel
+
+        activities = list(FolderModel().find({ 'meta.protocolId': ObjectId(protocolId) }))
+        items = list(ItemModel().find({ 'meta.protocolId': ObjectId(protocolId) }))
+
+        for activity in activities:
+            identifier = activity['meta'].get('activity', {}).get('url', None)
+            if identifier:
+               jsonld_expander.insertHistoryData(activity, identifier, 'activity', '0.0.0', historyFolder, referencesFolder, user)
+
+        for item in items:
+            identifier = item['meta'].get('screen', {}).get('url', None)
+            if identifier:
+                jsonld_expander.insertHistoryData(item, identifier, 'screen', '0.0.0', historyFolder, referencesFolder, user)
+
