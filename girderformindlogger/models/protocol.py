@@ -27,7 +27,7 @@ import six
 from bson.objectid import ObjectId
 from girderformindlogger import events
 from girderformindlogger.api.rest import getCurrentUser
-from girderformindlogger.constants import AccessType, SortDir
+from girderformindlogger.constants import AccessType, SortDir, MODELS
 from girderformindlogger.exceptions import ValidationException, GirderException
 from girderformindlogger.models.folder import Folder as FolderModel
 from girderformindlogger.models.user import User as UserModel
@@ -275,3 +275,68 @@ class Protocol(FolderModel):
             if identifier:
                 jsonld_expander.insertHistoryData(item, identifier, 'screen', '0.0.0', historyFolder, referencesFolder, user)
 
+    def compareVersions(self, version1, version2):
+        vs1 = version1.split('.')
+        vs2 = version2.split('.')
+
+        for i in range(0, len(vs1)):
+            if vs1[i] < vs2[i]:
+                return -1
+            if vs1[i] > vs2[i]:
+                return 1
+
+        return 0
+
+    def getItemsFromIRIs(self, protocolId, IRIGroup):
+        from girderformindlogger.models.item import Item as ItemModel
+        from girderformindlogger.utility import jsonld_expander
+
+        protocol = self.load(protocolId, force=True)
+
+        if 'historyId' not in protocol.get('meta', {}):
+            return {}
+
+        historyFolder = FolderModel().load(protocol['meta']['historyId'], force=True)
+        if 'referenceId' not in historyFolder.get('meta', {}):
+            return {}
+
+        referencesFolder = FolderModel().load(historyFolder['meta']['referenceId'], force=True)
+        itemModel = ItemModel()
+
+        items = {}
+
+        objectMap = {}
+        for IRI in IRIGroup:
+            reference = itemModel.findOne({ 'folderId': referencesFolder['_id'], 'meta.identifier': IRI })
+            if not reference:
+                continue
+
+            history = reference['meta']['history']
+
+            for version in IRIGroup[IRI]:
+                if version not in items:
+                    items[version] = {}
+
+                inserted = False
+                for i in range(0, len(history)):
+                    if self.compareVersions(version, history[i]) >= 0:
+                        if not history[i].get('reference', None):
+                            print('error')
+                            break
+
+                        if history[i]['reference'] not in objectMap:
+                            (modelType, referenceId) = history[i]['reference'].split('/')
+                            model = MODELS()[modelType]().findOne({
+                                '_id': ObjectId(referenceId)
+                            })
+                            objectMap[history[i]['reference']] = jsonld_expander.loadCache(model['cached'])
+
+                        items[version][IRI] = objectMap[history[i]['reference']]
+                        inserted = True
+
+                        break
+
+                if not inserted:
+                    items[version][IRI] = None # this is same as latest version
+
+        return items

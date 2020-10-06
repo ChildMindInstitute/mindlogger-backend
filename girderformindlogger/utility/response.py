@@ -16,6 +16,7 @@ from girderformindlogger.utility import clean_empty
 from pandas.api.types import is_numeric_dtype
 from pymongo import ASCENDING, DESCENDING
 from bson import json_util
+from girderformindlogger.utility import jsonld_expander
 
 MonkeyPatch.patch_fromisoformat()
 
@@ -135,7 +136,6 @@ def aggregate(metadata, informant, startDate=None, endDate=None):
                 "$lt": endDate
             },
             "meta.applet.@id": metadata["applet_id"],
-            "meta.activity.@id": metadata["activity_id"],
             "meta.subject.@id": metadata["subject_id"]
         }
 
@@ -164,13 +164,6 @@ def aggregate(metadata, informant, startDate=None, endDate=None):
     )
 
     responseIRIs = _responseIRIs(definedRange)
-    for itemIRI in responseIRIs:
-        for response in definedRange:
-            if itemIRI in response.get(
-                'meta',
-                {}
-            ).get('responses', {}):
-                completedDate(response)
 
     aggregated = {
         "schema:startDate": startDate,
@@ -182,7 +175,8 @@ def aggregate(metadata, informant, startDate=None, endDate=None):
                     "value": response.get('meta', {}).get('responses', {}).get(
                         itemIRI
                     ),
-                    "date": completedDate(response)
+                    "date": completedDate(response),
+                    "version": response.get('meta', {}).get('applet', {}).get('version', '0.0.0')
                 } for response in definedRange if itemIRI in response.get(
                     'meta',
                     {}
@@ -320,10 +314,10 @@ def last7Days(
     informantId,
     reviewer,
     subject=None,
-    referenceDate=None
+    referenceDate=None,
+    includeOldItems=True
 ):
     from girderformindlogger.models.profile import Profile
-
     if referenceDate is None:
         referenceDate = datetime.combine(
             datetime.utcnow().date() + timedelta(days=1), datetime.min.time()
@@ -334,29 +328,18 @@ def last7Days(
 
     # we need to get the activities
     profile = Profile().findOne({'userId': ObjectId(informantId), 'appletId': ObjectId(appletId)})
-    listOfActivities = [
-        activity.get('activity_id') for activity in profile.get('completed_activities', [])
-    ]
 
-    responses = [aggregate({
+    responses = aggregate({
         'applet_id': profile['appletId'],
-        'activity_id': ObjectId(act),
         'subject_id': profile['_id']
-    }, informantId, startDate, referenceDate) for act in listOfActivities]
+    }, informantId, startDate, referenceDate)
 
     # destructure the responses
     # TODO: we are assuming here that activities don't share items.
     # might not be the case later on, so watch out.
 
-    outputResponses = {}
-
-    dataSources = {}
-
-    for resp in responses:
-        if resp:
-            l7 = resp.get('responses', {})
-            dataSources.update(resp.get('dataSources', {}))
-            outputResponses.update(l7)
+    outputResponses = responses.get('responses', {})
+    dataSources = responses.get('dataSources', {})
 
     for item in outputResponses:
         for resp in outputResponses[item]:
@@ -380,11 +363,27 @@ def last7Days(
             if sourceId and sourceId not in l7d['dataSources']:
                 l7d['dataSources'][sourceId] = dataSources[sourceId]
 
-    # l7d['refreshRequest'] = profile.get('refreshRequest', None)
+    l7d['items'] = getOldItems(l7d['responses'], appletInfo)
 
     return l7d
 
+def getOldItems(responses, applet):
+    from girderformindlogger.models.protocol import Protocol
 
+    IRIs = {}
+    insertedIRI = {}
+    for IRI in responses:
+        IRIs[IRI] = []
+        for response in responses[IRI]:
+            if 'version' not in response:
+                continue
+
+            identifier = '{}/{}'.format(IRI, response['version'])
+            if identifier not in insertedIRI:
+                IRIs[IRI].append(response['version'])
+                insertedIRI[identifier] = True
+
+    return Protocol().getItemsFromIRIs(applet.get('meta', {}).get('protocol', {}).get('_id', '').split('/')[-1], IRIs)
 
 def determine_date(d):
     if isinstance(d, int):
@@ -473,8 +472,11 @@ def add_latest_daily_response(data, responses):
                     break
 
             if date_not_found:
-                data['responses'][item].append({"date": response['updated'],
-                                       "value": response['meta']['responses'][item]})
+                data['responses'][item].append({
+                    "date": response['updated'],
+                    "value": response['meta']['responses'][item],
+                    "version": response['meta'].get('applet', {}).get('version', '0.0.0')
+                })
 
                 if str(response['_id']) not in data['dataSources'] and 'dataSource' in response['meta']:
                     key_dump = json_util.dumps(response['meta']['userPublicKey'])

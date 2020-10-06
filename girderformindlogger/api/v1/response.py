@@ -96,6 +96,13 @@ class ResponseItem(Resource):
             required=False,
             dataType='dateTime',
         )
+        .param(
+            'includeOldItems',
+            'true if retrieve old items in the response data',
+            dataType='boolean',
+            required=False,
+            default=True
+        )
         .errorResponse('ID was invalid.')
         .errorResponse(
             'Read access was denied for this applet for this user.',
@@ -109,10 +116,11 @@ class ResponseItem(Resource):
         activities=[],
         fromDate=None,
         toDate=None,
+        includeOldItems=True,
     ):
         from girderformindlogger.models.profile import Profile
         from girderformindlogger.utility.response import (
-            delocalize, add_missing_dates, add_latest_daily_response)
+            delocalize, add_missing_dates, add_latest_daily_response, getOldItems)
 
         user = self.getCurrentUser()
         profile = Profile().findOne({'appletId': applet['_id'],
@@ -157,7 +165,8 @@ class ResponseItem(Resource):
         data = {
             'responses': {},
             'dataSources': {},
-            'keys': []
+            'keys': [],
+            'items': {}
         }
 
         # Get the responses for each users and generate the group responses data.
@@ -172,6 +181,8 @@ class ResponseItem(Resource):
 
             add_latest_daily_response(data, responses)
         add_missing_dates(data, fromDate, toDate)
+
+        data['items'] = getOldItems(data['responses'], applet)
 
         return data
 
@@ -194,6 +205,13 @@ class ResponseItem(Resource):
             'Final date of 7 day range. (Not plugged in yet).',
             required=False
         )
+        .param(
+            'includeOldItems',
+            'true if retrieve old items in the response data',
+            dataType='boolean',
+            required=False,
+            default=True
+        )
         .errorResponse('ID was invalid.')
         .errorResponse(
             'Read access was denied for this applet for this user.',
@@ -204,7 +222,8 @@ class ResponseItem(Resource):
         self,
         applet,
         subject=None,
-        referenceDate=None
+        referenceDate=None,
+        includeOldItems=True,
     ):
         from girderformindlogger.utility.response import last7Days
         from bson.objectid import ObjectId
@@ -212,7 +231,7 @@ class ResponseItem(Resource):
             appletInfo = AppletModel().findOne({'_id': ObjectId(applet)})
             user = self.getCurrentUser()
 
-            return(last7Days(applet, appletInfo, user.get('_id'), user, referenceDate))
+            return(last7Days(applet, appletInfo, user.get('_id'), user, referenceDate=referenceDate, includeOldItems=includeOldItems))
         except:
             import sys, traceback
             print(sys.exc_info())
