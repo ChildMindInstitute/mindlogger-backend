@@ -150,6 +150,12 @@ def insertHistoryData(obj, identifier, modelType, baseVersion, historyFolder, hi
             refreshCache=True
         ))
 
+        if modelType == 'screen':
+            formatted['original'] = {
+                'screenId': obj['meta'].get('originalId', None),
+                'activityId': obj['meta'].get('activityId', None)
+            }
+
         obj = createCache(obj, formatted, modelClass.name, user)
 
     itemModel = ItemModel()
@@ -228,7 +234,7 @@ def createProtocolFromExpandedDocument(protocol, user, editExisting=False, remov
                                     insertHistoryData(deepcopy(docFolder), docFolder['meta']['identifier'], modelType, baseVersion, historyFolder, historyReferenceFolder, user)
 
                                 if metadata['identifier'] != docFolder['meta']['identifier']:
-                                    insertHistoryData(None, modelType, baseVersion, historyFolder, historyReferenceFolder, user)
+                                    insertHistoryData(None, metadata['identifier'], modelType, baseVersion, historyFolder, historyReferenceFolder, user)
 
                             docFolder['name'] = prefName
 
@@ -241,10 +247,10 @@ def createProtocolFromExpandedDocument(protocol, user, editExisting=False, remov
                             item = modelClass.load(model['ref2Document']['_id'],force=True)
 
                             if 'identifier' in item['meta']:
-                                insertHistoryData(item, item['meta']['identifier'], modelType, baseVersion, historyFolder, historyReferenceFolder, user)
+                                insertHistoryData(deepcopy(item), item['meta']['identifier'], modelType, baseVersion, historyFolder, historyReferenceFolder, user)
 
                                 if metadata['identifier'] != item['meta']['identifier']:
-                                    insertHistoryData(None, item['meta']['identifier'], modelType, baseVersion, historyFolder, historyReferenceFolder, user)
+                                    insertHistoryData(None, metadata['identifier'], modelType, baseVersion, historyFolder, historyReferenceFolder, user)
 
                             docFolder = FolderModel().findOne({'_id': item['folderId']})
 
@@ -257,7 +263,7 @@ def createProtocolFromExpandedDocument(protocol, user, editExisting=False, remov
 
                 elif editExisting:
                     # new item/activity will be inserted
-                    insertHistoryData(None, modelType, baseVersion, historyFolder, historyReferenceFolder, user)
+                    insertHistoryData(None, metadata['identifier'], modelType, baseVersion, historyFolder, historyReferenceFolder, user)
 
                 if not docFolder:
                     docFolder = FolderModel().createFolder(

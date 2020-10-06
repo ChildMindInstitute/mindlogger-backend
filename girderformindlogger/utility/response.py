@@ -146,13 +146,8 @@ def aggregate(metadata, informant, startDate=None, endDate=None):
     ))
 
     if not len(definedRange):
-        # TODO: I'm afraid of some asynchronous database writes
-        # that sometimes make defined range an empty list.
-        # For now I'm exiting, but this needs to be looked
-        # into.
         print('\n\n defined range returns an empty list.')
-        return
-        # raise ValueError("The defined range doesn't have a length")
+        return {}
 
     startDate = min([response.get(
         'updated',
