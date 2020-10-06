@@ -293,7 +293,8 @@ class ResponseItem(Resource):
                 "url": applet.get(
                     'url',
                     applet.get('meta', {}).get('applet', {}).get('url')
-                )
+                ),
+                "version": metadata['applet']['schemaVersion']
             }
             metadata['activity'] = {
                 "@id": activity.get('_id'),

@@ -265,15 +265,19 @@ class Protocol(FolderModel):
         activities = list(FolderModel().find({ 'meta.protocolId': ObjectId(protocolId) }))
         items = list(ItemModel().find({ 'meta.protocolId': ObjectId(protocolId) }))
 
+        protocol = self.load(protocolId, force=True)
+        schemaVersion = protocol['meta'].get('protocol', {}).get('schema:version', None)
+
+        currentVersion = schemaVersion[0].get('@value', '0.0.0') if schemaVersion else '0.0.0'
         for activity in activities:
             identifier = activity['meta'].get('activity', {}).get('url', None)
             if identifier:
-               jsonld_expander.insertHistoryData(activity, identifier, 'activity', '0.0.0', historyFolder, referencesFolder, user)
+               jsonld_expander.insertHistoryData(activity, identifier, 'activity', currentVersion, historyFolder, referencesFolder, user)
 
         for item in items:
             identifier = item['meta'].get('screen', {}).get('url', None)
             if identifier:
-                jsonld_expander.insertHistoryData(item, identifier, 'screen', '0.0.0', historyFolder, referencesFolder, user)
+                jsonld_expander.insertHistoryData(item, identifier, 'screen', currentVersion, historyFolder, referencesFolder, user)
 
     def compareVersions(self, version1, version2):
         vs1 = version1.split('.')
@@ -319,10 +323,9 @@ class Protocol(FolderModel):
 
                 inserted = False
                 for i in range(0, len(history)):
-                    if self.compareVersions(version, history[i]) >= 0:
+                    if self.compareVersions(version, history[i]['version']) <= 0:
                         if not history[i].get('reference', None):
-                            print('error')
-                            break
+                            continue
 
                         if history[i]['reference'] not in objectMap:
                             (modelType, referenceId) = history[i]['reference'].split('/')
