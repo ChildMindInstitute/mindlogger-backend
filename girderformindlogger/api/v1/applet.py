@@ -185,9 +185,9 @@ class Applet(Resource):
 
                 if roleInfo[role] != 0:
                     userProfile = self._model.grantRole(
-                        applet, 
-                        userProfile, 
-                        role, 
+                        applet,
+                        userProfile,
+                        role,
                         [ObjectId(userId) for userId in roleInfo[role]] if role == 'reviewer' and isinstance(roleInfo[role], list) else []
                     )
                 else:
@@ -1489,12 +1489,13 @@ class Applet(Resource):
                 "Only coordinators and managers can update applet schedules."
             )
 
+        events = schedule.get('events', [])
         assigned = {}
-        if 'events' in schedule:
-            for event in schedule['events']:
-                if 'id' in event:
-                    event['id'] = ObjectId(event['id'])
-                    assigned[event['id']] = True
+
+        for event in events:
+            if 'id' in event:
+                event['id'] = ObjectId(event['id'])
+                assigned[event['id']] = True
 
         if rewrite:
             original = EventsModel().getSchedule(applet['_id'])
