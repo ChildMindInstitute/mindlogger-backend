@@ -135,7 +135,7 @@ class Protocol(FolderModel):
         protocol = {
             'protocol': {
                 formatted['protocol']['@id']: {
-                    'expanded': formatted['protocol'],
+                    'expanded': jsonld_expander.fixUpOrderList(formatted['protocol'], 'screen'),
                     'ref2Document': {
                         'duplicateOf': protocolId
                     }
@@ -157,7 +157,7 @@ class Protocol(FolderModel):
             protocol['activity'][activityKey] = {
                 'parentKey': 'protocol',
                 'parentId': formatted['protocol']['@id'],
-                'expanded': activity,
+                'expanded': jsonld_expander.fixUpOrderList(activity, 'activity'),
                 'ref2Document': {
                     'duplicateOf': activityId
                 }
@@ -195,3 +195,63 @@ class Protocol(FolderModel):
             user=editor,
             refreshCache=True
         )
+
+    def createHistoryFolders(
+        self,
+        protocolId,
+        user
+    ):
+        protocol = self.load(protocolId, force=True)
+        updated = False
+
+        if not protocol['meta'].get('historyId', None):
+            historyFolder = FolderModel().createFolder(
+                name='history of ' + protocol['name'],
+                parent=protocol,
+                parentType='folder',
+                public=False,
+                creator=user,
+                allowRename=True,
+                reuseExisting=False
+            )
+
+            protocol['meta']['historyId'] = historyFolder['_id']
+            updated = True
+        else:
+            historyFolder = FolderModel().load(protocol['meta']['historyId'], force=True)
+        
+        if not historyFolder.get('meta', {}).get('referenceId', None):
+            referencesFolder = FolderModel().createFolder(
+                name='reference of history data for ' + protocol['name'],
+                parent=historyFolder,
+                parentType='folder',
+                public=False,
+                creator=user,
+                allowRename=True,
+                reuseExisting=False,
+            )
+
+            FolderModel().setMetadata(historyFolder, {
+                'referenceId': referencesFolder['_id']
+            })
+
+
+        # add folder to save contents
+        if not protocol['meta'].get('contentId', None):
+            contentFolder = FolderModel().createFolder(
+                name='content of ' + protocol['name'],
+                parent=protocol,
+                parentType='folder',
+                public=False,
+                creator=user,
+                allowRename=True,
+                reuseExisting=False
+            )
+
+            protocol['meta']['contentId'] = contentFolder['_id']
+            updated = True
+
+        if updated:
+            protocol = self.setMetadata(protocol, protocol['meta'])
+
+        return protocol

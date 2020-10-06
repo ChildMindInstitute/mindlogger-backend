@@ -402,7 +402,7 @@ class Applet(Resource):
         protocol = ProtocolModel().load(applet.get('meta', {}).get('protocol', {}).get('_id', '').split('/')[-1], force=True)
 
         items = list(ItemModel().find({
-            'folderId': protocol['content_id'],
+            'folderId': protocol['meta'].get('contentId', None),
             'version': {
                 '$in': versions
             }
@@ -431,8 +431,8 @@ class Applet(Resource):
         protocol = ProtocolModel().load(applet.get('meta', {}).get('protocol', {}).get('_id', '').split('/')[-1], force=True)
 
         items = list(ItemModel().find({
-            'folderId': protocol['content_id'],
-        }, fields=['version'], sort=[("created", DESCENDING)])) if 'content_id' in protocol else []
+            'folderId': protocol['meta'].get('contentId', None),
+        }, fields=['version'], sort=[("created", DESCENDING)])) if 'contentId' in protocol['meta'] else []
 
         return [
             item['version'] for item in items
@@ -677,9 +677,20 @@ class Applet(Resource):
             raise AccessException(
                 "Only managers and editors are able to duplicate applet."
             )
-        AppletModel().duplicateApplet(applet, name, thisUser)
 
-        return "duplicate success"
+        thread = threading.Thread(
+            target=AppletModel().duplicateApplet,
+            kwargs={
+                'applet': applet,
+                'name': name,
+                'editor': thisUser,
+            }
+        )
+        thread.start()
+
+        return({
+            "message": "The applet is being duplicated. We will send you an email in 1 min or less when it has been successfully duplicated."
+        })
 
     @access.user(scope=TokenScope.DATA_WRITE)
     @autoDescribeRoute(
@@ -756,7 +767,7 @@ class Applet(Resource):
         )
         thread.start()
         return({
-            "message": "The applet is building. We will send you an email in 10 mins or less when it has been successfully created or failed."
+            "message": "The applet is building. We will send you an email in 1 min or less when it has been successfully created or failed."
         })
 
 

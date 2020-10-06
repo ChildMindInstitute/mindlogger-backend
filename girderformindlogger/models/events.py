@@ -30,7 +30,8 @@ class Events(Model):
             (
                 'applet_id',
                 'individualized',
-                'data.users'
+                'data.users',
+                'data.activity_id'
             )
         )
 
@@ -57,6 +58,12 @@ class Events(Model):
 
     def deleteEventsByAppletId(self, applet_id):
         events = self.find({'applet_id': ObjectId(applet_id)})
+
+        for event in events:
+            self.deleteEvent(event.get('_id'))
+
+    def deleteEventsByActivityId(self, applet_id, activity_id):
+        events = self.find({'applet_id': ObjectId(applet_id), 'data.activity_id': ObjectId(activity_id)})
 
         for event in events:
             self.deleteEvent(event.get('_id'))
