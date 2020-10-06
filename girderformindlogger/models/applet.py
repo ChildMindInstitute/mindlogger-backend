@@ -972,6 +972,10 @@ class Applet(FolderModel):
 
                 jsonld_expander.convertObjectToSingleFileFormat(activity, 'activity', user, activity['meta']['activity']['@id'])
 
+            for key in ['schema:version', 'schema:schemaVersion']:
+                schemaVersion = protocolFolder['meta']['protocol'][key]
+                schemaVersion[0]['@value'] = protocol['protocol'].get('data', {}).get(key, '0.0.0')
+
             jsonld_expander.convertObjectToSingleFileFormat(protocolFolder, 'protocol', user)
 
             if 'url' in metadata['protocol']:
