@@ -269,14 +269,24 @@ class Protocol(FolderModel):
         schemaVersion = protocol['meta'].get('protocol', {}).get('schema:version', None)
 
         currentVersion = schemaVersion[0].get('@value', '0.0.0') if schemaVersion else '0.0.0'
+
+        activityIdToHistoryObj = {}
         for activity in activities:
             identifier = activity['meta'].get('activity', {}).get('url', None)
             if identifier:
-               jsonld_expander.insertHistoryData(activity, identifier, 'activity', currentVersion, historyFolder, referencesFolder, user)
+                activityId = str(activity['_id'])
+                activityIdToHistoryObj[activityId] = jsonld_expander.insertHistoryData(activity, identifier, 'activity', currentVersion, historyFolder, referencesFolder, user)
 
         for item in items:
             identifier = item['meta'].get('screen', {}).get('url', None)
             if identifier:
+                activityHistoryObj = activityIdToHistoryObj[str(item['meta']['activityId'])]
+
+                item['meta'].update({
+                    'originalActivityId': item['meta']['activityId'],
+                    'activityId': activityHistoryObj['_id']
+                })
+
                 jsonld_expander.insertHistoryData(item, identifier, 'screen', currentVersion, historyFolder, referencesFolder, user)
 
     def compareVersions(self, version1, version2):
@@ -291,7 +301,7 @@ class Protocol(FolderModel):
 
         return 0
 
-    def getItemsFromIRIs(self, protocolId, IRIGroup):
+    def getHistoryDataFromItemIRIs(self, protocolId, IRIGroup):
         from girderformindlogger.models.item import Item as ItemModel
         from girderformindlogger.utility import jsonld_expander
 
@@ -308,6 +318,7 @@ class Protocol(FolderModel):
         itemModel = ItemModel()
 
         items = {}
+        activities = {}
 
         objectMap = {}
         for IRI in IRIGroup:
@@ -334,6 +345,13 @@ class Protocol(FolderModel):
                             })
                             objectMap[history[i]['reference']] = jsonld_expander.loadCache(model['cached'])
 
+                            activityId = str(model['meta']['activityId'])
+
+                            if activityId not in activities:
+                                activities[activityId] = jsonld_expander.loadCache(
+                                    FolderModel().load(activityId, force=True)['cached']
+                                )
+
                         items[version][IRI] = objectMap[history[i]['reference']]
                         inserted = True
 
@@ -342,4 +360,7 @@ class Protocol(FolderModel):
                 if not inserted:
                     items[version][IRI] = None # this is same as latest version
 
-        return items
+        return {
+            'items': items,
+            'activities': activities
+        }

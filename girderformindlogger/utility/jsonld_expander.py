@@ -153,7 +153,13 @@ def insertHistoryData(obj, identifier, modelType, baseVersion, historyFolder, hi
         if modelType == 'screen':
             formatted['original'] = {
                 'screenId': obj['meta'].get('originalId', None),
-                'activityId': obj['meta'].get('activityId', None)
+                'activityId': obj['meta'].get('originalActivityId', None)
+            }
+
+            formatted['activityId'] = obj['meta'].get('activityId', None)
+        else:
+            formatted['original'] = {
+                'activityId': obj['meta'].get('originalId', None)
             }
 
         obj = createCache(obj, formatted, modelClass.name, user)
@@ -231,7 +237,7 @@ def createProtocolFromExpandedDocument(protocol, user, editExisting=False, remov
 
                             if 'identifier' in docFolder['meta']:
                                 if modelType == 'activity':
-                                    insertHistoryData(deepcopy(docFolder), docFolder['meta']['identifier'], modelType, baseVersion, historyFolder, historyReferenceFolder, user)
+                                    model['historyObj'] = insertHistoryData(deepcopy(docFolder), docFolder['meta']['identifier'], modelType, baseVersion, historyFolder, historyReferenceFolder, user)
 
                                 if metadata['identifier'] != docFolder['meta']['identifier']:
                                     insertHistoryData(None, metadata['identifier'], modelType, baseVersion, historyFolder, historyReferenceFolder, user)
@@ -247,7 +253,14 @@ def createProtocolFromExpandedDocument(protocol, user, editExisting=False, remov
                             item = modelClass.load(model['ref2Document']['_id'],force=True)
 
                             if 'identifier' in item['meta']:
-                                insertHistoryData(deepcopy(item), item['meta']['identifier'], modelType, baseVersion, historyFolder, historyReferenceFolder, user)
+                                clonedItem = deepcopy(item)
+                                if 'activityId' in clonedItem['meta']:
+                                    clonedItem['meta'].update({
+                                        'originalActivityId': clonedItem['meta']['activityId'],
+                                        'activityId': protocol[model['parentKey']][model['parentId']]['historyObj']['_id']
+                                    })
+
+                                insertHistoryData(clonedItem, item['meta']['identifier'], modelType, baseVersion, historyFolder, historyReferenceFolder, user)
 
                                 if metadata['identifier'] != item['meta']['identifier']:
                                     insertHistoryData(None, metadata['identifier'], modelType, baseVersion, historyFolder, historyReferenceFolder, user)
@@ -352,6 +365,7 @@ def createProtocolFromExpandedDocument(protocol, user, editExisting=False, remov
                         historyFolder = FolderModel().load(newModel['meta']['historyId'], force=True)
                         historyReferenceFolder = FolderModel().load(historyFolder['meta']['referenceId'], force=True)
 
+                        activityIdToHistoryObj = {}
                         # handle deleted activites
                         if 'activities' in removed:
                             removedActivities = list(ActivityModel().find({
@@ -368,7 +382,8 @@ def createProtocolFromExpandedDocument(protocol, user, editExisting=False, remov
                                 ActivityModel().remove(activity)
 
                                 if 'identifier' in activity['meta']:
-                                    insertHistoryData(activity, activity['meta']['identifier'], activity, baseVersion, historyFolder, historyReferenceFolder, user)
+                                    activityId = str(activity['_id'])
+                                    activityIdToHistoryObj[activityId] = insertHistoryData(activity, activity['meta']['identifier'], activity, baseVersion, historyFolder, historyReferenceFolder, user)
 
                         # handle deleted items
                         if 'items' in removed:
@@ -386,6 +401,18 @@ def createProtocolFromExpandedDocument(protocol, user, editExisting=False, remov
                                 ScreenModel().remove(item)
                                 
                                 if 'identifier' in item['meta']:
+                                    activityId = str(item['meta']['activityId'])
+                                    historyObj = activityIdToHistoryObj.get(activityId, None)
+
+                                    if not historyObj:
+                                        activity = ScreenModel().load(activityId, force=True)
+                                        historyObj = activityIdToHistoryObj[activityId] = insertHistoryData(activity, activity['meta']['identifier'], 'activity', baseVersion, historyFolder, historyReferenceFolder, user)
+
+                                    item['meta'].update({
+                                        'originalActivityId': item['meta']['activityId'],
+                                        'activityId': historyObj['_id']
+                                    })
+
                                     insertHistoryData(item, item['meta']['identifier'], 'screen', baseVersion, historyFolder, historyReferenceFolder, user)
 
                 model['ref2Document']['_id'] = newModel['_id']

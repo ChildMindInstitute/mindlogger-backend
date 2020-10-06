@@ -358,11 +358,11 @@ def last7Days(
             if sourceId and sourceId not in l7d['dataSources']:
                 l7d['dataSources'][sourceId] = dataSources[sourceId]
 
-    l7d['items'] = getOldItems(l7d['responses'], appletInfo)
+    l7d.update(getOldVersions(l7d['responses'], appletInfo))
 
     return l7d
 
-def getOldItems(responses, applet):
+def getOldVersions(responses, applet):
     from girderformindlogger.models.protocol import Protocol
 
     IRIs = {}
@@ -378,7 +378,7 @@ def getOldItems(responses, applet):
                 IRIs[IRI].append(response['version'])
                 insertedIRI[identifier] = True
 
-    return Protocol().getItemsFromIRIs(applet.get('meta', {}).get('protocol', {}).get('_id', '').split('/')[-1], IRIs)
+    return Protocol().getHistoryDataFromItemIRIs(applet.get('meta', {}).get('protocol', {}).get('_id', '').split('/')[-1], IRIs)
 
 def determine_date(d):
     if isinstance(d, int):
