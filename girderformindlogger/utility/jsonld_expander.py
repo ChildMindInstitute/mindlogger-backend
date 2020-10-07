@@ -274,7 +274,8 @@ def createProtocolFromExpandedDocument(protocol, user, editExisting=False, remov
                     if modelType == 'screen':
                         metadata['identifier'] = docFolder['_id']
 
-                        insertHistoryData(None, metadata['identifier'], modelType, baseVersion, historyFolder, historyReferenceFolder, user)
+                        if editExisting:
+                            insertHistoryData(None, metadata['identifier'], modelType, baseVersion, historyFolder, historyReferenceFolder, user)
 
                 if modelClass.name=='folder':
                     newModel = modelClass.setMetadata(
@@ -316,7 +317,9 @@ def createProtocolFromExpandedDocument(protocol, user, editExisting=False, remov
                         )
 
                         metadata['identifier'] = '{}/{}'.format(metadata['activityId'], str(item['_id']))
-                        insertHistoryData(None, '{}/{}'.format(metadata['activityId'], str(item['_id'])), modelType, baseVersion, historyFolder, historyReferenceFolder, user)
+
+                        if editExisting:
+                            insertHistoryData(None, '{}/{}'.format(metadata['activityId'], str(item['_id'])), modelType, baseVersion, historyFolder, historyReferenceFolder, user)
 
                     newModel = modelClass.setMetadata(
                         item, 
@@ -373,7 +376,7 @@ def createProtocolFromExpandedDocument(protocol, user, editExisting=False, remov
 
                                 if 'identifier' in activity['meta']:
                                     activityId = str(activity['_id'])
-                                    activityIdToHistoryObj[activityId] = insertHistoryData(activity, activity['meta']['identifier'], activity, baseVersion, historyFolder, historyReferenceFolder, user)
+                                    activityIdToHistoryObj[activityId] = insertHistoryData(activity, activity['meta']['identifier'], 'activity', baseVersion, historyFolder, historyReferenceFolder, user)
 
                         # handle deleted items
                         if 'items' in removed:
@@ -391,10 +394,12 @@ def createProtocolFromExpandedDocument(protocol, user, editExisting=False, remov
                                 ScreenModel().remove(item)
                                 
                                 if 'identifier' in item['meta']:
+
                                     activityId = str(item['meta']['activityId'])
                                     historyObj = activityIdToHistoryObj.get(activityId, None)
 
                                     if not historyObj:
+
                                         activity = ScreenModel().load(activityId, force=True)
                                         historyObj = activityIdToHistoryObj[activityId] = insertHistoryData(activity, activity['meta']['identifier'], 'activity', baseVersion, historyFolder, historyReferenceFolder, user)
 
@@ -1316,17 +1321,19 @@ def _fixUpFormat(obj):
         return(obj)
 
 def fixUpOrderList(obj, modelType, dictionary):
+    updated = False
     if "reprolib:terms/order" in obj['meta'].get(modelType, {}):
         order = obj['meta'][modelType]["reprolib:terms/order"][0]["@list"]
         for child in order:
             uri = child.get("@id", None)
 
-            child["@id"] = uri.split("/")[-1]
             if modelType != 'screen':
-                key = '{}/{}'.format(obj['_id'], child['@id'])
-                child["@id"] = dictionary[key]
+                key = '{}/{}'.format(obj['_id'], uri.split("/")[-1])
+                if key in dictionary:
+                    child["@id"] = dictionary[key]
+                    updated = True
 
-    return obj
+    return updated
 
 def formatLdObject(
     obj,
@@ -1525,8 +1532,7 @@ def formatLdObject(
                     protocol['items'][key] = formatted
 
                 for activity in activities:
-                    if refreshCache:
-                        fixUpOrderList(activity, 'activity', itemIDMapping)
+                    if refreshCache and fixUpOrderList(activity, 'activity', itemIDMapping):
                         ActivityModel().setMetadata(activity, activity['meta'])
 
                         formatted = formatLdObject(activity, 'activity', user, refreshCache=True)
@@ -1539,8 +1545,8 @@ def formatLdObject(
                     activityIDMapping['{}/{}'.format(str(obj['_id']), formatted['@id'])] = str(activity['_id'])
                 
                 if refreshCache:
-                    fixUpOrderList(obj, 'protocol', activityIDMapping)
-                    ProtocolModel().setMetadata(obj, obj['meta'])
+                    if fixUpOrderList(obj, 'protocol', activityIDMapping):
+                        ProtocolModel().setMetadata(obj, obj['meta'])
             else:
                 try:
                     protocol = componentImport(

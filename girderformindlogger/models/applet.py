@@ -950,7 +950,7 @@ class Applet(FolderModel):
 
             for item in items:
                 activity = activityIdToData[str(item['meta']['activityId'])]
-                jsonld_expander.convertObjectToSingleFileFormat(item, 'screen', user, '{}/{}'.format(activity['_id'], item['_id']), True)
+                jsonld_expander.convertObjectToSingleFileFormat(item, 'screen', user, '{}/{}'.format(str(activity['_id']), str(item['_id'])), True)
 
             for activity in activities:
                 ResponseItem().update({
@@ -970,7 +970,7 @@ class Applet(FolderModel):
                     }
                 })
 
-                jsonld_expander.convertObjectToSingleFileFormat(activity, 'activity', user, activity['_id'])
+                jsonld_expander.convertObjectToSingleFileFormat(activity, 'activity', user, str(activity['_id']))
 
             for key in ['schema:version', 'schema:schemaVersion']:
                 schemaVersion = protocolFolder['meta']['protocol'][key]

@@ -319,8 +319,8 @@ class Protocol(FolderModel):
 
         items = {}
         activities = {}
+        itemReferences = {}
 
-        objectMap = {}
         for IRI in IRIGroup:
             reference = itemModel.findOne({ 'folderId': referencesFolder['_id'], 'meta.identifier': IRI })
             if not reference:
@@ -329,8 +329,8 @@ class Protocol(FolderModel):
             history = reference['meta']['history']
 
             for version in IRIGroup[IRI]:
-                if version not in items:
-                    items[version] = {}
+                if version not in itemReferences:
+                    itemReferences[version] = {}
 
                 inserted = False
                 for i in range(0, len(history)):
@@ -338,12 +338,12 @@ class Protocol(FolderModel):
                         if not history[i].get('reference', None):
                             continue
 
-                        if history[i]['reference'] not in objectMap:
+                        if history[i]['reference'] not in items:
                             (modelType, referenceId) = history[i]['reference'].split('/')
                             model = MODELS()[modelType]().findOne({
                                 '_id': ObjectId(referenceId)
                             })
-                            objectMap[history[i]['reference']] = jsonld_expander.loadCache(model['cached'])
+                            items[history[i]['reference']] = jsonld_expander.loadCache(model['cached'])
 
                             activityId = str(model['meta']['activityId'])
 
@@ -351,16 +351,17 @@ class Protocol(FolderModel):
                                 activities[activityId] = jsonld_expander.loadCache(
                                     FolderModel().load(activityId, force=True)['cached']
                                 )
-
-                        items[version][IRI] = objectMap[history[i]['reference']]
+                        if history[i]['reference']:
+                            itemReferences[version][IRI] = history[i]['reference']
                         inserted = True
 
                         break
 
                 if not inserted:
-                    items[version][IRI] = None # this is same as latest version
+                    itemReferences[version][IRI] = None # this is same as latest version
 
         return {
             'items': items,
-            'activities': activities
+            'activities': activities,
+            'itemReferences': itemReferences
         }
