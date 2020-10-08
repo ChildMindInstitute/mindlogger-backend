@@ -307,19 +307,24 @@ class Protocol(FolderModel):
 
         protocol = self.load(protocolId, force=True)
 
-        if 'historyId' not in protocol.get('meta', {}):
-            return {}
-
-        historyFolder = FolderModel().load(protocol['meta']['historyId'], force=True)
-        if 'referenceId' not in historyFolder.get('meta', {}):
-            return {}
-
-        referencesFolder = FolderModel().load(historyFolder['meta']['referenceId'], force=True)
-        itemModel = ItemModel()
-
         items = {}
         activities = {}
         itemReferences = {}
+        result = {
+            'items': items,
+            'activities': activities,
+            'itemReferences': itemReferences
+        }
+
+        if 'historyId' not in protocol.get('meta', {}):
+            return result
+
+        historyFolder = FolderModel().load(protocol['meta']['historyId'], force=True)
+        if 'referenceId' not in historyFolder.get('meta', {}):
+            return result
+
+        referencesFolder = FolderModel().load(historyFolder['meta']['referenceId'], force=True)
+        itemModel = ItemModel()
 
         for IRI in IRIGroup:
             reference = itemModel.findOne({ 'folderId': referencesFolder['_id'], 'meta.identifier': IRI })
@@ -360,8 +365,4 @@ class Protocol(FolderModel):
                 if not inserted:
                     itemReferences[version][IRI] = None # this is same as latest version
 
-        return {
-            'items': items,
-            'activities': activities,
-            'itemReferences': itemReferences
-        }
+        return result

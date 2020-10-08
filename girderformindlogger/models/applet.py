@@ -938,6 +938,8 @@ class Applet(FolderModel):
                     'activities': [activity['activity_id'] for activity in profile.get('completed_activities', [])]
                 }
                 self.setMetadata(applet, metadata)
+
+                protocolFolder = FolderModel().load(protocolId, force=True)
             else:
                 (historyFolder, referencesFolder) = Protocol().createHistoryFolders(protocolId, user)
                 Protocol().initHistoryData(historyFolder, referencesFolder, protocolId, user)
