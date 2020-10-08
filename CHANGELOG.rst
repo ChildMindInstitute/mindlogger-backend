@@ -8,6 +8,9 @@ Changes
 -------
 Unreleased
 ==========
+2020-10-03 v0.14.16
+accumulate tokens from user responses for each day
+
 2020-10-03 v0.14.15
 update applet data structure for version controlling
 

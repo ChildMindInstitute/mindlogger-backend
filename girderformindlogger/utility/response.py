@@ -446,22 +446,11 @@ def add_missing_dates(response_data, from_date, to_date):
 
 
 def add_latest_daily_response(data, responses):
-    visited_dates = {}
-
     user_keys = {}
 
     for response in responses:
         activity_id = str(response['meta']['activity']['@id'])
         response['updated'] = response['updated'].date()  # Ignore the time.
-
-        if activity_id not in visited_dates:
-            # First time we process an item from this activity.
-            visited_dates[activity_id] = []
-        elif response['updated'] in visited_dates[activity_id]:
-            # There is a response for this date and activity already.
-            continue
-
-        visited_dates[activity_id].append(response['updated'])
 
         for item in response['meta']['responses']:
             date_not_found = True
