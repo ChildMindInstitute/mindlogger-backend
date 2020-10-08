@@ -452,43 +452,26 @@ def add_latest_daily_response(data, responses):
         response['updated'] = response['updated'].date()  # Ignore the time.
 
         for item in response['meta']['responses']:
-            date_not_found = True
-
             if item not in data['responses']:
                 data['responses'][item] = []
 
-            for current_response in data['responses'][item]:
-                if not isinstance(current_response['value'], list):
-                    current_response['value'] = [current_response['value']]
+            data['responses'][item].append({
+                "date": response['updated'],
+                "value": response['meta']['responses'][item],
+                "version": response['meta'].get('applet', {}).get('version', '0.0.0')
+            })
 
-                new_responses = response['meta']['responses'][item]
+            if str(response['_id']) not in data['dataSources'] and 'dataSource' in response['meta']:
+                key_dump = json_util.dumps(response['meta']['userPublicKey'])
 
-                if not isinstance(new_responses, list):
-                    new_responses = [new_responses]
+                if key_dump not in user_keys:
+                    user_keys[key_dump] = len(data['keys'])
+                    data['keys'].append(response['meta']['userPublicKey'])
 
-                if current_response['date'] == response['updated']:
-                    current_response['value'].extend(new_responses)
-                    date_not_found = False
-                    break
-
-            if date_not_found:
-                data['responses'][item].append({
-                    "date": response['updated'],
-                    "value": response['meta']['responses'][item],
-                    "version": response['meta'].get('applet', {}).get('version', '0.0.0')
-                })
-
-                if str(response['_id']) not in data['dataSources'] and 'dataSource' in response['meta']:
-                    key_dump = json_util.dumps(response['meta']['userPublicKey'])
-
-                    if key_dump not in user_keys:
-                        user_keys[key_dump] = len(data['keys'])
-                        data['keys'].append(response['meta']['userPublicKey'])
-
-                    data['dataSources'][str(response['_id'])] = {
-                        'key': user_keys[key_dump],
-                        'data': response['meta']['dataSource']
-                    }
+                data['dataSources'][str(response['_id'])] = {
+                    'key': user_keys[key_dump],
+                    'data': response['meta']['dataSource']
+                }
 
 def _oneResponsePerDatePerVersion(responses):
     newResponses = {}
