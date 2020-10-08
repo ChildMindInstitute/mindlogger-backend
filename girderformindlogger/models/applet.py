@@ -833,13 +833,13 @@ class Applet(FolderModel):
                 protocolId = duplicated['protocol']['_id'].split('/')[-1]
 
                 (historyFolder, referencesFolder) = Protocol().createHistoryFolders(protocolId, user)
-                Protocol().initHistoryData(historyFolder, referencesFolder, metadata['protocol']['_id'].split('/')[-1], user)
 
                 # replace with duplicated content
                 activities = list(ActivityModel.find({ 'meta.protocolId': ObjectId(protocolId) }))
                 items = list(ItemModel.find({ 'meta.protocolId': ObjectId(protocolId) }))
 
                 activityIDRef = {}
+                itemIDRef = {}
                 for activity in activities:
                     activityIDRef[str(activity['duplicateOf'])] = activity['_id']
 
@@ -897,6 +897,7 @@ class Applet(FolderModel):
                     })
                 
                 for item in items:
+                    itemIDRef[str(item['duplicateOf'])] = item['_id']
                     ItemModel.update({
                         'duplicateOf': item['duplicateOf']
                     }, {
@@ -923,6 +924,8 @@ class Applet(FolderModel):
                             'duplicateOf': ''
                         }
                     })
+
+                Protocol().initHistoryData(historyFolder, referencesFolder, metadata['protocol']['_id'].split('/')[-1], user, activityIDRef, itemIDRef)
 
                 # update profiles
                 appletProfiles = Profile().get_profiles_by_applet_id(applet['_id'])

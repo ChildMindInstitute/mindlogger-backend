@@ -258,7 +258,7 @@ class Protocol(FolderModel):
 
         return (historyFolder, referencesFolder)
 
-    def initHistoryData(self, historyFolder, referencesFolder, protocolId, user):
+    def initHistoryData(self, historyFolder, referencesFolder, protocolId, user, activityIDRef = {}, itemIDRef = {}):
         from girderformindlogger.utility import jsonld_expander
         from girderformindlogger.models.item import Item as ItemModel
 
@@ -275,11 +275,21 @@ class Protocol(FolderModel):
             identifier = activity['meta'].get('activity', {}).get('url', None)
             if identifier:
                 activityId = str(activity['_id'])
+                if activityId in activityIDRef:
+                    activity['_id'] = activityIDRef[activityId]
+                    activityId = str(activityIDRef[activityId])
+
                 activityIdToHistoryObj[activityId] = jsonld_expander.insertHistoryData(activity, identifier, 'activity', currentVersion, historyFolder, referencesFolder, user)
 
         for item in items:
             identifier = item['meta'].get('screen', {}).get('url', None)
             if identifier:
+                if str(item['_id']) in itemIDRef:
+                    item['_id'] = itemIDRef[str(item['_id'])]
+
+                if str(item['meta']['activityId']) in activityIDRef:
+                    item['meta']['activityId'] = activityIDRef[str(item['meta']['activityId'])]
+
                 activityHistoryObj = activityIdToHistoryObj[str(item['meta']['activityId'])]
 
                 item['meta'].update({
