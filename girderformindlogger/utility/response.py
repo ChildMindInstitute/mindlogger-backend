@@ -17,6 +17,7 @@ from pandas.api.types import is_numeric_dtype
 from pymongo import ASCENDING, DESCENDING
 from bson import json_util
 from girderformindlogger.utility import jsonld_expander
+from girderformindlogger.models.protocol import Protocol
 
 MonkeyPatch.patch_fromisoformat()
 
@@ -341,7 +342,7 @@ def last7Days(
             resp['date'] = delocalize(resp['date'])
 
     l7d = {}
-    l7d["responses"] = _oneResponsePerDate(outputResponses)
+    l7d["responses"] = _oneResponsePerDatePerVersion(outputResponses)
 
     endDate = referenceDate.date()
     l7d["schema:endDate"] = endDate.isoformat()
@@ -363,8 +364,6 @@ def last7Days(
     return l7d
 
 def getOldVersions(responses, applet):
-    from girderformindlogger.models.protocol import Protocol
-
     IRIs = {}
     insertedIRI = {}
     for IRI in responses:
@@ -391,6 +390,12 @@ def determine_date(d):
         ) if isinstance(d, str) else d
     ).date())
 
+def convertToComparableVersion(version):
+    values = version.split('.')
+    for i in range(0, len(values)):
+        values[i] = '0' * (20 - len(values[i])) + values[i]
+
+    return '.'.join(values)
 
 def isodatetime(d):
     if isinstance(d, int):
@@ -485,15 +490,24 @@ def add_latest_daily_response(data, responses):
                         'data': response['meta']['dataSource']
                     }
 
-def _oneResponsePerDate(responses):
+def _oneResponsePerDatePerVersion(responses):
     newResponses = {}
     for response in responses:
+   
         df = pd.DataFrame(responses[response])
+
         df["datetime"] = df.date
         df["date"] = df.date.apply(determine_date)
-        df.sort_values(by=['datetime'], ascending=False, inplace=True)
-        df = df.groupby('date').first()
+        df["versionValue"] = df.version.apply(convertToComparableVersion)
+
+        df.sort_values(by=['datetime', 'versionValue'], ascending=False, inplace=True)
+        df = df.groupby(['date', 'versionValue']).first()
+
         df.drop('datetime', axis=1, inplace=True)
+
         df['date'] = df.index
+        df['date'] = df.date.apply(lambda data: data[0])
+
         newResponses[response] = df.to_dict(orient="records")
+
     return(newResponses)
