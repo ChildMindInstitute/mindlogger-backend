@@ -832,11 +832,14 @@ class Applet(FolderModel):
                 duplicated = Protocol().duplicateProtocol(ObjectId(protocolId), user)
                 protocolId = duplicated['protocol']['_id'].split('/')[-1]
 
+                (historyFolder, referencesFolder) = Protocol().createHistoryFolders(protocolId, user)
+
                 # replace with duplicated content
                 activities = list(ActivityModel.find({ 'meta.protocolId': ObjectId(protocolId) }))
                 items = list(ItemModel.find({ 'meta.protocolId': ObjectId(protocolId) }))
 
                 activityIDRef = {}
+                itemIDRef = {}
                 for activity in activities:
                     activityIDRef[str(activity['duplicateOf'])] = activity['_id']
 
@@ -865,6 +868,24 @@ class Applet(FolderModel):
                         }
                     })
 
+                    ActivityModel.update({
+                        'meta.historyId': historyFolder['_id'],
+                        'meta.originalId': activity['duplicateOf']
+                    }, {
+                        '$set': {
+                            'meta.originalId': activity['_id']
+                        }
+                    })
+
+                    ItemModel.update({
+                        'meta.historyId': historyFolder['_id'],
+                        'meta.activityId': activity['duplicateOf']
+                    }, {
+                        '$set': {
+                            'meta.activityId': activity['_id']
+                        }
+                    })
+
                     activity.pop('duplicateOf')
 
                     ActivityModel.update({
@@ -876,11 +897,21 @@ class Applet(FolderModel):
                     })
                 
                 for item in items:
+                    itemIDRef[str(item['duplicateOf'])] = item['_id']
                     ItemModel.update({
                         'duplicateOf': item['duplicateOf']
                     }, {
                         '$set': {
                             'duplicateOf': item['_id']
+                        }
+                    })
+
+                    ItemModel.update({
+                        'meta.historyId': historyFolder['_id'],
+                        'meta.originalId': item['duplicateOf']
+                    }, {
+                        '$set': {
+                            'meta.originalId': item['_id']
                         }
                     })
 
@@ -893,6 +924,8 @@ class Applet(FolderModel):
                             'duplicateOf': ''
                         }
                     })
+
+                Protocol().initHistoryData(historyFolder, referencesFolder, metadata['protocol']['_id'].split('/')[-1], user, activityIDRef, itemIDRef)
 
                 # update profiles
                 appletProfiles = Profile().get_profiles_by_applet_id(applet['_id'])
@@ -909,10 +942,20 @@ class Applet(FolderModel):
                 }
                 self.setMetadata(applet, metadata)
 
+                protocolFolder = FolderModel().load(protocolId, force=True)
+            else:
+                (historyFolder, referencesFolder) = Protocol().createHistoryFolders(protocolId, user)
+                Protocol().initHistoryData(historyFolder, referencesFolder, protocolId, user)
+
             activities = list(ActivityModel.find({ 'meta.protocolId': ObjectId(protocolId) }))
             items = list(ItemModel.find({ 'meta.protocolId': ObjectId(protocolId) }))
+            activityIdToData = {
+                str(activity['_id']): activity for activity in activities
+            }
+
             for item in items:
-                jsonld_expander.convertObjectToSingleFileFormat(item, 'screen', user)
+                activity = activityIdToData[str(item['meta']['activityId'])]
+                jsonld_expander.convertObjectToSingleFileFormat(item, 'screen', user, '{}/{}'.format(str(activity['_id']), str(item['_id'])), True)
 
             for activity in activities:
                 ResponseItem().update({
@@ -932,7 +975,11 @@ class Applet(FolderModel):
                     }
                 })
 
-                jsonld_expander.convertObjectToSingleFileFormat(activity, 'activity', user)
+                jsonld_expander.convertObjectToSingleFileFormat(activity, 'activity', user, str(activity['_id']))
+
+            for key in ['schema:version', 'schema:schemaVersion']:
+                schemaVersion = protocolFolder['meta']['protocol'][key]
+                schemaVersion[0]['@value'] = protocol['protocol'].get('data', {}).get(key, '0.0.0')
 
             jsonld_expander.convertObjectToSingleFileFormat(protocolFolder, 'protocol', user)
 
@@ -940,7 +987,9 @@ class Applet(FolderModel):
                 metadata['protocol'].pop('url')
                 self.setMetadata(applet, metadata)
 
-        Protocol().createHistoryFolders(protocolId, user)
+            jsonld_expander.formatLdObject(protocolFolder, 'protocol', user, refreshCache=True)
+        else:
+            Protocol().createHistoryFolders(protocolId, user)
 
         jsonld_expander.cacheProtocolContent(Protocol().load(protocolId, force=True), protocol, user)
 

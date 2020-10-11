@@ -34,6 +34,8 @@ class Item(acl_mixin.AccessControlMixin, Model):
                 'meta.activityId',
                 'meta.screen.@type',
                 'meta.screen.url',
+                'meta.historyId',
+                'meta.identifier',
                 ([
                     ('folderId', 1),
                     ('name', 1),
