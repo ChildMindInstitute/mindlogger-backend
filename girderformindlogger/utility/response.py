@@ -311,7 +311,8 @@ def last7Days(
     reviewer,
     subject=None,
     referenceDate=None,
-    includeOldItems=True
+    includeOldItems=True,
+    groupByDateActivity=True
 ):
     from girderformindlogger.models.profile import Profile
     if referenceDate is None:
@@ -340,9 +341,11 @@ def last7Days(
     for item in outputResponses:
         for resp in outputResponses[item]:
             resp['date'] = delocalize(resp['date'])
+            if not groupByDateActivity:
+                resp['date'] = determine_date(resp['date'])
 
     l7d = {}
-    l7d["responses"] = _oneResponsePerDatePerVersion(outputResponses)
+    l7d["responses"] = _oneResponsePerDatePerVersion(outputResponses) if groupByDateActivity else outputResponses
 
     endDate = referenceDate.date()
     l7d["schema:endDate"] = endDate.isoformat()
