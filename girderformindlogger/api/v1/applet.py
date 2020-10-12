@@ -419,10 +419,17 @@ class Applet(Resource):
     @autoDescribeRoute(
         Description('Get content of protocol by applet id.')
         .modelParam('id', model=AppletModel, level=AccessType.READ, destName='applet')
+        .param(
+            'retrieveDate',
+            'true if retrieve date for each version',
+            dataType='boolean',
+            required=True,
+            default=False,
+        )
         .errorResponse('Invalid applet ID.')
         .errorResponse('Read access was denied for this applet.', 403)
     )
-    def getProtocolVersions(self, applet):
+    def getProtocolVersions(self, applet, retrieveDate=False):
         thisUser = self.getCurrentUser()
 
         if not self._model._hasRole(applet['_id'], thisUser, 'editor'):
@@ -432,7 +439,15 @@ class Applet(Resource):
 
         items = list(ItemModel().find({
             'folderId': protocol['meta'].get('contentId', None),
-        }, fields=['version'], sort=[("created", DESCENDING)])) if 'contentId' in protocol['meta'] else []
+        }, fields=['version', 'created'], sort=[("created", DESCENDING)])) if 'contentId' in protocol['meta'] else []
+
+        if retrieveDate:
+            return [
+                {
+                    'version': item['version'],
+                    'updated': item['created']
+                } for item in items
+            ]
 
         return [
             item['version'] for item in items
