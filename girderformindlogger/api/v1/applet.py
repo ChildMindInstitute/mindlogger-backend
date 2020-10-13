@@ -782,7 +782,7 @@ class Applet(Resource):
         )
         thread.start()
         return({
-            "message": "The applet is building. We will send you an email in 1 min or less when it has been successfully created or failed."
+            "message": "The applet is building. We will send you an email in 10 min or less when it has been successfully created or failed."
         })
 
 
