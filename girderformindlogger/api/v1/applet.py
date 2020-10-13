@@ -432,7 +432,7 @@ class Applet(Resource):
     def getProtocolVersions(self, applet, retrieveDate=False):
         thisUser = self.getCurrentUser()
 
-        if not self._model._hasRole(applet['_id'], thisUser, 'editor'):
+        if not self._model._hasRole(applet['_id'], thisUser, 'editor') and not self._model._hasRole(applet['_id'], thisUser, 'reviewer'):
             raise AccessException('You don\'t have enough permission to get content of this protocol')
 
         protocol = ProtocolModel().load(applet.get('meta', {}).get('protocol', {}).get('_id', '').split('/')[-1], force=True)
