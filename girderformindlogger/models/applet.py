@@ -1023,12 +1023,15 @@ class Applet(FolderModel):
         from girderformindlogger.models.ID_code import IDCode
         from girderformindlogger.models.response_folder import ResponseItem
         from girderformindlogger.models.user import User
+        from girderformindlogger.models.protocol import Protocol
         from pymongo import DESCENDING
 
         if not any([
             self.isReviewer(appletId, reviewer),
             self.isManager(appletId, reviewer)]):
             raise AccessException("You are not a owner or manager for this applet.")
+
+        applet = self.load(appletId, level=AccessType.READ, user=reviewer)
 
         query = {
             "baseParentType": "user",
@@ -1070,6 +1073,10 @@ class Applet(FolderModel):
         }
 
         userKeys = {}
+
+        IRIs = {}
+        insertedIRI = {}
+
         for response in responses:
             meta = response.get('meta', {})
 
@@ -1079,7 +1086,18 @@ class Applet(FolderModel):
                 'userId': meta.get('subject', {}).get('@id', None),
                 'data': meta.get('responses', {}),
                 'created': response.get('created', None),
+                'version': meta['applet'].get('version', '0.0.0')
             })
+
+            for IRI in meta.get('responses', {}):
+                if IRI not in IRIs:
+                    IRIs[IRI] = []
+
+                identifier = '{}/{}'.format(IRI, meta['applet'].get('version', '0.0.0'))
+
+                if identifier not in insertedIRI:
+                    IRIs[IRI].append(meta['applet'].get('version', '0.0.0'))
+                    insertedIRI[identifier] = True
 
             if 'userPublicKey' in meta:
                 keyDump = json_util.dumps(meta['userPublicKey'])
@@ -1091,6 +1109,13 @@ class Applet(FolderModel):
                     'key': userKeys[keyDump],
                     'data': meta['dataSource']
                 }
+
+        data.update(
+            Protocol().getHistoryDataFromItemIRIs(
+                applet.get('meta', {}).get('protocol', {}).get('_id', '').split('/')[-1], 
+                IRIs
+            )
+        )
 
         return data
 
