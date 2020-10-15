@@ -45,6 +45,7 @@ from girderformindlogger.models.setting import Setting
 from girderformindlogger.settings import SettingKey
 from girderformindlogger.models.profile import Profile as ProfileModel
 from girderformindlogger.models.account_profile import AccountProfile
+from pymongo import ASCENDING, DESCENDING
 from bson import json_util
 from pyld import jsonld
 
@@ -82,6 +83,8 @@ class Applet(Resource):
         self.route('DELETE', (':id',), self.deactivateApplet)
         self.route('POST', ('fromJSON', ), self.createAppletFromProtocolData)
         self.route('GET', (':id', 'protocolData'), self.getProtocolData)
+        self.route('GET', (':id', 'versions'), self.getProtocolVersions)
+        self.route('PUT', (':id', 'prepare',), self.prepareAppletForEdit)
         self.route('PUT', (':id', 'fromJSON'), self.updateAppletFromProtocolData)
         self.route('POST', (':id', 'duplicate', ), self.duplicateApplet)
         self.route('POST', ('setBadge',), self.setBadgeCount)
@@ -378,19 +381,77 @@ class Applet(Resource):
     @autoDescribeRoute(
         Description('Get content of protocol by applet id.')
         .modelParam('id', model=AppletModel, level=AccessType.READ, destName='applet')
+        .param(
+            'versions',
+            'version of protocol data to retrieve',
+            dataType='array',
+            required=True,
+            default=[]
+        )
         .errorResponse('Invalid applet ID.')
         .errorResponse('Read access was denied for this applet.', 403)
     )
-    def getProtocolData(self, applet):
-        profile = self.getAccountProfile()
-        if not AccountProfile().hasPermission(profile, 'manager') and not AccountProfile().hasPermission(profile, 'editor'):
+    def getProtocolData(self, applet, versions=[]):
+        versions = json_util.loads(versions)
+
+        thisUser = self.getCurrentUser()
+
+        if not self._model._hasRole(applet['_id'], thisUser, 'editor'):
             raise AccessException('You don\'t have enough permission to get content of this protocol')
 
         protocol = ProtocolModel().load(applet.get('meta', {}).get('protocol', {}).get('_id', '').split('/')[-1], force=True)
-        protocolContent = FolderModel().load(protocol['content_id'], force=True)
 
-        return None if not protocolContent['content'] else json_util.loads(protocolContent['content'])
+        items = list(ItemModel().find({
+            'folderId': protocol['meta'].get('contentId', None),
+            'version': {
+                '$in': versions
+            }
+        }, sort=[("created", DESCENDING)]))
 
+        return [
+            {
+                'version': item['version'],
+                'content': json_util.loads(item['content'])
+            } for item in items
+        ]
+
+    @access.user(scope=TokenScope.DATA_READ)
+    @autoDescribeRoute(
+        Description('Get content of protocol by applet id.')
+        .modelParam('id', model=AppletModel, level=AccessType.READ, destName='applet')
+        .param(
+            'retrieveDate',
+            'true if retrieve date for each version',
+            dataType='boolean',
+            required=True,
+            default=False,
+        )
+        .errorResponse('Invalid applet ID.')
+        .errorResponse('Read access was denied for this applet.', 403)
+    )
+    def getProtocolVersions(self, applet, retrieveDate=False):
+        thisUser = self.getCurrentUser()
+
+        if not self._model._hasRole(applet['_id'], thisUser, 'editor') and not self._model._hasRole(applet['_id'], thisUser, 'reviewer'):
+            raise AccessException('You don\'t have enough permission to get content of this protocol')
+
+        protocol = ProtocolModel().load(applet.get('meta', {}).get('protocol', {}).get('_id', '').split('/')[-1], force=True)
+
+        items = list(ItemModel().find({
+            'folderId': protocol['meta'].get('contentId', None),
+        }, fields=['version', 'created'], sort=[("created", DESCENDING)])) if 'contentId' in protocol['meta'] else []
+
+        if retrieveDate:
+            return [
+                {
+                    'version': item['version'],
+                    'updated': item['created']
+                } for item in items
+            ]
+
+        return [
+            item['version'] for item in items
+        ]
 
     @access.user(scope=TokenScope.DATA_WRITE)
     @autoDescribeRoute(
@@ -631,9 +692,20 @@ class Applet(Resource):
             raise AccessException(
                 "Only managers and editors are able to duplicate applet."
             )
-        AppletModel().duplicateApplet(applet, name, thisUser)
 
-        return "duplicate success"
+        thread = threading.Thread(
+            target=AppletModel().duplicateApplet,
+            kwargs={
+                'applet': applet,
+                'name': name,
+                'editor': thisUser,
+            }
+        )
+        thread.start()
+
+        return({
+            "message": "The applet is being duplicated. We will send you an email in 1 min or less when it has been successfully duplicated."
+        })
 
     @access.user(scope=TokenScope.DATA_WRITE)
     @autoDescribeRoute(
@@ -710,7 +782,7 @@ class Applet(Resource):
         )
         thread.start()
         return({
-            "message": "The applet is building. We will send you an email in 10 mins or less when it has been successfully created or failed."
+            "message": "The applet is building. We will send you an email in 10 min or less when it has been successfully created or failed."
         })
 
 
@@ -742,35 +814,60 @@ class Applet(Resource):
         .errorResponse('Write access was denied for this applet.', 403)
     )
     def updateAppletFromProtocolData(self, applet, name, protocol):
-        accountProfile = AccountProfile()
-
         thisUser = self.getCurrentUser()
-        profile = self.getAccountProfile()
-
-        appletRole = None
-        for role in ['manager', 'editor']:
-            if accountProfile.hasPermission(profile, role):
-                appletRole = role
-                break
-
-        if appletRole is None:
-            raise AccessException("You don't have enough permission to create applet on this account.")
-
-        thread = threading.Thread(
-            target=AppletModel().updateAppletFromProtocolData,
-            kwargs={
-                'applet': applet,
-                'name': name,
-                'protocol': protocol,
-                'user': thisUser,
-                'accountId': profile['accountId']
-            }
-        )
-        thread.start()
-        return({
-            "message": "The applet is being updated. Please check back in "
-                       "several seconds to see it."
+        profile = ProfileModel().findOne({
+            'appletId': applet['_id'],
+            'userId': thisUser['_id']
         })
+
+        if 'editor' not in profile.get('roles', []) and 'manager' not in profile.get('roles', []):
+            raise AccessException("You don't have enough permission to update this applet.")
+
+        return AppletModel().updateAppletFromProtocolData(
+            applet=applet,
+            name=name,
+            protocol=protocol,
+            user=thisUser,
+            accountId=applet['accountId']
+        )
+
+    @access.user(scope=TokenScope.DATA_WRITE)
+    @autoDescribeRoute(
+        Description('Create an applet.')
+        .notes(
+            'This endpoint is used to update applet to be edited'
+        )
+        .modelParam(
+            'id',
+            model=AppletModel,
+            level=AccessType.READ,
+            destName='applet'
+        )
+        .jsonParam(
+            'protocol',
+            'A JSON object containing protocol information for an applet',
+            paramType='form',
+            required=False
+        )
+        .errorResponse('Write access was denied for this applet.', 403)
+    )
+    def prepareAppletForEdit(self, applet, protocol):
+        thisUser = self.getCurrentUser()
+        profile = ProfileModel().findOne({
+            'appletId': applet['_id'],
+            'userId': thisUser['_id']
+        })
+
+        if 'editor' not in profile.get('roles', []) and 'manager' not in profile.get('roles', []):
+            raise AccessException("You don't have enough permission to update this applet.")
+
+        return AppletModel().prepareAppletForEdit(
+            applet=applet,
+            protocol=protocol,
+            user=thisUser,
+            accountId=applet['accountId']
+        )
+
 
     @access.user(scope=TokenScope.DATA_WRITE)
     @autoDescribeRoute(
@@ -1285,7 +1382,8 @@ class Applet(Resource):
 
         invitation = Invitation().createInvitationForSpecifiedUser(applet, thisUser, 'owner', invitedUser, firstName=invitedUser['firstName'], lastName=invitedUser['lastName'], MRN='', userEmail=email)
 
-        url = 'web.mindlogger.org/#/invitation/%s' % (str(invitation['_id'], ))
+        web_url = os.getenv('WEB_URI') or 'localhost:8082'
+        url = f'https://{web_url}/#/invitation/{str(invitation["_id"])}'
 
         html = mail_utils.renderTemplate('transferOwnerShip.mako', {
             'url': url,
@@ -1414,12 +1512,13 @@ class Applet(Resource):
                 "Only coordinators and managers can update applet schedules."
             )
 
+        events = schedule.get('events', [])
         assigned = {}
-        if 'events' in schedule:
-            for event in schedule['events']:
-                if 'id' in event:
-                    event['id'] = ObjectId(event['id'])
-                    assigned[event['id']] = True
+
+        for event in events:
+            if 'id' in event:
+                event['id'] = ObjectId(event['id'])
+                assigned[event['id']] = True
 
         if rewrite:
             original = EventsModel().getSchedule(applet['_id'])

@@ -16,6 +16,8 @@ from girderformindlogger.utility import clean_empty
 from pandas.api.types import is_numeric_dtype
 from pymongo import ASCENDING, DESCENDING
 from bson import json_util
+from girderformindlogger.utility import jsonld_expander
+from girderformindlogger.models.protocol import Protocol
 
 MonkeyPatch.patch_fromisoformat()
 
@@ -135,7 +137,6 @@ def aggregate(metadata, informant, startDate=None, endDate=None):
                 "$lt": endDate
             },
             "meta.applet.@id": metadata["applet_id"],
-            "meta.activity.@id": metadata["activity_id"],
             "meta.subject.@id": metadata["subject_id"]
         }
 
@@ -146,13 +147,8 @@ def aggregate(metadata, informant, startDate=None, endDate=None):
     ))
 
     if not len(definedRange):
-        # TODO: I'm afraid of some asynchronous database writes
-        # that sometimes make defined range an empty list.
-        # For now I'm exiting, but this needs to be looked
-        # into.
         print('\n\n defined range returns an empty list.')
-        return
-        # raise ValueError("The defined range doesn't have a length")
+        return {}
 
     startDate = min([response.get(
         'updated',
@@ -164,13 +160,6 @@ def aggregate(metadata, informant, startDate=None, endDate=None):
     )
 
     responseIRIs = _responseIRIs(definedRange)
-    for itemIRI in responseIRIs:
-        for response in definedRange:
-            if itemIRI in response.get(
-                'meta',
-                {}
-            ).get('responses', {}):
-                completedDate(response)
 
     aggregated = {
         "schema:startDate": startDate,
@@ -182,7 +171,8 @@ def aggregate(metadata, informant, startDate=None, endDate=None):
                     "value": response.get('meta', {}).get('responses', {}).get(
                         itemIRI
                     ),
-                    "date": completedDate(response)
+                    "date": completedDate(response),
+                    "version": response.get('meta', {}).get('applet', {}).get('version', '0.0.0')
                 } for response in definedRange if itemIRI in response.get(
                     'meta',
                     {}
@@ -320,10 +310,11 @@ def last7Days(
     informantId,
     reviewer,
     subject=None,
-    referenceDate=None
+    referenceDate=None,
+    includeOldItems=True,
+    groupByDateActivity=True
 ):
     from girderformindlogger.models.profile import Profile
-
     if referenceDate is None:
         referenceDate = datetime.combine(
             datetime.utcnow().date() + timedelta(days=1), datetime.min.time()
@@ -334,36 +325,27 @@ def last7Days(
 
     # we need to get the activities
     profile = Profile().findOne({'userId': ObjectId(informantId), 'appletId': ObjectId(appletId)})
-    listOfActivities = [
-        activity.get('activity_id') for activity in profile.get('completed_activities', [])
-    ]
 
-    responses = [aggregate({
+    responses = aggregate({
         'applet_id': profile['appletId'],
-        'activity_id': ObjectId(act),
         'subject_id': profile['_id']
-    }, informantId, startDate, referenceDate) for act in listOfActivities]
+    }, informantId, startDate, referenceDate)
 
     # destructure the responses
     # TODO: we are assuming here that activities don't share items.
     # might not be the case later on, so watch out.
 
-    outputResponses = {}
-
-    dataSources = {}
-
-    for resp in responses:
-        if resp:
-            l7 = resp.get('responses', {})
-            dataSources.update(resp.get('dataSources', {}))
-            outputResponses.update(l7)
+    outputResponses = responses.get('responses', {})
+    dataSources = responses.get('dataSources', {})
 
     for item in outputResponses:
         for resp in outputResponses[item]:
             resp['date'] = delocalize(resp['date'])
+            if not groupByDateActivity:
+                resp['date'] = determine_date(resp['date'])
 
     l7d = {}
-    l7d["responses"] = _oneResponsePerDate(outputResponses)
+    l7d["responses"] = _oneResponsePerDatePerVersion(outputResponses) if groupByDateActivity else outputResponses
 
     endDate = referenceDate.date()
     l7d["schema:endDate"] = endDate.isoformat()
@@ -376,15 +358,29 @@ def last7Days(
     l7d['dataSources'] = {}
     for itemResponses in dict.values(l7d["responses"]):
         for response in itemResponses:
-            sourceId = str(response['value']['src']) if 'src' in response['value'] else None
+            sourceId = str(response['value']['src']) if isinstance(response['value'], dict) and 'src' in response['value'] else None
             if sourceId and sourceId not in l7d['dataSources']:
                 l7d['dataSources'][sourceId] = dataSources[sourceId]
 
-    # l7d['refreshRequest'] = profile.get('refreshRequest', None)
+    l7d.update(getOldVersions(l7d['responses'], appletInfo))
 
     return l7d
 
+def getOldVersions(responses, applet):
+    IRIs = {}
+    insertedIRI = {}
+    for IRI in responses:
+        IRIs[IRI] = []
+        for response in responses[IRI]:
+            if 'version' not in response:
+                continue
 
+            identifier = '{}/{}'.format(IRI, response['version'])
+            if identifier not in insertedIRI:
+                IRIs[IRI].append(response['version'])
+                insertedIRI[identifier] = True
+
+    return Protocol().getHistoryDataFromItemIRIs(applet.get('meta', {}).get('protocol', {}).get('_id', '').split('/')[-1], IRIs)
 
 def determine_date(d):
     if isinstance(d, int):
@@ -397,6 +393,12 @@ def determine_date(d):
         ) if isinstance(d, str) else d
     ).date())
 
+def convertToComparableVersion(version):
+    values = version.split('.')
+    for i in range(0, len(values)):
+        values[i] = '0' * (20 - len(values[i])) + values[i]
+
+    return '.'.join(values)
 
 def isodatetime(d):
     if isinstance(d, int):
@@ -446,68 +448,52 @@ def add_missing_dates(response_data, from_date, to_date):
 
 
 def add_latest_daily_response(data, responses):
-    visited_dates = {}
-
     user_keys = {}
 
     for response in responses:
         activity_id = str(response['meta']['activity']['@id'])
         response['updated'] = response['updated'].date()  # Ignore the time.
 
-        if activity_id not in visited_dates:
-            # First time we process an item from this activity.
-            visited_dates[activity_id] = []
-        elif response['updated'] in visited_dates[activity_id]:
-            # There is a response for this date and activity already.
-            continue
-
-        visited_dates[activity_id].append(response['updated'])
-
         for item in response['meta']['responses']:
-            date_not_found = True
-
             if item not in data['responses']:
                 data['responses'][item] = []
 
-            for current_response in data['responses'][item]:
-                if not isinstance(current_response['value'], list):
-                    current_response['value'] = [current_response['value']]
+            data['responses'][item].append({
+                "date": response['updated'],
+                "value": response['meta']['responses'][item],
+                "version": response['meta'].get('applet', {}).get('version', '0.0.0')
+            })
 
-                new_responses = response['meta']['responses'][item]
+            if str(response['_id']) not in data['dataSources'] and 'dataSource' in response['meta']:
+                key_dump = json_util.dumps(response['meta']['userPublicKey'])
 
-                if not isinstance(new_responses, list):
-                    new_responses = [new_responses]
+                if key_dump not in user_keys:
+                    user_keys[key_dump] = len(data['keys'])
+                    data['keys'].append(response['meta']['userPublicKey'])
 
-                if current_response['date'] == response['updated']:
-                    current_response['value'].extend(new_responses)
-                    date_not_found = False
-                    break
+                data['dataSources'][str(response['_id'])] = {
+                    'key': user_keys[key_dump],
+                    'data': response['meta']['dataSource']
+                }
 
-            if date_not_found:
-                data['responses'][item].append({"date": response['updated'],
-                                       "value": response['meta']['responses'][item]})
-
-                if str(response['_id']) not in data['dataSources'] and 'dataSource' in response['meta']:
-                    key_dump = json_util.dumps(response['meta']['userPublicKey'])
-
-                    if key_dump not in user_keys:
-                        user_keys[key_dump] = len(data['keys'])
-                        data['keys'].append(response['meta']['userPublicKey'])
-
-                    data['dataSources'][str(response['_id'])] = {
-                        'key': user_keys[key_dump],
-                        'data': response['meta']['dataSource']
-                    }
-
-def _oneResponsePerDate(responses):
+def _oneResponsePerDatePerVersion(responses):
     newResponses = {}
     for response in responses:
+   
         df = pd.DataFrame(responses[response])
+
         df["datetime"] = df.date
         df["date"] = df.date.apply(determine_date)
-        df.sort_values(by=['datetime'], ascending=False, inplace=True)
-        df = df.groupby('date').first()
+        df["versionValue"] = df.version.apply(convertToComparableVersion)
+
+        df.sort_values(by=['datetime', 'versionValue'], ascending=False, inplace=True)
+        df = df.groupby(['date', 'versionValue']).first()
+
         df.drop('datetime', axis=1, inplace=True)
+
         df['date'] = df.index
+        df['date'] = df.date.apply(lambda data: data[0])
+
         newResponses[response] = df.to_dict(orient="records")
+
     return(newResponses)

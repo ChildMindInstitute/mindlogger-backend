@@ -56,6 +56,11 @@ class ResponseItem(AESEncryption, Item):
             'creatorId', 'folderId', 'name', 'baseParentType', 'baseParentId',
             'copyOfItem'))
 
+        self.initAES([
+            ('meta.responses', 1024),
+            ('meta.last7Days.responses', 1024),
+        ], 6)
+
     def decodeDocument(self, document):
         metadata = document.get('meta', None)
         if metadata:

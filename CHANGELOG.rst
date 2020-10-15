@@ -8,6 +8,15 @@ Changes
 -------
 Unreleased
 ==========
+2020-10-03 v0.14.16
+accumulate tokens from user responses for each day
+
+2020-10-03 v0.14.15
+update applet data structure for version controlling
+
+2020-09-28 v0.14.14
+fix transferownership endpoint
+
 2020-09-14 v0.14.13
 fix user responses endpoint failing to process the response data
 

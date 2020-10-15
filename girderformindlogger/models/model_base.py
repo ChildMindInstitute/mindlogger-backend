@@ -262,7 +262,8 @@ class Model(object):
 
         cachedDoc = cycleModels(
             {url, passedUrl},
-            modelType=primary
+            modelType=primary,
+            meta=meta
         )[1]
         if cachedDoc is None or refreshCache:
             if user==None:

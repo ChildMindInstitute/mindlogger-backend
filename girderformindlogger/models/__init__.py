@@ -6,6 +6,7 @@ from six.moves import urllib
 from girderformindlogger import logger, logprint
 from girderformindlogger.external.mongodb_proxy import MongoProxy
 from girderformindlogger.utility import config
+from bson.objectid import ObjectId
 
 _dbClients = {}
 
@@ -134,7 +135,7 @@ def pluralize(modelType):
     ))
 
 
-def cycleModels(IRIset, modelType=None):
+def cycleModels(IRIset, modelType=None, meta={}):
     from girderformindlogger.constants import HIERARCHY, REPROLIB_TYPES
     from girderformindlogger.models.folder import Folder as FolderModel
     from girderformindlogger.models.item import Item as ItemModel
@@ -175,7 +176,10 @@ def cycleModels(IRIset, modelType=None):
                             '$in': list(IRIset)
                         }
                     } for modelType in primary if modelType in REPROLIB_TYPES]
-                }
+                },
+                *[{
+                    'meta.{}'.format(key): meta[key]
+                } for key in meta]
             ]
         }
         cachedDoc = (FolderModel() if not any([
@@ -210,7 +214,10 @@ def cycleModels(IRIset, modelType=None):
                             '$in': list(IRIset)
                         }
                     } for modelType in secondary if modelType in REPROLIB_TYPES]
-                }
+                },
+                *[{
+                    'meta.{}'.format(key): meta[key]
+                } for key in meta]
             ]
         }
         cachedDoc = FolderModel().findOne(query)
