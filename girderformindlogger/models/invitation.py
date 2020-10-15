@@ -419,58 +419,40 @@ class Invitation(AESEncryption):
         reviewers = mail_utils.htmlUserList(
             Applet().listUsers(applet, 'reviewer', force=True)
         )
-        body = """
-{greeting}ou were invited {byCoordinator}to be {role} of <b>{appletName}</b>{instanceName}.
-<br/>
-Below are the users that have access to your data:
-{reviewers}
-{managers}
-{coordinators}
-<br/>
-{accept}
-        """.format(
-            accept=accept,
-            appletName=appletName,
-            byCoordinator="by {} ({}) ".format(
+
+        body = mail_utils.renderTemplate(f'welcome.{invitation.get("lang", "en")}.mako', {
+            'accept': accept,
+            'appletName': appletName,
+            'byCoordinator': "by {} ({}) ".format(
                 coordinator.get("displayName", "an anonymous entity"),
                 "<a href=\"mailto:{email}\">{email}</a>".format(
                     email=coordinator["email"]
                 ) if "email" in coordinator and coordinator["email"] is not None else "email not available"
             ) if isinstance(coordinator, dict) else "",
-            coordinators="<h3>Users who can change this applet's settings, "
-                "but who cannot change who can see your data: </h3>{}"
-                "".format(
+            'coordinators': "{}".format(
                     coordinators if len(
                         coordinators
                     ) else "<ul><li>None</li></ul>"
                 ),
-            greeting="Welcome to MindLogger! Y",
-            instanceName=" on {}".format(
-                instanceName
-            ) if instanceName is not None and len(instanceName) else "",
-            managers="<h3>Users who can change this applet's settings, "
-                " including who can access your data: </h3>{}"
-                "".format(
-                    managers if len(managers) else "<ul><li>None</li></ul>"
-                ),
-            reviewers="<h3>Users who can see your data for this "
-                "applet: </h3>{}"
-                "".format(
-                    reviewers if len(reviewers) else "<ul><li>None</li></ul>"
-                ),
-            role="an editor" if role=="editor" else "a {}".format(role)
-        ).strip()
+            'instanceName': " on {}".format(instanceName)
+                if instanceName is not None and len(instanceName) else "",
+            'managers': "{}".format(managers if len(managers) else "<ul><li>None</li></ul>"),
+            'reviewers': "{}".format(reviewers if len(reviewers) else "<ul><li>None</li></ul>"),
+            'role': "an editor" if role == "editor" else "a {}".format(role),
+            'url': f'https://{web_url}/#/invitation/{str(invitation["_id"])}'
+        })
+
         return(body if not fullDoc else """
-<!DOCTYPE html>
-<html>
-<head>
-<meta charset="UTF-8">
-<title>Invitation to {appletName} on {instanceName}</title>
-</head>
-<body>
-{body}
-</body>
-</html>
+            <!DOCTYPE html>
+            <html>
+            <head>
+            <meta charset="UTF-8">
+            <title>Invitation to {appletName} on {instanceName}</title>
+            </head>
+            <body>
+            {body}
+            </body>
+            </html>
         """.format(
             appletName=appletName,
             instanceName=instanceName,
