@@ -169,6 +169,7 @@ class Invitation(AESEncryption):
         user,
         firstName,
         lastName,
+        lang,
         MRN,
         userEmail = "",
         accessibleUsers = []
@@ -212,6 +213,7 @@ class Invitation(AESEncryption):
             'role': role,
             'firstName': firstName,
             'lastName': lastName,
+            'lang': lang,
             'MRN': MRN,
             'updated': now,
             'size': 0,

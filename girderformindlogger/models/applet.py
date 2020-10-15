@@ -895,7 +895,7 @@ class Applet(FolderModel):
                             'duplicateOf': ''
                         }
                     })
-                
+
                 for item in items:
                     itemIDRef[str(item['duplicateOf'])] = item['_id']
                     ItemModel.update({
@@ -1397,7 +1397,7 @@ class Applet(FolderModel):
                     userDict['active'].append(profile)
 
             for p in list(Invitation().find(query={'appletId': applet['_id']})):
-                fields = ['_id', 'firstName', 'lastName', 'role', 'MRN', 'created']
+                fields = ['_id', 'firstName', 'lastName', 'role', 'MRN', 'created', 'lang']
                 if p['role'] != 'owner':
                     userDict['pending'].append({
                         key: p[key] for key in fields if p.get(key, None)

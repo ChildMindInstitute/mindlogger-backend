@@ -1,3 +1,4 @@
+## -*- coding: utf-16 -*-
 <%include file="_header.mako"/>
 
 <p>

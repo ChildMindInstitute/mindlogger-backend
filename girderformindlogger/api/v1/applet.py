@@ -1299,6 +1299,7 @@ class Applet(Resource):
             user=invitedUser,
             firstName=firstName,
             lastName=lastName,
+            lang=lang,
             MRN=MRN,
             userEmail=encryptedEmail,
             accessibleUsers=users
