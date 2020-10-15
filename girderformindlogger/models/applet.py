@@ -1075,6 +1075,13 @@ class Applet(FolderModel):
         userKeys = {}
 
         IRIs = {}
+        # IRIs refers to available versions for specified IRI
+        # IRI is github url for items created by url, and pair of activity id and item id for items created by applet-builder
+        # ex: IRIS = { 
+        #                'https://raw.githubusercontent.com/ChildMindInstitute/TokenLogger_applet/master/activities/TokenActivity/items/token_screen': ['0.0.1'],
+        #                 '5f87e250c3942f7d5df7b7ca/5f87e25ac3942f7d5df7b7ce': ['0.0.2', '0.0.3']
+        #            }
+
         insertedIRI = {}
 
         for response in responses:

@@ -214,7 +214,7 @@ class ResponseItem(Resource):
         )
         .param(
             'groupByDateActivity',
-            'true if group by date/activity',
+            'if true, group by date/activity',
             dataType='boolean',
             required=False,
             default=True
