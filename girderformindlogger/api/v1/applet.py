@@ -1242,6 +1242,12 @@ class Applet(Resource):
             default='',
             required=False
         )
+        .param(
+            'lang',
+            'Language of mail template and web link',
+            default='en',
+            required=True
+        )
         .jsonParam(
             'users',
             'list of user_id that reviewer can review. <br>'
@@ -1252,7 +1258,7 @@ class Applet(Resource):
         )
         .errorResponse('Write access was denied for the folder or its new parent object.', 403)
     )
-    def inviteUser(self, applet, role="user", email='', firstName='', lastName='', MRN='', users=[]):
+    def inviteUser(self, applet, role="user", email='', firstName='', lastName='', MRN='', lang='en',users=[]):
         from girderformindlogger.models.invitation import Invitation
         from girderformindlogger.models.profile import Profile
 
@@ -1298,8 +1304,8 @@ class Applet(Resource):
             accessibleUsers=users
         )
 
-        web_url = os.getenv('WEB_URI') or 'localhost:8082'
-        url = f'https://{web_url}/#/invitation/{str(invitation["_id"])}'
+        web_url = os.getenv('WEB_URI') or 'localhost:8081'
+        url = f'https://{web_url}/#/invitation/{str(invitation["_id"])}/{lang}'
 
         managers = mail_utils.htmlUserList(
             AppletModel().listUsers(applet, 'manager', force=True)
@@ -1311,7 +1317,9 @@ class Applet(Resource):
             AppletModel().listUsers(applet, 'reviewer', force=True)
         )
 
-        html = mail_utils.renderTemplate('inviteUserWithoutAccount.mako' if not invitedUser else 'userInvite.mako' if role == 'user' else 'inviteEmployee.mako', {
+        html = mail_utils.renderTemplate(f'inviteUserWithoutAccount.{lang}.mako' if not invitedUser
+            else f'userInvite.{lang}.mako' if role == 'user'
+            else f'inviteEmployee.{lang}.mako', {
             'url': url,
             'userName': firstName,
             'coordinatorName': thisUser['firstName'],

@@ -37,7 +37,7 @@ class Invitation(Resource):
         super(Invitation, self).__init__()
         self.resourceName = 'invitation'
         self.route('GET', (':id',), self.getInvitation)
-        self.route('GET', (':id', 'accept'), self.acceptInvitationByToken)
+        self.route('GET', (':id', ':lang', 'accept'), self.acceptInvitationByToken)
         self.route('POST', (':id', 'accept'), self.acceptInvitation)
         self.route('GET', (':id', 'qr'), self.getQR)
         self.route('DELETE', (':id',), self.declineInvitation)
@@ -186,7 +186,7 @@ class Invitation(Resource):
         )
         .errorResponse()
     )
-    def acceptInvitationByToken(self, invitation, email, token):
+    def acceptInvitationByToken(self, invitation, lang, email, token):
         """
         Accept an invitation.
         """
