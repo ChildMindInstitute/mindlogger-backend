@@ -419,20 +419,35 @@ class Applet(Resource):
     @autoDescribeRoute(
         Description('Get content of protocol by applet id.')
         .modelParam('id', model=AppletModel, level=AccessType.READ, destName='applet')
+        .param(
+            'retrieveDate',
+            'true if retrieve date for each version',
+            dataType='boolean',
+            required=True,
+            default=False,
+        )
         .errorResponse('Invalid applet ID.')
         .errorResponse('Read access was denied for this applet.', 403)
     )
-    def getProtocolVersions(self, applet):
+    def getProtocolVersions(self, applet, retrieveDate=False):
         thisUser = self.getCurrentUser()
 
-        if not self._model._hasRole(applet['_id'], thisUser, 'editor'):
+        if not self._model._hasRole(applet['_id'], thisUser, 'editor') and not self._model._hasRole(applet['_id'], thisUser, 'reviewer'):
             raise AccessException('You don\'t have enough permission to get content of this protocol')
 
         protocol = ProtocolModel().load(applet.get('meta', {}).get('protocol', {}).get('_id', '').split('/')[-1], force=True)
 
         items = list(ItemModel().find({
             'folderId': protocol['meta'].get('contentId', None),
-        }, fields=['version'], sort=[("created", DESCENDING)])) if 'contentId' in protocol['meta'] else []
+        }, fields=['version', 'created'], sort=[("created", DESCENDING)])) if 'contentId' in protocol['meta'] else []
+
+        if retrieveDate:
+            return [
+                {
+                    'version': item['version'],
+                    'updated': item['created']
+                } for item in items
+            ]
 
         return [
             item['version'] for item in items
@@ -767,7 +782,7 @@ class Applet(Resource):
         )
         thread.start()
         return({
-            "message": "The applet is building. We will send you an email in 1 min or less when it has been successfully created or failed."
+            "message": "The applet is building. We will send you an email in 10 min or less when it has been successfully created or failed."
         })
 
 

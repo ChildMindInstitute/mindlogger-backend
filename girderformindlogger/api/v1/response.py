@@ -212,6 +212,13 @@ class ResponseItem(Resource):
             required=False,
             default=True
         )
+        .param(
+            'groupByDateActivity',
+            'true if group by date/activity',
+            dataType='boolean',
+            required=False,
+            default=True
+        )
         .errorResponse('ID was invalid.')
         .errorResponse(
             'Read access was denied for this applet for this user.',
@@ -224,6 +231,7 @@ class ResponseItem(Resource):
         subject=None,
         referenceDate=None,
         includeOldItems=True,
+        groupByDateActivity=True,
     ):
         from girderformindlogger.utility.response import last7Days
         from bson.objectid import ObjectId
@@ -231,7 +239,7 @@ class ResponseItem(Resource):
             appletInfo = AppletModel().findOne({'_id': ObjectId(applet)})
             user = self.getCurrentUser()
 
-            return(last7Days(applet, appletInfo, user.get('_id'), user, referenceDate=referenceDate, includeOldItems=includeOldItems))
+            return(last7Days(applet, appletInfo, user.get('_id'), user, referenceDate=referenceDate, includeOldItems=includeOldItems, groupByDateActivity=groupByDateActivity))
         except:
             import sys, traceback
             print(sys.exc_info())

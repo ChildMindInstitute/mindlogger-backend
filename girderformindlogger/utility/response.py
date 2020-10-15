@@ -311,7 +311,8 @@ def last7Days(
     reviewer,
     subject=None,
     referenceDate=None,
-    includeOldItems=True
+    includeOldItems=True,
+    groupByDateActivity=True
 ):
     from girderformindlogger.models.profile import Profile
     if referenceDate is None:
@@ -340,9 +341,11 @@ def last7Days(
     for item in outputResponses:
         for resp in outputResponses[item]:
             resp['date'] = delocalize(resp['date'])
+            if not groupByDateActivity:
+                resp['date'] = determine_date(resp['date'])
 
     l7d = {}
-    l7d["responses"] = _oneResponsePerDatePerVersion(outputResponses)
+    l7d["responses"] = _oneResponsePerDatePerVersion(outputResponses) if groupByDateActivity else outputResponses
 
     endDate = referenceDate.date()
     l7d["schema:endDate"] = endDate.isoformat()
@@ -452,43 +455,26 @@ def add_latest_daily_response(data, responses):
         response['updated'] = response['updated'].date()  # Ignore the time.
 
         for item in response['meta']['responses']:
-            date_not_found = True
-
             if item not in data['responses']:
                 data['responses'][item] = []
 
-            for current_response in data['responses'][item]:
-                if not isinstance(current_response['value'], list):
-                    current_response['value'] = [current_response['value']]
+            data['responses'][item].append({
+                "date": response['updated'],
+                "value": response['meta']['responses'][item],
+                "version": response['meta'].get('applet', {}).get('version', '0.0.0')
+            })
 
-                new_responses = response['meta']['responses'][item]
+            if str(response['_id']) not in data['dataSources'] and 'dataSource' in response['meta']:
+                key_dump = json_util.dumps(response['meta']['userPublicKey'])
 
-                if not isinstance(new_responses, list):
-                    new_responses = [new_responses]
+                if key_dump not in user_keys:
+                    user_keys[key_dump] = len(data['keys'])
+                    data['keys'].append(response['meta']['userPublicKey'])
 
-                if current_response['date'] == response['updated']:
-                    current_response['value'].extend(new_responses)
-                    date_not_found = False
-                    break
-
-            if date_not_found:
-                data['responses'][item].append({
-                    "date": response['updated'],
-                    "value": response['meta']['responses'][item],
-                    "version": response['meta'].get('applet', {}).get('version', '0.0.0')
-                })
-
-                if str(response['_id']) not in data['dataSources'] and 'dataSource' in response['meta']:
-                    key_dump = json_util.dumps(response['meta']['userPublicKey'])
-
-                    if key_dump not in user_keys:
-                        user_keys[key_dump] = len(data['keys'])
-                        data['keys'].append(response['meta']['userPublicKey'])
-
-                    data['dataSources'][str(response['_id'])] = {
-                        'key': user_keys[key_dump],
-                        'data': response['meta']['dataSource']
-                    }
+                data['dataSources'][str(response['_id'])] = {
+                    'key': user_keys[key_dump],
+                    'data': response['meta']['dataSource']
+                }
 
 def _oneResponsePerDatePerVersion(responses):
     newResponses = {}
