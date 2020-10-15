@@ -5,29 +5,29 @@
 </p>
 
 <p>
-    You were invited by ${coordinatorName} to be a ${role} of ${appletName} applet on MindLogger.
+    Vous avez été invité par ${coordinatorName} à être un ${role} de l'applet ${appletName} sur MindLogger.
 <br>
-    Below are users that have access to your data
+    Ci-dessous, les utilisateurs qui ont accès à vos données
 </p>
 
 <p>
-    - Users who can see your data for this applet:
+    - Utilisateurs qui peuvent voir vos données pour cette applet:
     ${reviewers}
 </p>
 
 <p>
-    - Users who can change this applet's settings, including who can access your data:
+    - Utilisateurs qui peuvent modifier les paramètres de cette applet, y compris ceux qui peuvent accéder à vos données:
     ${managers}
 </p>
 
 <p>
-    - Users who can change this applet's settings, but who cannot change who can see your data:
+    - Utilisateurs qui peuvent modifier les paramètres de cette applet, mais qui ne peuvent pas changer qui peut voir vos données :
     ${coordinators}
 </p>
 
 <p>
-    <a href="${url}/accept" style="padding: 0.28rem 0.64rem; font-size: 0.8rem; line-height: 1.5; border-radius: 0.3rem; margin: 4px; display: inline-block; font-weight: 400; text-align: center; vertical-align: middle; text-decoration: none; color: #ffffff; background-color: rgb(0, 187, 133); border-color: rgb(0, 187, 133);">Accept Invitation</a>
-    <a href="${url}/decline" style="padding: 0.28rem 0.64rem; font-size: 0.8rem; line-height: 1.5; border-radius: 0.3rem; margin: 4px; display: inline-block; font-weight: 400; text-align: center; vertical-align: middle; text-decoration: none; color: #ffffff; background-color: rgb(255, 0, 69); border-color: rgb(255, 0, 69);">Decline Invitation</a>
+    <a href="${url}/accept" style="padding: 0.28rem 0.64rem; font-size: 0.8rem; line-height: 1.5; border-radius: 0.3rem; margin: 4px; display: inline-block; font-weight: 400; text-align: center; vertical-align: middle; text-decoration: none; color: #ffffff; background-color: rgb(0, 187, 133); border-color: rgb(0, 187, 133);">Accepter l'invitation</a>
+    <a href="${url}/decline" style="padding: 0.28rem 0.64rem; font-size: 0.8rem; line-height: 1.5; border-radius: 0.3rem; margin: 4px; display: inline-block; font-weight: 400; text-align: center; vertical-align: middle; text-decoration: none; color: #ffffff; background-color: rgb(255, 0, 69); border-color: rgb(255, 0, 69);">Décliner l'invitation</a>
 </p>
 
 <%include file="_footer.mako"/>

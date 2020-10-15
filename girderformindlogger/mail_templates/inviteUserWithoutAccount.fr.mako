@@ -5,11 +5,11 @@
 </p>
 
 <p>
-    You were invited by ${coordinatorName} to be ${'an' if role == 'editor' else 'a'} ${role} of ${appletName} applet on MindLogger.
+    Vous avez été invité par ${coordinatorName} à être un ${role} de l'applet ${appletName} sur MindLogger.
 </p>
 
 <p>
-    Please visit <a href="${url}">here</a> to create a new account and accept invitation.
+    Veuillez vous rendre ici <a href="${url}">here</a> pour créer un nouveau compte et accepter l'invitation.
 </p>
 
 <%include file="_footer.mako"/>
