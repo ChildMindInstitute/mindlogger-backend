@@ -1329,7 +1329,7 @@ class Applet(Resource):
                 'MRN': MRN,
                 'managers': managers,
                 'coordinators': coordinators,
-                'reviewers': managers,
+                'reviewers': reviewers,
                 'role': role
             })
         except KeyError:
