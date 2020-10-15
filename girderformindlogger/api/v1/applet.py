@@ -1317,19 +1317,25 @@ class Applet(Resource):
             AppletModel().listUsers(applet, 'reviewer', force=True)
         )
 
-        html = mail_utils.renderTemplate(f'inviteUserWithoutAccount.{lang}.mako' if not invitedUser
-            else f'userInvite.{lang}.mako' if role == 'user'
-            else f'inviteEmployee.{lang}.mako', {
-            'url': url,
-            'userName': firstName,
-            'coordinatorName': thisUser['firstName'],
-            'appletName': applet['displayName'],
-            'MRN': MRN,
-            'managers': managers,
-            'coordinators': coordinators,
-            'reviewers': managers,
-            'role': role
-        })
+        try:
+            html = mail_utils.renderTemplate(f'inviteUserWithoutAccount.{lang}.mako' if not invitedUser
+                else f'userInvite.{lang}.mako' if role == 'user'
+                else f'inviteEmployee.{lang}.mako', {
+                'url': url,
+                'userName': firstName,
+                'coordinatorName': thisUser['firstName'],
+                'appletName': applet['displayName'],
+                'MRN': MRN,
+                'managers': managers,
+                'coordinators': coordinators,
+                'reviewers': managers,
+                'role': role
+            })
+        except KeyError:
+            raise ValidationException(
+                'Invalid lang parameter.',
+                'lang'
+            )
 
         mail_utils.sendMail(
             'invitation for an applet',
