@@ -72,7 +72,7 @@ class Item(Resource):
         templates = templateInfo.get('templates', [])
 
         for template in templates:
-            expanded = jsonld_expander.expandObj(templateInfo.get('contexts', {}), template)
+            expanded = jsonld_expander._fixUpFormat(jsonld_expander.expandObj(templateInfo.get('contexts', {}), template))
             prefName = self._model.preferredName(expanded)
 
             prefName = '{} template'.format('item' if not prefName else prefName)
