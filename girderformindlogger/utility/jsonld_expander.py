@@ -271,7 +271,7 @@ def createProtocolFromExpandedDocument(protocol, user, editExisting=False, remov
                         reuseExisting=(modelClass.name == 'item')
                     )
 
-                    if modelType == 'screen':
+                    if modelType == 'activity':
                         metadata['identifier'] = docFolder['_id']
 
                         if editExisting:
@@ -401,7 +401,9 @@ def createProtocolFromExpandedDocument(protocol, user, editExisting=False, remov
                                     if not historyObj:
 
                                         activity = ScreenModel().load(activityId, force=True)
-                                        historyObj = activityIdToHistoryObj[activityId] = insertHistoryData(activity, activity['meta']['identifier'], 'activity', baseVersion, historyFolder, historyReferenceFolder, user)
+                                        historyObj = insertHistoryData(activity, activity['meta']['identifier'], 'activity', baseVersion, historyFolder, historyReferenceFolder, user)
+
+                                        activityIdToHistoryObj[activityId] = historyObj
 
                                     item['meta'].update({
                                         'originalActivityId': item['meta']['activityId'],
