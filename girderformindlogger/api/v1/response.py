@@ -144,16 +144,10 @@ class ResponseItem(Resource):
 
         if not users:
             # Retrieve responses for the logged user.
-            users = [profile['_id']]
-        elif is_manager:
-            # Manager or owner.
-            users = list(map(lambda x: ObjectId(x), users))
+            users = [profile]
         else:
-            # Reviewer.
             profile_ids = list(map(lambda x: ObjectId(x), users))
-            authorized_users = Profile().find({'_id': { '$in': profile_ids },
-                                               'reviewers': profile['_id']})
-            users = list(map(lambda profile: profile['_id'], authorized_users))
+            users = list(Profile().find({'_id': { '$in': profile_ids }, 'reviewers': profile['_id'], 'appletId': applet['_id']}))
 
             if profile['_id'] in profile_ids and profile['_id'] not in profile['reviewers']:
                 users.append(profile)
@@ -177,9 +171,13 @@ class ResponseItem(Resource):
                 query={"created": { "$lte": toDate, "$gt": fromDate },
                        "meta.applet.@id": ObjectId(applet['_id']),
                        "meta.activity.@id": { "$in": activities },
-                       "meta.subject.@id": user},
+                       "meta.subject.@id": user['_id']},
                 force=True,
                 sort=[("created", DESCENDING)])
+
+            # we need this to handle old responses
+            for response in responses:
+                response['meta']['subject']['timezone'] = user['timezone']
 
             add_latest_daily_response(data, responses)
         add_missing_dates(data, fromDate, toDate)
