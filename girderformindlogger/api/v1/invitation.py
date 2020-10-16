@@ -69,18 +69,21 @@ class Invitation(Resource):
         )
         .errorResponse()
     )
-    @rawResponse
     def getInvitation(self, invitation, fullHTML=False, includeLink=True):
         """
         Get an invitation as a string.
         """
         currentUser = self.getCurrentUser()
-        return(InvitationModel().htmlInvitation(
-            invitation,
-            currentUser,
-            fullDoc=fullHTML,
-            includeLink=includeLink if includeLink is not None else True
-        ))
+
+        return {
+            'body': InvitationModel().htmlInvitation(
+                invitation,
+                currentUser,
+                fullDoc=fullHTML,
+                includeLink=includeLink if includeLink is not None else True
+            ),
+            "lang": invitation.get("lang", "en")
+        }
 
     @access.public(scope=TokenScope.USER_INFO_READ)
     @autoDescribeRoute(
