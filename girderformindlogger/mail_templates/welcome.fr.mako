@@ -1,3 +1,4 @@
+## -*- coding: utf-8 -*-
 Bienvenue dans MindLogger! Vous avez été invité par ${byCoordinator} à être un ${role} de l'applet <b>${appletName}</b>${instanceName}.
 <br/>
 Ci-dessous, les utilisateurs qui ont accès à vos données:
