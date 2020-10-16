@@ -1023,12 +1023,15 @@ class Applet(FolderModel):
         from girderformindlogger.models.ID_code import IDCode
         from girderformindlogger.models.response_folder import ResponseItem
         from girderformindlogger.models.user import User
+        from girderformindlogger.models.protocol import Protocol
         from pymongo import DESCENDING
 
         if not any([
             self.isReviewer(appletId, reviewer),
             self.isManager(appletId, reviewer)]):
             raise AccessException("You are not a owner or manager for this applet.")
+
+        applet = self.load(appletId, level=AccessType.READ, user=reviewer)
 
         query = {
             "baseParentType": "user",
@@ -1070,6 +1073,17 @@ class Applet(FolderModel):
         }
 
         userKeys = {}
+
+        IRIs = {}
+        # IRIs refers to available versions for specified IRI
+        # IRI is github url for items created by url, and pair of activity id and item id for items created by applet-builder
+        # ex: IRIS = { 
+        #                'https://raw.githubusercontent.com/ChildMindInstitute/TokenLogger_applet/master/activities/TokenActivity/items/token_screen': ['0.0.1'],
+        #                 '5f87e250c3942f7d5df7b7ca/5f87e25ac3942f7d5df7b7ce': ['0.0.2', '0.0.3']
+        #            }
+
+        insertedIRI = {}
+
         for response in responses:
             meta = response.get('meta', {})
 
@@ -1079,7 +1093,18 @@ class Applet(FolderModel):
                 'userId': meta.get('subject', {}).get('@id', None),
                 'data': meta.get('responses', {}),
                 'created': response.get('created', None),
+                'version': meta['applet'].get('version', '0.0.0')
             })
+
+            for IRI in meta.get('responses', {}):
+                if IRI not in IRIs:
+                    IRIs[IRI] = []
+
+                identifier = '{}/{}'.format(IRI, meta['applet'].get('version', '0.0.0'))
+
+                if identifier not in insertedIRI:
+                    IRIs[IRI].append(meta['applet'].get('version', '0.0.0'))
+                    insertedIRI[identifier] = True
 
             if 'userPublicKey' in meta:
                 keyDump = json_util.dumps(meta['userPublicKey'])
@@ -1091,6 +1116,13 @@ class Applet(FolderModel):
                     'key': userKeys[keyDump],
                     'data': meta['dataSource']
                 }
+
+        data.update(
+            Protocol().getHistoryDataFromItemIRIs(
+                applet.get('meta', {}).get('protocol', {}).get('_id', '').split('/')[-1], 
+                IRIs
+            )
+        )
 
         return data
 
