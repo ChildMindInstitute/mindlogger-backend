@@ -844,7 +844,7 @@ class User(Resource):
         user, token = self.getCurrentUser(returnToken=True)
 
         deviceId = cherrypy.request.headers.get('deviceId', '')
-        timezone = int(cherrypy.request.headers.get('timezone', 0))
+        timezone = float(cherrypy.request.headers.get('timezone', 0))
 
         # Only create and send new cookie if user isn't already sending a valid
         # one.
