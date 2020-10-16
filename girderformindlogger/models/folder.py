@@ -37,6 +37,7 @@ class Folder(AccessControlledModel):
                 'meta.protocol.@type',
                 'meta.protocol.url',
                 'meta.activity.url',
+                'meta.contentType',
                 ([
                     ('parentId', 1),
                     ('name', 1),
