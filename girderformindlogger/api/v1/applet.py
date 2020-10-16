@@ -22,6 +22,7 @@ import os
 import re
 import threading
 import uuid
+from urllib.parse import urlparse
 import datetime
 from ..describe import Description, autoDescribeRoute
 from ..rest import Resource, rawResponse
@@ -643,6 +644,11 @@ class Applet(Resource):
 
         if appletRole is None:
             raise AccessException("You don't have enough permission to create applet on this account.")
+
+        protocol_url = urlparse(protocolUrl)
+
+        if protocol_url.netloc not in ['raw.githubusercontent.com']:
+            raise ValidationException("protocolURL invalid.")
 
         thread = threading.Thread(
             target=AppletModel().createAppletFromUrl,
