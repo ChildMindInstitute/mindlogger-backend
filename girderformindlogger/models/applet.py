@@ -558,8 +558,6 @@ class Applet(FolderModel):
         :type appletId: ObjectId or str
         :param reviewer: Reviewer making request
         :type reviewer: dict
-        :param filter: reduction criteria (not yet implemented)
-        :type filter: dict
         :reutrns: TBD
         """
         from girderformindlogger.models.ID_code import IDCode
@@ -567,34 +565,41 @@ class Applet(FolderModel):
         from girderformindlogger.models.user import User
         from pymongo import DESCENDING
 
-        if not self._hasRole(appletId, reviewer, 'reviewer'):
-            raise AccessException("You are not a reviewer for this applet.")
+        applet = self.load(appletId, force=True)
+        if not self.isManager(appletId, reviewer):
+            raise AccessException("You are not a owner or manager for this applet.")
+
         query = {
             "baseParentType": "user",
             "meta.applet.@id": ObjectId(appletId)
         }
+
+        userIdToData = {}
+        users = self.getAppletUsers(applet, reviewer)
+        for user in users['active']:
+            userIdToData[str(user['_id'])] = user
+
         responses = list(ResponseItem().find(
             query=query,
             user=reviewer,
             sort=[("created", DESCENDING)]
         ))
-        respondents = {
-            str(response['baseParentId']): IDCode().findIdCodes(
-                Profile().createProfile(
-                    appletId,
-                    User().load(response['baseParentId'], force=True),
-                    'user'
-                )['_id']
-            ) for response in responses if 'baseParentId' in response
-        }
-        return([
-            {
-                "respondent": code,
-                **response.get('meta', {})
-            } for response in responses for code in respondents[
-                str(response['baseParentId'])
-            ]
-        ])
+
+        data = []
+        for response in responses:
+            meta = response.get('meta', {})
+            
+            if meta.get('subject', {}).get('@id', None) and str(meta['subject']['@id']) in userIdToData:
+                data.append({
+                    '_id': response.get('_id'),
+                    'activity': meta.get('activity', {}),
+                    'user': userIdToData[str(meta['subject']['@id'])],
+                    'response': meta.get('responses', {}),
+                    'created': response.get('created', None),
+                })
+
+        return data
+
 
     def updateRelationship(self, applet, relationship):
         """
