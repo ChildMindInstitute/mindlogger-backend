@@ -77,6 +77,46 @@ class Applet(Resource):
         self.route('PUT', (':id', 'fromJSON'), self.updateAppletFromProtocolData)
         self.route('POST', (':id', 'duplicate', ), self.duplicateApplet)
         self.route('POST', ('resetBadge',), self.resetBadgeCount)
+        self.route('POST', ('recoverApplet', ), self.recoverApplet)
+
+    @access.user(scope=TokenScope.DATA_WRITE)
+    @autoDescribeRoute(
+        Description('Recover deleted applet')
+        .notes('this endpoint is used for recovering deleted applet <br>')
+        .param(
+            'appletId',
+            'id of applet to recover.',
+            required=True,
+            strip=True
+        )
+    )
+    def recoverApplet(self, appletId):
+        applet = self._model.load(appletId, force=True)
+
+        if not applet['meta'].get('applet', {}).get('deleted', False):
+            raise ValidationException('this applet is not deleted')
+
+        ProfileModel().update({
+            "appletId": applet['_id'],
+        }, {
+            '$unset': {
+                'deactivated': ''
+            }
+        })
+
+        applet['meta']['applet'] = {}
+        applet = self._model.setMetadata(applet, applet.get('meta'))
+
+        profiles = list(ProfileModel().find({
+            "appletId": applet['_id'],
+        }))
+
+        for profile in profiles:
+            AccountProfile().appendApplet(
+                AccountProfile().createAccountProfile(applet['accountId'], profile['userId']), 
+                applet['_id'], 
+                profile['roles']
+            )
 
     @access.user(scope=TokenScope.DATA_WRITE)
     @autoDescribeRoute(
