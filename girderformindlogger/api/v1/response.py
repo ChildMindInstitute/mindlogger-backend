@@ -155,6 +155,8 @@ class ResponseItem(Resource):
                                                'reviewers': profile['_id']})
             users = list(map(lambda profile: profile['_id'], authorized_users))
 
+            if profile['_id'] in profile_ids and profile['_id'] not in profile['reviewers']:
+                users.append(profile)
 
         # If not speciied, retrieve responses for all activities.
         if not activities:
