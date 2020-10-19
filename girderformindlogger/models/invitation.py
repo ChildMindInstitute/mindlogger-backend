@@ -420,7 +420,7 @@ class Invitation(AESEncryption):
             Applet().listUsers(applet, 'reviewer', force=True)
         )
 
-        body = mail_utils.renderTemplate(f'welcome.{invitation.get("lang", "en")}.mako', {
+        body = mail_utils.renderTemplate(f'welcome{"Owner" if role == "owner" else ""}.{invitation.get("lang", "en")}.mako', {
             'accept': accept,
             'appletName': appletName,
             'byCoordinator': "by {} ({}) ".format(

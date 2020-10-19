@@ -1392,6 +1392,7 @@ class Applet(Resource):
             invitedUser, 
             firstName=invitedUser['firstName'] if invitedUser else '', 
             lastName=invitedUser['lastName'] if invitedUser else '', 
+            lang='en',
             MRN='', 
             userEmail=email
         )
