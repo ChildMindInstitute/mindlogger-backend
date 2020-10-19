@@ -1384,20 +1384,35 @@ class Applet(Resource):
 
         if not invitedUser:
             invitedUser = UserModel().findOne({'email': email, 'email_encrypted': {'$ne': True}})
-        if not invitedUser:
-            raise ValidationException('unable to find user with specified email address')
 
-        invitation = Invitation().createInvitationForSpecifiedUser(applet, thisUser, 'owner', invitedUser, firstName=invitedUser['firstName'], lastName=invitedUser['lastName'], MRN='', userEmail=email)
+        invitation = Invitation().createInvitationForSpecifiedUser(
+            applet, 
+            thisUser, 
+            'owner', 
+            invitedUser, 
+            firstName=invitedUser['firstName'] if invitedUser else '', 
+            lastName=invitedUser['lastName'] if invitedUser else '', 
+            lang='en',
+            MRN='', 
+            userEmail=email
+        )
 
         web_url = os.getenv('WEB_URI') or 'localhost:8082'
         url = f'https://{web_url}/#/invitation/{str(invitation["_id"])}'
 
-        html = mail_utils.renderTemplate('transferOwnerShip.mako', {
-            'url': url,
-            'userName': invitedUser['firstName'],
-            'ownerName': thisUser['firstName'],
-            'appletName': applet['displayName'],
-        })
+        if invitedUser:
+            html = mail_utils.renderTemplate('transferOwnerShip.mako', {
+                'url': url,
+                'userName': invitedUser['firstName'],
+                'ownerName': thisUser['firstName'],
+                'appletName': applet['displayName'],
+            })
+        else:
+            html = mail_utils.renderTemplate('transferOwnerShipToNewUser.mako', {
+                'url': url,
+                'ownerName': thisUser['firstName'],
+                'appletName': applet['displayName'],
+            })
 
         mail_utils.sendMail(
             'Transfer ownership of an applet',
