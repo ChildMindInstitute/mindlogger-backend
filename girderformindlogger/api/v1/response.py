@@ -20,7 +20,7 @@
 import itertools
 import tzlocal
 import pytz
-from datetime import date, datetime, timedelta
+from datetime import date, datetime, timedelta, timezone
 from bson.objectid import ObjectId
 
 from ..describe import Description, autoDescribeRoute
@@ -177,7 +177,7 @@ class ResponseItem(Resource):
 
             # we need this to handle old responses
             for response in responses:
-                response['meta']['subject']['timezone'] = user['timezone']
+                response['meta']['subject']['userTime'] = response["created"].replace(tzinfo=pytz.timezone("UTC")).astimezone(timezone(timedelta(hours=profile["timezone"])))
 
             add_latest_daily_response(data, responses)
         add_missing_dates(data, fromDate, toDate)
@@ -317,10 +317,11 @@ class ResponseItem(Resource):
                 informant['_id']
             )
 
-            subject_id = Profile().createProfile(
-                applet,
-                subject_id
-            ).get('_id')
+            profile = Profile().findOne({
+                'appletId': applet['_id'],
+                'userId': ObjectId(subject_id)
+            })
+            subject_id = profile.get('_id')
 
             print(subject_id)
 
