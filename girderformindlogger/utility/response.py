@@ -458,10 +458,9 @@ def add_latest_daily_response(data, responses):
                 data['responses'][item] = []
 
             data['responses'][item].append({
-                "date": response['created'],
+                "date": response['meta'].get('subject', {}).get('userTime').isoformat(),
                 "value": response['meta']['responses'][item],
                 "version": response['meta'].get('applet', {}).get('version', '0.0.0'),
-                "offset": response['meta'].get('subject', {}).get('timezone', 0),
             })
 
             if str(response['_id']) not in data['dataSources'] and 'dataSource' in response['meta']:
