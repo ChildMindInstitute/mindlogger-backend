@@ -48,6 +48,7 @@ from girderformindlogger.models.account_profile import AccountProfile
 from pymongo import ASCENDING, DESCENDING
 from bson import json_util
 from pyld import jsonld
+from girderformindlogger.utility.validate import validator
 
 USER_ROLE_KEYS = USER_ROLES.keys()
 
@@ -1258,6 +1259,16 @@ class Applet(Resource):
         )
         .errorResponse('Write access was denied for the folder or its new parent object.', 403)
     )
+    @validator(schema={
+        'applet': {'required': True},
+        'role': {'type': 'string', 'allowed': ['user', 'coordinator', 'manager', 'editor', 'reviewer']},
+        'email': {'type': 'string', 'regex': '^[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+$'},
+        'firstName': {'type': 'string'},
+        'lastName': {'type': 'string'},
+        'MRN': {'type': 'string'},
+        'lang': {'type': 'string', 'allowed': ['en', 'fr']},
+        'users': {'type': 'list'}
+    })
     def inviteUser(self, applet, role="user", email='', firstName='', lastName='', MRN='', lang='en',users=[]):
         from girderformindlogger.models.invitation import Invitation
         from girderformindlogger.models.profile import Profile
@@ -1386,14 +1397,14 @@ class Applet(Resource):
             invitedUser = UserModel().findOne({'email': email, 'email_encrypted': {'$ne': True}})
 
         invitation = Invitation().createInvitationForSpecifiedUser(
-            applet, 
-            thisUser, 
-            'owner', 
-            invitedUser, 
-            firstName=invitedUser['firstName'] if invitedUser else '', 
-            lastName=invitedUser['lastName'] if invitedUser else '', 
+            applet,
+            thisUser,
+            'owner',
+            invitedUser,
+            firstName=invitedUser['firstName'] if invitedUser else '',
+            lastName=invitedUser['lastName'] if invitedUser else '',
             lang='en',
-            MRN='', 
+            MRN='',
             userEmail=email
         )
 
