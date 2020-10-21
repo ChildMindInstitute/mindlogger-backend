@@ -87,7 +87,7 @@ class Applet(FolderModel):
             CollectionModel().createCollection('Applets')
             appletsCollection = CollectionModel().findOne({"name": "Applets"})
 
-        name = self.validateAppletName(name, appletsCollection, accountId)
+        name = self.validateAppletName('%s (0)' % (name), appletsCollection, accountId)
 
         # create new applet
         metadata = {
@@ -332,7 +332,20 @@ class Applet(FolderModel):
             raise ValidationException('this applet does not have protocol id')
 
         protocol = Protocol().duplicateProtocol(ObjectId(protocolId.split("/")[1]), editor, prefLabel)
+
         # create new applet
+        metadata = {
+            **applet.get('meta', {}),
+            'protocol': {
+                '_id': protocol['protocol']['_id'],
+                'activities': [
+                    ObjectId(protocol['activities'][activity]['_id'].split('/')[-1]) for activity in protocol['activities']
+                ],
+                'name': prefLabel
+            }
+        }
+        metadata['applet']['displayName'] = appletName
+
         newApplet = self.setMetadata(
             folder=self.createFolder(
                 parent=appletsCollection,
@@ -343,16 +356,7 @@ class Applet(FolderModel):
                 allowRename=True,
                 accountId=applet['accountId']
             ),
-            metadata={
-                **applet.get('meta', {}),
-                'protocol': {
-                    '_id': protocol['protocol']['_id'],
-                    'activities': [
-                        ObjectId(protocol['activities'][activity]['_id'].split('/')[-1]) for activity in protocol['activities']
-                    ],
-                    'name': prefLabel
-                }
-            }
+            metadata=metadata
         )
 
         appletGroupName = "Default {} ({})".format(
@@ -546,8 +550,10 @@ class Applet(FolderModel):
             appletName = suffix[0][0]
             n = int(suffix[0][1])
         else:
-            name = appletName
             n = 0
+
+        if not n:
+            name = appletName
 
         found = False
 
@@ -758,12 +764,14 @@ class Applet(FolderModel):
         from girderformindlogger.utility import jsonld_expander
 
         # get a protocol from single json file
-        displayName = protocol['protocol'].get('skos:prefLabel', protocol['protocol'].get('skos:altLabel', ''))
+        displayName = protocol['protocol']['data'].get('skos:prefLabel', protocol['protocol']['data'].get('skos:altLabel', '')).strip()
 
         suffix = re.findall('^(.*?)\s*\((\d+)\)$', displayName)
-        if len(suffix):
-            if applet.get('meta', {}).get('protocol', {}).get('name', '') == suffix[0][0]:
-                protocol['protocol']['skos:prefLabel'] = suffix[0][0]
+        if len(suffix) and applet.get('meta', {}).get('protocol', {}).get('name', '') == suffix[0][0]:
+            protocol['protocol']['data']['skos:prefLabel'] = suffix[0][0]
+        else:
+            applet['meta']['protocol']['name'] = displayName
+            displayName = '%s (0)' % (displayName)
 
         protocol = Protocol().createProtocol(
             protocol,
