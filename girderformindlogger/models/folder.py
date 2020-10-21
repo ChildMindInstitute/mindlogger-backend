@@ -31,6 +31,7 @@ class Folder(AccessControlledModel):
                 'name',
                 'lowerName',
                 'duplicateOf',
+                'accountId',
                 'meta.protocolId',
                 'meta.activity.@type',
                 'meta.protocol.@type',
@@ -478,7 +479,7 @@ class Folder(AccessControlledModel):
         return iter(cursor)
 
     def createFolder(self, parent, name, description='', parentType='folder',
-                     public=None, creator=None, allowRename=False, reuseExisting=False, appletName=None, accountId=None, validate=True):
+                     public=None, creator=None, allowRename=False, reuseExisting=False, accountId=None, validate=True):
         """
         Create a new folder under the given parent.
 
@@ -550,8 +551,6 @@ class Folder(AccessControlledModel):
             'meta': {}
         }
 
-        if appletName != None:
-            folder['appletName'] = appletName
         if accountId != None:
             folder['accountId'] = accountId
 
