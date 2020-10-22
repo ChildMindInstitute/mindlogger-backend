@@ -400,7 +400,7 @@ def createProtocolFromExpandedDocument(protocol, user, editExisting=False, remov
 
                                     if not historyObj:
 
-                                        activity = ScreenModel().load(activityId, force=True)
+                                        activity = FolderModel().load(activityId, force=True)
                                         historyObj = insertHistoryData(activity, activity['meta']['identifier'], 'activity', baseVersion, historyFolder, historyReferenceFolder, user)
 
                                         activityIdToHistoryObj[activityId] = historyObj
