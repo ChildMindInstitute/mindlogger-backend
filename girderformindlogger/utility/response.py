@@ -73,7 +73,7 @@ def getLatestResponse(informantId, appletId, activityID):
             }
         },
         force=True,
-        sort=[("updated", DESCENDING)]
+        sort=[("created", DESCENDING)]
     ))
     if len(responses):
         return(responses[0])
@@ -83,8 +83,8 @@ def getLatestResponse(informantId, appletId, activityID):
 def getLatestResponseTime(informantId, appletId, activityID, tz=None):
     latestResponse = getLatestResponse(informantId, appletId, activityID)
     try:
-        latestResponse['updated'].isoformat(
-        ) if tz is None else latestResponse['updated'].astimezone(pytz.timezone(
+        latestResponse['created'].isoformat(
+        ) if tz is None else latestResponse['created'].astimezone(pytz.timezone(
             tz
         )).isoformat()
     except TypeError:
@@ -95,14 +95,14 @@ def getLatestResponseTime(informantId, appletId, activityID, tz=None):
         print(traceback.print_tb(sys.exc_info()[2]))
     return(
         (
-            latestResponse['updated'].astimezone(pytz.timezone(
+            latestResponse['created'].astimezone(pytz.timezone(
                 tz
             )).isoformat() if (
                 isinstance(tz, str) and tz in pytz.all_timezones
-            ) else latestResponse['updated'].isoformat()
+            ) else latestResponse['created'].isoformat()
         ) if (
             isinstance(latestResponse, dict) and isinstance(
-                latestResponse.get('updated'),
+                latestResponse.get('created'),
                 datetime
             )
         ) else None
@@ -151,7 +151,7 @@ def aggregate(metadata, informant, startDate=None, endDate=None):
         return {}
 
     startDate = min([response.get(
-        'updated',
+        'created',
         endDate
     ) for response in definedRange]) if startDate is None else startDate
 
@@ -190,7 +190,7 @@ def aggregate(metadata, informant, startDate=None, endDate=None):
 
 
 def completedDate(response):
-    completed = response.get("updated", {})
+    completed = response.get("created", {})
     return completed
 
 
@@ -204,7 +204,7 @@ def formatResponse(response):
                     metadata.get(
                         'responseStarted',
                         response.get(
-                            'updated',
+                            'created',
                             datetime.now()
                         )
                     )
@@ -213,7 +213,7 @@ def formatResponse(response):
                     metadata.get(
                         'responseCompleted',
                         response.get(
-                            'updated',
+                            'created',
                             datetime.now()
                         )
                     )
@@ -422,7 +422,7 @@ def responseDateList(appletId, userId, reviewer):
         determine_date(
             response.get("meta", {}).get(
                 "responseCompleted",
-                response.get("updated")
+                response.get("created")
             )
         ).isoformat() for response in list(ResponseItem().find(
             query={
@@ -430,7 +430,7 @@ def responseDateList(appletId, userId, reviewer):
                 "baseParentId": userId,
                 "meta.applet.@id": appletId
             },
-            sort=[("updated", DESCENDING)]
+            sort=[("created", DESCENDING)]
         ))
     ]))
     rdl.sort(reverse=True)
@@ -452,14 +452,14 @@ def add_latest_daily_response(data, responses):
 
     for response in responses:
         activity_id = str(response['meta']['activity']['@id'])
-        response['updated'] = response['updated'].date()  # Ignore the time.
+        response['created'] = response['created'].date()  # Ignore the time.
 
         for item in response['meta']['responses']:
             if item not in data['responses']:
                 data['responses'][item] = []
 
             data['responses'][item].append({
-                "date": response['updated'],
+                "date": response['created'],
                 "value": response['meta']['responses'][item],
                 "version": response['meta'].get('applet', {}).get('version', '0.0.0')
             })

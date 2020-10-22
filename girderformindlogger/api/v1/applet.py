@@ -704,7 +704,7 @@ class Applet(Resource):
         thread.start()
 
         return({
-            "message": "The applet is being duplicated. We will send you an email in 1 min or less when it has been successfully duplicated."
+            "message": "The applet is being duplicated. We will send you an email in 10 min or less when it has been successfully duplicated."
         })
 
     @access.user(scope=TokenScope.DATA_WRITE)
