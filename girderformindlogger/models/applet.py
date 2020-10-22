@@ -555,27 +555,26 @@ class Applet(FolderModel):
         if not n:
             name = appletName
 
-        found = False
+        query = {
+            'parentId': appletsCollection['_id'],
+            'meta.applet.displayName': name,
+            'parentCollection': 'collection'
+        }
 
-        while found == False:
-            found = True
-            query = {
-                'parentId': appletsCollection['_id'],
-                'meta.applet.displayName': name,
-                'parentCollection': 'collection'
+        if accountId:
+            query['accountId'] = ObjectId(accountId)
+        if currentApplet and '_id' in currentApplet:
+            query['_id'] = {
+                '$ne': currentApplet['_id']
             }
-            if accountId:
-                query['accountId'] = ObjectId(accountId)
-            if currentApplet and '_id' in currentApplet:
-                query['_id'] = {
-                    '$ne': currentApplet['_id']
-                }
+
+        existing = self.findOne(query)
+        while existing:
+            n = n + 1
+            name = '%s (%d)' % (appletName, n)
+            query['meta.applet.displayName'] = name
 
             existing = self.findOne(query)
-            if existing:
-                found = False
-                n = n + 1
-                name = '%s (%d)' % (appletName, n)
 
         return name
 
