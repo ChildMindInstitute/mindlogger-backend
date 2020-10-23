@@ -1145,3 +1145,17 @@ class Profile(AESEncryption, dict):
                 'profile': True
             }
         )
+
+    def update_profile_activities_by_applet_id(self, applet, activities):
+        self.update({
+            'appletId': ObjectId(applet['_id'])
+        }, {
+            '$set': {
+                'completed_activities': [
+                    {
+                        'activity_id': activity_id,
+                        'completed_time': None
+                    } for activity_id in activities
+                ]
+            }
+        })

@@ -177,12 +177,7 @@ class Applet(FolderModel):
         )
 
         if 'activities' in formatted:
-            activities = []
-
-            for activity in formatted['activities']:
-                activities.append(ObjectId(formatted['activities'][activity]['_id'].split('/')[-1]))
-
-            self.update({'_id': ObjectId(applet['_id'])}, {'$set': {'meta.protocol.activities': activities}})
+            self.updateActivities(applet, formatted)
 
         # give all roles to creator of an applet
         applet = self.load(applet['_id'], force=True)
@@ -781,9 +776,9 @@ class Applet(FolderModel):
         protocol = protocol.get('protocol', protocol)
 
         applet['meta']['applet']['displayName'] = self.validateAppletName(
-            displayName, 
-            CollectionModel().findOne({"name": "Applets"}), 
-            accountId, 
+            displayName,
+            CollectionModel().findOne({"name": "Applets"}),
+            accountId,
             currentApplet = applet
         )
         applet = self.setMetadata(folder=applet, metadata=applet['meta'])
@@ -1117,7 +1112,7 @@ class Applet(FolderModel):
         IRIs = {}
         # IRIs refers to available versions for specified IRI
         # IRI is github url for items created by url, and pair of activity id and item id for items created by applet-builder
-        # ex: IRIS = { 
+        # ex: IRIS = {
         #                'https://raw.githubusercontent.com/ChildMindInstitute/TokenLogger_applet/master/activities/TokenActivity/items/token_screen': ['0.0.1'],
         #                 '5f87e250c3942f7d5df7b7ca/5f87e25ac3942f7d5df7b7ce': ['0.0.2', '0.0.3']
         #            }
@@ -1159,7 +1154,7 @@ class Applet(FolderModel):
 
         data.update(
             Protocol().getHistoryDataFromItemIRIs(
-                applet.get('meta', {}).get('protocol', {}).get('_id', '').split('/')[-1], 
+                applet.get('meta', {}).get('protocol', {}).get('_id', '').split('/')[-1],
                 IRIs
             )
         )
@@ -1306,14 +1301,14 @@ class Applet(FolderModel):
                     if not len(displayName) and key.endswith(candidate) and isinstance(protocol[key], list):
                         displayName = protocol[key][0]['@value']
 
-            suffix = re.findall('^(.*?)\s*\((\d+)\)$', applet['meta']['applet']['displayName'])
-            if len(suffix):
-                displayName = '%s (%s)' % (displayName, suffix[0][1])
+            #suffix = re.findall('^(.*?)\s*\((\d+)\)$', applet.get('meta', {}).get('applet', {}).get('displayName', {}))
+            #if len(suffix):
+            #    displayName = '%s (%s)' % (displayName, suffix[0][1])
 
             applet['meta']['applet']['displayName'] = self.validateAppletName(
-                displayName, 
-                CollectionModel().findOne({"name": "Applets"}), 
-                accountId = applet['accountId'], 
+                applet['displayName'],
+                CollectionModel().findOne({"name": "Applets"}),
+                accountId = applet['accountId'],
                 currentApplet = applet
             )
 
@@ -1322,13 +1317,19 @@ class Applet(FolderModel):
         from girderformindlogger.utility import jsonld_expander
 
         jsonld_expander.clearCache(applet, 'applet')
-        jsonld_expander.formatLdObject(
+        print('Cache clear')
+
+        formatted = jsonld_expander.formatLdObject(
             applet,
             'applet',
             editor,
             refreshCache=False,
             responseDates=False
         )
+
+        if 'activities' in formatted:
+            activities = self.updateActivities(applet, formatted)
+            Profile().update_profile_activities_by_applet_id(applet, activities)
 
     def getAppletsForUser(self, role, user, active=True, idOnly = False):
         """
@@ -1576,3 +1577,12 @@ class Applet(FolderModel):
                 raise ValidationException(
                     "Invalid Applet ID."
                 )
+
+    def updateActivities(self, applet, obj):
+        activities = [ObjectId(obj['activities'][activity]['_id'].split('/')[-1])
+                      for activity in obj.get('activities', [])]
+
+        self.update({'_id': ObjectId(applet['_id'])},
+                    {'$set': {'meta.protocol.activities': activities}})
+
+        return activities
