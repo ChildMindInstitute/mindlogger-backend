@@ -91,6 +91,7 @@ class Applet(Resource):
 
         self.route('PUT', (':id', 'transferOwnerShip', ), self.transferOwnerShip)
         self.route('DELETE', (':id', 'deleteUser', ), self.deleteUserFromApplet)
+        self.route('GET', ('validateName',), self.validateAppletName)
 
     @access.user(scope=TokenScope.DATA_WRITE)
     @autoDescribeRoute(
@@ -785,6 +786,35 @@ class Applet(Resource):
             "message": "The applet is building. We will send you an email in 10 min or less when it has been successfully created or failed."
         })
 
+    @access.user(scope=TokenScope.DATA_WRITE)
+    @autoDescribeRoute(
+        Description('Validate applet name')
+        .notes(
+            'This endpoint is used for validating applet name. <br>'
+        )
+        .param(
+            'name',
+            'name for new of applet which needs validation',
+            default='',
+            required=True
+        )
+    )
+    def validateAppletName(self, name):
+        accountProfile = AccountProfile()
+
+        thisUser = self.getCurrentUser()
+        profile = self.getAccountProfile()
+
+        appletRole = None
+        for role in ['manager', 'editor']:
+            if accountProfile.hasPermission(profile, role):
+                appletRole = role
+                break
+
+        if appletRole is None:
+            raise AccessException("only editor/manager can use the endpoint to create new applet or edit existing applet.")
+
+        return self._model.validateAppletName(name, CollectionModel().findOne({"name": "Applets"}), profile['accountId'])
 
     @access.user(scope=TokenScope.DATA_WRITE)
     @autoDescribeRoute(

@@ -400,7 +400,7 @@ def createProtocolFromExpandedDocument(protocol, user, editExisting=False, remov
 
                                     if not historyObj:
 
-                                        activity = ScreenModel().load(activityId, force=True)
+                                        activity = FolderModel().load(activityId, force=True)
                                         historyObj = insertHistoryData(activity, activity['meta']['identifier'], 'activity', baseVersion, historyFolder, historyReferenceFolder, user)
 
                                         activityIdToHistoryObj[activityId] = historyObj
@@ -1484,22 +1484,17 @@ def formatLdObject(
                 ])
             }
 
-            if 'appletName' in obj and obj['appletName']:
-                suffix = obj['appletName'].split('/')[-1]
+            if len(obj.get('meta', {}).get('applet', {}).get('displayName', '')):
                 inserted = False
 
                 candidates = ['prefLabel', 'altLabel']
                 for candidate in candidates:
                     for key in applet['applet']:
                         if not inserted and str(key).endswith(candidate) and len(applet['applet'][key]) and len(applet['applet'][key][0].get('@value', '')):
-                            if obj.get('duplicateOf', None):
-                                applet['applet'][key][0]['@value'] = obj['appletName'].split('/')[0]
-                            if len(suffix):
-                                applet['applet'][key][0]['@value'] += (' ' + suffix)
-
-                            AppletModel().update({'_id': obj['_id']}, {'$set': {'displayName': applet['applet'][key][0]['@value']}})
+                            applet['applet'][key][0]['@value'] = obj['meta']['applet']['displayName']
 
                             inserted = True
+
             createCache(obj, applet, 'applet', user)
             if responseDates:
                 try:
@@ -1530,6 +1525,8 @@ def formatLdObject(
                     key = '{}/{}'.format(str(item['meta']['activityId']), str(item['_id']))
 
                     itemIDMapping['{}/{}'.format(str(item['meta']['activityId']), formatted['@id'])] = key
+                    if item.get('duplicateOf', None):
+                        itemIDMapping['{}/{}'.format(str(item['meta']['activityId']), str(item['duplicateOf']))] = key
 
                     protocol['items'][key] = formatted
 

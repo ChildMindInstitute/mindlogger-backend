@@ -121,7 +121,7 @@ class Protocol(FolderModel):
 
         return jsonld_expander.loadFromSingleFile(document, user, editExisting)
 
-    def duplicateProtocol(self, protocolId, editor):
+    def duplicateProtocol(self, protocolId, editor, prefLabel=None):
         from girderformindlogger.models.screen import Screen
         from girderformindlogger.utility import jsonld_expander
 
@@ -130,6 +130,11 @@ class Protocol(FolderModel):
         for key in ['url', 'schema:url']:
             if key in formatted['protocol']:
                 formatted['protocol'].pop(key)
+
+        if prefLabel:
+            for key in formatted['protocol']:
+                if key.endswith('prefLabel') and isinstance(formatted['protocol'][key], list):
+                    formatted['protocol'][key][0]['@value'] = prefLabel
 
         formatted['protocol'].pop('_id')
         protocol = {

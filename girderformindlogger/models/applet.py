@@ -24,6 +24,7 @@ import json
 import os
 import six
 import threading
+import re
 
 from bson.objectid import ObjectId
 from girderformindlogger import events
@@ -55,7 +56,6 @@ class Applet(FolderModel):
         user=None,
         roles=None,
         constraints=None,
-        appletName=None,
         appletRole='editor',
         accountId=None,
         encryption={}
@@ -87,9 +87,19 @@ class Applet(FolderModel):
             CollectionModel().createCollection('Applets')
             appletsCollection = CollectionModel().findOne({"name": "Applets"})
 
-        appletName = self.validateAppletName(appletName, appletsCollection, accountId)
+        name = self.validateAppletName('%s (0)' % (name), appletsCollection, accountId)
 
         # create new applet
+        metadata = {
+            'protocol': protocol,
+            'applet': constraints if constraints is not None and isinstance(
+                constraints,
+                dict
+            ) else {},
+            'encryption': encryption
+        }
+        metadata['applet']['displayName'] = name
+
         applet = self.setMetadata(
             folder=self.createFolder(
                 parent=appletsCollection,
@@ -98,17 +108,9 @@ class Applet(FolderModel):
                 public=True,
                 creator=user,
                 allowRename=True,
-                appletName=appletName,
                 accountId=accountId
             ),
-            metadata={
-                'protocol': protocol,
-                'applet': constraints if constraints is not None and isinstance(
-                    constraints,
-                    dict
-                ) else {},
-                'encryption': encryption
-            }
+            metadata=metadata
         )
 
         FolderModel().update({
@@ -317,34 +319,44 @@ class Applet(FolderModel):
         from girderformindlogger.models.protocol import Protocol
 
         appletsCollection = CollectionModel().findOne({"name": "Applets"})
-        appletName = self.validateAppletName('{}/'.format(name), appletsCollection, applet['accountId'])
+        appletName = self.validateAppletName(name, appletsCollection, applet['accountId'])
+        prefLabel = appletName
+
+        suffix = re.findall('^(.*?)\s*\((\d+)\)$', appletName)
+        if len(suffix):
+            if suffix[0][0] == applet['meta']['applet']['displayName']:
+                prefLabel = suffix[0][0]
 
         protocolId = applet.get('meta', {}).get('protocol', {}).get('_id', None)
         if not protocolId:
             raise ValidationException('this applet does not have protocol id')
 
-        protocol = Protocol().duplicateProtocol(ObjectId(protocolId.split("/")[1]), editor)
+        protocol = Protocol().duplicateProtocol(ObjectId(protocolId.split("/")[1]), editor, prefLabel)
+
         # create new applet
+        metadata = {
+            **applet.get('meta', {}),
+            'protocol': {
+                '_id': protocol['protocol']['_id'],
+                'activities': [
+                    ObjectId(protocol['activities'][activity]['_id'].split('/')[-1]) for activity in protocol['activities']
+                ],
+                'name': prefLabel
+            }
+        }
+        metadata['applet']['displayName'] = appletName
+
         newApplet = self.setMetadata(
             folder=self.createFolder(
                 parent=appletsCollection,
-                name=name,
+                name=appletName,
                 parentType='collection',
                 public=True,
                 creator=editor,
                 allowRename=True,
-                appletName=appletName,
                 accountId=applet['accountId']
             ),
-            metadata={
-                **applet.get('meta', {}),
-                'protocol': {
-                    '_id': protocol['protocol']['_id'],
-                    'activities': [
-                        ObjectId(protocol['activities'][activity]['_id'].split('/')[-1]) for activity in protocol['activities']
-                    ]
-                }
-            }
+            metadata=metadata
         )
 
         appletGroupName = "Default {} ({})".format(
@@ -528,25 +540,41 @@ class Applet(FolderModel):
 
         return Profile().displayProfileFields(Profile().updateOwnerProfile(applet), thisUser, forceManager=True)
 
-    def validateAppletName(self, appletName, appletsCollection, accountId = None):
-        name = appletName
-        found = False
-        n = 0
-        while found == False:
-            found = True
-            query = {
-                'parentId': appletsCollection['_id'],
-                'appletName': name,
-                'parentCollection': 'collection'
+    def validateAppletName(self, appletName, appletsCollection, accountId = None, currentApplet = None):
+        appletName = appletName.strip()
+
+        suffix = re.findall('^(.*?)\s*\((\d+)\)$', appletName)
+
+        if len(suffix):
+            name = appletName
+            appletName = suffix[0][0]
+            n = int(suffix[0][1])
+        else:
+            n = 0
+
+        if not n:
+            name = appletName
+
+        query = {
+            'parentId': appletsCollection['_id'],
+            'meta.applet.displayName': name,
+            'parentCollection': 'collection'
+        }
+
+        if accountId:
+            query['accountId'] = ObjectId(accountId)
+        if currentApplet and '_id' in currentApplet:
+            query['_id'] = {
+                '$ne': currentApplet['_id']
             }
-            if accountId:
-                query['accountId'] = ObjectId(accountId)
+
+        existing = self.findOne(query)
+        while existing:
+            n = n + 1
+            name = '%s (%d)' % (appletName, n)
+            query['meta.applet.displayName'] = name
 
             existing = self.findOne(query)
-            if existing:
-                found = False
-                n = n + 1
-                name = '%s(%d)' % (appletName, n)
 
         return name
 
@@ -589,14 +617,13 @@ class Applet(FolderModel):
 
             protocol = protocol[0].get('protocol', protocol[0])
 
-            displayName = Protocol(
-            ).preferredName(
-                protocol
-            )
+            displayName = ''
+            for candidate in ['prefLabel', 'altLabel']:
+                for key in protocol:
+                    if not len(displayName) and key.endswith(candidate) and isinstance(protocol[key], list):
+                        displayName = protocol[key][0]['@value']
 
             name = name if name is not None and len(name) else displayName
-
-            appletName = '{}/'.format(protocolUrl)
 
             applet = self.createApplet(
                 name=name,
@@ -610,12 +637,12 @@ class Applet(FolderModel):
                     ).get(
                         'protocol',
                         {}
-                    ).get('url', protocolUrl)
+                    ).get('url', protocolUrl),
+                    'name': displayName.strip()
                 },
                 user=user,
                 roles=roles,
                 constraints=constraints,
-                appletName=appletName,
                 appletRole=appletRole,
                 accountId=accountId,
                 encryption=encryption
@@ -678,26 +705,25 @@ class Applet(FolderModel):
 
             protocol = protocol.get('protocol', protocol)
 
-            displayName = Protocol(
-            ).preferredName(
-                protocol
-            )
+            displayName = ''
+            for candidate in ['prefLabel', 'altLabel']:
+                for key in protocol:
+                    if not len(displayName) and key.endswith(candidate) and isinstance(protocol[key], list):
+                        displayName = protocol[key][0]['@value']
 
             name = name if name is not None and len(name) else displayName
-
-            appletName = '{}/'.format(protocol.get('@id'))
 
             applet = self.createApplet(
                 name=name,
                 protocol={
                     '_id': 'protocol/{}'.format(
                         str(protocol.get('_id')).split('/')[-1]
-                    )
+                    ),
+                    'name': name.strip()
                 },
                 user=user,
                 roles=roles,
                 constraints=constraints,
-                appletName=appletName,
                 appletRole=appletRole,
                 accountId=accountId,
                 encryption=encryption
@@ -737,6 +763,15 @@ class Applet(FolderModel):
         from girderformindlogger.utility import jsonld_expander
 
         # get a protocol from single json file
+        displayName = protocol['protocol']['data'].get('skos:prefLabel', protocol['protocol']['data'].get('skos:altLabel', '')).strip()
+
+        suffix = re.findall('^(.*?)\s*\((\d+)\)$', displayName)
+        if len(suffix) and applet.get('meta', {}).get('protocol', {}).get('name', '') == suffix[0][0]:
+            protocol['protocol']['data']['skos:prefLabel'] = suffix[0][0]
+        else:
+            applet['meta']['protocol']['name'] = displayName
+            displayName = '%s (0)' % (displayName)
+
         protocol = Protocol().createProtocol(
             protocol,
             user,
@@ -745,9 +780,14 @@ class Applet(FolderModel):
 
         protocol = protocol.get('protocol', protocol)
 
-        displayName = Protocol().preferredName(protocol)
+        applet['meta']['applet']['displayName'] = self.validateAppletName(
+            displayName, 
+            CollectionModel().findOne({"name": "Applets"}), 
+            accountId, 
+            currentApplet = applet
+        )
+        applet = self.setMetadata(folder=applet, metadata=applet['meta'])
 
-        self.save(applet)
         # update appletProfile according to updated applet
         jsonld_expander.clearCache(applet, 'applet')
 
@@ -1259,6 +1299,25 @@ class Applet(FolderModel):
             self.update({'_id': ObjectId(applet['_id'])}, {'$set': {'meta.protocol._id': protocol['_id']}})
             if 'meta' in applet and 'protocol' in applet['meta']:
                 applet['meta']['protocol']['_id'] = protocol['_id']
+
+            displayName = ''
+            for candidate in ['prefLabel', 'altLabel']:
+                for key in protocol:
+                    if not len(displayName) and key.endswith(candidate) and isinstance(protocol[key], list):
+                        displayName = protocol[key][0]['@value']
+
+            suffix = re.findall('^(.*?)\s*\((\d+)\)$', applet['meta']['applet']['displayName'])
+            if len(suffix):
+                displayName = '%s (%s)' % (displayName, suffix[0][1])
+
+            applet['meta']['applet']['displayName'] = self.validateAppletName(
+                displayName, 
+                CollectionModel().findOne({"name": "Applets"}), 
+                accountId = applet['accountId'], 
+                currentApplet = applet
+            )
+
+        self.save(applet)
 
         from girderformindlogger.utility import jsonld_expander
 
