@@ -504,7 +504,13 @@ class Applet(Resource):
 
         profile = self._model.revokeRole(applet, profile, 'user')
 
-        ProfileModel().remove(profile)
+        if deleteResponse:
+            ProfileModel().remove(profile)
+        else:
+            profile['reviewers'] = []
+            profile['deactivated'] = True
+
+            ProfileModel().save(profile, validate=False)
 
         if deleteResponse:
             from girderformindlogger.models.response_folder import ResponseItem
@@ -1355,7 +1361,7 @@ class Applet(Resource):
                 'url': url,
                 'userName': firstName,
                 'coordinatorName': thisUser['firstName'],
-                'appletName': applet['displayName'],
+                'appletName': applet['meta']['applet'].get('displayName', applet.get('displayName', 'applet')),
                 'MRN': MRN,
                 'managers': managers,
                 'coordinators': coordinators,
