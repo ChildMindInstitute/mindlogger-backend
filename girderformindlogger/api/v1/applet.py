@@ -1348,6 +1348,7 @@ class Applet(Resource):
             AppletModel().listUsers(applet, 'reviewer', force=True)
         )
 
+
         try:
             html = mail_utils.renderTemplate(f'inviteUserWithoutAccount.{lang}.mako' if not invitedUser
                 else f'userInvite.{lang}.mako' if role == 'user'
