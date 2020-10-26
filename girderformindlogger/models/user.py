@@ -520,9 +520,36 @@ class User(AESEncryption):
         user['accountId'] = account['_id']
         self.update({'_id': user['_id']}, {'$set': {'accountId': user['accountId']}})
 
+        self.createTemplatesFolder(user)
+
         user = self._getGroupInvitesFromProtoUser(user)
         self._deleteProtoUser(user)
         return(user)
+
+    def createTemplatesFolder(self, user):
+        from girderformindlogger.models.folder import Folder
+
+        existing = Folder().findOne({
+            'accountId': user['accountId'],
+            'meta.contentType': 'templates'
+        })
+        if existing:
+            return existing
+
+        templatesFolder = Folder().createFolder(
+            parent=user,
+            parentType='user',
+            name='templates folder for {} account'.format(user['firstName']),
+            creator=user,
+            reuseExisting=True,
+            allowRename=True,
+            public=False,
+            accountId=user['accountId']
+        )
+
+        return Folder().setMetadata(templatesFolder, {
+            'contentType': 'templates'
+        })
 
     def canLogin(self, user):
         """

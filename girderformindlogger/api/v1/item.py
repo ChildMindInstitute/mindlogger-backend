@@ -8,6 +8,11 @@ from girderformindlogger.api import access
 from girderformindlogger.models.file import File
 from girderformindlogger.models.folder import Folder
 from girderformindlogger.models.item import Item as ItemModel
+from girderformindlogger.models.account_profile import AccountProfile
+from girderformindlogger.exceptions import AccessException, ValidationException
+from girderformindlogger.models.user import User
+from bson import json_util
+from bson.objectid import ObjectId
 
 
 class Item(Resource):
@@ -28,6 +33,121 @@ class Item(Resource):
         self.route('POST', (':id', 'copy'), self.copyItem)
         self.route('PUT', (':id', 'metadata'), self.setMetadata)
         self.route('DELETE', (':id', 'metadata'), self.deleteMetadata)
+
+        self.route('PUT', ('templates',), self.upsertTemplates)
+        self.route('GET', ('templates',), self.getTemplates)
+
+    @access.user(scope=TokenScope.DATA_WRITE)
+    @autoDescribeRoute(
+        Description('Insert/Update template.')
+        .notes(
+            'This endpoint will be used for inserting/updating template for item data for existing account'
+        )
+        .jsonParam(
+            'templateInfo',
+            'template data',
+            paramType='form',
+            required=False
+        )
+        .errorResponse('Write access was denied to the account.', 403)
+    )
+    def upsertTemplates(self, templateInfo):
+        from girderformindlogger.utility import jsonld_expander
+
+        thisUser = self.getCurrentUser()
+        profile = self.getAccountProfile()
+
+        if not profile or (thisUser['accountId'] != profile['accountId'] and not len(profile.get('applets', {}).get('editor', []))):
+            raise AccessException('You don\'t have enough permission to update template on this account')
+
+        templateFolder = Folder().findOne({
+            'accountId': profile['accountId'],
+            'meta.contentType': 'templates'
+        })
+
+        if not templateFolder:
+            owner = User().findOne({'accountId': profile['accountId']})
+            templateFolder = User().createTemplatesFolder(owner)
+
+        templates = templateInfo.get('templates', [])
+
+        for template in templates:
+            expanded = jsonld_expander._fixUpFormat(jsonld_expander.expandObj(templateInfo.get('contexts', {}), template))
+            prefName = self._model.preferredName(expanded)
+
+            prefName = '{} template'.format('item' if not prefName else prefName)
+
+            item = None
+            if '_id' in template:
+                try:
+                    item = self._model.load(template['_id'], force=True)
+                except Exception as e:
+                    print('wrong item id', template['_id'])
+
+            if not item:
+                item = self._model.createItem(
+                    name=prefName,
+                    creator=thisUser,
+                    folder=templateFolder,
+                    reuseExisting=False
+                )
+
+            expanded['_id'] = item['_id']
+
+            item['content'] = json_util.dumps(expanded)
+
+            self._model.save(item)
+
+        deleted = templateInfo.get('removed', [])
+
+        self._model.removeWithQuery({
+            '_id': {
+                '$in': [
+                    ObjectId(itemId) for itemId in deleted
+                ]
+            }
+        })
+
+        templates = list(self._model.find({
+            'folderId': templateFolder['_id']
+        }))
+
+        return [
+            json_util.loads(template['content']) for template in templates
+        ]
+
+    @access.user(scope=TokenScope.DATA_READ)
+    @autoDescribeRoute(
+        Description('Insert/Update template.')
+        .notes(
+            'This endpoint will be used for inserting/updating template for item data for existing account'
+        )
+        .errorResponse('Write access was denied to the account.', 403)
+    )
+    def getTemplates(self):
+        from girderformindlogger.utility import jsonld_expander
+
+        thisUser = self.getCurrentUser()
+        profile = self.getAccountProfile()
+
+        if not profile or (thisUser['accountId'] != profile['accountId'] and not len(profile.get('applets', {}).get('editor', []))):
+            raise AccessException('You don\'t have enough permission to update template on this account')
+
+        templateFolder = Folder().findOne({
+            'accountId': profile['accountId'],
+            'meta.contentType': 'templates'
+        })
+
+        if not templateFolder:
+            return []
+
+        templates = list(self._model.find({
+            'folderId': templateFolder['_id']
+        }))
+
+        return [
+            json_util.loads(template['content']) for template in templates
+        ]
 
     @access.public(scope=TokenScope.DATA_READ)
     @filtermodel(model=ItemModel)
