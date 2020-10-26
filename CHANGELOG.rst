@@ -8,6 +8,9 @@ Changes
 -------
 Unreleased
 ==========
+2020-10-26 v0.14.17
+insert endpoints to manage item template
+
 2020-10-03 v0.14.16
 accumulate tokens from user responses for each day
 
