@@ -17,7 +17,7 @@ from girderformindlogger.utility.model_importer import ModelImporter
 from girderformindlogger.utility.progress import noProgress, setResponseTimeLimit
 from bson import json_util
 from girderformindlogger.models.profile import Profile as ProfileModel
-
+from dateutil.relativedelta import relativedelta
 
 class Events(Model):
     """
@@ -258,12 +258,12 @@ class Events(Model):
                     latestScheduledDay = datetime.datetime(endDate.year, endDate.month, event['schedule']['dayOfMonth'][0])
 
                     if endDate.day < event['schedule']['dayOfMonth'][0]:
-                        latestScheduledDay = latestScheduledDay - datetime.timedelta(months=1)
+                        latestScheduledDay = latestScheduledDay - relativedelta(months=1)
                 else:
                     latestScheduledDay = datetime.datetime(date.year, date.month, event['schedule']['dayOfMonth'][0])
 
                     if date.day < event['schedule']['dayOfMonth'][0]:
-                        latestScheduledDay = latestScheduledDay - datetime.timedelta(months=1)
+                        latestScheduledDay = latestScheduledDay - relativedelta(months=1)
 
                 if (not startDate or startDate.date() <= latestScheduledDay.date()):
                     lastAvailableTime = latestScheduledDay + timeDelta + timeout

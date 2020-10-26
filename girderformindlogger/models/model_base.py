@@ -223,7 +223,8 @@ class Model(object):
         user=None,
         refreshCache=False,
         thread=False,
-        meta={}
+        meta={},
+        isReloading=True
     ):
         """
         Loads from a URL and saves to the DB, returning the loaded model.
@@ -264,7 +265,7 @@ class Model(object):
             {url, passedUrl},
             modelType=primary,
             meta=meta
-        )[1]
+        )[1] if isReloading else None
         if cachedDoc is None or refreshCache:
             if user==None:
                 raise AccessException(

@@ -794,7 +794,9 @@ class Profile(AESEncryption, dict):
                 'userId': user['_id'],
                 'profile': True
             },
-            fields=returnFields
+            fields=[
+                *returnFields, "deactivated"
+            ]
         )
 
         if applet['_id'] not in [
@@ -827,7 +829,10 @@ class Profile(AESEncryption, dict):
                         )
                     )
 
-        if existing:
+        if existing and not existing.get('deactivated', False):
+            if "deactivated" in existing:
+                existing.pop("deactivated")
+
             return existing
 
         now = datetime.datetime.utcnow()
@@ -864,6 +869,9 @@ class Profile(AESEncryption, dict):
                 ]
             }.items() if v is not None
         }
+
+        if existing:
+            profile['_id'] = existing['_id']
 
         self.setPublic(profile, False, save=False)
 
