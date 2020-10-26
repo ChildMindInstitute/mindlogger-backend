@@ -612,7 +612,8 @@ class Applet(FolderModel):
                 user,
                 thread=False,
                 refreshCache=True,
-                meta={'appletId': 'None'}
+                meta={ 'appletId': None },
+                isReloading=False
             )
 
             protocol = protocol[0].get('protocol', protocol[0])
@@ -1286,12 +1287,21 @@ class Applet(FolderModel):
         if protocolUrl is None:
             raise AccessException('this applet is not uploaded from url')
 
+        protocol = Protocol().findOne({
+            '_id': ObjectId(applet.get('meta', {}).get('protocol', {}).get('_id' , '').split('/')[-1])
+        })
+
+        if 'appletId' not in protocol.get('meta', {}):
+            protocol['meta']['appletId'] = 'None'
+            Protocol().setMetadata(protocol, protocol['meta'])
+
         protocol = Protocol().getFromUrl(
             protocolUrl,
             'protocol',
             editor,
             thread=False,
-            refreshCache=True
+            refreshCache=True,
+            meta={'appletId': protocol['meta']['appletId']},
         )
 
         protocol = protocol[0].get('protocol', protocol[0])

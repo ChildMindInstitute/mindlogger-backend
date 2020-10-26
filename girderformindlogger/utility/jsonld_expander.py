@@ -1432,7 +1432,7 @@ def formatLdObject(
                 protocol = ProtocolModel().load(ObjectId(protocolId), user)
 
                 if 'appletId' not in protocol.get('meta', {}):
-                    protocol['meta']['appletId'] = None
+                    protocol['meta']['appletId'] = 'None'
                     ProtocolModel().setMetadata(protocol, protocol['meta'])
 
                 protocol = ProtocolModel().getFromUrl(
