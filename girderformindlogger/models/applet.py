@@ -1092,6 +1092,9 @@ class Applet(FolderModel):
                 "profile": True,
             }))
 
+        if reviewerProfile['_id'] not in reviewerProfile['reviewers'] and (str(reviewerProfile['_id']) in users or not users):
+            profiles.append(reviewerProfile)
+
         query["creatorId"] = {
             "$in": [profile['userId'] for profile in profiles]
         }
