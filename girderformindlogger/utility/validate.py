@@ -1,7 +1,18 @@
+import re
 import json
 from functools import wraps
 from cerberus import Validator
 from girderformindlogger.exceptions import ValidationException
+
+
+def email_validator(field, value, error):
+    if re.match(r'^[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+$', value):
+        error(field, "Incorrect email format")
+
+
+def symbol_validator(field, value, error):
+    if re.match(r'(?=.*[!@#$%^&*<>{}])', value):
+        error(field, "Field contains incorrect symbols")
 
 
 def validator(schema):

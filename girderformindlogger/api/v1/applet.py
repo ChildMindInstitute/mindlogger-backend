@@ -48,7 +48,7 @@ from girderformindlogger.models.account_profile import AccountProfile
 from pymongo import ASCENDING, DESCENDING
 from bson import json_util
 from pyld import jsonld
-from girderformindlogger.utility.validate import validator
+from girderformindlogger.utility.validate import validator, email_validator, symbol_validator
 
 USER_ROLE_KEYS = USER_ROLES.keys()
 
@@ -1262,10 +1262,10 @@ class Applet(Resource):
     @validator(schema={
         'applet': {'required': True},
         'role': {'type': 'string', 'allowed': ['user', 'coordinator', 'manager', 'editor', 'reviewer']},
-        'email': {'type': 'string', 'regex': '^[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+$'},
-        'firstName': {'type': 'string'},
-        'lastName': {'type': 'string'},
-        'MRN': {'type': 'string'},
+        'email': {'type': 'string', 'check_with': email_validator},
+        'firstName': {'type': 'string', 'check_with': symbol_validator},
+        'lastName': {'type': 'string', 'check_with': symbol_validator},
+        'MRN': {'type': 'string', 'check_with': symbol_validator},
         'lang': {'type': 'string', 'allowed': ['en', 'fr']},
         'users': {'type': 'list'}
     })
