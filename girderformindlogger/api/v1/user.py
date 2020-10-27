@@ -868,6 +868,9 @@ class User(Resource):
 
             login, password = credentials.split(':', 1)
 
+            # Remove spaces around the username.
+            login = login.strip()
+
             isEmail = validateEmailAddress(login)
 
             if not loginAsEmail and isEmail:

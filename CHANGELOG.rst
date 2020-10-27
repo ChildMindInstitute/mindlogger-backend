@@ -8,6 +8,9 @@ Changes
 -------
 Unreleased
 ==========
+2020-10-26 v0.14.18
+remove leading and trailing whitespaces from the username at login
+
 2020-10-26 v0.14.17
 insert endpoints to manage item template
 
