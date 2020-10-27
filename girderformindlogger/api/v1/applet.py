@@ -23,6 +23,7 @@ import re
 import threading
 import uuid
 import datetime
+
 from ..describe import Description, autoDescribeRoute
 from ..rest import Resource, rawResponse
 from bson.objectid import ObjectId
@@ -1295,6 +1296,7 @@ class Applet(Resource):
         .errorResponse('Write access was denied for the folder or its new parent object.', 403)
     )
     def inviteUser(self, applet, role="user", email='', firstName='', lastName='', MRN='', lang='en',users=[]):
+        self.shield("inviteUser")
         from girderformindlogger.models.invitation import Invitation
         from girderformindlogger.models.profile import Profile
 
@@ -1422,14 +1424,14 @@ class Applet(Resource):
             invitedUser = UserModel().findOne({'email': email, 'email_encrypted': {'$ne': True}})
 
         invitation = Invitation().createInvitationForSpecifiedUser(
-            applet, 
-            thisUser, 
-            'owner', 
-            invitedUser, 
-            firstName=invitedUser['firstName'] if invitedUser else '', 
-            lastName=invitedUser['lastName'] if invitedUser else '', 
+            applet,
+            thisUser,
+            'owner',
+            invitedUser,
+            firstName=invitedUser['firstName'] if invitedUser else '',
+            lastName=invitedUser['lastName'] if invitedUser else '',
             lang='en',
-            MRN='', 
+            MRN='',
             userEmail=email
         )
 
