@@ -132,9 +132,9 @@ def aggregate(metadata, informant, startDate=None, endDate=None):
             ) else informant,
             "created": {
                 "$gte": startDate,
-                "$lt": endDate
+                # "$lt": endDate
             } if startDate else {
-                "$lt": endDate
+                # "$lt": endDate
             },
             "meta.applet.@id": metadata["applet_id"],
             "meta.subject.@id": metadata["subject_id"]
@@ -341,7 +341,7 @@ def last7Days(
         for resp in outputResponses[item]:
             resp['date'] = delocalize(resp['date'])
             if not groupByDateActivity:
-                resp['date'] = determine_date(resp['date'])
+                resp['date'] = determine_date(resp['date'] + timedelta(hours=profile['timezone']))
 
     l7d = {}
     l7d["responses"] = _oneResponsePerDatePerVersion(outputResponses, profile['timezone']) if groupByDateActivity else outputResponses
