@@ -8,6 +8,9 @@ Changes
 -------
 Unreleased
 ==========
+2020-10-29 v0.14.21
+retrieve as response as user's timezone
+
 2020-10-29 v0.14.19
 include the user language in the URL of the invite
 
