@@ -8,6 +8,10 @@ Changes
 -------
 Unreleased
 ==========
+
+2020-10-29 v0.14.21
+retrieve as response as user's timezone
+
 2020-10-26 v0.14.20
 Add initial support for i18n and send the invitation email subject in the user
 language
