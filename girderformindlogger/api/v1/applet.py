@@ -45,6 +45,7 @@ from girderformindlogger.models.setting import Setting
 from girderformindlogger.settings import SettingKey
 from girderformindlogger.models.profile import Profile as ProfileModel
 from girderformindlogger.models.account_profile import AccountProfile
+from girderformindlogger.i18n import t
 from pymongo import ASCENDING, DESCENDING
 from bson import json_util
 from pyld import jsonld
@@ -1375,7 +1376,7 @@ class Applet(Resource):
             )
 
         mail_utils.sendMail(
-            'invitation for an applet',
+            t('invite_email_subject', lang),
             html,
             [email]
         )
