@@ -8,6 +8,9 @@ Changes
 -------
 Unreleased
 ==========
+2020-10-29 v0.14.19
+include the user language in the URL of the invite
+
 2020-10-26 v0.14.18
 remove leading and trailing whitespaces from the username at login
 
