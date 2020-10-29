@@ -177,7 +177,13 @@ class ResponseItem(Resource):
 
             # we need this to handle old responses
             for response in responses:
-                response['meta']['subject']['userTime'] = response["created"].replace(tzinfo=pytz.timezone("UTC")).astimezone(timezone(timedelta(hours=profile["timezone"])))
+                response['meta']['subject']['userTime'] = response["created"].replace(tzinfo=pytz.timezone("UTC")).astimezone(
+                    timezone(
+                        timedelta(
+                            hours=profile["timezone"] if 'timezone' not in response['meta']['subject'] else response['meta']['subject']['timezone']
+                        )
+                    )
+                )
 
             add_latest_daily_response(data, responses)
         add_missing_dates(data, fromDate, toDate)
@@ -329,6 +335,8 @@ class ResponseItem(Resource):
                 metadata['subject']['@id'] = subject_id
             else:
                 metadata['subject'] = {'@id': subject_id}
+
+            metadata['subject']['timezone'] = profile.get('timezone', 0)
 
             now = datetime.now(tz=pytz.timezone("UTC"))
 
