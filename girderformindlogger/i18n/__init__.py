@@ -4,8 +4,8 @@ from .locales import fr
 
 # Define here all the existing language tables.
 locales = dict({
-    'en_US': en.locale,
-    'fr_FR': fr.locale,
+    'en': en.locale,
+    'fr': fr.locale,
 })
 
 def t(key, lang):
