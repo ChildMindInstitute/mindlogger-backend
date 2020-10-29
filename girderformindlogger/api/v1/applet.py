@@ -1343,7 +1343,7 @@ class Applet(Resource):
         )
 
         web_url = os.getenv('WEB_URI') or 'localhost:8081'
-        url = f'https://{web_url}/#/invitation/{str(invitation["_id"])}'
+        url = f'https://{web_url}/#/invitation/{str(invitation["_id"])}?lang={lang}'
 
         managers = mail_utils.htmlUserList(
             AppletModel().listUsers(applet, 'manager', force=True)
@@ -1423,14 +1423,14 @@ class Applet(Resource):
             invitedUser = UserModel().findOne({'email': email, 'email_encrypted': {'$ne': True}})
 
         invitation = Invitation().createInvitationForSpecifiedUser(
-            applet, 
-            thisUser, 
-            'owner', 
-            invitedUser, 
-            firstName=invitedUser['firstName'] if invitedUser else '', 
-            lastName=invitedUser['lastName'] if invitedUser else '', 
+            applet,
+            thisUser,
+            'owner',
+            invitedUser,
+            firstName=invitedUser['firstName'] if invitedUser else '',
+            lastName=invitedUser['lastName'] if invitedUser else '',
             lang='en',
-            MRN='', 
+            MRN='',
             userEmail=email
         )
 
