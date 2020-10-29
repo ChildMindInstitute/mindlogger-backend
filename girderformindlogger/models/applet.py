@@ -288,14 +288,15 @@ class Applet(FolderModel):
                 return
 
             newInvitation = Invitation().createInvitationForSpecifiedUser(
-                applet,
-                inviter,
-                role,
-                user,
-                user['firstName'],
-                user['lastName'],
-                '',
-                user['email']
+                applet=applet,
+                coordinator=inviter,
+                role=role,
+                user=user,
+                firstName=user['firstName'],
+                lastName=user['lastName'],
+                lang='en',
+                MRN='',
+                userEmail=user['email']
             )
 
             appletProfile = Invitation().acceptInvitation(Invitation().load(newInvitation['_id'], force=True), user, user['email'])
@@ -1021,7 +1022,7 @@ class Applet(FolderModel):
 
             if 'url' in metadata['protocol']:
                 metadata['protocol'].pop('url')
-                self.setMetadata(applet, metadata)
+                applet = self.setMetadata(applet, metadata)
 
             jsonld_expander.formatLdObject(protocolFolder, 'protocol', user, refreshCache=True)
         else:
