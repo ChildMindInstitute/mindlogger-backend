@@ -18,6 +18,7 @@ def t(key, lang, context = {}):
 
     :return: the desired text in the given language.
     """
+    lang = lang[0:2]
     locale = locales.get(lang)
 
     if not locale:
