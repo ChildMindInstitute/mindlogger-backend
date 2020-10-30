@@ -9,6 +9,9 @@ Changes
 Unreleased
 ==========
 
+2020-10-30 v0.14.22
+fix invitation param
+
 2020-10-29 v0.14.21
 retrieve as response as user's timezone
 
