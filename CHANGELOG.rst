@@ -8,6 +8,8 @@ Changes
 -------
 Unreleased
 ==========
+2020-10-30 v0.14.23
+fix applet name when inviting user to transfer ownership
 
 2020-10-30 v0.14.22
 fix invitation param
