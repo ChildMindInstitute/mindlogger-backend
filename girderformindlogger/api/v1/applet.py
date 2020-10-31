@@ -629,6 +629,12 @@ class Applet(Resource):
             ]),
             required=False
         )
+        .param(
+            'lang',
+            'Language of mail template and web link',
+            default='en',
+            required=True
+        )
         .jsonParam(
             'encryption',
             'encryption info',
@@ -637,7 +643,8 @@ class Applet(Resource):
         )
         .errorResponse('Write access was denied for this applet.', 403)
     )
-    def createApplet(self, protocolUrl=None, email='', name=None, informant=None, encryption={}):
+    def createApplet(self, protocolUrl=None, email='', name=None, informant=None, encryption={},
+                     lang='en'):
         accountProfile = AccountProfile()
 
         thisUser = self.getCurrentUser()
@@ -668,9 +675,7 @@ class Applet(Resource):
             }
         )
         thread.start()
-        return({
-            "message": "The applet is building. We will send you an email in 10 mins or less when it has been successfully created or failed."
-        })
+        return {"message": t('applet_is_building', lang)}
 
     @access.user(scope=TokenScope.DATA_WRITE)
     @autoDescribeRoute(
