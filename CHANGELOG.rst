@@ -9,6 +9,9 @@ Changes
 Unreleased
 ==========
 
+2020-11-02 v0.14.22
+adds more translations
+
 2020-10-29 v0.14.21
 retrieve as response as user's timezone
 
