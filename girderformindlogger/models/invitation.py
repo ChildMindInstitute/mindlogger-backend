@@ -379,10 +379,7 @@ class Invitation(AESEncryption):
             )
         ) if includeLink else ""
         applet = Applet().load(ObjectId(invitation['appletId']), force=True)
-        appletName = applet.get(
-            'displayName',
-            'a new applet'
-        )
+        appletName = applet['meta']['applet'].get('displayName', applet.get('displayName', 'new applet'))
         try:
             skin = contextUtil.getSkin()
         except:
