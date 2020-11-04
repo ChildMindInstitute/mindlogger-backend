@@ -21,6 +21,7 @@ from girderformindlogger.models.account_profile import AccountProfile
 from girderformindlogger.models.notification import Notification
 from girderformindlogger.settings import SettingKey
 from girderformindlogger.utility import jsonld_expander, mail_utils
+from girderformindlogger.i18n import t
 
 
 class User(Resource):
@@ -831,10 +832,14 @@ class User(Resource):
                paramType='header', required=False)
         .param('timezone', 'timezone of user mobile',
                paramType='header', required=False)
+        .param('lang',
+               'the desired language for the response',
+               default='en',
+               required=True)
         .errorResponse('Missing Authorization header.', 401)
         .errorResponse('Invalid login or password.', 403)
     )
-    def login(self, loginAsEmail):
+    def login(self, loginAsEmail, lang):
         import threading
         from girderformindlogger.utility.mail_utils import validateEmailAddress
 
@@ -878,19 +883,14 @@ class User(Resource):
                     "Please log in with a username, not an email address."
                 )
             if loginAsEmail and not isEmail:
-                raise AccessException(
-                    "Please enter valid email address"
-                )
+                raise AccessException(t('error_invalid_email', lang))
 
             otpToken = cherrypy.request.headers.get('Girder-OTP')
             try:
                 user = self._model.authenticate(login, password, otpToken, loginAsEmail = True)
             except:
-                raise AccessException(
-                    "Incorrect password for {} if that user exists".format(
-                        login
-                    )
-                )
+                raise AccessException(t('error_invalid_password', lang, { 'user': login }))
+
             if user.get('exception', None):
                 raise AccessException(
                     user['exception']
