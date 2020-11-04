@@ -89,7 +89,6 @@ class Applet(Resource):
         self.route('PUT', (':id', 'fromJSON'), self.updateAppletFromProtocolData)
         self.route('POST', (':id', 'duplicate', ), self.duplicateApplet)
         self.route('POST', ('setBadge',), self.setBadgeCount)
-
         self.route('PUT', (':id', 'transferOwnerShip', ), self.transferOwnerShip)
         self.route('DELETE', (':id', 'deleteUser', ), self.deleteUserFromApplet)
         self.route('GET', ('validateName',), self.validateAppletName)
