@@ -17,7 +17,7 @@ from girderformindlogger.utility.model_importer import ModelImporter
 from girderformindlogger.utility.progress import noProgress, setResponseTimeLimit
 from bson import json_util
 from girderformindlogger.models.profile import Profile as ProfileModel
-
+from dateutil.relativedelta import relativedelta
 
 class Events(Model):
     """
@@ -30,7 +30,8 @@ class Events(Model):
             (
                 'applet_id',
                 'individualized',
-                'data.users'
+                'data.users',
+                'data.activity_id'
             )
         )
 
@@ -61,6 +62,12 @@ class Events(Model):
         for event in events:
             self.deleteEvent(event.get('_id'))
 
+    def deleteEventsByActivityId(self, applet_id, activity_id):
+        events = self.find({'applet_id': ObjectId(applet_id), 'data.activity_id': ObjectId(activity_id)})
+
+        for event in events:
+            self.deleteEvent(event.get('_id'))
+
     def upsertEvent(self, event, applet, event_id=None):
         newEvent = {
             'applet_id': applet['_id'],
@@ -78,15 +85,8 @@ class Events(Model):
         if 'data' in event:
             newEvent['data'] = event['data']
 
-            activities = list(Folder().find(query={
-                'meta.activity.url': event['data']['URI']
-            }, fields=['_id']))
-
-            activity_id = list(set(applet["meta"]["protocol"]["activities"]) & set(
-                [activity['_id'] for activity in activities]))
-
-            if len(activity_id):
-                newEvent['data']['activity_id'] = activity_id[0]
+            if 'activity_id' in newEvent['data']:
+                newEvent['data']['activity_id'] = ObjectId(newEvent['data']['activity_id'])
 
             if 'users' in event['data'] and isinstance(event['data']['users'], list):
                 newEvent['individualized'] = True
@@ -150,11 +150,14 @@ class Events(Model):
         return events
 
     def setSchedule(self, event):
-        if 'data' in event and 'useNotifications' in event['data'] and event['data'][
-            'useNotifications']:
-            if 'notifications' in event['data'] and event['data']['notifications'][0]['start']:
-                push_notification = PushNotificationModel(event=event)
-                push_notification.set_schedules()
+        push_notification = PushNotificationModel(event=event)
+        push_notification.remove_schedules()
+        useNotifications = event.get('data', {}).get('useNotifications', False)
+        notifications = event.get('data', {}).get('notifications', [])
+        hasNotifications = len(notifications) > 0
+
+        if hasNotifications and useNotifications and notifications[0]['start']:
+            push_notification.set_schedules()
 
     def getSchedule(self, applet_id):
         events = list(self.find({'applet_id': ObjectId(applet_id)}, fields=['data', 'schedule']))
@@ -187,14 +190,19 @@ class Events(Model):
 
         timeout = datetime.timedelta(days=0)
 
-        if eventTimeout and eventTimeout.get('allow', False) and event['data'].get('completion', False):
+        if eventTimeout and eventTimeout.get('allow', False) and event['data'].get('completion', False) and not event['data'].get('onlyScheduledDay', False):
             timeout = datetime.timedelta(
-                days=eventTimeout.get('day', 0), 
-                hours=eventTimeout.get('hour', 0), 
+                days=eventTimeout.get('day', 0),
+                hours=eventTimeout.get('hour', 0),
                 minutes=eventTimeout.get('minute', 0)
             )
 
-        if 'dayOfMonth' in event['schedule']: # one time schedule
+        if event['data'].get('extendedTime', {}).get('allow', False) and not event['data'].get('onlyScheduledDay', False):
+            timeout = timeout + datetime.timedelta(
+                days=event['data']['extendedTime'].get('days', 0)
+            )
+
+        if not event['data'].get('eventType', None) or event['data']['eventType'] == 'onetime': # one time schedule
             if not len(event['schedule'].get('dayOfMonth', [])) \
                 or not len(event['schedule'].get('month', [])) \
                 or not len(event['schedule'].get('year', [])):
@@ -223,11 +231,11 @@ class Events(Model):
             if startDate and startDate.date() > date.date():
                 return (False, None)
 
-            if 'dayOfWeek' in event['schedule']: # weekly schedule
-                if len(event['schedule']['dayOfWeek']) or event['schedule']['dayOfWeek'][0] == date.weekday() + 1:
+            if event['data'].get('eventType', None) == 'Weekly': # weekly schedule
+                if len(event['schedule']['dayOfWeek']) and event['schedule']['dayOfWeek'][0] == (date.weekday() + 1) % 7:
                     return (True, None)
 
-                if endDate < date:
+                if endDate and endDate < date:
                     latestScheduledDay = endDate - datetime.timedelta(
                         days=(endDate.weekday()+1 - event['schedule']['dayOfWeek'][0] + 7) % 7,
                     )
@@ -242,21 +250,38 @@ class Events(Model):
 
                 return (False, None)
 
+            elif event['data'].get('eventType', None) == 'Monthly': # monthly schedule
+                if len(event['schedule']['dayOfMonth']) and event['schedule']['dayOfMonth'][0] == date.day:
+                    return (True, None)
+
+                if endDate and endDate < date:
+                    latestScheduledDay = datetime.datetime(endDate.year, endDate.month, event['schedule']['dayOfMonth'][0])
+
+                    if endDate.day < event['schedule']['dayOfMonth'][0]:
+                        latestScheduledDay = latestScheduledDay - relativedelta(months=1)
+                else:
+                    latestScheduledDay = datetime.datetime(date.year, date.month, event['schedule']['dayOfMonth'][0])
+
+                    if date.day < event['schedule']['dayOfMonth'][0]:
+                        latestScheduledDay = latestScheduledDay - relativedelta(months=1)
+
+                if (not startDate or startDate.date() <= latestScheduledDay.date()):
+                    lastAvailableTime = latestScheduledDay + timeDelta + timeout
+                    return ( lastAvailableTime >= date, lastAvailableTime )
+
+                return (False, None)
+
             # daily schedule
             lastAvailableTime = endDate + timeDelta + timeout if endDate else None
             return ( (not endDate or lastAvailableTime >= date), lastAvailableTime )
 
-    def getScheduleForUser(self, applet_id, user_id, is_coordinator, dayFilter=None):
-        if is_coordinator:
-            individualized = False
-            events = self.getEvents(applet_id, False)
-        else:
-            profile = Profile().findOne({'appletId': ObjectId(applet_id), 'userId': ObjectId(user_id)})
-            individualized = profile['individual_events'] > 0
-            events = self.getEvents(applet_id, individualized, profile['_id'])
+    def getScheduleForUser(self, applet_id, user_id, dayFilter=None):
+        profile = Profile().findOne({'appletId': ObjectId(applet_id), 'userId': ObjectId(user_id)})
+        individualized = profile['individual_events'] > 0
+        events = self.getEvents(applet_id, individualized, profile['_id'])
 
         lastEvent = {}
-
+        onlyScheduledDay = {}
         for event in events:
             event['id'] = event['_id']
             event.pop('_id')
@@ -278,6 +303,9 @@ class Events(Model):
                 else:
                     lastEvent[activityId] = None
 
+                if event['data'].get('eventType', None) and event['data'].get('onlyScheduledDay', False):
+                    onlyScheduledDay[activityId] = True
+
         return {
             "type": 2,
             "size": 1,
@@ -292,6 +320,6 @@ class Events(Model):
             'events': ([
                 event for event in events if event['valid']
             ] + [
-                value[1] for value in lastEvent.values() if value and value[1].get('data', {}).get('completion', False)
+                value[1] for value in lastEvent.values() if value and (value[1]['data'].get('completion', False) or value[1]['data'].get('activity_id', None) in onlyScheduledDay)
             ])
         }

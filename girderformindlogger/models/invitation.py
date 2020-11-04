@@ -169,8 +169,10 @@ class Invitation(AESEncryption):
         user,
         firstName,
         lastName,
+        lang,
         MRN,
-        userEmail = ""
+        userEmail = "",
+        accessibleUsers = []
     ):
         """
         create new invitation
@@ -203,11 +205,15 @@ class Invitation(AESEncryption):
             if user:
                 invitation['userId'] = user['_id']
 
+        if role == 'reviewer':
+            accessibleUsers = [ObjectId(accessibleUser) for accessibleUser in accessibleUsers]
+
         invitation.update({
             'inviterId': coordinator['_id'],
             'role': role,
             'firstName': firstName,
             'lastName': lastName,
+            'lang': lang,
             'MRN': MRN,
             'updated': now,
             'size': 0,
@@ -215,7 +221,8 @@ class Invitation(AESEncryption):
             'invitedBy': Profile().coordinatorProfile(
                 applet['_id'],
                 coordinator
-            )
+            ),
+            'accessibleUsers': accessibleUsers if role == 'reviewer' else None
         })
 
         return self.save(invitation, validate=False)
@@ -225,12 +232,6 @@ class Invitation(AESEncryption):
         from girderformindlogger.models.ID_code import IDCode
         from girderformindlogger.models.profile import Profile
         from girderformindlogger.utility import mail_utils
-
-        applet = Applet().load(invitation['appletId'], force=True)
-        if not applet:
-            raise ValidationException('invalid invitation')
-
-        invited_role = invitation.get('role','user')
         from girderformindlogger.models.user import User as UserModel
 
         if not mail_utils.validateEmailAddress(userEmail):
@@ -238,6 +239,8 @@ class Invitation(AESEncryption):
                 'Invalid email address.',
                 'email'
             )
+
+        invited_role = invitation.get('role','user')
         if invited_role != 'user' and user.get('email_encrypted', False):
             if UserModel().hash(userEmail) != user['email']:
                 raise ValidationException(
@@ -249,6 +252,10 @@ class Invitation(AESEncryption):
 
             UserModel().save(user)
 
+
+        applet = Applet().load(invitation['appletId'], force=True)
+        if not applet:
+            raise ValidationException('invalid invitation')
 
         profiles = None
         if 'idCode' in invitation:
@@ -291,12 +298,10 @@ class Invitation(AESEncryption):
         profile = Profile().load(profile['_id'], force=True)
         profile['roles'] = profile.get('roles', [])
 
-        new_roles = []
         # manager has get all roles by default
         for role in USER_ROLES.keys():
             if role not in profile['roles']:
                 if invited_role == 'manager' or invited_role == role or role == 'user':
-                    new_roles.append(role)
                     profile['roles'].append(role)
 
         profile['firstName'] = invitation.get('firstName', '')
@@ -304,6 +309,11 @@ class Invitation(AESEncryption):
         profile['MRN'] = invitation.get('MRN', '')
 
         Profile().save(profile, validate=False)
+
+        if invited_role == 'reviewer':
+            Profile().updateReviewerList(profile, invitation.get('accessibleUsers'))
+        elif invited_role == 'manager':
+            Profile().updateReviewerList(profile)
 
         AccountProfile().appendApplet(AccountProfile().createAccountProfile(applet['accountId'], user['_id']), applet['_id'], profile['roles'])
 
@@ -369,10 +379,7 @@ class Invitation(AESEncryption):
             )
         ) if includeLink else ""
         applet = Applet().load(ObjectId(invitation['appletId']), force=True)
-        appletName = applet.get(
-            'displayName',
-            'a new applet'
-        )
+        appletName = applet['meta']['applet'].get('displayName', applet.get('displayName', 'new applet'))
         try:
             skin = contextUtil.getSkin()
         except:
@@ -409,58 +416,40 @@ class Invitation(AESEncryption):
         reviewers = mail_utils.htmlUserList(
             Applet().listUsers(applet, 'reviewer', force=True)
         )
-        body = """
-{greeting}ou were invited {byCoordinator}to be {role} of <b>{appletName}</b>{instanceName}.
-<br/>
-Below are the users that have access to your data:
-{reviewers}
-{managers}
-{coordinators}
-<br/>
-{accept}
-        """.format(
-            accept=accept,
-            appletName=appletName,
-            byCoordinator="by {} ({}) ".format(
+
+        body = mail_utils.renderTemplate(f'welcome{"Owner" if role == "owner" else ""}.{invitation.get("lang", "en")}.mako', {
+            'accept': accept,
+            'appletName': appletName,
+            'byCoordinator': "by {} ({}) ".format(
                 coordinator.get("displayName", "an anonymous entity"),
                 "<a href=\"mailto:{email}\">{email}</a>".format(
                     email=coordinator["email"]
                 ) if "email" in coordinator and coordinator["email"] is not None else "email not available"
             ) if isinstance(coordinator, dict) else "",
-            coordinators="<h3>Users who can change this applet's settings, "
-                "but who cannot change who can see your data: </h3>{}"
-                "".format(
+            'coordinators': "{}".format(
                     coordinators if len(
                         coordinators
                     ) else "<ul><li>None</li></ul>"
                 ),
-            greeting="Welcome to MindLogger! Y",
-            instanceName=" on {}".format(
-                instanceName
-            ) if instanceName is not None and len(instanceName) else "",
-            managers="<h3>Users who can change this applet's settings, "
-                " including who can access your data: </h3>{}"
-                "".format(
-                    managers if len(managers) else "<ul><li>None</li></ul>"
-                ),
-            reviewers="<h3>Users who can see your data for this "
-                "applet: </h3>{}"
-                "".format(
-                    reviewers if len(reviewers) else "<ul><li>None</li></ul>"
-                ),
-            role="an editor" if role=="editor" else "a {}".format(role)
-        ).strip()
+            'instanceName': " on {}".format(instanceName)
+                if instanceName is not None and len(instanceName) else "",
+            'managers': "{}".format(managers if len(managers) else "<ul><li>None</li></ul>"),
+            'reviewers': "{}".format(reviewers if len(reviewers) else "<ul><li>None</li></ul>"),
+            'role': "an editor" if role == "editor" else "a {}".format(role),
+            'url': f'https://{web_url}/#/invitation/{str(invitation["_id"])}'
+        })
+
         return(body if not fullDoc else """
-<!DOCTYPE html>
-<html>
-<head>
-<meta charset="UTF-8">
-<title>Invitation to {appletName} on {instanceName}</title>
-</head>
-<body>
-{body}
-</body>
-</html>
+            <!DOCTYPE html>
+            <html>
+            <head>
+            <meta charset="UTF-8">
+            <title>Invitation to {appletName} on {instanceName}</title>
+            </head>
+            <body>
+            {body}
+            </body>
+            </html>
         """.format(
             appletName=appletName,
             instanceName=instanceName,

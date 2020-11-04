@@ -27,7 +27,7 @@ import six
 from bson.objectid import ObjectId
 from girderformindlogger import events
 from girderformindlogger.api.rest import getCurrentUser
-from girderformindlogger.constants import AccessType, SortDir
+from girderformindlogger.constants import AccessType, SortDir, MODELS
 from girderformindlogger.exceptions import ValidationException, GirderException
 from girderformindlogger.models.folder import Folder as FolderModel
 from girderformindlogger.models.user import User as UserModel
@@ -116,7 +116,268 @@ class Protocol(FolderModel):
                     "Invalid Protocol ID."
                 )
 
-    def createProtocol(self, document, user):
+    def createProtocol(self, document, user, editExisting=False):
         from girderformindlogger.utility import jsonld_expander
 
-        return jsonld_expander.loadFromSingleFile(document, user)
+        return jsonld_expander.loadFromSingleFile(document, user, editExisting)
+
+    def duplicateProtocol(self, protocolId, editor, prefLabel=None):
+        from girderformindlogger.models.screen import Screen
+        from girderformindlogger.utility import jsonld_expander
+
+        formatted = jsonld_expander.formatLdObject(self.load(protocolId, force=True), 'protocol', editor)
+
+        for key in ['url', 'schema:url']:
+            if key in formatted['protocol']:
+                formatted['protocol'].pop(key)
+
+        if prefLabel:
+            for key in formatted['protocol']:
+                if key.endswith('prefLabel') and isinstance(formatted['protocol'][key], list):
+                    formatted['protocol'][key][0]['@value'] = prefLabel
+
+        formatted['protocol'].pop('_id')
+        protocol = {
+            'protocol': {
+                formatted['protocol']['@id']: {
+                    'expanded': formatted['protocol'],
+                    'ref2Document': {
+                        'duplicateOf': protocolId
+                    }
+                }
+            },
+            'activity': {},
+            'screen': {}
+        }
+
+        activityId2Key = {}
+
+        for activityKey in formatted['activities']:
+            activity = formatted['activities'][activityKey]
+            activityId = activity.pop('_id').split('/')[-1]
+
+            for key in ['url', 'schema:url']:
+                if key in activity:
+                    activity.pop(key)
+            protocol['activity'][activityKey] = {
+                'parentKey': 'protocol',
+                'parentId': formatted['protocol']['@id'],
+                'expanded': activity,
+                'ref2Document': {
+                    'duplicateOf': activityId
+                }
+            }
+            activityId2Key[activityId] = activityKey
+
+        itemId2ActivityId = {}
+        
+        items = list(Screen().find({'meta.protocolId': protocolId}))
+        for item in items:
+            itemId2ActivityId[str(item['_id'])] = str(item['meta'].get('activityId', None))
+
+        for itemKey in formatted['items']:
+            item = formatted['items'][itemKey]
+            itemId = item.pop('_id').split('/')[-1]
+
+            for key in ['url', 'schema:url']:
+                if key in item:
+                    item.pop(key)
+
+            protocol['screen'][itemKey] = {
+                'parentKey': 'activity',
+                'parentId': activityId2Key[itemId2ActivityId[itemId]],
+                'expanded': item,
+                'ref2Document': {
+                    'duplicateOf': itemId
+                }
+            }
+
+        protocolId = jsonld_expander.createProtocolFromExpandedDocument(protocol, editor)
+
+        return jsonld_expander.formatLdObject(
+            self.load(protocolId, force=True),
+            mesoPrefix='protocol',
+            user=editor,
+            refreshCache=True
+        )
+
+    def createHistoryFolders(
+        self,
+        protocolId,
+        user
+    ):
+        protocol = self.load(protocolId, force=True)
+        updated = False
+
+        # add folder to save historical data
+        if not protocol['meta'].get('historyId', None):
+            historyFolder = FolderModel().createFolder(
+                name='history of ' + protocol['name'],
+                parent=protocol,
+                parentType='folder',
+                public=False,
+                creator=user,
+                allowRename=True,
+                reuseExisting=False
+            )
+
+            protocol['meta']['historyId'] = historyFolder['_id']
+            updated = True
+        else:
+            historyFolder = FolderModel().load(protocol['meta']['historyId'], force=True)
+
+        if not historyFolder.get('meta', {}).get('referenceId', None):
+            referencesFolder = FolderModel().createFolder(
+                name='reference of history data for ' + protocol['name'],
+                parent=historyFolder,
+                parentType='folder',
+                public=False,
+                creator=user,
+                allowRename=True,
+                reuseExisting=False,
+            )
+
+            historyFolder = FolderModel().setMetadata(historyFolder, {
+                'referenceId': referencesFolder['_id']
+            })
+        else:
+            referencesFolder = FolderModel().load(historyFolder['meta']['referenceId'], force=True)
+
+        # add folder to save contents
+        if not protocol['meta'].get('contentId', None):
+            contentFolder = FolderModel().createFolder(
+                name='content of ' + protocol['name'],
+                parent=protocol,
+                parentType='folder',
+                public=False,
+                creator=user,
+                allowRename=True,
+                reuseExisting=False
+            )
+
+            protocol['meta']['contentId'] = contentFolder['_id']
+            updated = True
+
+        if updated:
+            protocol = self.setMetadata(protocol, protocol['meta'])
+
+        return (historyFolder, referencesFolder)
+
+    def initHistoryData(self, historyFolder, referencesFolder, protocolId, user, activityIDRef = {}, itemIDRef = {}):
+        from girderformindlogger.utility import jsonld_expander
+        from girderformindlogger.models.item import Item as ItemModel
+
+        activities = list(FolderModel().find({ 'meta.protocolId': ObjectId(protocolId) }))
+        items = list(ItemModel().find({ 'meta.protocolId': ObjectId(protocolId) }))
+
+        protocol = self.load(protocolId, force=True)
+        schemaVersion = protocol['meta'].get('protocol', {}).get('schema:version', None)
+
+        currentVersion = schemaVersion[0].get('@value', '0.0.0') if schemaVersion else '0.0.0'
+
+        activityIdToHistoryObj = {}
+        for activity in activities:
+            identifier = activity['meta'].get('activity', {}).get('url', None)
+            if identifier:
+                activityId = str(activity['_id'])
+                if activityId in activityIDRef:
+                    activity['_id'] = activityIDRef[activityId]
+                    activityId = str(activityIDRef[activityId])
+
+                activityIdToHistoryObj[activityId] = jsonld_expander.insertHistoryData(activity, identifier, 'activity', currentVersion, historyFolder, referencesFolder, user)
+
+        for item in items:
+            identifier = item['meta'].get('screen', {}).get('url', None)
+            if identifier:
+                if str(item['_id']) in itemIDRef:
+                    item['_id'] = itemIDRef[str(item['_id'])]
+
+                if str(item['meta']['activityId']) in activityIDRef:
+                    item['meta']['activityId'] = activityIDRef[str(item['meta']['activityId'])]
+
+                activityHistoryObj = activityIdToHistoryObj[str(item['meta']['activityId'])]
+
+                item['meta'].update({
+                    'originalActivityId': item['meta']['activityId'],
+                    'activityId': activityHistoryObj['_id']
+                })
+
+                jsonld_expander.insertHistoryData(item, identifier, 'screen', currentVersion, historyFolder, referencesFolder, user)
+
+    def compareVersions(self, version1, version2):
+        vs1 = version1.split('.')
+        vs2 = version2.split('.')
+
+        for i in range(0, len(vs1)):
+            if vs1[i] < vs2[i]:
+                return -1
+            if vs1[i] > vs2[i]:
+                return 1
+
+        return 0
+
+    def getHistoryDataFromItemIRIs(self, protocolId, IRIGroup):
+        from girderformindlogger.models.item import Item as ItemModel
+        from girderformindlogger.utility import jsonld_expander
+
+        protocol = self.load(protocolId, force=True)
+
+        items = {}
+        activities = {}
+        itemReferences = {}
+        result = {
+            'items': items,
+            'activities': activities,
+            'itemReferences': itemReferences
+        }
+
+        if 'historyId' not in protocol.get('meta', {}):
+            return result
+
+        historyFolder = FolderModel().load(protocol['meta']['historyId'], force=True)
+        if 'referenceId' not in historyFolder.get('meta', {}):
+            return result
+
+        referencesFolder = FolderModel().load(historyFolder['meta']['referenceId'], force=True)
+        itemModel = ItemModel()
+
+        for IRI in IRIGroup:
+            reference = itemModel.findOne({ 'folderId': referencesFolder['_id'], 'meta.identifier': IRI })
+            if not reference:
+                continue
+
+            history = reference['meta']['history']
+
+            for version in IRIGroup[IRI]:
+                if version not in itemReferences:
+                    itemReferences[version] = {}
+
+                inserted = False
+                for i in range(0, len(history)):
+                    if self.compareVersions(version, history[i]['version']) <= 0:
+                        if not history[i].get('reference', None):
+                            continue
+
+                        if history[i]['reference'] not in items:
+                            (modelType, referenceId) = history[i]['reference'].split('/')
+                            model = MODELS()[modelType]().findOne({
+                                '_id': ObjectId(referenceId)
+                            })
+                            items[history[i]['reference']] = jsonld_expander.loadCache(model['cached'])
+
+                            activityId = str(model['meta']['activityId'])
+
+                            if activityId not in activities:
+                                activities[activityId] = jsonld_expander.loadCache(
+                                    FolderModel().load(activityId, force=True)['cached']
+                                )
+                        if history[i]['reference']:
+                            itemReferences[version][IRI] = history[i]['reference']
+                        inserted = True
+
+                        break
+
+                if not inserted:
+                    itemReferences[version][IRI] = None # this is same as latest version
+
+        return result

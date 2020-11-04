@@ -5,7 +5,7 @@
 </p>
 
 <p>
-    You were invited by ${coordinatorName} to be a ${role} of ${appletName} applet on MindLogger. 
+    ${ownerName} sent you invitation to transfer ownership of ${appletName} applet on MindLogger. 
 </p>
 
 <p>

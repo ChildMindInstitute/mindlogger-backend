@@ -209,3 +209,15 @@ class Notification(Model):
             q['updated'] = {'$gt': since}
 
         return self.find(q, sort=sort)
+
+    def getNotificationByType(self, user, type):
+        return self.find({
+            'userId': user['_id'],
+            'type': type
+        })
+
+    def deleteNotificationByType(self, user, type):
+        self.removeWithQuery({
+            'userId': user['_id'],
+            'type': type
+        })

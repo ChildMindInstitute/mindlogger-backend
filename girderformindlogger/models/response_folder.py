@@ -34,14 +34,15 @@ from girderformindlogger.models.folder import Folder
 from girderformindlogger.models.item import Item
 from girderformindlogger.models.model_base import AccessControlledModel
 from girderformindlogger.models.roles import getUserCipher
+from girderformindlogger.models.aes_encrypt import AESEncryption 
+
 from girderformindlogger.utility.progress import noProgress, setResponseTimeLimit
-from girderformindlogger.models.aes_encrypt import AESEncryption
 from bson import json_util
 
 class ResponseItem(AESEncryption, Item):
     def initialize(self):
         self.name = 'item'
-        self.ensureIndices(('folderId', 'name', 'lowerName',
+        self.ensureIndices(('folderId', 'name', 'lowerName', 'created',
                             ([('folderId', 1), ('name', 1)], {})))
         self.ensureTextIndex({
             'name': 1,
@@ -60,28 +61,6 @@ class ResponseItem(AESEncryption, Item):
             ('meta.last7Days.responses', 1024),
         ], 6)
 
-    def encodeDocument(self, document):
-        metadata = document.get('meta', None)
-        if metadata:
-            if 'responses' in metadata:
-                metadata['items'] = list(dict.keys(metadata['responses']))
-
-                for i in range(0, len(metadata['items'])):
-                    metadata['responses'][str(i)] = metadata['responses'].pop(metadata['items'][i])
-                metadata['responses'] = json_util.dumps(metadata['responses'])
-
-            last7Days = metadata.get('last7Days', {}).get('responses')
-            if last7Days:
-                if 'items' not in metadata:
-                    metadata['items'] = list(dict.keys(last7Days))
-
-                for i in range(0, len(metadata['items'])):
-                    last7Days[str(i)] = last7Days.pop(metadata['items'][i])
-
-                metadata['last7Days']['responses'] = json_util.dumps(last7Days)
-
-        return document
-
     def decodeDocument(self, document):
         metadata = document.get('meta', None)
         if metadata:
@@ -98,6 +77,7 @@ class ResponseItem(AESEncryption, Item):
                 for i in range(0, len(metadata.get('items', []))):
                     last7Days[str(i)][0]['date'] = last7Days[str(i)][0]['date'].replace(tzinfo=None)
                     last7Days[metadata['items'][i]] = last7Days.pop(str(i))
+
             if 'items' in metadata:
                 metadata.pop('items')
 
@@ -109,6 +89,7 @@ class ResponseItem(AESEncryption, Item):
             timestamp = datetime.datetime.fromtimestamp(responseStartTime//1000).isoformat()[-32:].encode('utf-8')
             length = len(timestamp)
             self.AES_KEY = bytes( (baseKey[i] ^ timestamp[i%length] ^ 0x34) for i in range(0, 32))
+
 
     def createResponseItem(self, name, creator, folder, description='',
                    reuseExisting=False, readOnly=False):

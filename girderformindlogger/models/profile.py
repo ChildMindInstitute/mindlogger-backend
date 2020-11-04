@@ -1,21 +1,15 @@
 # -*- coding: utf-8 -*-
-import copy
 import datetime
 import json
 import os
-import six
 
 from bson.objectid import ObjectId
-from girderformindlogger import events
-from girderformindlogger.constants import AccessType, DEFINED_RELATIONS,       \
-    PROFILE_FIELDS
-from girderformindlogger.exceptions import ValidationException, GirderException
-from girderformindlogger.models.folder import Folder
+from girderformindlogger.constants import AccessType, DEFINED_RELATIONS, PROFILE_FIELDS
+from girderformindlogger.exceptions import ValidationException, AccessException
 from girderformindlogger.models.aes_encrypt import AESEncryption, AccessControlledModel
-from girderformindlogger.utility.model_importer import ModelImporter
-from girderformindlogger.utility.progress import noProgress, \
-    setResponseTimeLimit
+from girderformindlogger.utility.progress import noProgress
 from girderformindlogger.constants import USER_ROLES
+
 
 class Profile(AESEncryption, dict):
     """
@@ -30,7 +24,8 @@ class Profile(AESEncryption, dict):
                 'appletId',
                 'userId',
                 'individual_events',
-                'completed_activities'
+                'completed_activities',
+                'reviewers'
             )
         )
 
@@ -43,7 +38,8 @@ class Profile(AESEncryption, dict):
             ('firstName', 64),
             ('lastName', 64),
             ('userDefined.displayName', 64),
-            ('coordinatorDefined.displayName', 64)
+            ('coordinatorDefined.displayName', 64),
+            ('cachedDisplay.manager.displayName', 64)
         ])
 
     def display(self, p, role):
@@ -354,6 +350,7 @@ class Profile(AESEncryption, dict):
 
     def updateProfile(self, profileId, user, profileUpdate):
         from copy import deepcopy
+        from girderformindlogger.models.applet import Applet
         profile = self.load(profileId, force=True)
         if str(user["_id"]==profile["userId"]):
             update = deepcopy(profile.get("userDefined", {}))
@@ -383,6 +380,13 @@ class Profile(AESEncryption, dict):
             }, update=data, multi=True)
         except ValueError as e:
             print("Error  while updating Profile")
+
+    def updateProfileBadgets(self, profiles):
+        self.increment(query={
+            '_id': {
+                '$in': [profile['_id'] for profile in profiles]
+            }
+        }, field='badge', amount=1)
 
     def updateRelations(self, profileId):
         relations = list(self.find({
@@ -454,7 +458,7 @@ class Profile(AESEncryption, dict):
         # Remove the contents underneath this folder recursively.
         from girderformindlogger.models.upload import Upload
 
-        self.clean(folder, progress, **kwargs)
+        # self.clean(folder, progress, **kwargs)
 
         # Delete pending uploads into this folder
         uploadModel = Upload()
@@ -516,7 +520,7 @@ class Profile(AESEncryption, dict):
         if not filters:
             filters = {}
 
-        parentType = _verify_parentType(parentType)
+        parentType = self._verify_parentType(parentType)
 
         q = {
             'appletId': parent['_id'],
@@ -583,7 +587,7 @@ class Profile(AESEncryption, dict):
             if existing:
                 return existing
 
-        parentType = _verify_parentType(parentType)
+        parentType = self._verify_parentType(parentType)
 
         if parentType == 'folder':
             if 'baseParentId' not in parent:
@@ -719,6 +723,53 @@ class Profile(AESEncryption, dict):
 
         return self.save(appletProfile, validate=False)
 
+    def updateReviewerList(self, reviewer, users=None, operation='replace'):
+        profiles = self.find({'appletId': reviewer['appletId']})
+
+        for profile in profiles:
+            if reviewer['_id'] == profile['_id']:
+                continue
+
+            if operation == 'delete': # delete
+                if users and profile['_id'] in users and reviewer['_id'] in profile['reviewers']:
+                    profile['reviewers'].remove(reviewer['_id'])
+                    self.update({
+                        '_id': profile['_id']
+                    }, {
+                        '$set': {
+                            'reviewers': profile['reviewers']
+                        }
+                    })
+
+            else:   # add/replace
+                if reviewer['_id'] not in profile.get('reviewers', []):
+                    if users is None or profile['_id'] in users and operation:
+                        self.update({
+                            '_id': profile['_id']
+                        }, {
+                            '$push': {
+                                'reviewers': reviewer['_id']
+                            }
+                        }, multi=False)
+
+                elif operation == 'replace':
+                    if users is not None and profile['_id'] not in users:
+                        profile['reviewers'].remove(reviewer['_id'])
+                        self.update({
+                            '_id': profile['_id']
+                        }, {
+                            '$set': {
+                                'reviewers': profile['reviewers']
+                            }
+                        })
+
+    def getReviewerListForUser(self, appletId, userProfile, user):
+        reviewers = []
+        for reviewer in userProfile['reviewers']:
+            reviewers.append(self.displayProfileFields(self.findOne({'_id': reviewer}), user, forceManager=True))
+
+        return reviewers
+
     def createProfile(self, applet, user, role="user"):
         """
         Create a new profile to store information specific to a given (applet ∩
@@ -743,7 +794,9 @@ class Profile(AESEncryption, dict):
                 'userId': user['_id'],
                 'profile': True
             },
-            fields=returnFields
+            fields=[
+                *returnFields, "deactivated"
+            ]
         )
 
         if applet['_id'] not in [
@@ -776,11 +829,15 @@ class Profile(AESEncryption, dict):
                         )
                     )
 
-        if existing:
+        if existing and not existing.get('deactivated', False):
+            if "deactivated" in existing:
+                existing.pop("deactivated")
+
             return existing
 
         now = datetime.datetime.utcnow()
 
+        managers = list(self.find(query={'appletId': applet['_id'], 'roles': 'manager'}, fields=['_id']))
         profile = {
             k: v for k, v in {
                 'appletId': ObjectId(applet['_id']),
@@ -806,9 +863,15 @@ class Profile(AESEncryption, dict):
                         user.get('firstName')
                     ),
                     'email': user.get('email') if not user.get('email_encrypted', None) else ''
-                }
+                },
+                'reviewers': [
+                    manager['_id'] for manager in managers
+                ]
             }.items() if v is not None
         }
+
+        if existing:
+            profile['_id'] = existing['_id']
 
         self.setPublic(profile, False, save=False)
 
@@ -1090,3 +1153,17 @@ class Profile(AESEncryption, dict):
                 'profile': True
             }
         )
+
+    def update_profile_activities_by_applet_id(self, applet, activities):
+        self.update({
+            'appletId': ObjectId(applet['_id'])
+        }, {
+            '$set': {
+                'completed_activities': [
+                    {
+                        'activity_id': activity_id,
+                        'completed_time': None
+                    } for activity_id in activities
+                ]
+            }
+        })

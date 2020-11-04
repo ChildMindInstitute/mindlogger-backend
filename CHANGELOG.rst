@@ -8,6 +8,52 @@ Changes
 -------
 Unreleased
 ==========
+2020-11-04 v0.14.24
+fix applet name in getInvitation
+
+2020-10-30 v0.14.23
+fix applet name when inviting user to transfer ownership
+
+2020-10-30 v0.14.22
+fix invitation param
+
+2020-11-02 v0.14.22
+adds more translations
+
+2020-10-29 v0.14.21
+retrieve as response as user's timezone
+
+2020-10-26 v0.14.20
+Add initial support for i18n and send the invitation email subject in the user
+language
+
+2020-10-29 v0.14.19
+include the user language in the URL of the invite
+
+2020-10-26 v0.14.18
+remove leading and trailing whitespaces from the username at login
+
+2020-10-26 v0.14.17
+insert endpoints to manage item template
+
+2020-10-03 v0.14.16
+accumulate tokens from user responses for each day
+
+2020-10-03 v0.14.15
+update applet data structure for version controlling
+
+2020-09-28 v0.14.14
+fix transferownership endpoint
+
+2020-09-14 v0.14.13
+fix user responses endpoint failing to process the response data
+
+2020-08-23 v0.14.12
+fix permissions on response endpoint
+
+2020-07-22 v0.14.11
+added new response endpoint
+
 2020-07-10 v0.14.10
 notifyIfIncomplete parameter was removed from event dialog and set like default behaviour
 

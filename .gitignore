@@ -36,4 +36,7 @@ __pycache__
 *.crt
 *.credentials*
 
+# Virtual environment
+.venv
+
 reports

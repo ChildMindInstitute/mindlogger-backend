@@ -13,7 +13,6 @@ class PushNotification(Scheduler):
         super(PushNotification, self).__init__(connection=getRedisConnection())
         self.current_time = datetime.utcnow()
         self.event = event
-        self.notification_type = 1
         self.schedule_range = {
             "start": self.current_time.strftime('%Y/%m/%d'),
             "end": None
@@ -27,22 +26,31 @@ class PushNotification(Scheduler):
         self.end_time = None
 
     def set_schedules(self):
+        """
+        Creates the cronjobs for sending notifications
+        """
         self.remove_schedules()
+        notifications = self.event.get('data', {}).get('notifications', [])
+        event_type = self.event.get('data', {}).get('eventType', '')
 
-        for notification in self.event['data']['notifications']:
+        for notification in notifications:
             self.date_format(notification)
+
             if notification['random']:
-                self._set_scheduler_with_random_time()
-            else:
-                self.event['sendTime'].append(self.start_time.strftime('%H:%M'))
+                return self._set_scheduler_with_random_time()
 
-                if self.notification_type in [1, 2]:
-                    launch_time = self.first_launch_time()
-                    repeat = self.repeat_time(launch_time)
-                    self.__set_job(launch_time, repeat)
+            self.event['sendTime'].append(self.start_time.strftime('%H:%M'))
 
-                if self.notification_type == 3:
-                    self.__set_cron()
+            if event_type == '' or event_type == 'Daily':  # Daily or non-recurrent event.
+                launch_time = self.first_launch_time()
+                repeat = self.repeat_time(launch_time)
+                self.__set_job(launch_time, repeat)
+
+            if event_type == 'Weekly':
+                self.__set_cron(self.prepare_weekly_schedule())
+
+            if event_type == 'Monthly':
+                self.__set_cron(self.prepare_monthly_schedule())
 
     def first_launch_time(self, start_time=None):
         launch_day = self.schedule_range['start']
@@ -63,8 +71,6 @@ class PushNotification(Scheduler):
                     tmp -= timedelta(hours=1)
                     continue
                 break
-
-        print(f'First launch Time - {tmp}')
         return tmp
 
     def repeat_time(self, launch_time):
@@ -87,10 +93,26 @@ class PushNotification(Scheduler):
         return None
 
     def prepare_weekly_schedule(self):
+        """
+        Generates the cron string the weekly events.
+
+        :return: the cron string.
+        """
         first_cron_launch = min([(self.start_time + timedelta(minutes=15 * i)).minute for i in range(1, 5)])
-        if 'dayOfWeek' in self.event["schedule"]:
-            return f"{first_cron_launch}/15 * * * {self.event['schedule']['dayOfWeek'][0]}"
-        return f"{first_cron_launch}/15 * * * {self.current_time.weekday()}"
+        week_day = self.event.get('schedule', {}).get('dayOfWeek', [self.current_time.weekday()])[0]
+
+        return f"{first_cron_launch}/15 * * * {week_day}"
+
+    def prepare_monthly_schedule(self):
+        """
+        Generates the cron string the weekly events.
+
+        :return: the cron string.
+        """
+        first_cron_launch = min([(self.start_time + timedelta(minutes=15 * i)).minute for i in range(1, 5)])
+        dayOfMonth = self.event.get('schedule', {}).get('dayOfMonth', [None])[0]
+
+        return f"{first_cron_launch}/15 * {dayOfMonth} * *"
 
     def random_reschedule(self):
         self.remove_schedules()
@@ -99,50 +121,64 @@ class PushNotification(Scheduler):
             self._set_scheduler_with_random_time()
 
     def _set_scheduler_with_random_time(self):
+        event_type = self.event.get('data', {}).get('eventType', '')
         self.event['sendTime'] = []
-        print(f'Random end time - {self.end_time}')
 
         self.start_time = self.__random_date() if self.end_time else self.start_time
         self.event['sendTime'].append(self.start_time.strftime('%H:%M'))
 
-        if self.notification_type in [1, 2]:
+        if event_type == '' or event_type == 'Daily':  # Non-recurring or daily event.
             first_launch = self.first_launch_time(start_time=self.start_time)
             repeat = self.repeat_time(first_launch)
             self.__set_job(first_launch, repeat)
             return 0
-        self.__set_cron()
+
+        if event_type == 'Weekly':
+            self.__set_cron(self.prepare_weekly_schedule())
+
+        if event_type == 'Monthly':
+            self.__set_cron(self.prepare_monthly_schedule())
 
     def __set_job(self, first_launch=datetime.utcnow(), repeat=None):
+        """
+        Sets a job to send the notification on the given date.
+
+        :param first_launch: the datetime for the first notification.
+        :param repeat: Number of times that the notification will be sent.
+        """
         if repeat == 0:
             return
 
         job = self.schedule(
-                scheduled_time=first_launch,
-                func=send_push_notification,
+                scheduled_time=first_launch,  # Time for the first execution.
+                func=send_push_notification,  # Function to be executed.
                 kwargs={
                     "applet_id": self.event.get("applet_id"),
                     "event_id": self.event.get("_id"),
                     "activity_id": self.event["data"].get("activity_id", None),
                     "send_time": self.start_time.strftime('%H:%M')
                 },
-                interval=900,
-                repeat=repeat
+                interval=900,  # Time before the function is called again (in seconds).
+                repeat=repeat,  # Repeat the event this number of times.
             )
         self.event["schedulers"].append(job.id)
 
-    def __set_cron(self, repeat=None):
-        launch_time = self.prepare_weekly_schedule()
-        print(f'Cron launch time - {launch_time}')
+    def __set_cron(self, cron_string, repeat=None):
+        """
+        Sets a cron job to send notifications periodically.
+
+        :param repeat: Number of times that the notification will be sent.
+        """
         job = self.cron(
-                launch_time,
-                func=send_push_notification,
+                cron_string,
+                func=send_push_notification,  # Function to be executed.
                 kwargs={
                     "applet_id": self.event.get("applet_id"),
                     "event_id": self.event.get("_id"),
                     "activity_id": self.event["data"].get("activity_id", None),
                     "send_time": self.start_time.strftime('%H:%M')
                 },
-                repeat=repeat,
+                repeat=repeat,  # Repeat the event this number of times.
                 use_local_timezone=False
             )
         self.event["schedulers"].append(job.id)
@@ -157,49 +193,52 @@ class PushNotification(Scheduler):
         return self.start_time + timedelta(seconds=random_number_of_seconds)
 
     def date_format(self, notification):
+        schedule = self.event.get('schedule', {})
+        event_data = self.event.get('data', {})
+        event_type = event_data.get('eventType', '')
+        current_year = self.current_time.year
+        current_month = self.current_time.month
+        current_day = self.current_time.day
+
         self.start_time = datetime.strptime(
-            f'{self.current_time.year}/{self.current_time.month}/{self.current_time.day} {notification["start"]}',
+            f'{current_year}/{current_month}/{current_day} {notification["start"]}',
             '%Y/%m/%d %H:%M')
-        if 'dayOfMonth' in self.event['schedule']:
-            """
-            Does not repeat configuration in case of single event with exact year, month, day
-            """
-            if self.event['data'].get('notifications', None) and notification['random']:
+
+        if event_type == '':  # Single non-recurring event.
+            self.notification_type = 1  # Backwards-compatibility.
+            year = schedule.get('year', [None])
+            scheduled_date = str(
+                str(schedule['year'][0]) + '/' +  # Year.
+                ('0' + str(schedule['month'][0] + 1))[-2:] + '/' +  # Zero-padded month.
+                ('0' + str(schedule['dayOfMonth'][0]))[-2:])  # Zero-padded date.
+            self.schedule_range['start'] = scheduled_date
+            self.schedule_range['end'] = scheduled_date
+
+            if notification and notification['random']:
                 self.end_time = datetime.strptime(
                     f'{self.current_time.year}/{self.current_time.month}/{self.current_time.day} {notification["end"]}',
                     '%Y/%m/%d %H:%M') if notification['end'] else self.start_time
-            if 'year' in self.event['schedule'] and 'month' in self.event['schedule'] \
-                and 'dayOfMonth' in self.event['schedule']:
-                current_date_schedule = str(str(self.event['schedule']['year'][0]) + '/' +
-                                            ('0' + str(self.event['schedule']['month'][0] + 1))[
-                                            -2:] + '/' +
-                                            ('0' + str(self.event['schedule']['dayOfMonth'][0]))[-2:])
-                self.schedule_range['start'] = current_date_schedule
-                self.schedule_range['end'] = current_date_schedule
 
-        elif 'dayOfWeek' in self.event['schedule']:
-            """
-            Weekly configuration in case of weekly event
-            """
-            self.notification_type = 3
-            if 'start' in self.event['schedule'] and self.event['schedule']['start']:
+        else:  # Daily, weekly or monthly event.
+            start = schedule.get('start', None)
+            end = schedule.get('end', None)
+
+            if start:
                 self.schedule_range['start'] = datetime.fromtimestamp(
-                    float(self.event['schedule']['start']) / 1000).strftime('%Y/%m/%d')
-            if 'end' in self.event['schedule'] and self.event['schedule']['end']:
+                    float(start) / 1000).strftime('%Y/%m/%d')
+            if end:
                 self.schedule_range['end'] = datetime.fromtimestamp(
-                    float(self.event['schedule']['end']) / 1000).strftime('%Y/%m/%d')
-            self.schedule_range['dayOfWeek'] = self.event['schedule']['dayOfWeek'][0]
-        else:
-            """
-            Daily configuration in case of daily event
-            """
-            self.notification_type = 2
-            if 'start' in self.event['schedule'] and self.event['schedule']['start']:
-                self.schedule_range['start'] = datetime.fromtimestamp(
-                    float(self.event['schedule']['start']) / 1000).strftime('%Y/%m/%d')
-            if 'end' in self.event['schedule'] and self.event['schedule']['end']:
-                self.schedule_range['end'] = datetime.fromtimestamp(
-                    float(self.event['schedule']['end']) / 1000).strftime('%Y/%m/%d')
+                    float(end) / 1000).strftime('%Y/%m/%d')
+
+        if event_type == 'Daily':
+            self.notification_type = 2  # Backwards-compatibility.
+
+        if event_type == 'Weekly':
+            self.notification_type = 3  # Backwards-compatibility.
+            self.schedule_range['dayOfWeek'] = schedule['dayOfWeek'][0]  # Is this being used?
+
+        if event_type == 'Monthly':
+            self.notification_type = 4  # Backwards-compatibility.
 
     def remove_schedules(self, jobs=None):
         jobs = jobs or self.event.get('schedulers') or []
@@ -207,3 +246,4 @@ class PushNotification(Scheduler):
             self.cancel(job)
 
         self.event['schedulers'] = []
+        self.event['sendTime'] = []

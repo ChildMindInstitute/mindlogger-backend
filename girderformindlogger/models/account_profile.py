@@ -96,11 +96,11 @@ class AccountProfile(AccessControlledModel):
 
         return self.save(profile)
 
-    def removeApplet(self, profile, appletId):
-        roles = list(USER_ROLES.keys())
+    def removeApplet(self, profile, appletId, rolesToRevoke = None):
+        roles = list(USER_ROLES.keys()) if not rolesToRevoke else rolesToRevoke
         roles.append('owner')
 
-        if not profile.get('applets'):
+        if not profile.get('applets', None):
             profile['applets'] = {}
 
         appletId = ObjectId(appletId)

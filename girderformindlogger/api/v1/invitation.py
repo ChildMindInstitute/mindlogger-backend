@@ -37,7 +37,7 @@ class Invitation(Resource):
         super(Invitation, self).__init__()
         self.resourceName = 'invitation'
         self.route('GET', (':id',), self.getInvitation)
-        self.route('GET', (':id', 'accept'), self.acceptInvitationByToken)
+        self.route('GET', (':id', ':lang', 'accept'), self.acceptInvitationByToken)
         self.route('POST', (':id', 'accept'), self.acceptInvitation)
         self.route('GET', (':id', 'qr'), self.getQR)
         self.route('DELETE', (':id',), self.declineInvitation)
@@ -69,18 +69,21 @@ class Invitation(Resource):
         )
         .errorResponse()
     )
-    @rawResponse
     def getInvitation(self, invitation, fullHTML=False, includeLink=True):
         """
         Get an invitation as a string.
         """
         currentUser = self.getCurrentUser()
-        return(InvitationModel().htmlInvitation(
-            invitation,
-            currentUser,
-            fullDoc=fullHTML,
-            includeLink=includeLink if includeLink is not None else True
-        ))
+
+        return {
+            'body': InvitationModel().htmlInvitation(
+                invitation,
+                currentUser,
+                fullDoc=fullHTML,
+                includeLink=includeLink if includeLink is not None else True
+            ),
+            "lang": invitation.get("lang", "en")
+        }
 
     @access.public(scope=TokenScope.USER_INFO_READ)
     @autoDescribeRoute(
@@ -152,11 +155,13 @@ class Invitation(Resource):
             raise AccessException(
                 "You must be logged in to accept an invitation."
             )
+        if invitation.get('role', 'user') == 'owner':
+            profile = AppletModel().receiveOwnerShip(AppletModel().load(invitation['appletId'], force=True), currentUser, email)
+        else:
+            profile = InvitationModel().acceptInvitation(invitation, currentUser, email)
 
-        profile = InvitationModel().acceptInvitation(invitation, currentUser, email)
-
-        if invitation.get('role', 'user') == 'editor' or invitation.get('role', 'user') == 'manager':
-            InvitationModel().accessToDuplicatedApplets(invitation, currentUser, email)
+            if invitation.get('role', 'user') == 'editor' or invitation.get('role', 'user') == 'manager':
+                InvitationModel().accessToDuplicatedApplets(invitation, currentUser, email)
 
         InvitationModel().remove(invitation)
 
@@ -184,7 +189,7 @@ class Invitation(Resource):
         )
         .errorResponse()
     )
-    def acceptInvitationByToken(self, invitation, email, token):
+    def acceptInvitationByToken(self, invitation, lang, email, token):
         """
         Accept an invitation.
         """
@@ -200,12 +205,14 @@ class Invitation(Resource):
             raise AccessException(
                 "Invalid token."
             )
+        if invitation.get('role', 'user') == 'owner':
+            AppletModel().receiveOwnerShip(AppletModel().load(invitation['appletId'], force=True), currentUser, email)
+        else:
+            profile = InvitationModel().acceptInvitation(invitation, currentUser, email)
 
-        profile = InvitationModel().acceptInvitation(invitation, currentUser, email)
-
-        # editors should be able to access duplicated applets
-        if invitation.get('role','user') == 'editor' or invitation.get('role', 'user') == 'manager':
-            InvitationModel().accessToDuplicatedApplets(invitation, currentUser, email)
+            # editors should be able to access duplicated applets
+            if invitation.get('role','user') == 'editor' or invitation.get('role', 'user') == 'manager':
+                InvitationModel().accessToDuplicatedApplets(invitation, currentUser, email)
 
         InvitationModel().remove(invitation)
         return profile

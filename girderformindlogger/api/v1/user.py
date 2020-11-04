@@ -18,8 +18,10 @@ from girderformindlogger.models.setting import Setting
 from girderformindlogger.models.token import Token
 from girderformindlogger.models.user import User as UserModel
 from girderformindlogger.models.account_profile import AccountProfile
+from girderformindlogger.models.notification import Notification
 from girderformindlogger.settings import SettingKey
 from girderformindlogger.utility import jsonld_expander, mail_utils
+from girderformindlogger.i18n import t
 
 
 class User(Resource):
@@ -70,7 +72,8 @@ class User(Resource):
         self.route('PUT', ('profile',), self.updateProfile)
         self.route('PUT', (':id', 'verification'), self.verifyEmail)
         self.route('POST', ('verification',), self.sendVerificationEmail)
-
+        self.route('POST', ('responseUpdateRequest', ), self.requestResponseReUpload)
+        self.route('GET', ('updates',), self.getUserUpdates)
 
     @access.user
     @autoDescribeRoute(
@@ -829,10 +832,14 @@ class User(Resource):
                paramType='header', required=False)
         .param('timezone', 'timezone of user mobile',
                paramType='header', required=False)
+        .param('lang',
+               'the desired language for the response',
+               default='en',
+               required=True)
         .errorResponse('Missing Authorization header.', 401)
         .errorResponse('Invalid login or password.', 403)
     )
-    def login(self, loginAsEmail):
+    def login(self, loginAsEmail, lang):
         import threading
         from girderformindlogger.utility.mail_utils import validateEmailAddress
 
@@ -842,7 +849,7 @@ class User(Resource):
         user, token = self.getCurrentUser(returnToken=True)
 
         deviceId = cherrypy.request.headers.get('deviceId', '')
-        timezone = int(cherrypy.request.headers.get('timezone', 0))
+        timezone = float(cherrypy.request.headers.get('timezone', 0))
 
         # Only create and send new cookie if user isn't already sending a valid
         # one.
@@ -866,6 +873,9 @@ class User(Resource):
 
             login, password = credentials.split(':', 1)
 
+            # Remove spaces around the username.
+            login = login.strip()
+
             isEmail = validateEmailAddress(login)
 
             if not loginAsEmail and isEmail:
@@ -873,19 +883,14 @@ class User(Resource):
                     "Please log in with a username, not an email address."
                 )
             if loginAsEmail and not isEmail:
-                raise AccessException(
-                    "Please enter valid email address"
-                )
+                raise AccessException(t('error_invalid_email', lang))
 
             otpToken = cherrypy.request.headers.get('Girder-OTP')
             try:
                 user = self._model.authenticate(login, password, otpToken, loginAsEmail = True)
             except:
-                raise AccessException(
-                    "Incorrect password for {} if that user exists".format(
-                        login
-                    )
-                )
+                raise AccessException(t('error_invalid_password', lang, { 'user': login }))
+
             if user.get('exception', None):
                 raise AccessException(
                     user['exception']
@@ -1021,15 +1026,16 @@ class User(Resource):
 
         # Assign all new users to a "New Users" Group
         newUserGroup = GroupModel().findOne({'name': 'New Users'})
+        adminUser = UserModel().findOne(
+            query={'admin': True},
+            sort=[('created', SortDir.ASCENDING)]
+        )
         newUserGroup = newUserGroup if (
             newUserGroup is not None and bool(newUserGroup)
         ) else GroupModel(
         ).createGroup(
             name="New Users",
-            creator=UserModel().findOne(
-                query={'admin': True},
-                sort=[('created', SortDir.ASCENDING)]
-            ),
+            creator=adminUser if adminUser else user,
             public=False
         )
         group = GroupModel().addUser(
@@ -1178,6 +1184,26 @@ class User(Resource):
                 or not self._model._cryptContext.verify(old, user['salt'])):
             # If not the user's actual password, check for temp access token
             token = Token().load(old, force=True, objectId=False, exc=False)
+
+            # prepare for notification
+            Notification().deleteNotificationByType(
+                user,
+                'response-data-alert'
+            )
+
+            Notification().createNotification('response-data-alert', {
+                'title': 'Response Alert',
+                'description': 'Your past response need to be refreshed'
+            }, user)
+
+            ProfileModel().update({
+                'userId': user['_id']
+            }, {
+                '$unset': {
+                    'refreshRequest': ''
+                }
+            })
+
             if (not token or not token.get('userId')
                     or token['userId'] != user['_id']
                     or not Token().hasScope(token, TokenScope.TEMPORARY_USER_AUTH)):
@@ -1487,3 +1513,55 @@ class User(Resource):
             raise AccessException("You are not authorized to change account name for this account")
 
         return 'success'
+
+    @access.user(scope=TokenScope.DATA_OWN)
+    @autoDescribeRoute(
+        Description('send response reupload request to managers.')
+        .jsonParam(
+            'userPublicKeys',
+            'public keys for applet user',
+            paramType='form',
+            required=True
+        )
+    )
+    def requestResponseReUpload(self, userPublicKeys):
+        from datetime import datetime
+
+        currentUser = self.getCurrentUser()
+
+        for appletId in userPublicKeys:
+            key = userPublicKeys[appletId]
+
+            ProfileModel().update({
+                'userId': currentUser['_id'],
+                'appletId': ObjectId(appletId)
+            }, {
+                '$set': {
+                    'refreshRequest': {
+                        'userPublicKey': key,
+                        'requestDate': datetime.utcnow()
+                    }
+                }
+            })
+
+        return { 'message': 'success' }
+
+
+    @access.user(scope=TokenScope.DATA_OWN)
+    @autoDescribeRoute(
+        Description('get user updates')
+        .notes(
+            'This endpoint is used for users to get updates via notifications'
+        )
+        .errorResponse(('You are not logged in.',), 401)
+    )
+    def getUserUpdates(self):
+        from girderformindlogger.external.notification import send_custom_notification
+
+        user = self.getCurrentUser()
+
+        notifications = list(Notification().getNotificationByType(user, 'response-data-alert'))
+        if len(notifications):
+            send_custom_notification(notifications[0])
+
+        Notification().deleteNotificationByType(user, 'response-data-alert')
