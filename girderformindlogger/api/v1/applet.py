@@ -1447,13 +1447,13 @@ class Applet(Resource):
                 'url': url,
                 'userName': invitedUser['firstName'],
                 'ownerName': thisUser['firstName'],
-                'appletName': applet['displayName'],
+                'appletName': applet['meta'].get('applet', {}).get('displayName', applet.get('displayName', 'applet')),
             })
         else:
             html = mail_utils.renderTemplate('transferOwnerShipToNewUser.mako', {
                 'url': url,
                 'ownerName': thisUser['firstName'],
-                'appletName': applet['displayName'],
+                'appletName': applet['meta'].get('applet', {}).get('displayName', applet.get('displayName', 'applet')),
             })
 
         mail_utils.sendMail(
