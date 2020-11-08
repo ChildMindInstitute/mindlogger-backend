@@ -1227,7 +1227,7 @@ class User(Resource):
             'backend sends temporary access link to user via email.'
         )
         .param('email', 'Your email address.', strip=True)
-        .param('lang', 'language', required=False)
+        .param('lang', 'language', required=False, default='en')
         .errorResponse('That email does not exist in the system.')
     ) ## TODO: recreate by login
     def generateTemporaryPassword(self, email, lang='en'):
@@ -1243,10 +1243,10 @@ class User(Resource):
 
         web_url = os.getenv('WEB_URI') or 'localhost:8081'
 
-        url = 'https://%s/#/useraccount/%s/token/%s' % (
-            web_url, str(user['_id']), str(token['_id']))
+        url = 'https://%s/#/useraccount/%s/token/%s?lang=%s' % (
+            web_url, str(user['_id']), str(token['_id']), lang)
 
-        html = mail_utils.renderTemplate('temporaryAccess.mako', {
+        html = mail_utils.renderTemplate(f'temporaryAccess.{lang}.mako', {
             'url': url,
             'token': str(token['_id'])
         })
