@@ -1,6 +1,7 @@
 locale = {
     # EMAIL.
     'invite_email_subject': 'Invitation for an applet',
+    'temporary_access': 'Temporary access',
 
     # ERRORS.
     'error_invalid_email': 'Please enter a valid email address',
