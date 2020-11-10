@@ -22,6 +22,7 @@ from girderformindlogger.models.notification import Notification
 from girderformindlogger.settings import SettingKey
 from girderformindlogger.utility import jsonld_expander, mail_utils
 from girderformindlogger.i18n import t
+import os
 
 
 class User(Resource):
@@ -1226,9 +1227,10 @@ class User(Resource):
             'backend sends temporary access link to user via email.'
         )
         .param('email', 'Your email address.', strip=True)
+        .param('lang', 'language', required=False, default='en')
         .errorResponse('That email does not exist in the system.')
     ) ## TODO: recreate by login
-    def generateTemporaryPassword(self, email):
+    def generateTemporaryPassword(self, email, lang='en'):
         user = self._model.findOne({'email': self._model.hash(email.lower()), 'email_encrypted': True})
 
         if not user:
@@ -1239,10 +1241,12 @@ class User(Resource):
 
         token = Token().createToken(user, days=(15/1440.0), scope=TokenScope.TEMPORARY_USER_AUTH)
 
-        url = '%s#useraccount/%s/token/%s' % (
-            mail_utils.getEmailUrlPrefix(), str(user['_id']), str(token['_id']))
+        web_url = os.getenv('WEB_URI') or 'localhost:8081'
 
-        html = mail_utils.renderTemplate('temporaryAccess.mako', {
+        url = 'https://%s/#/useraccount/%s/token/%s?lang=%s' % (
+            web_url, str(user['_id']), str(token['_id']), lang)
+
+        html = mail_utils.renderTemplate(f'temporaryAccess.{lang}.mako', {
             'url': url,
             'token': str(token['_id'])
         })
