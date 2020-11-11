@@ -22,6 +22,7 @@ from girderformindlogger.models.notification import Notification
 from girderformindlogger.settings import SettingKey
 from girderformindlogger.utility import jsonld_expander, mail_utils
 from girderformindlogger.i18n import t
+import os
 
 
 class User(Resource):
@@ -1245,8 +1246,10 @@ class User(Resource):
 
         token = Token().createToken(user, days=(15/1440.0), scope=TokenScope.TEMPORARY_USER_AUTH)
 
-        url = '%s#useraccount/%s/token/%s' % (
-            mail_utils.getEmailUrlPrefix(), str(user['_id']), str(token['_id']))
+        web_url = os.getenv('WEB_URI') or 'localhost:8081'
+
+        url = 'https://%s/#/useraccount/%s/token/%s?lang=%s' % (
+            web_url, str(user['_id']), str(token['_id']), lang)
 
         html = mail_utils.renderTemplate(f'temporaryAccess.{lang}.mako', {
             'url': url,

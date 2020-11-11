@@ -8,6 +8,9 @@ Changes
 -------
 Unreleased
 ==========
+2020-11-07 v0.14.25
+insert French email template for reset password
+
 2020-11-04 v0.14.24
 fix applet name in getInvitation
 
