@@ -1,15 +1,16 @@
 <%include file="_header.mako"/>
 
 <p>
-We are sending this message because you requested to reset your MindLogger password.
+A temporary access token was requested on your behalf.  You can access the
+${brandName} system at
+<a href="${url}">${url}</a>
+Once you access the system, you will have the option to update your password.
 </p>
 
 <p>
-Please use this line <a href="${url}">${url}</a> to reset your password.
-</p>
-
-<p>
-This link will expire in 15 mins.
+If you did not initiate this temporary access request, you can ignore this
+email.  Temporary access is only available with the link provided and expires
+15 minutes after it was requested.
 </p>
 
 <%include file="_footer.mako"/>

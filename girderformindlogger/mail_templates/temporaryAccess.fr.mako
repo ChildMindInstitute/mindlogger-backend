@@ -1,16 +1,16 @@
+## -*- coding: utf-8 -*-
 <%include file="_header.mako"/>
 
 <p>
-Nous vous envoyons ce message parce que vous avez demandé à réinitialiser votre mot de passe MindLogger.
+Un jeton d'accès temporaire a été demandé en votre nom. Vous pouvez accéder au système
+${brandName} à l'adresse
+<a href="${url}">${url}</a>
+Une fois que vous aurez accédé au système, vous aurez la possibilité de mettre à jour votre mot de passe.
 </p>
 
 <p>
-Veuillez utiliser ce lien <a href="${url}">${url}</a> pour réinitialiser votre mot de passe.
+Si vous n'avez pas initié cette demande d'accès temporaire, vous pouvez ignorer
+ce message. L'accès temporaire n'est disponible qu'avec le lien fourni et expire 15 minutes après avoir été demandé.
 </p>
-
-<p>
-Ce lien expirera dans 15 minutes.
-</p>
-
 
 <%include file="_footer.mako"/>

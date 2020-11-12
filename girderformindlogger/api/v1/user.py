@@ -1227,7 +1227,12 @@ class User(Resource):
             'backend sends temporary access link to user via email.'
         )
         .param('email', 'Your email address.', strip=True)
-        .param('lang', 'language', required=False, default='en')
+        .param(
+            'lang',
+            'Language of mail template and web link',
+            default='en',
+            required=True
+        )
         .errorResponse('That email does not exist in the system.')
     ) ## TODO: recreate by login
     def generateTemporaryPassword(self, email, lang='en'):
@@ -1252,7 +1257,7 @@ class User(Resource):
         })
 
         mail_utils.sendMail(
-            '%s: Temporary access' % Setting().get(SettingKey.BRAND_NAME),
+            f'{Setting().get(SettingKey.BRAND_NAME)}: {t("temporary_access", lang)}',
             html,
             [email]
         )
