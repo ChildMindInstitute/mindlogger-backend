@@ -23,8 +23,8 @@ with open('README.rst') as f:
     readme = f.read()
 
 installReqs = [
-    'boto3',
-    'botocore',
+    'boto3==1.9.218',
+    'botocore==1.12.218',
     'cherrypy_cors==1.6',
     # CherryPy version is restricted due to a bug in versions >=11.1
     # https://github.com/cherrypy/cherrypy/issues/1662
