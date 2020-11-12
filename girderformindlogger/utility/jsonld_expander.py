@@ -68,7 +68,7 @@ def expandObj(contextSet, data):
 def convertObjectToSingleFileFormat(obj, modelType, user, identifier=None, refreshCache=False):
     modelClass = MODELS()[modelType]()
 
-    model = obj.get('meta', {}).get(modelType, None)   
+    model = obj.get('meta', {}).get(modelType, None)
     if model:
         for key in ['url', 'schema:url']:
             if key in model:
@@ -183,7 +183,7 @@ def insertHistoryData(obj, identifier, modelType, baseVersion, historyFolder, hi
 
     itemModel.update({'_id': referenceObj['_id']}, {
         '$push': {
-            'meta.history': { 
+            'meta.history': {
                 'version': baseVersion,
                 'reference': '{}/{}'.format(modelType, str(obj['_id'])) if obj else None,
                 'updated': now
@@ -322,7 +322,7 @@ def createProtocolFromExpandedDocument(protocol, user, editExisting=False, remov
                             insertHistoryData(None, '{}/{}'.format(metadata['activityId'], str(item['_id'])), modelType, baseVersion, historyFolder, historyReferenceFolder, user)
 
                     newModel = modelClass.setMetadata(
-                        item, 
+                        item,
                         {
                             **item.get('meta', {}),
                             **metadata
@@ -362,7 +362,7 @@ def createProtocolFromExpandedDocument(protocol, user, editExisting=False, remov
                         # handle deleted activites
                         if 'activities' in removed:
                             removedActivities = list(ActivityModel().find({
-                                'meta.protocolId': protocolId, 
+                                'meta.protocolId': protocolId,
                                 '_id': {
                                     '$in': [
                                         ObjectId(activityId) for activityId in removed['activities']
@@ -381,7 +381,7 @@ def createProtocolFromExpandedDocument(protocol, user, editExisting=False, remov
                         # handle deleted items
                         if 'items' in removed:
                             removedItems = list(ScreenModel().find({
-                                'meta.protocolId': protocolId, 
+                                'meta.protocolId': protocolId,
                                 '_id': {
                                     '$in': [
                                         ObjectId(itemId) for itemId in removed['items']
@@ -392,7 +392,7 @@ def createProtocolFromExpandedDocument(protocol, user, editExisting=False, remov
                             for item in removedItems:
                                 clearCache(item, 'screen')
                                 ScreenModel().remove(item)
-                                
+
                                 if 'identifier' in item['meta']:
 
                                     activityId = str(item['meta']['activityId'])
@@ -400,7 +400,7 @@ def createProtocolFromExpandedDocument(protocol, user, editExisting=False, remov
 
                                     if not historyObj:
 
-                                        activity = ScreenModel().load(activityId, force=True)
+                                        activity = FolderModel().load(activityId, force=True)
                                         historyObj = insertHistoryData(activity, activity['meta']['identifier'], 'activity', baseVersion, historyFolder, historyReferenceFolder, user)
 
                                         activityIdToHistoryObj[activityId] = historyObj
@@ -428,8 +428,8 @@ def getUpdatedContent(updates, document):
     removedActivities = updates.get('removed', {}).get('activities', [])
 
     activityUpdates = updates['protocol'].get('activities', {})
-    activityID2Key = { 
-        str(activityUpdates[key]['data']['_id']): key for key in activityUpdates 
+    activityID2Key = {
+        str(activityUpdates[key]['data']['_id']): key for key in activityUpdates
     }
 
     activities = document['protocol']['activities']
@@ -468,7 +468,7 @@ def getUpdatedContent(updates, document):
                 items[itemKey] = itemUpdates[itemKey]
 
             activityID2Key.pop(activityId)
-    
+
     # handle newly inserted activities
     for activityId in activityID2Key:
         key = activityID2Key[activityId]
@@ -1432,7 +1432,7 @@ def formatLdObject(
                 protocol = ProtocolModel().load(ObjectId(protocolId), user)
 
                 if 'appletId' not in protocol.get('meta', {}):
-                    protocol['meta']['appletId'] = None
+                    protocol['meta']['appletId'] = 'None'
                     ProtocolModel().setMetadata(protocol, protocol['meta'])
 
                 protocol = ProtocolModel().getFromUrl(
@@ -1484,22 +1484,17 @@ def formatLdObject(
                 ])
             }
 
-            if 'appletName' in obj and obj['appletName']:
-                suffix = obj['appletName'].split('/')[-1]
+            if len(obj.get('meta', {}).get('applet', {}).get('displayName', '')):
                 inserted = False
 
                 candidates = ['prefLabel', 'altLabel']
                 for candidate in candidates:
                     for key in applet['applet']:
                         if not inserted and str(key).endswith(candidate) and len(applet['applet'][key]) and len(applet['applet'][key][0].get('@value', '')):
-                            if obj.get('duplicateOf', None):
-                                applet['applet'][key][0]['@value'] = obj['appletName'].split('/')[0]
-                            if len(suffix):
-                                applet['applet'][key][0]['@value'] += (' ' + suffix)
-
-                            AppletModel().update({'_id': obj['_id']}, {'$set': {'displayName': applet['applet'][key][0]['@value']}})
+                            applet['applet'][key][0]['@value'] = obj['meta']['applet']['displayName']
 
                             inserted = True
+
             createCache(obj, applet, 'applet', user)
             if responseDates:
                 try:
@@ -1530,6 +1525,8 @@ def formatLdObject(
                     key = '{}/{}'.format(str(item['meta']['activityId']), str(item['_id']))
 
                     itemIDMapping['{}/{}'.format(str(item['meta']['activityId']), formatted['@id'])] = key
+                    if item.get('duplicateOf', None):
+                        itemIDMapping['{}/{}'.format(str(item['meta']['activityId']), str(item['duplicateOf']))] = key
 
                     protocol['items'][key] = formatted
 
@@ -1545,7 +1542,7 @@ def formatLdObject(
                     protocol['activities'][str(activity['_id'])] = formatted
 
                     activityIDMapping['{}/{}'.format(str(obj['_id']), formatted['@id'])] = str(activity['_id'])
-                
+
                 if refreshCache:
                     if fixUpOrderList(obj, 'protocol', activityIDMapping):
                         ProtocolModel().setMetadata(obj, obj['meta'])

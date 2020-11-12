@@ -73,7 +73,7 @@ def getLatestResponse(informantId, appletId, activityID):
             }
         },
         force=True,
-        sort=[("updated", DESCENDING)]
+        sort=[("created", DESCENDING)]
     ))
     if len(responses):
         return(responses[0])
@@ -83,8 +83,8 @@ def getLatestResponse(informantId, appletId, activityID):
 def getLatestResponseTime(informantId, appletId, activityID, tz=None):
     latestResponse = getLatestResponse(informantId, appletId, activityID)
     try:
-        latestResponse['updated'].isoformat(
-        ) if tz is None else latestResponse['updated'].astimezone(pytz.timezone(
+        latestResponse['created'].isoformat(
+        ) if tz is None else latestResponse['created'].astimezone(pytz.timezone(
             tz
         )).isoformat()
     except TypeError:
@@ -95,14 +95,14 @@ def getLatestResponseTime(informantId, appletId, activityID, tz=None):
         print(traceback.print_tb(sys.exc_info()[2]))
     return(
         (
-            latestResponse['updated'].astimezone(pytz.timezone(
+            latestResponse['created'].astimezone(pytz.timezone(
                 tz
             )).isoformat() if (
                 isinstance(tz, str) and tz in pytz.all_timezones
-            ) else latestResponse['updated'].isoformat()
+            ) else latestResponse['created'].isoformat()
         ) if (
             isinstance(latestResponse, dict) and isinstance(
-                latestResponse.get('updated'),
+                latestResponse.get('created'),
                 datetime
             )
         ) else None
@@ -132,9 +132,9 @@ def aggregate(metadata, informant, startDate=None, endDate=None):
             ) else informant,
             "created": {
                 "$gte": startDate,
-                "$lt": endDate
+                # "$lt": endDate
             } if startDate else {
-                "$lt": endDate
+                # "$lt": endDate
             },
             "meta.applet.@id": metadata["applet_id"],
             "meta.subject.@id": metadata["subject_id"]
@@ -151,7 +151,7 @@ def aggregate(metadata, informant, startDate=None, endDate=None):
         return {}
 
     startDate = min([response.get(
-        'updated',
+        'created',
         endDate
     ) for response in definedRange]) if startDate is None else startDate
 
@@ -190,7 +190,7 @@ def aggregate(metadata, informant, startDate=None, endDate=None):
 
 
 def completedDate(response):
-    completed = response.get("updated", {})
+    completed = response.get("created", {})
     return completed
 
 
@@ -204,7 +204,7 @@ def formatResponse(response):
                     metadata.get(
                         'responseStarted',
                         response.get(
-                            'updated',
+                            'created',
                             datetime.now()
                         )
                     )
@@ -213,7 +213,7 @@ def formatResponse(response):
                     metadata.get(
                         'responseCompleted',
                         response.get(
-                            'updated',
+                            'created',
                             datetime.now()
                         )
                     )
@@ -323,7 +323,6 @@ def last7Days(
     startDate = delocalize(referenceDate - timedelta(days=7))
     referenceDate = delocalize(referenceDate)
 
-    # we need to get the activities
     profile = Profile().findOne({'userId': ObjectId(informantId), 'appletId': ObjectId(appletId)})
 
     responses = aggregate({
@@ -342,10 +341,10 @@ def last7Days(
         for resp in outputResponses[item]:
             resp['date'] = delocalize(resp['date'])
             if not groupByDateActivity:
-                resp['date'] = determine_date(resp['date'])
+                resp['date'] = determine_date(resp['date'] + timedelta(hours=profile['timezone']))
 
     l7d = {}
-    l7d["responses"] = _oneResponsePerDatePerVersion(outputResponses) if groupByDateActivity else outputResponses
+    l7d["responses"] = _oneResponsePerDatePerVersion(outputResponses, profile['timezone']) if groupByDateActivity else outputResponses
 
     endDate = referenceDate.date()
     l7d["schema:endDate"] = endDate.isoformat()
@@ -422,7 +421,7 @@ def responseDateList(appletId, userId, reviewer):
         determine_date(
             response.get("meta", {}).get(
                 "responseCompleted",
-                response.get("updated")
+                response.get("created")
             )
         ).isoformat() for response in list(ResponseItem().find(
             query={
@@ -430,7 +429,7 @@ def responseDateList(appletId, userId, reviewer):
                 "baseParentId": userId,
                 "meta.applet.@id": appletId
             },
-            sort=[("updated", DESCENDING)]
+            sort=[("created", DESCENDING)]
         ))
     ]))
     rdl.sort(reverse=True)
@@ -452,16 +451,16 @@ def add_latest_daily_response(data, responses):
 
     for response in responses:
         activity_id = str(response['meta']['activity']['@id'])
-        response['updated'] = response['updated'].date()  # Ignore the time.
+        # response['updated'] = response['updated'].date()  # consider time value to handle users with different timezones.
 
         for item in response['meta']['responses']:
             if item not in data['responses']:
                 data['responses'][item] = []
 
             data['responses'][item].append({
-                "date": response['updated'],
+                "date": response['meta'].get('subject', {}).get('userTime').isoformat(),
                 "value": response['meta']['responses'][item],
-                "version": response['meta'].get('applet', {}).get('version', '0.0.0')
+                "version": response['meta'].get('applet', {}).get('version', '0.0.0'),
             })
 
             if str(response['_id']) not in data['dataSources'] and 'dataSource' in response['meta']:
@@ -476,13 +475,15 @@ def add_latest_daily_response(data, responses):
                     'data': response['meta']['dataSource']
                 }
 
-def _oneResponsePerDatePerVersion(responses):
+def _oneResponsePerDatePerVersion(responses, offset):
     newResponses = {}
     for response in responses:
    
         df = pd.DataFrame(responses[response])
 
         df["datetime"] = df.date
+    
+        df["date"] = df.date + timedelta(hours=offset)
         df["date"] = df.date.apply(determine_date)
         df["versionValue"] = df.version.apply(convertToComparableVersion)
 

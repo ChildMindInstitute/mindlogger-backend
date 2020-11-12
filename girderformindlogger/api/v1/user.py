@@ -21,6 +21,8 @@ from girderformindlogger.models.account_profile import AccountProfile
 from girderformindlogger.models.notification import Notification
 from girderformindlogger.settings import SettingKey
 from girderformindlogger.utility import jsonld_expander, mail_utils
+from girderformindlogger.i18n import t
+import os
 
 
 class User(Resource):
@@ -831,10 +833,14 @@ class User(Resource):
                paramType='header', required=False)
         .param('timezone', 'timezone of user mobile',
                paramType='header', required=False)
+        .param('lang',
+               'the desired language for the response',
+               default='en',
+               required=True)
         .errorResponse('Missing Authorization header.', 401)
         .errorResponse('Invalid login or password.', 403)
     )
-    def login(self, loginAsEmail):
+    def login(self, loginAsEmail, lang):
         import threading
         from girderformindlogger.utility.mail_utils import validateEmailAddress
 
@@ -868,6 +874,9 @@ class User(Resource):
 
             login, password = credentials.split(':', 1)
 
+            # Remove spaces around the username.
+            login = login.strip()
+
             isEmail = validateEmailAddress(login)
 
             if not loginAsEmail and isEmail:
@@ -875,19 +884,14 @@ class User(Resource):
                     "Please log in with a username, not an email address."
                 )
             if loginAsEmail and not isEmail:
-                raise AccessException(
-                    "Please enter valid email address"
-                )
+                raise AccessException(t('error_invalid_email', lang))
 
             otpToken = cherrypy.request.headers.get('Girder-OTP')
             try:
                 user = self._model.authenticate(login, password, otpToken, loginAsEmail = True)
             except:
-                raise AccessException(
-                    "Incorrect password for {} if that user exists".format(
-                        login
-                    )
-                )
+                raise AccessException(t('error_invalid_password', lang, { 'user': login }))
+
             if user.get('exception', None):
                 raise AccessException(
                     user['exception']
@@ -1223,9 +1227,15 @@ class User(Resource):
             'backend sends temporary access link to user via email.'
         )
         .param('email', 'Your email address.', strip=True)
+        .param(
+            'lang',
+            'Language of mail template and web link',
+            default='en',
+            required=True
+        )
         .errorResponse('That email does not exist in the system.')
     ) ## TODO: recreate by login
-    def generateTemporaryPassword(self, email):
+    def generateTemporaryPassword(self, email, lang='en'):
         user = self._model.findOne({'email': self._model.hash(email.lower()), 'email_encrypted': True})
 
         if not user:
@@ -1236,16 +1246,18 @@ class User(Resource):
 
         token = Token().createToken(user, days=(15/1440.0), scope=TokenScope.TEMPORARY_USER_AUTH)
 
-        url = '%s#useraccount/%s/token/%s' % (
-            mail_utils.getEmailUrlPrefix(), str(user['_id']), str(token['_id']))
+        web_url = os.getenv('WEB_URI') or 'localhost:8081'
 
-        html = mail_utils.renderTemplate('temporaryAccess.mako', {
+        url = 'https://%s/#/useraccount/%s/token/%s?lang=%s' % (
+            web_url, str(user['_id']), str(token['_id']), lang)
+
+        html = mail_utils.renderTemplate(f'temporaryAccess.{lang}.mako', {
             'url': url,
             'token': str(token['_id'])
         })
 
         mail_utils.sendMail(
-            '%s: Temporary access' % Setting().get(SettingKey.BRAND_NAME),
+            f'{Setting().get(SettingKey.BRAND_NAME)}: {t("temporary_access", lang)}',
             html,
             [email]
         )

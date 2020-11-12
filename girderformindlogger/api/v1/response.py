@@ -20,7 +20,7 @@
 import itertools
 import tzlocal
 import pytz
-from datetime import date, datetime, timedelta
+from datetime import date, datetime, timedelta, timezone
 from bson.objectid import ObjectId
 
 from ..describe import Description, autoDescribeRoute
@@ -144,16 +144,10 @@ class ResponseItem(Resource):
 
         if not users:
             # Retrieve responses for the logged user.
-            users = [profile['_id']]
-        elif is_manager:
-            # Manager or owner.
-            users = list(map(lambda x: ObjectId(x), users))
+            users = [profile]
         else:
-            # Reviewer.
             profile_ids = list(map(lambda x: ObjectId(x), users))
-            authorized_users = Profile().find({'_id': { '$in': profile_ids },
-                                               'reviewers': profile['_id']})
-            users = list(map(lambda profile: profile['_id'], authorized_users))
+            users = list(Profile().find({'_id': { '$in': profile_ids }, 'reviewers': profile['_id'], 'appletId': applet['_id']}))
 
             if profile['_id'] in profile_ids and profile['_id'] not in profile['reviewers']:
                 users.append(profile)
@@ -177,9 +171,19 @@ class ResponseItem(Resource):
                 query={"created": { "$lte": toDate, "$gt": fromDate },
                        "meta.applet.@id": ObjectId(applet['_id']),
                        "meta.activity.@id": { "$in": activities },
-                       "meta.subject.@id": user},
+                       "meta.subject.@id": user['_id']},
                 force=True,
                 sort=[("created", DESCENDING)])
+
+            # we need this to handle old responses
+            for response in responses:
+                response['meta']['subject']['userTime'] = response["created"].replace(tzinfo=pytz.timezone("UTC")).astimezone(
+                    timezone(
+                        timedelta(
+                            hours=profile["timezone"] if 'timezone' not in response['meta']['subject'] else response['meta']['subject']['timezone']
+                        )
+                    )
+                )
 
             add_latest_daily_response(data, responses)
         add_missing_dates(data, fromDate, toDate)
@@ -319,10 +323,11 @@ class ResponseItem(Resource):
                 informant['_id']
             )
 
-            subject_id = Profile().createProfile(
-                applet,
-                subject_id
-            ).get('_id')
+            profile = Profile().findOne({
+                'appletId': applet['_id'],
+                'userId': ObjectId(subject_id)
+            })
+            subject_id = profile.get('_id')
 
             print(subject_id)
 
@@ -330,6 +335,8 @@ class ResponseItem(Resource):
                 metadata['subject']['@id'] = subject_id
             else:
                 metadata['subject'] = {'@id': subject_id}
+
+            metadata['subject']['timezone'] = profile.get('timezone', 0)
 
             now = datetime.now(tz=pytz.timezone("UTC"))
 

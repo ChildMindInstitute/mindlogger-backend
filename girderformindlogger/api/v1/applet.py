@@ -45,6 +45,7 @@ from girderformindlogger.models.setting import Setting
 from girderformindlogger.settings import SettingKey
 from girderformindlogger.models.profile import Profile as ProfileModel
 from girderformindlogger.models.account_profile import AccountProfile
+from girderformindlogger.i18n import t
 from pymongo import ASCENDING, DESCENDING
 from bson import json_util
 from pyld import jsonld
@@ -89,9 +90,9 @@ class Applet(Resource):
         self.route('PUT', (':id', 'fromJSON'), self.updateAppletFromProtocolData)
         self.route('POST', (':id', 'duplicate', ), self.duplicateApplet)
         self.route('POST', ('setBadge',), self.setBadgeCount)
-
         self.route('PUT', (':id', 'transferOwnerShip', ), self.transferOwnerShip)
         self.route('DELETE', (':id', 'deleteUser', ), self.deleteUserFromApplet)
+        self.route('GET', ('validateName',), self.validateAppletName)
 
     @access.user(scope=TokenScope.DATA_WRITE)
     @autoDescribeRoute(
@@ -504,7 +505,13 @@ class Applet(Resource):
 
         profile = self._model.revokeRole(applet, profile, 'user')
 
-        ProfileModel().remove(profile)
+        if deleteResponse:
+            ProfileModel().remove(profile)
+        else:
+            profile['reviewers'] = []
+            profile['deactivated'] = True
+
+            ProfileModel().save(profile, validate=False)
 
         if deleteResponse:
             from girderformindlogger.models.response_folder import ResponseItem
@@ -622,6 +629,12 @@ class Applet(Resource):
             ]),
             required=False
         )
+        .param(
+            'lang',
+            'Language of mail template and web link',
+            default='en',
+            required=True
+        )
         .jsonParam(
             'encryption',
             'encryption info',
@@ -630,7 +643,8 @@ class Applet(Resource):
         )
         .errorResponse('Write access was denied for this applet.', 403)
     )
-    def createApplet(self, protocolUrl=None, email='', name=None, informant=None, encryption={}):
+    def createApplet(self, protocolUrl=None, email='', name=None, informant=None, encryption={},
+                     lang='en'):
         accountProfile = AccountProfile()
 
         thisUser = self.getCurrentUser()
@@ -661,9 +675,7 @@ class Applet(Resource):
             }
         )
         thread.start()
-        return({
-            "message": "The applet is building. We will send you an email in 10 mins or less when it has been successfully created or failed."
-        })
+        return {"message": t('applet_is_building', lang)}
 
     @access.user(scope=TokenScope.DATA_WRITE)
     @autoDescribeRoute(
@@ -705,7 +717,7 @@ class Applet(Resource):
         thread.start()
 
         return({
-            "message": "The applet is being duplicated. We will send you an email in 1 min or less when it has been successfully duplicated."
+            "message": "The applet is being duplicated. We will send you an email in 10 min or less when it has been successfully duplicated."
         })
 
     @access.user(scope=TokenScope.DATA_WRITE)
@@ -786,6 +798,35 @@ class Applet(Resource):
             "message": "The applet is building. We will send you an email in 10 min or less when it has been successfully created or failed."
         })
 
+    @access.user(scope=TokenScope.DATA_WRITE)
+    @autoDescribeRoute(
+        Description('Validate applet name')
+        .notes(
+            'This endpoint is used for validating applet name. <br>'
+        )
+        .param(
+            'name',
+            'name for new of applet which needs validation',
+            default='',
+            required=True
+        )
+    )
+    def validateAppletName(self, name):
+        accountProfile = AccountProfile()
+
+        thisUser = self.getCurrentUser()
+        profile = self.getAccountProfile()
+
+        appletRole = None
+        for role in ['manager', 'editor']:
+            if accountProfile.hasPermission(profile, role):
+                appletRole = role
+                break
+
+        if appletRole is None:
+            raise AccessException("only editor/manager can use the endpoint to create new applet or edit existing applet.")
+
+        return self._model.validateAppletName(name, CollectionModel().findOne({"name": "Applets"}), profile['accountId'])
 
     @access.user(scope=TokenScope.DATA_WRITE)
     @autoDescribeRoute(
@@ -1317,7 +1358,7 @@ class Applet(Resource):
         )
 
         web_url = os.getenv('WEB_URI') or 'localhost:8081'
-        url = f'https://{web_url}/#/invitation/{str(invitation["_id"])}'
+        url = f'https://{web_url}/#/invitation/{str(invitation["_id"])}?lang={lang}'
 
         managers = mail_utils.htmlUserList(
             AppletModel().listUsers(applet, 'manager', force=True)
@@ -1336,7 +1377,7 @@ class Applet(Resource):
                 'url': url,
                 'userName': firstName,
                 'coordinatorName': thisUser['firstName'],
-                'appletName': applet['displayName'],
+                'appletName': applet['meta']['applet'].get('displayName', applet.get('displayName', 'applet')),
                 'MRN': MRN,
                 'managers': managers,
                 'coordinators': coordinators,
@@ -1350,7 +1391,7 @@ class Applet(Resource):
             )
 
         mail_utils.sendMail(
-            'invitation for an applet',
+            t('invite_email_subject', lang),
             html,
             [email]
         )
@@ -1416,13 +1457,13 @@ class Applet(Resource):
                 'url': url,
                 'userName': invitedUser['firstName'],
                 'ownerName': thisUser['firstName'],
-                'appletName': applet['displayName'],
+                'appletName': applet['meta'].get('applet', {}).get('displayName', applet.get('displayName', 'applet')),
             })
         else:
             html = mail_utils.renderTemplate('transferOwnerShipToNewUser.mako', {
                 'url': url,
                 'ownerName': thisUser['firstName'],
-                'appletName': applet['displayName'],
+                'appletName': applet['meta'].get('applet', {}).get('displayName', applet.get('displayName', 'applet')),
             })
 
         mail_utils.sendMail(
