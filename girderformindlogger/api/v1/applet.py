@@ -23,7 +23,6 @@ import re
 import threading
 import uuid
 import datetime
-
 from ..describe import Description, autoDescribeRoute
 from ..rest import Resource, rawResponse
 from bson.objectid import ObjectId
@@ -1312,7 +1311,6 @@ class Applet(Resource):
         'users': {'type': 'list'}
     })
     def inviteUser(self, applet, role="user", email='', firstName='', lastName='', MRN='', lang='en',users=[]):
-        self.shield("inviteUser")
         from girderformindlogger.models.invitation import Invitation
         from girderformindlogger.models.profile import Profile
 
