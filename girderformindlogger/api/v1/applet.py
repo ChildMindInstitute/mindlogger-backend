@@ -50,6 +50,7 @@ from girderformindlogger.i18n import t
 from pymongo import ASCENDING, DESCENDING
 from bson import json_util
 from pyld import jsonld
+from girderformindlogger.utility.validate import validator, email_validator, symbol_validator
 
 USER_ROLE_KEYS = USER_ROLES.keys()
 
@@ -1300,6 +1301,16 @@ class Applet(Resource):
         )
         .errorResponse('Write access was denied for the folder or its new parent object.', 403)
     )
+    @validator(schema={
+        'applet': {'required': True},
+        'role': {'type': 'string', 'allowed': ['user', 'coordinator', 'manager', 'editor', 'reviewer']},
+        'email': {'type': 'string', 'check_with': email_validator},
+        'firstName': {'type': 'string', 'check_with': symbol_validator},
+        'lastName': {'type': 'string', 'check_with': symbol_validator},
+        'MRN': {'type': 'string', 'check_with': symbol_validator},
+        'lang': {'type': 'string', 'allowed': ['en', 'fr']},
+        'users': {'type': 'list'}
+    })
     def inviteUser(self, applet, role="user", email='', firstName='', lastName='', MRN='', lang='en',users=[]):
         self.shield("inviteUser")
         from girderformindlogger.models.invitation import Invitation
