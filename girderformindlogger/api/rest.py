@@ -643,6 +643,14 @@ def endpoint(fun):
         cherrypy.request.girderRequestUid = str(uuid.uuid4())
         setResponseHeader('Girder-Request-Uid', cherrypy.request.girderRequestUid)
 
+        setResponseHeader('Set-Cookie', f'domain=.mindlogger.org; Secure; HttpOnly;')
+        setResponseHeader('X-Frame-Options', 'SAMEORIGIN')
+        setResponseHeader('Cache-Control', 'private, no-cache, no-store, max-age=0')
+        setResponseHeader('Pragma', 'no-cache')
+        setResponseHeader('Expires', '0')
+        setResponseHeader('Strict-Transport-Security', 'max-age=60; includeSubDomains')
+        setResponseHeader('Content-Security-Policy', "script-src 'self'")
+
         try:
             val = fun(self, path, params)
 
