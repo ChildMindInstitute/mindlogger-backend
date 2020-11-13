@@ -46,6 +46,7 @@ from girderformindlogger.settings import SettingKey
 from girderformindlogger.models.profile import Profile as ProfileModel
 from girderformindlogger.models.account_profile import AccountProfile
 from girderformindlogger.i18n import t
+from dateutil.relativedelta import relativedelta
 from pymongo import ASCENDING, DESCENDING
 from bson import json_util
 from pyld import jsonld
@@ -1609,20 +1610,21 @@ class Applet(Resource):
             dataType='boolean'
         )
         .param(
-            'getTodayEvents',
+            'numberOfDays',
             'true only if get today\'s event, valid only if getAllEvents is set to false',
             required=False,
-            default=False,
-            dataType='boolean'
+            default=0,
+            dataType='integer'
         )
         .errorResponse('Invalid applet ID.')
         .errorResponse('Read access was denied for this applet.', 403)
     )
-    def getSchedule(self, applet, getAllEvents = False, getTodayEvents = False):
+    def getSchedule(self, applet, getAllEvents = False, numberOfDays = 0):
         user = self.getCurrentUser()
 
         currentUserDate = datetime.datetime.utcnow() + datetime.timedelta(hours=int(user['timezone']))
-        return self._model.getSchedule(applet, user, getAllEvents, currentUserDate.replace(hour=0, minute=0, second=0, microsecond=0) if getTodayEvents and not getAllEvents else None)
+
+        return self._model.getSchedule(applet, user, getAllEvents, (currentUserDate.replace(hour=0, minute=0, second=0, microsecond=0), numberOfDays) if numberOfDays and not getAllEvents else None)
 
     @access.user(scope=TokenScope.DATA_WRITE)
     @autoDescribeRoute(
