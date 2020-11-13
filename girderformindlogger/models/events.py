@@ -295,6 +295,8 @@ class Events(Model):
             result["events"] = {}
             result["data"] = {}
 
+            usedEventCards = {}
+
             for i in range(0, eventFilter[1]):
                 for event in events:
                     event['valid'], lastAvailableTime = self.dateMatch(event, dayFilter)
@@ -315,7 +317,7 @@ class Events(Model):
                     if event['data'].get('eventType', None) and event['data'].get('onlyScheduledDay', False):
                         onlyScheduledDay[activityId] = True
 
-                result['data'][dayFilter.strftime('%Y/%m/%d')] = ([
+                data = ([
                     {
                         'id': event['id'],
                         'valid': event['valid']
@@ -327,11 +329,18 @@ class Events(Model):
                     } for value in lastEvent.values() if value and (value[1]['data'].get('completion', False) or value[1]['data'].get('activity_id', None) in onlyScheduledDay)
                 ])
 
+                for card in data:
+                    usedEventCards[str(card['id'])] = True
+
+                result['data'][dayFilter.strftime('%Y/%m/%d')] = data
+
                 dayFilter = dayFilter + relativedelta(days=1)
 
             for event in events:
                 event.pop('valid')
-                result["events"][str(event["id"])] = event
+
+                if usedEventCards.get(str(event["id"]), False):
+                    result["events"][str(event["id"])] = event
 
         else:
             result['events'] = events
