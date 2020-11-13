@@ -209,9 +209,9 @@ class Applet(FolderModel):
 
         return formatted
 
-    def getSchedule(self, applet, user, getAllEvents, dayFilter=None):
+    def getSchedule(self, applet, user, getAllEvents, eventFilter=None):
         if not getAllEvents:
-            schedule = EventsModel().getScheduleForUser(applet['_id'], user['_id'], dayFilter)
+            schedule = EventsModel().getScheduleForUser(applet['_id'], user['_id'], eventFilter)
         else:
             if not self.isCoordinator(applet['_id'], user):
                 raise AccessException(
