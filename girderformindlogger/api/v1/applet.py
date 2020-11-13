@@ -1311,6 +1311,7 @@ class Applet(Resource):
         'users': {'type': 'list'}
     })
     def inviteUser(self, applet, role="user", email='', firstName='', lastName='', MRN='', lang='en',users=[]):
+        self.shield("inviteUser")
         from girderformindlogger.models.invitation import Invitation
         from girderformindlogger.models.profile import Profile
 
