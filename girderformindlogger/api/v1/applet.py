@@ -92,6 +92,7 @@ class Applet(Resource):
         self.route('PUT', (':id', 'transferOwnerShip', ), self.transferOwnerShip)
         self.route('DELETE', (':id', 'deleteUser', ), self.deleteUserFromApplet)
         self.route('GET', ('validateName',), self.validateAppletName)
+        self.route('PUT', ('validateReviewerList',), self.validateReviewerList)
 
     @access.user(scope=TokenScope.DATA_WRITE)
     @autoDescribeRoute(
@@ -111,6 +112,39 @@ class Applet(Resource):
         thisUser = self.getCurrentUser()
         ProfileModel().updateProfiles(thisUser, {"badge": int(badge)})
         return({"message": "Badge was successfully reseted"})
+
+    @access.user(scope=TokenScope.DATA_WRITE)
+    @autoDescribeRoute(
+        Description('validate reviewer list')
+            .notes(
+            'this endpoint is used to validate reviewer list. <br>'
+            'used for temporary script.'
+        )
+    )
+    def validateReviewerList(self):
+        profiles = ProfileModel().find({
+            "roles": "manager"
+        })
+
+        managers = {}
+        for profile in profiles:
+            appletId = str(profile['appletId'])
+            
+            if appletId not in managers:
+                managers[appletId] = []
+            managers[appletId].append(profile['_id'])
+
+
+        for appletId in managers:
+            ProfileModel().update({
+                'reviewers': {
+                    '$exists': False
+                }
+            }, {
+                '$set': {
+                    'reviewers': managers[appletId]
+                }
+            })
 
     @access.user(scope=TokenScope.DATA_OWN)
     @autoDescribeRoute(
