@@ -64,6 +64,7 @@ class Applet(Resource):
         self.route('GET', (':id', 'data'), self.getAppletData)
         self.route('GET', (':id', 'groups'), self.getAppletGroups)
         self.route('POST', (), self.createApplet)
+        self.route('POST', (':id', 'setRetention'), self.setRetentionSettings)
         self.route('PUT', (':id', 'encryption'), self.setAppletEncryption)
         self.route('PUT', (':id', 'informant'), self.updateInformant)
         self.route('PUT', (':id', 'assign'), self.assignGroup)
@@ -93,6 +94,49 @@ class Applet(Resource):
         self.route('PUT', (':id', 'transferOwnerShip', ), self.transferOwnerShip)
         self.route('DELETE', (':id', 'deleteUser', ), self.deleteUserFromApplet)
         self.route('GET', ('validateName',), self.validateAppletName)
+
+    @autoDescribeRoute(
+        Description('Retentions settings for particular applet.')
+        .modelParam(
+            'id',
+            model=AppletModel,
+            level=AccessType.ADMIN,
+            destName='applet'
+        )
+        .param(
+            'period',
+            'Set period days/weeks/months/years how long user data will be stored',
+            default=5,
+            required=True
+        )
+        .param(
+            'retention',
+            'Retention parameter inslude only day/week/month/year',
+            default='year',
+            required=True,
+            enum=['day', 'week', 'month', 'year']
+        )
+        .param(
+            'enabled',
+            'set if you want to enable or disable retention settings',
+            default=True,
+            required=False
+        )
+    )
+    def setRetentionSettings(self, applet, period, retention, enabled):
+        thisUser = self.getCurrentUser()
+        if not self._model.isManager(applet['_id'], thisUser):
+            raise AccessException('only manager/owners can change applet encryption info')
+
+        applet['meta']['retentionSettings'] = {
+            'period': period,
+            'retention': retention,
+            'enabled': enabled
+        }
+        self._model.setMetadata(applet, applet['meta'])
+
+        jsonld_expander.clearCache(applet, 'applet')
+        return {'message': 'successed'}
 
     @access.user(scope=TokenScope.DATA_WRITE)
     @autoDescribeRoute(
