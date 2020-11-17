@@ -39,3 +39,5 @@ for applet in applets:
         Item().remove({'_id': {
             '$in': [ObjectId(item['_id']) for item in items]
         }})
+
+    print(f'Responses were removed - {len(items)}')
