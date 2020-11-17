@@ -95,6 +95,7 @@ class Applet(Resource):
         self.route('DELETE', (':id', 'deleteUser', ), self.deleteUserFromApplet)
         self.route('GET', ('validateName',), self.validateAppletName)
 
+    @access.user(scope=TokenScope.DATA_WRITE)
     @autoDescribeRoute(
         Description('Retentions settings for particular applet.')
         .modelParam(
@@ -106,6 +107,7 @@ class Applet(Resource):
         .param(
             'period',
             'Set period days/weeks/months/years how long user data will be stored',
+            dataType='integer',
             default=5,
             required=True
         )
@@ -126,7 +128,9 @@ class Applet(Resource):
     def setRetentionSettings(self, applet, period, retention, enabled):
         thisUser = self.getCurrentUser()
         if not self._model.isManager(applet['_id'], thisUser):
-            raise AccessException('only manager/owners can change applet encryption info')
+            raise AccessException('only manager/owners can change applet retention setting')
+        self.requireParams('period', {'period': period})
+        self.requireParams('retention', {'retention': retention})
 
         applet['meta']['retentionSettings'] = {
             'period': period,
