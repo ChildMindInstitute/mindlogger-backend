@@ -1478,6 +1478,7 @@ def formatLdObject(
                 **protocol.pop('protocol', {}),
                 **obj.get('meta', {}).get(mesoPrefix, {}),
                 'encryption': obj.get('meta', {}).get('encryption', {}),
+                'retentionSettings': obj.get('meta', {}).get('retentionSettings', {}),
                 '_id': "/".join([snake_case(mesoPrefix), objID]),
                 'url': "#".join([
                     obj.get('meta', {}).get('protocol', {}).get("url", "")

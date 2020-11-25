@@ -96,7 +96,12 @@ class Applet(FolderModel):
                 constraints,
                 dict
             ) else {},
-            'encryption': encryption
+            'encryption': encryption,
+            'retentionSettings': {
+                'period': 5,
+                'retention': 'year',
+                'enabled': True
+            }
         }
         metadata['applet']['displayName'] = name
 
