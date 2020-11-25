@@ -40,7 +40,7 @@ class Notification(Model):
     def validate(self, doc):
         return doc
 
-    def createNotification(self, type, data, user, expires=None, token=None):
+    def createNotification(self, type, data, user={}, expires=None, token=None):
         """
         Create a generic notification.
 

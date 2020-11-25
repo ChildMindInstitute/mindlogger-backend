@@ -1,11 +1,13 @@
 import random
 
 import cherrypy
+from bson import ObjectId
 from redis import Redis
 from rq_scheduler import Scheduler
 from datetime import datetime, timedelta
 from girderformindlogger.external.notification import send_push_notification
 from girderformindlogger.models import getRedisConnection
+from girderformindlogger.models.notification import Notification
 
 
 class PushNotification(Scheduler):
@@ -35,22 +37,34 @@ class PushNotification(Scheduler):
 
         for notification in notifications:
             self.date_format(notification)
+            job_id = None
+            notif_obj = None
 
             if notification['random']:
                 return self._set_scheduler_with_random_time()
+
+            if notification['assessmentConfirmation']:
+                notif_obj = self.prepare_complate_assessment_notification(
+                    event_type=event_type,
+                    notification=notification)
 
             self.event['sendTime'].append(self.start_time.strftime('%H:%M'))
 
             if event_type == '' or event_type == 'Daily':  # Daily or non-recurrent event.
                 launch_time = self.first_launch_time()
                 repeat = self.repeat_time(launch_time)
-                self.__set_job(launch_time, repeat)
+                job_id = self.__set_job(launch_time, repeat, notif_obj.get('_id', None))
 
             if event_type == 'Weekly':
-                self.__set_cron(self.prepare_weekly_schedule())
+                job_id = self.__set_cron(self.prepare_weekly_schedule(), notif_obj.get('_id', None))
 
             if event_type == 'Monthly':
-                self.__set_cron(self.prepare_monthly_schedule())
+                job_id = self.__set_cron(self.prepare_monthly_schedule(), notif_obj.get('_id', None))
+
+            if notification['assessmentConfirmation']:
+                notif_obj['data']['job_id'] = job_id
+                self.event['assessment_confirmation_schedulers'].append(notif_obj['_id'])
+                Notification().save(notif_obj, validate=False)
 
     def first_launch_time(self, start_time=None):
         launch_day = self.schedule_range['start']
@@ -91,6 +105,12 @@ class PushNotification(Scheduler):
             repeats = round(((end_time - start_time).total_seconds() / 3600) * 4) + 1
             return repeats
         return None
+
+    def prepare_complate_assessment_notification(self, event_type, notification):
+        data = notification
+        data['end'] = self.last_time_to_notify(notification['start'])
+
+        return Notification().createNotification(type=event_type, data=data)
 
     def prepare_weekly_schedule(self):
         """
@@ -139,12 +159,13 @@ class PushNotification(Scheduler):
         if event_type == 'Monthly':
             self.__set_cron(self.prepare_monthly_schedule())
 
-    def __set_job(self, first_launch=datetime.utcnow(), repeat=None):
+    def __set_job(self, first_launch=datetime.utcnow(), repeat=None, notification_id=None):
         """
         Sets a job to send the notification on the given date.
 
         :param first_launch: the datetime for the first notification.
         :param repeat: Number of times that the notification will be sent.
+        :param notification_id: Notification id that the notification will be sent.
         """
         if repeat == 0:
             return
@@ -156,18 +177,23 @@ class PushNotification(Scheduler):
                     "applet_id": self.event.get("applet_id"),
                     "event_id": self.event.get("_id"),
                     "activity_id": self.event["data"].get("activity_id", None),
-                    "send_time": self.start_time.strftime('%H:%M')
+                    "send_time": self.start_time.strftime('%H:%M'),
+                    "notification_id": notification_id
                 },
                 interval=900,  # Time before the function is called again (in seconds).
                 repeat=repeat,  # Repeat the event this number of times.
             )
-        self.event["schedulers"].append(job.id)
 
-    def __set_cron(self, cron_string, repeat=None):
+        if not notification_id:
+            self.event["schedulers"].append(job.id)
+        return job.id
+
+    def __set_cron(self, cron_string, notification_id=None):
         """
         Sets a cron job to send notifications periodically.
 
-        :param repeat: Number of times that the notification will be sent.
+        :param notification_id: Notification id that the notification will be sent.
+
         """
         job = self.cron(
                 cron_string,
@@ -176,12 +202,16 @@ class PushNotification(Scheduler):
                     "applet_id": self.event.get("applet_id"),
                     "event_id": self.event.get("_id"),
                     "activity_id": self.event["data"].get("activity_id", None),
-                    "send_time": self.start_time.strftime('%H:%M')
+                    "send_time": self.start_time.strftime('%H:%M'),
+                    "notification_id": notification_id
                 },
-                repeat=repeat,  # Repeat the event this number of times.
+                repeat=None,  # Repeat the event this number of times.
                 use_local_timezone=False
             )
-        self.event["schedulers"].append(job.id)
+
+        if not notification_id:
+            self.event["schedulers"].append(job.id)
+        return job.id
 
     def __random_date(self):
         """
@@ -191,6 +221,23 @@ class PushNotification(Scheduler):
         days_between_dates = time_between_dates.seconds
         random_number_of_seconds = random.randrange(days_between_dates)
         return self.start_time + timedelta(seconds=random_number_of_seconds)
+
+    def last_time_to_notify(self, start):
+        current_year = self.current_time.year
+        current_month = self.current_time.month
+        current_day = self.current_time.day
+        timeout = self.event.get('data', {}).get('timeout', {})
+
+        start_time = datetime.strptime(
+            f'{current_year}/{current_month}/{current_day} {start}',
+            '%Y/%m/%d %H:%M')
+
+        end_time = start_time + timedelta(minutes=10)
+
+        if timeout.get('allow', False):
+            end_time = start_time + timedelta(hours=timeout.get("hour", 0),
+                                              minutes=timeout.get("minute", 0))
+        return end_time.strftime('%H:%M')
 
     def date_format(self, notification):
         schedule = self.event.get('schedule', {})
@@ -245,5 +292,19 @@ class PushNotification(Scheduler):
         for job in jobs:
             self.cancel(job)
 
+        if len(self.event.get('assessment_confirmation_schedulers', [])):
+            notifications = Notification().find(query={
+                '_id': {
+                    '$in': self.event.get('assessment_confirmation_schedulers', [])
+                }
+            })
+
+            for notification in notifications:
+                self.cancel(notification['data']['job_id'])
+                Notification().removeWithQuery(query={
+                    '_id': ObjectId(notification['_id'])
+                })
+
         self.event['schedulers'] = []
         self.event['sendTime'] = []
+        self.event['assessment_confirmation_schedulers'] = []

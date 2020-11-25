@@ -73,14 +73,18 @@ class Events(Model):
             'applet_id': applet['_id'],
             'individualized': False,
             'schedulers': [],
+            'assessment_confirmation_schedulers': [],
             'sendTime': [],
             'data': {}
         }
-        existed_event = self.findOne({'_id': ObjectId(event_id)}, fields=['_id', 'schedulers', 'data'])
+        existed_event = self.findOne({'_id': ObjectId(event_id)}, fields=[
+            '_id', 'schedulers', 'assessment_confirmation_schedulers', 'data'
+        ])
 
         if event_id and existed_event:
             newEvent['_id'] = ObjectId(event_id)
             newEvent['schedulers'] = existed_event.get('schedulers', [])
+            newEvent['assessment_confirmation_schedulers'] = existed_event.get('assessment_confirmation_schedulers', [])
 
         if 'data' in event:
             newEvent['data'] = event['data']

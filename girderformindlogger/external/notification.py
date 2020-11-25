@@ -3,6 +3,7 @@ import datetime
 from bson import ObjectId
 from pyfcm import FCMNotification
 from girderformindlogger.utility.notification import FirebaseNotification
+from girderformindlogger.models.notification import Notification
 from collections import defaultdict
 
 
@@ -13,8 +14,12 @@ push_service = FirebaseNotification(
 AMOUNT_MESSAGES_PER_REQUEST = 1000
 
 
+def get_profiles_need_renotify(event, ):
+    pass
+
+
 # this handles notifications for activities
-def send_push_notification(applet_id, event_id, activity_id=None, send_time=None):
+def send_push_notification(applet_id, event_id, activity_id=None, send_time=None, notification_id=None):
     from girderformindlogger.models.events import Events
     from girderformindlogger.models.profile import Profile
 
@@ -26,6 +31,29 @@ def send_push_notification(applet_id, event_id, activity_id=None, send_time=None
     if event:
         event_time = datetime.datetime.strptime(
             f"{now.year}/{now.month}/{now.day} {send_time}", '%Y/%m/%d %H:%M')
+
+        end_time = None
+        if notification_id:
+            notification = Notification().findOne(query={
+                '_id': notification_id
+            })
+
+            if notification:
+                end = notification.get('date', {}).get('end', None)
+                if end:
+                    end_time = datetime.datetime.strptime(
+                        f"{now.year}/{now.month}/{now.day} {end}", '%Y/%m/%d %H:%M')
+
+        # if notification_id:
+        #     notification = Notification().findOne(query={
+        #         '_id': notification_id
+        #     })
+        #
+        #     if notification:
+        #         start = notification.get('date', {}).get('start', None)
+        #         if start:
+        #             event_time = datetime.datetime.strptime(
+        #                 f"{now.year}/{now.month}/{now.day} {start}", '%Y/%m/%d %H:%M')
 
         timezone = (event_time - now).total_seconds() / 3600
 
@@ -48,7 +76,7 @@ def send_push_notification(applet_id, event_id, activity_id=None, send_time=None
                 '$in': event['data']['users']
             }
 
-        if activity_id:
+        if activity_id and not notification_id:
             query['completed_activities'] = {
                 '$elemMatch': {
                     '$or': [
@@ -58,6 +86,29 @@ def send_push_notification(applet_id, event_id, activity_id=None, send_time=None
                                 '$not': {
                                     '$gt': now - datetime.timedelta(hours=12),
                                     '$lt': now
+                                }
+                            }
+                        },
+                        {
+                            'activity_id': activity_id,
+                            'completed_time': {
+                                '$eq': None
+                            }
+                        }
+                    ]
+                }
+            }
+
+        if activity_id and notification_id:
+            query['completed_activities'] = {
+                '$elemMatch': {
+                    '$or': [
+                        {
+                            'activity_id': activity_id,
+                            'completed_time': {
+                                '$not': {
+                                    '$gt': event_time,
+                                    '$lt': end_time
                                 }
                             }
                         },
@@ -100,6 +151,10 @@ def send_push_notification(applet_id, event_id, activity_id=None, send_time=None
         # if random time we will reschedule it in time between 23:45 and 23:59
         if event['data']['notifications'][0]['random'] and now.hour == 23 and 59 >= now.minute >= 45:
             Events().rescheduleRandomNotifications(event)
+
+
+
+
 
 # this handles other custom notifications
 def send_custom_notification(notification):

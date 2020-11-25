@@ -1544,6 +1544,35 @@ class Applet(Resource):
         currentUserDate = datetime.datetime.utcnow() + datetime.timedelta(hours=int(user['timezone']))
         return self._model.getSchedule(applet, user, getAllEvents, currentUserDate.replace(hour=0, minute=0, second=0, microsecond=0) if getTodayEvents and not getAllEvents else None)
 
+    # @access.user(scope=TokenScope.DATA_WRITE)
+    # @autoDescribeRoute(
+    #     Description('Confirm assessment notification')
+    #     .param(
+    #         'activity_id',
+    #         'activity id for confirmation',
+    #     )
+    #     .param(
+    #         'confirmed',
+    #         'True if delete original events and insert all of them again.',
+    #         default=False,
+    #         dataType='boolean',
+    #         required=False
+    #     )
+    # )
+    # def notificationAssessmentConfirmation(self, activity_id, confirmed=False):
+    #     thisUser = self.getCurrentUser()
+    #     profile = dict(ProfileModel().findOne(query={
+    #         'userId': ObjectId(thisUser['_id'])
+    #     }))
+    #
+    #     filtered_activities = [activity for activity in profile.get('assessment_confirmation_activities', []) if activity.get('activity_id', {}) == ObjectId(activity_id)]
+    #     if not len(filtered_activities):
+    #         profile.get('assessment_confirmation_activities', []).append({
+    #             'activity_id': activity_id,
+    #             'timeAsked': datetime.datetime.now()
+    #         })
+
+
     @access.user(scope=TokenScope.DATA_WRITE)
     @autoDescribeRoute(
         Description('Set or update schedule information for an applet.')
@@ -1586,6 +1615,11 @@ class Applet(Resource):
             raise AccessException(
                 "Only coordinators and managers can update applet schedules."
             )
+
+        # temporary things
+        # if len(schedule['events']):
+        #     schedule['events'][0]['data']['notifications'][0]['assessmentConfirmation'] = True
+        print(schedule)
 
         events = schedule.get('events', [])
         assigned = {}
