@@ -83,6 +83,7 @@ class Applet(Resource):
 
         self.route('GET', (':id', 'roles'), self.getAppletRoles)
         self.route('GET', (':id', 'users'), self.getAppletUsers)
+        self.route('GET', (':id', 'invitations'), self.getAppletInvitations)
         self.route('DELETE', (':id',), self.deactivateApplet)
         self.route('POST', ('fromJSON', ), self.createAppletFromProtocolData)
         self.route('GET', (':id', 'protocolData'), self.getProtocolData)
@@ -428,6 +429,29 @@ class Applet(Resource):
             ]}
 
         return AppletModel().getAppletUsers(applet, user, force=True, retrieveRoles=retrieveRoles, retrieveRequests=AppletModel().isManager(applet['_id'], user))
+
+    @access.user(scope=TokenScope.DATA_OWN)
+    @autoDescribeRoute(
+        Description('Get invitations for applet.')
+        .notes(
+            'this endpoint is used to getting invitations for an applet. <br>'
+            'coordinator/managers can make request to this endpoint.'
+        )
+        .modelParam(
+            'id',
+            model=FolderModel,
+            level=AccessType.READ,
+            destName='applet'
+        )
+    )
+    def getAppletInvitations(self, applet):
+        user = self.getCurrentUser()
+        is_coordinator = self._model.isCoordinator(applet['_id'], user)
+
+        if not is_coordinator:
+            raise AccessException("Only coordinators, managers and reviewers can view invitations.")
+
+        return self._model.getAppletInvitations(applet)
 
     @access.user(scope=TokenScope.DATA_READ)
     @autoDescribeRoute(

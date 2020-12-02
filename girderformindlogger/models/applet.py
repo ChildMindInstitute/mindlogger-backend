@@ -1529,6 +1529,19 @@ class Applet(FolderModel):
             print(sys.exc_info())
             return({traceback.print_tb(sys.exc_info()[2])})
 
+    def getAppletInvitations(self, applet):
+        from girderformindlogger.models.invitation import Invitation
+
+        invitations = []
+        for p in list(Invitation().find(query={'appletId': applet['_id']})):
+            fields = ['_id', 'firstName', 'lastName', 'role', 'MRN', 'created', 'lang']
+            if p['role'] != 'owner':
+                invitations.append({
+                    key: p[key] for key in fields if p.get(key, None)
+                })
+
+        return invitations
+
     def load(self, id, level=AccessType.ADMIN, user=None, objectId=True,
              force=False, fields=None, exc=False):
         """
