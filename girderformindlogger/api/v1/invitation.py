@@ -150,6 +150,7 @@ class Invitation(Resource):
         """
         Accept an invitation.
         """
+
         currentUser = self.getCurrentUser()
         if currentUser is None:
             raise AccessException(
