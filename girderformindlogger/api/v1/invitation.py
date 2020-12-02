@@ -151,10 +151,13 @@ class Invitation(Resource):
         Accept an invitation.
         """
         currentUser = self.getCurrentUser()
-        if currentUser is None:
+        if currentUser is None or not email:
             raise AccessException(
                 "You must be logged in to accept an invitation."
             )
+
+        email = email.lower().strip()
+
         if invitation.get('role', 'user') == 'owner':
             profile = AppletModel().receiveOwnerShip(AppletModel().load(invitation['appletId'], force=True), currentUser, email)
         else:
