@@ -183,7 +183,9 @@ class Applet(Resource):
             raise AccessException('only manager/owners can change applet encryption info')
 
         applet['meta']['encryption'] = encryption
-        self._model.setMetadata(applet, applet['meta'])
+        applet['updated'] = datetime.datetime.utcnow()
+
+        applet = self._model.setMetadata(applet, applet['meta'])
 
         jsonld_expander.clearCache(applet, 'applet')
         return { 'message': 'successed' }
@@ -238,7 +240,7 @@ class Applet(Resource):
                         applet,
                         userProfile,
                         role,
-                        [ObjectId(userId) for userId in roleInfo[role]] if role == 'reviewer' and isinstance(roleInfo[role], list) else []
+                        roleInfo[role] if role == 'reviewer' and isinstance(roleInfo[role], list) else []
                     )
                 else:
                     userProfile = self._model.revokeRole(applet, userProfile, role)
@@ -1112,17 +1114,10 @@ class Applet(Resource):
             required=False,
             dataType='boolean'
         )
-        .param(
-            'retrieveItems',
-            'true if retrieve items',
-            default=True,
-            required=False,
-            dataType='boolean'
-        )
         .errorResponse('Invalid applet ID.')
         .errorResponse('Read access was denied for this applet.', 403)
     )
-    def getApplet(self, applet, retrieveSchedule=False, retrieveAllEvents=False, retrieveItems=True):
+    def getApplet(self, applet, retrieveSchedule=False, retrieveAllEvents=False):
         user = self.getCurrentUser()
 
         formatted = jsonld_expander.formatLdObject(
@@ -1134,8 +1129,9 @@ class Applet(Resource):
 
         if retrieveSchedule:
             formatted['applet']['schedule'] = self._model.getSchedule(applet, user, retrieveAllEvents)
-        if not retrieveItems:
-            formatted.pop('items')
+
+        formatted['updated'] = applet['updated']
+        formatted['accountId'] = applet['accountId']
 
         return formatted
 
@@ -1662,11 +1658,7 @@ class Applet(Resource):
                 savedEvent = EventsModel().upsertEvent(event, applet, event.get('id', None))
                 event['id'] = savedEvent['_id']
 
-        return {
-            "applet": {
-                "schedule": schedule if rewrite else EventsModel().getSchedule(applet['_id'])
-            }
-        }
+        return schedule if rewrite else EventsModel().getSchedule(applet['_id'])
 
 
 def authorizeReviewer(applet, reviewer, user):

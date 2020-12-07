@@ -239,7 +239,7 @@ class Applet(FolderModel):
         profile.save(userProfile, validate=False)
 
         if newRole == 'reviewer':
-            profile.updateReviewerList(userProfile, users)
+            profile.updateReviewerList(userProfile, users, isMRNList=True)
         elif newRole == 'manager':
             profile.updateReviewerList(userProfile)
 
@@ -788,6 +788,8 @@ class Applet(FolderModel):
             accountId,
             currentApplet = applet
         )
+
+        applet['updated'] = datetime.datetime.utcnow()
         applet = self.setMetadata(folder=applet, metadata=applet['meta'])
 
         # update appletProfile according to updated applet
@@ -1190,25 +1192,6 @@ class Applet(FolderModel):
 
         return self.save(applet, validate=False)
 
-    def unexpanded(self, applet):
-        from girderformindlogger.utility.jsonld_expander import loadCache
-        return({
-            **(
-                loadCache(applet.get(
-                    'cached',
-                    {}
-                )).get('applet') if isinstance(
-                    applet,
-                    dict
-                ) and 'cached' in applet else {
-                    '_id': "applet/{}".format(
-                        str(applet.get('_id'))
-                    ),
-                    **applet.get('meta', {}).get('applet', {})
-                }
-            )
-        })
-
     def getAppletGroups(self, applet, arrayOfObjects=False):
         # get role list for applet
         roleList = self.getFullRolesList(applet)
@@ -1320,12 +1303,12 @@ class Applet(FolderModel):
                     if not len(displayName) and key.endswith(candidate) and isinstance(protocol[key], list):
                         displayName = protocol[key][0]['@value']
 
-            #suffix = re.findall('^(.*?)\s*\((\d+)\)$', applet.get('meta', {}).get('applet', {}).get('displayName', {}))
-            #if len(suffix):
-            #    displayName = '%s (%s)' % (displayName, suffix[0][1])
+            suffix = re.findall('^(.*?)\s*\((\d+)\)$', applet.get('meta', {}).get('applet', {}).get('displayName', {}))
+            if len(suffix):
+                displayName = '%s (%s)' % (displayName, suffix[0][1])
 
             applet['meta']['applet']['displayName'] = self.validateAppletName(
-                applet['displayName'],
+                displayName,
                 CollectionModel().findOne({"name": "Applets"}),
                 accountId = applet['accountId'],
                 currentApplet = applet
@@ -1336,7 +1319,6 @@ class Applet(FolderModel):
         from girderformindlogger.utility import jsonld_expander
 
         jsonld_expander.clearCache(applet, 'applet')
-        print('Cache clear')
 
         formatted = jsonld_expander.formatLdObject(
             applet,
@@ -1459,6 +1441,8 @@ class Applet(FolderModel):
 
         if retrieveSchedule:
             formatted["applet"]["schedule"] = self.getSchedule(applet, reviewer, retrieveAllEvents, eventFilter if not retrieveAllEvents else None)
+
+        formatted["updated"] = applet["updated"]
 
         return formatted
 
