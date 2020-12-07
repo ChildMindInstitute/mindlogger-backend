@@ -1120,6 +1120,9 @@ class Applet(FolderModel):
         }
 
         userKeys = {}
+        profileIDToData = {}
+        for profile in profiles:
+            profileIDToData[str(profile['_id'])] = profile
 
         IRIs = {}
         # IRIs refers to available versions for specified IRI
@@ -1134,10 +1137,18 @@ class Applet(FolderModel):
         for response in responses:
             meta = response.get('meta', {})
 
+            profile = profileIDToData.get(str(meta.get('subject', {}).get('@id', None)), None)
+
+            if not profile:
+                continue
+
+            MRN = profile['MRN'] if profile.get('MRN', '') else f"None ({profile.get('userDefined', {}).get('email', '')})"
+
             data['responses'].append({
                 '_id': response['_id'],
                 'activity': meta.get('activity', {}),
-                'userId': meta.get('subject', {}).get('@id', None),
+                'userId': str(profile['_id']),
+                'MRN': MRN,
                 'data': meta.get('responses', {}),
                 'created': response.get('created', None),
                 'version': meta['applet'].get('version', '0.0.0')
