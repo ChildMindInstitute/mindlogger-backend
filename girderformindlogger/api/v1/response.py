@@ -420,7 +420,6 @@ class ResponseItem(Resource):
                     "completed_time": now
                 })
 
-            data['updated'] = now
             profile.save(data, validate=False)
 
             return(newItem)
