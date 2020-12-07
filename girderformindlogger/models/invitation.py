@@ -332,14 +332,15 @@ class Invitation(AESEncryption):
 
         for duplicate in duplicates:
             newInvitation = self.createInvitationForSpecifiedUser(
-                duplicate,
-                UserModel().load(invitation['inviterId'], force=True),
-                invitation.get('role', 'user'),
-                user,
-                invitation.get('firstName', ''),
-                invitation.get('lastName', ''),
-                invitation.get('MRN', ''),
-                userEmail
+                applet=duplicate,
+                coordinator=UserModel().load(invitation['inviterId'], force=True),
+                role=invitation.get('role', 'user'),
+                user=user,
+                firstName=invitation.get('firstName', ''),
+                lastName=invitation.get('lastName', ''),
+                lang='en',
+                MRN=invitation.get('MRN', ''),
+                userEmail=userEmail
             )
 
             self.acceptInvitation(self.load(newInvitation['_id'], force=True), user, userEmail)
