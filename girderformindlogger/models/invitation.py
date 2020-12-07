@@ -308,9 +308,6 @@ class Invitation(AESEncryption):
         profile['lastName'] = invitation.get('lastName', '')
         profile['MRN'] = invitation.get('MRN', '')
 
-        if 'invited_role' != 'user':
-            profile['email'] = userEmail
-
         Profile().save(profile, validate=False)
 
         if invited_role == 'reviewer':

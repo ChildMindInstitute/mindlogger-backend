@@ -1265,23 +1265,9 @@ def createCache(obj, formatted, modelType, user = None):
         cache_id = obj['cached']
         CacheModel().updateCache(cache_id, MODELS()[modelType]().name, obj['_id'], modelType, formatted)
     else:
-        obj['updated'] = datetime.utcnow()
-
-        if modelType == 'applet':
-            formatted['updated'] = obj['updated']
-
         saved = CacheModel().insertCache(MODELS()[modelType]().name, obj['_id'], modelType, formatted)
         obj['cached'] = saved['_id']
-
-        MODELS()[modelType]().update({
-            '_id': ObjectId(obj['_id'])
-        }, {
-            '$set': {
-                'cached': obj['cached'],
-                'updated': obj['updated']
-            }
-        }, False)
-
+        MODELS()[modelType]().update({'_id': ObjectId(obj['_id'])}, {'$set': {'cached': obj['cached']}}, False)
     return obj
 
 def clearCache(obj, modelType):

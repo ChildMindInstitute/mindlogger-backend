@@ -25,14 +25,7 @@ class Profile(AESEncryption, dict):
                 'userId',
                 'individual_events',
                 'completed_activities',
-                'reviewers',
-                'MRN',
-                'updated',
-                ([
-                    ('appletId', 1),
-                    ('roles', 1),
-                    ('MRN', 1),
-                ], {})
+                'reviewers'
             )
         )
 
@@ -730,19 +723,8 @@ class Profile(AESEncryption, dict):
 
         return self.save(appletProfile, validate=False)
 
-    # isMRNList - if true, content of users array is mrn list
-    def updateReviewerList(self, reviewer, users=None, operation='replace', isMRNList=False):
+    def updateReviewerList(self, reviewer, users=None, operation='replace'):
         profiles = self.find({'appletId': reviewer['appletId']})
-
-        if isMRNList and users:
-            MrnToProfileId = {}
-            for profile in profiles:
-                if 'MRN' in profile:
-                    MrnToProfileId[profile['MRN']] = profile['_id']
-
-            users = [
-                MrnToProfileId[MRN] for MRN in users if MRN in MrnToProfileId
-            ]
 
         for profile in profiles:
             if reviewer['_id'] == profile['_id']:
@@ -884,14 +866,9 @@ class Profile(AESEncryption, dict):
                 },
                 'reviewers': [
                     manager['_id'] for manager in managers
-                ],
-                'firstName': user['firstName'],
-                'lastName': user['lastName']
+                ]
             }.items() if v is not None
         }
-
-        if role != 'user' and not user.get('email_encrypted', True):
-            profile['email'] = user['email']
 
         if existing:
             profile['_id'] = existing['_id']

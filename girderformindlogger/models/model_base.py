@@ -450,10 +450,6 @@ class Model(object):
         kwargs = {k: kwargs[k] for k in kwargs if k in _allowedFindArgs}
         return self.collection.find_one(query, projection=fields, **kwargs)
 
-    def aggregate(self, stages=None):
-        stages = stages or []
-        return self.collection.aggregate(stages)
-
     def _textSearchFilters(self, query, filters=None, fields=None):
         """
         Return a set of filters and fields used in the text search.
