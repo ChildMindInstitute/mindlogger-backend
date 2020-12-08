@@ -205,9 +205,6 @@ class Invitation(AESEncryption):
             if user:
                 invitation['userId'] = user['_id']
 
-        if role == 'reviewer':
-            accessibleUsers = [ObjectId(accessibleUser) for accessibleUser in accessibleUsers]
-
         invitation.update({
             'inviterId': coordinator['_id'],
             'role': role,
@@ -314,7 +311,7 @@ class Invitation(AESEncryption):
         Profile().save(profile, validate=False)
 
         if invited_role == 'reviewer':
-            Profile().updateReviewerList(profile, invitation.get('accessibleUsers'))
+            Profile().updateReviewerList(profile, invitation.get('accessibleUsers', []), isMRNList=True)
         elif invited_role == 'manager':
             Profile().updateReviewerList(profile)
 
