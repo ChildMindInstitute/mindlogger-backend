@@ -299,6 +299,7 @@ class ResponseItem(Resource):
         params
     ):
         from girderformindlogger.models.profile import Profile
+        from girderformindlogger.models.account_profile import AccountProfile
         try:
             # TODO: pending
             metadata['applet'] = {
@@ -353,6 +354,13 @@ class ResponseItem(Resource):
                 parent=UserAppletResponsesFolder, parentType='folder',
                 name=str(subject_id), reuseExisting=True, public=False)
 
+            owner_account = AccountProfile().findOne({
+                'applets.owner': applet.get('_id')
+            })
+
+            if owner_account and owner_account.get('db', None):
+                self._model.reconnectToDb(db_uri=owner_account.get('db', None))
+
             try:
                 newItem = self._model.createResponseItem(
                     folder=AppletSubjectResponsesFolder,
@@ -362,7 +370,8 @@ class ResponseItem(Resource):
                         Folder().preferredName(activity),
                         now.strftime("%Y-%m-%d"),
                         now.strftime("%H:%M:%S %Z")
-                    ), reuseExisting=False)
+                    ), reuseExisting=False
+                )
             except:
                 raise ValidationException(
                     "Couldn't find activity name for this response"
@@ -401,6 +410,7 @@ class ResponseItem(Resource):
             if not pending:
                 newItem['readOnly'] = True
             print(newItem)
+            self._model.reconnectToDb(db_uri=None)
 
             # update profile activity
             profile = Profile()
@@ -463,7 +473,7 @@ class ResponseItem(Resource):
 
         for responseId in responses['dataSources']:
             query = {
-                "meta.applet.@id": applet['_id'], 
+                "meta.applet.@id": applet['_id'],
                 "_id": ObjectId(responseId)
             }
             if not is_manager:
@@ -477,7 +487,7 @@ class ResponseItem(Resource):
                         'meta.userPublicKey': responses['userPublicKey'],
                         'updated': now
                     }
-                }, 
+                },
                 multi=False
             )
 
