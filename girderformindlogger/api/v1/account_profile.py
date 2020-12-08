@@ -213,9 +213,12 @@ class AccountProfile(Resource):
             if 'firstName' in fields and not data['firstName']:
                 data['firstName'] = profile.get('userDefined', {}).get('displayName', '')
 
-            if 'MRN' in fields and not data['MRN']: # show employer in user list
-                data['email'] = profile.get('userDefined', {}).get('email', '')
-                data['MRN'] = f"None ({data['email']})"
+            # if 'MRN' in fields and not data['MRN']: # show employer in user list
+            #    data['email'] = profile.get('userDefined', {}).get('email', '')
+            #    data['MRN'] = f"None ({data['email']})"
+
+            if role == 'user' and len(profile.get('roles', [])) > 1:
+                continue
 
             # reviewers don't need to view user's roles
             if 'coordinator' not in viewer['roles'] and 'manager' not in viewer['roles']:
@@ -238,6 +241,12 @@ class AccountProfile(Resource):
                 for userActivityUpdate in profile.get('completed_activities', []):
                     if userActivityUpdate['completed_time'] and (not data['updated'] or data['updated'] < userActivityUpdate['completed_time']):
                         data['updated'] = userActivityUpdate['completed_time']
+
+            if 'roles' in data:
+                if 'owner' in data['roles']:
+                    data['roles'] = ['owner']
+                elif 'manager' in data['roles']:
+                    data['roles'] = ['manager']
 
             # user might use several applets in one account
             if userId not in userIndex:
