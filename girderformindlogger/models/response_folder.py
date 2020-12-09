@@ -20,9 +20,10 @@
 import datetime
 import itertools
 
+import cherrypy
 from bson.objectid import ObjectId
 from girderformindlogger.constants import AccessType
-from girderformindlogger.exceptions import ValidationException, GirderException
+from girderformindlogger.exceptions import GirderException
 from girderformindlogger.models.assignment import Assignment
 from girderformindlogger.models.folder import Folder
 from girderformindlogger.models.item import Item
@@ -54,7 +55,7 @@ class ResponseItem(AESEncryption, Item):
             ('meta.last7Days.responses', 1024),
         ], 6)
 
-    def reconnectToDb(self, db_uri):
+    def reconnectToDb(self, db_uri=cherrypy.config['database']['uri']):
         self.db_uri = db_uri
         self.reconnect()
 

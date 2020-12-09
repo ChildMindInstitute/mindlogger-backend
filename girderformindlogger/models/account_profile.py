@@ -3,6 +3,8 @@ import copy
 import datetime
 import json
 import os
+import re
+
 import six
 
 from bson.objectid import ObjectId
@@ -35,6 +37,11 @@ class AccountProfile(AccessControlledModel):
             raise ValidationException('accountName not defined.', 'accountName')
 
         return document
+
+    def validateDBURL(self, db_uri: str):
+        match = re.fullmatch(r'^mongodb://\w+:\w+@\w+:\d+/\w+', db_uri)
+        if not match:
+            raise ValidationException('MongoDB url is not correct.')
 
     def createOwner(self, user):
         account = {
