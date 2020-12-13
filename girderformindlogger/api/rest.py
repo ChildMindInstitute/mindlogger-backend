@@ -541,6 +541,15 @@ def _createResponse(val):
     # Default behavior will just be normal JSON output. Keep this
     # outside of the loop body in case no Accept header is passed.
     setResponseHeader('Content-Type', 'application/json')
+
+    # disable api responses to be automatically cached on frontend
+    setResponseHeader('Cache-Control', 'private, no-cache, no-store, max-age=0')
+    setResponseHeader('Pragma', 'no-cache')
+    setResponseHeader('Expires', '0')
+
+    # use https
+    setResponseHeader('Strict-Transport-Security', 'max-age=31536000; includeSubDomains')
+
     return json.dumps(val, sort_keys=True, allow_nan=False,
                       cls=JsonEncoder).encode('utf8')
 

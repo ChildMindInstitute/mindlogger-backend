@@ -17,37 +17,24 @@
 #  limitations under the License.
 ###############################################################################
 
-import itertools
 import tzlocal
 import pytz
-from datetime import date, datetime, timedelta, timezone
-from bson.objectid import ObjectId
+from datetime import timedelta, timezone
 
 from ..describe import Description, autoDescribeRoute
-from ..rest import Resource, filtermodel, setResponseHeader, \
-    setContentDisposition
+from ..rest import Resource
 from datetime import datetime
-from girderformindlogger.utility import ziputil
 from girderformindlogger.constants import AccessType, TokenScope
-from girderformindlogger.exceptions import AccessException, RestException, \
-    ValidationException
+from girderformindlogger.exceptions import ValidationException
 from girderformindlogger.api import access
 from girderformindlogger.models.activity import Activity as ActivityModel
 from girderformindlogger.models.applet import Applet as AppletModel
-from girderformindlogger.models.assignment import Assignment as AssignmentModel
 from girderformindlogger.models.folder import Folder
 from girderformindlogger.models.response_folder import ResponseFolder as \
     ResponseFolderModel, ResponseItem as ResponseItemModel
-from girderformindlogger.models.roles import getCanonicalUser, getUserCipher
-from girderformindlogger.models.user import User as UserModel
 from girderformindlogger.models.upload import Upload as UploadModel
-from girderformindlogger.utility.response import formatResponse, \
-    string_or_ObjectID
-from girderformindlogger.utility.resource import listFromString
-from pymongo import ASCENDING, DESCENDING
+from pymongo import DESCENDING
 from bson import ObjectId
-import hashlib
-
 
 
 class ResponseItem(Resource):
@@ -119,6 +106,7 @@ class ResponseItem(Resource):
         includeOldItems=True,
     ):
         from girderformindlogger.models.profile import Profile
+        from girderformindlogger.models.account_profile import AccountProfile
         from girderformindlogger.utility.response import (
             delocalize, add_missing_dates, add_latest_daily_response, getOldVersions)
 
@@ -166,8 +154,14 @@ class ResponseItem(Resource):
         }
 
         # Get the responses for each users and generate the group responses data.
+        owner_account = AccountProfile().findOne({
+            'applets.owner': applet.get('_id')
+        })
+        if owner_account and owner_account.get('db', None):
+            self._model.reconnectToDb(db_uri=owner_account.get('db', None))
+
         for user in users:
-            responses = ResponseItemModel().find(
+            responses = self._model.find(
                 query={"created": { "$lte": toDate, "$gt": fromDate },
                        "meta.applet.@id": ObjectId(applet['_id']),
                        "meta.activity.@id": { "$in": activities },
@@ -187,6 +181,8 @@ class ResponseItem(Resource):
 
             add_latest_daily_response(data, responses)
         add_missing_dates(data, fromDate, toDate)
+
+        self._model.reconnectToDb()
 
         data.update(getOldVersions(data['responses'], applet))
 
@@ -299,6 +295,7 @@ class ResponseItem(Resource):
         params
     ):
         from girderformindlogger.models.profile import Profile
+        from girderformindlogger.models.account_profile import AccountProfile
         try:
             # TODO: pending
             metadata['applet'] = {
@@ -353,6 +350,13 @@ class ResponseItem(Resource):
                 parent=UserAppletResponsesFolder, parentType='folder',
                 name=str(subject_id), reuseExisting=True, public=False)
 
+            owner_account = AccountProfile().findOne({
+                'applets.owner': applet.get('_id')
+            })
+
+            if owner_account and owner_account.get('db', None):
+                self._model.reconnectToDb(db_uri=owner_account.get('db', None))
+
             try:
                 newItem = self._model.createResponseItem(
                     folder=AppletSubjectResponsesFolder,
@@ -362,7 +366,8 @@ class ResponseItem(Resource):
                         Folder().preferredName(activity),
                         now.strftime("%Y-%m-%d"),
                         now.strftime("%H:%M:%S %Z")
-                    ), reuseExisting=False)
+                    ), reuseExisting=False
+                )
             except:
                 raise ValidationException(
                     "Couldn't find activity name for this response"
@@ -401,6 +406,7 @@ class ResponseItem(Resource):
             if not pending:
                 newItem['readOnly'] = True
             print(newItem)
+            self._model.reconnectToDb()
 
             # update profile activity
             profile = Profile()
@@ -450,6 +456,7 @@ class ResponseItem(Resource):
     )
     def updateReponseItems(self, applet, responses):
         from girderformindlogger.models.profile import Profile
+        from girderformindlogger.models.account_profile import AccountProfile
 
         user = self.getCurrentUser()
         profile = Profile().findOne({
@@ -461,15 +468,22 @@ class ResponseItem(Resource):
 
         now = datetime.utcnow()
 
+        owner_account = AccountProfile().findOne({
+            'applets.owner': applet.get('_id')
+        })
+
+        if owner_account and owner_account.get('db', None):
+            self._model.reconnectToDb(db_uri=owner_account.get('db', None))
+
         for responseId in responses['dataSources']:
             query = {
-                "meta.applet.@id": applet['_id'], 
+                "meta.applet.@id": applet['_id'],
                 "_id": ObjectId(responseId)
             }
             if not is_manager:
                 query["meta.subject.@id"] = profile['_id']
 
-            ResponseItemModel().update(
+            self._model.update(
                 query,
                 {
                     '$set': {
@@ -477,9 +491,11 @@ class ResponseItem(Resource):
                         'meta.userPublicKey': responses['userPublicKey'],
                         'updated': now
                     }
-                }, 
+                },
                 multi=False
             )
+
+        self._model.reconnectToDb()
 
         if profile.get('refreshRequest', None):
             profile.pop('refreshRequest')
