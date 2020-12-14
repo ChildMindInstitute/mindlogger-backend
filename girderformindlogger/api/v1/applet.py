@@ -664,7 +664,7 @@ class Applet(Resource):
                 'name': name,
                 'protocolUrl': protocolUrl,
                 'user': thisUser,
-                'email': email,
+                'email': email.lower().strip(),
                 'constraints': {
                     'informantRelationship': informant
                 } if informant is not None else None,
@@ -783,7 +783,7 @@ class Applet(Resource):
                 'name': name,
                 'protocol': protocol,
                 'user': thisUser,
-                'email': email,
+                'email': email.lower().strip(),
                 'constraints': {
                     'informantRelationship': informant
                 } if informant is not None else None,
@@ -1303,6 +1303,7 @@ class Applet(Resource):
         from girderformindlogger.models.invitation import Invitation
         from girderformindlogger.models.profile import Profile
 
+        email = email.lower().strip()
         if not mail_utils.validateEmailAddress(email):
             raise ValidationException(
                 'invalid email', 'email'
