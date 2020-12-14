@@ -769,9 +769,15 @@ class Applet(Resource):
             'Name to give the applet.',
             required=True
         )
+        .param(
+            'lang',
+            'Language of response message',
+            default='en',
+            required=True
+        )
         .errorResponse('Write access was denied for this applet.', 403)
     )
-    def duplicateApplet(self, applet, name):
+    def duplicateApplet(self, applet, name, lang='en'):
         thisUser = self.getCurrentUser()
         accountProfile = self.getAccountProfile()
 
@@ -791,7 +797,7 @@ class Applet(Resource):
         thread.start()
 
         return({
-            "message": "The applet is being duplicated. We will send you an email in 10 min or less when it has been successfully duplicated."
+            "message": t('applet_is_duplicated', lang)
         })
 
     @access.user(scope=TokenScope.DATA_WRITE)
@@ -1172,10 +1178,16 @@ class Applet(Resource):
             level=AccessType.READ,
             destName='applet'
         )
+        .param(
+            'lang',
+            'Language of response message',
+            default='en',
+            required=True
+        )
         .errorResponse('Invalid applet ID.')
         .errorResponse('Write access was denied for this applet.', 403)
     )
-    def refresh(self, applet):
+    def refresh(self, applet, lang='en'):
         user = self.getCurrentUser()
 
         if not self._model._hasRole(applet['_id'], user, 'editor'):
@@ -1191,8 +1203,7 @@ class Applet(Resource):
         thread.start()
 
         return({
-            "message": "The protocol is being reloaded and cached data is being updated. Please check back "
-                        "in several mintutes to see it."
+            "message": t('applet_is_refreshed', lang)
         })
 
 

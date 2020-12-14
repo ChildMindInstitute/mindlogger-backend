@@ -120,7 +120,7 @@ class ResponseItem(Resource):
     ):
         from girderformindlogger.models.profile import Profile
         from girderformindlogger.utility.response import (
-            delocalize, add_missing_dates, add_latest_daily_response, getOldVersions)
+            delocalize, add_latest_daily_response, getOldVersions)
 
         user = self.getCurrentUser()
         profile = Profile().findOne({'appletId': applet['_id'],
@@ -186,7 +186,6 @@ class ResponseItem(Resource):
                 )
 
             add_latest_daily_response(data, responses)
-        add_missing_dates(data, fromDate, toDate)
 
         data.update(getOldVersions(data['responses'], applet))
 

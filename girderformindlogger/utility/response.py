@@ -435,23 +435,11 @@ def responseDateList(appletId, userId, reviewer):
     rdl.sort(reverse=True)
     return(rdl)
 
-
-def add_missing_dates(response_data, from_date, to_date):
-    for activity in response_data['responses']:
-        for n in range(int((to_date - from_date).days)):
-            current_date = (to_date - timedelta(days=n)).date()
-
-            # If the date entry is not found, create it.
-            if not any([r['date'] == current_date for r in response_data['responses'][activity]]):
-                response_data['responses'][activity].append({"date": current_date, "value": []})
-
-
 def add_latest_daily_response(data, responses):
     user_keys = {}
 
     for response in responses:
         activity_id = str(response['meta']['activity']['@id'])
-        # response['updated'] = response['updated'].date()  # consider time value to handle users with different timezones.
 
         for item in response['meta']['responses']:
             if item not in data['responses']:
