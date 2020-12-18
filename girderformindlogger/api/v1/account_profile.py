@@ -213,10 +213,6 @@ class AccountProfile(Resource):
             if 'firstName' in fields and not data['firstName']:
                 data['firstName'] = profile.get('userDefined', {}).get('displayName', '')
 
-            # if 'MRN' in fields and not data['MRN']: # show employer in user list
-            #    data['email'] = profile.get('userDefined', {}).get('email', '')
-            #    data['MRN'] = f"None ({data['email']})"
-
             if role == 'user' and len(profile.get('roles', [])) > 1:
                 continue
 
@@ -227,22 +223,23 @@ class AccountProfile(Resource):
 
                 data.pop('roles')
 
-            if role == 'user':
-                data['viewable'] = False
+            if 'coordinator' in viewer['roles']:
+                data['hasIndividualEvent'] = (profile.get('individual_events', 0) > 0)
 
-                if 'coordinator' in viewer['roles']:
-                    data['hasIndividualEvent'] = (profile.get('individual_events', 0) > 0)
+            data['viewable'] = False
+            if viewer['_id'] in profile.get('reviewers', []) or viewer['_id'] == profile['_id']:
+                data['refreshRequest'] = profile.get('refreshRequest', None)
+                data['viewable'] = True
 
-                if viewer['_id'] in profile.get('reviewers', []) or viewer['_id'] == profile['_id']:
-                    data['refreshRequest'] = profile.get('refreshRequest', None)
-                    data['viewable'] = True
+            data['updated'] = None
+            for userActivityUpdate in profile.get('completed_activities', []):
+                if userActivityUpdate['completed_time'] and (not data['updated'] or data['updated'] < userActivityUpdate['completed_time']):
+                    data['updated'] = userActivityUpdate['completed_time']
 
-                data['updated'] = None
-                for userActivityUpdate in profile.get('completed_activities', []):
-                    if userActivityUpdate['completed_time'] and (not data['updated'] or data['updated'] < userActivityUpdate['completed_time']):
-                        data['updated'] = userActivityUpdate['completed_time']
+            if 'roles' in data and 'manager' in data['roles']:
+                if role != 'manager':
+                    continue
 
-            if 'roles' in data:
                 if 'owner' in data['roles']:
                     data['roles'] = ['owner']
                 elif 'manager' in data['roles']:
