@@ -5,10 +5,12 @@ from girderformindlogger.api import access
 from girderformindlogger.constants import AccessType, TokenScope
 from girderformindlogger.exceptions import RestException
 from girderformindlogger.models.folder import Folder as FolderModel
+from girderformindlogger.models.applet import Applet as AppletModel
+from girderformindlogger.api.v1 import Applet
 from girderformindlogger.utility import ziputil
 from girderformindlogger.utility.model_importer import ModelImporter
 from girderformindlogger.utility.progress import ProgressContext
-
+from bson.objectid import ObjectId
 
 class Folder(Resource):
     """API Endpoint for folders."""
@@ -19,18 +21,21 @@ class Folder(Resource):
         self._model = FolderModel()
         self.route('DELETE', (':id',), self.deleteFolder)
         self.route('DELETE', (':id', 'contents'), self.deleteContents)
+        self.route('POST', (), self.createFolder)
+        self.route('PUT', (':id',), self.updateFolder)
         self.route('GET', (), self.find)
         self.route('GET', (':id',), self.getFolder)
         self.route('GET', (':id', 'details'), self.getFolderDetails)
         self.route('GET', (':id', 'access'), self.getFolderAccess)
         self.route('GET', (':id', 'download'), self.downloadFolder)
         self.route('GET', (':id', 'rootpath'), self.rootpath)
-        self.route('POST', (), self.createFolder)
-        self.route('PUT', (':id',), self.updateFolder)
         self.route('PUT', (':id', 'access'), self.updateFolderAccess)
         self.route('POST', (':id', 'copy'), self.copyFolder)
         self.route('PUT', (':id', 'metadata'), self.setMetadata)
         self.route('DELETE', (':id', 'metadata'), self.deleteMetadata)
+        self.route('PUT',(':id','add'),self.addApplet)
+        self.route('DELETE',(':id','remove'),self.removeApplet)
+        self.route('GET',(':id','applets'),self.getApplets)
 
     @access.public(scope=TokenScope.DATA_READ)
     @filtermodel(model=FolderModel)
@@ -127,6 +132,68 @@ class Folder(Resource):
                     yield data
             yield zip.footer()
         return stream
+
+    @access.user(scope=TokenScope.DATA_READ)
+    @filtermodel(model=AppletModel)
+    @autoDescribeRoute(
+        Description('Adds an applet into a folder')
+            .responseClass('Applet')
+            .modelParam('id', model=FolderModel, level=AccessType.WRITE)
+            .errorResponse('ID was invalid.')
+            .errorResponse('Write access was denied for the folder or its new parent object.', 403)
+    )
+    def getApplets(self,folder):
+        folder_applets=[]
+
+        if folder['meta'].get('applets'):
+            applet_meta=folder['meta']['applets']
+
+            for _meta in applet_meta:
+                folder_applets.append(Applet().getApplet(id=_meta['_id']))
+
+        return folder_applets
+
+    @access.user(scope=TokenScope.DATA_WRITE)
+    @filtermodel(model=FolderModel)
+    @autoDescribeRoute(
+        Description('Adds an applet into a folder')
+            .responseClass('Folder')
+            .modelParam('id', model=FolderModel, level=AccessType.WRITE)
+            .param('appletId', 'Applet of the id to be added', required=True, strip=True)
+            .errorResponse('ID was invalid.')
+            .errorResponse('Write access was denied for the folder or its new parent object.', 403)
+    )
+
+    def addApplet(self,folder,appletId):
+        _metadata=folder['meta']
+
+        if not _metadata.get('applets'):
+            _metadata['applets'] = []
+
+        _metadata['applets'].append({'_id':appletId})
+
+        folder = self._model.setMetadata(folder, _metadata)
+
+        return folder
+
+    @access.user(scope=TokenScope.DATA_WRITE)
+    @filtermodel(model=FolderModel)
+    @autoDescribeRoute(
+        Description('Removes an applet into a folder')
+            .responseClass('Folder')
+            .modelParam('id', model=FolderModel, level=AccessType.WRITE)
+            .param('appletId', 'Applet of the id to be removed', required=True, strip=True)
+            .errorResponse('ID was invalid.')
+            .errorResponse('Write access was denied for the folder or its new parent object.', 403)
+    )
+    def removeApplet(self, folder, appletId):
+        _metadata = folder['meta']
+
+        if _metadata.get('applets'):
+            _metadata['applets']=[d for d in _metadata['applets'] if d.get('_id') != appletId]
+            folder = self._model.setMetadata(folder, _metadata)
+
+        return folder
 
     @access.user(scope=TokenScope.DATA_WRITE)
     @filtermodel(model=FolderModel)
