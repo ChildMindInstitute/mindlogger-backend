@@ -442,20 +442,35 @@ class ResponseItem(Resource):
             destName='applet',
             description='The ID of the Applet this response is to.'
         )
+        .param(
+            'user',
+            'profile id for user',
+            required=False,
+            default=None
+        )
         .jsonParam('responses',
                    'A JSON object containing the new response data and public key.',
                    paramType='form', requireObject=True, required=True)
         .errorResponse()
         .errorResponse('Write access was denied on the parent folder.', 403)
     )
-    def updateReponseItems(self, applet, responses):
+    def updateReponseItems(self, applet, user, responses):
         from girderformindlogger.models.profile import Profile
 
-        user = self.getCurrentUser()
-        profile = Profile().findOne({
-            'appletId': applet['_id'],
-            'userId': user['_id']
-        })
+        if not user:
+            user = self.getCurrentUser()
+            profile = Profile().findOne({
+                'appletId': applet['_id'],
+                'userId': user['_id']
+            })
+        else:
+            profile = Profile().findOne({
+                '_id': ObjectId(user),
+                'appletId': applet['_id']
+            })
+
+        if not profile:
+            raise ValidationException('unable to find user with specified id')
 
         is_manager = 'manager' in profile.get('roles', [])
 
