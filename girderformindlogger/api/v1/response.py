@@ -38,15 +38,12 @@ from bson import ObjectId
 import boto3
 import os
 
-DEFAULT_REGION = 'us-east-1'
 
 class ResponseItem(Resource):
 
     def __init__(self):
         super(ResponseItem, self).__init__()
         self.resourceName = 'response'
-        self.s3_client = boto3.client('s3', region_name=DEFAULT_REGION, aws_access_key_id=os.environ['ACCESS_KEY_ID'],
-                                 aws_secret_access_key=os.environ['SECRET_ACCESS_KEY'])
         self._model = ResponseItemModel()
         self.route('GET', (':applet',), self.getResponsesForApplet)
         self.route('GET', ('last7Days', ':applet'), self.getLast7Days)
@@ -386,22 +383,19 @@ class ResponseItem(Resource):
                     key,
                     metadata['responses'][key]['type'].split('/')[-1]
                 )
-                _file_obj_key=f"{ObjectId(profile['_id'])}/{ObjectId(applet['_id'])}/{ObjectId(activity['_id'])}/{filename}"
 
-                self.s3_client.upload_fileobj(value.file,os.environ['S3_MEDIA_BUCKET'],_file_obj_key)
-
-                # newUpload = um.uploadFromFile(
-                #     value.file,
-                #     metadata['responses'][key]['size'],
-                #     filename,
-                #     'item',
-                #     newItem,
-                #     informant,
-                #     metadata['responses'][key]['type'],
-                # )
+                newUpload = um.uploadFromFile(
+                    value.file,
+                    metadata['responses'][key]['size'],
+                    filename,
+                    'item',
+                    newItem,
+                    informant,
+                    metadata['responses'][key]['type'],
+                )
 
                 # now, replace the metadata key with a link to this upload
-                metadata['responses'][key] = "file::{}".format(_file_obj_key)
+                metadata['responses'][key] = "file::{}".format(newUpload['_id'])
 
             if metadata:
                 if metadata.get('dataSource', None):
