@@ -395,11 +395,17 @@ class ResponseItem(Resource):
                             'ptr': metadata['responses'][item]
                         }
 
+                if metadata.get('subScaleSource', None):
+                    for subScale in metadata.get('subScales', {}):
+                        metadata['subScales'][subScale] = {
+                            'src': newItem['_id'],
+                            'ptr': metadata['subScales'][subScale]
+                        }
+
                 newItem = self._model.setMetadata(newItem, metadata)
 
             if not pending:
                 newItem['readOnly'] = True
-            print(newItem)
 
             # update profile activity
             profile = Profile()
