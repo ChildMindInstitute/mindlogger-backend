@@ -95,6 +95,7 @@ class Model(object):
 
     def __init__(self):
         self.name = None
+        self.db_uri = None
         self._indices = []
         self._connected = False
         self._textIndex = None
@@ -116,7 +117,7 @@ class Model(object):
         Reconnect to the database and rebuild indices if necessary. Users should
         typically not have to call this method.
         """
-        db_connection = getDbConnection()
+        db_connection = getDbConnection(self.db_uri)
         self._dbserver_version = tuple(db_connection.server_info()['versionArray'])
         self.database = db_connection.get_database()
         self.collection = MongoProxy(self.database[self.name])
