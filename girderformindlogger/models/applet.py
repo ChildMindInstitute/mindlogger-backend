@@ -1113,6 +1113,7 @@ class Applet(FolderModel):
 
         data = {
             'dataSources': {},
+            'subScaleSources': {},
             'keys': [],
             'responses': []
         }
@@ -1137,6 +1138,7 @@ class Applet(FolderModel):
                 'activity': meta.get('activity', {}),
                 'userId': meta.get('subject', {}).get('@id', None),
                 'data': meta.get('responses', {}),
+                'subScales': meta.get('subScales', {}),
                 'created': response.get('created', None),
                 'version': meta['applet'].get('version', '0.0.0')
             })
@@ -1161,6 +1163,12 @@ class Applet(FolderModel):
                     'key': userKeys[keyDump],
                     'data': meta['dataSource']
                 }
+
+                if 'subScaleSource' in meta:
+                    data['subScaleSources'][str(response['_id'])] = {
+                        'key': userKeys[keyDump],
+                        'data': meta['subScaleSource']
+                    }
 
         data.update(
             Protocol().getHistoryDataFromItemIRIs(
