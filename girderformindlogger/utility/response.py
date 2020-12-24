@@ -463,6 +463,12 @@ def add_latest_daily_response(data, responses):
                     'data': response['meta']['dataSource']
                 }
 
+                if 'subScaleSource' in response['meta']:
+                    data['subScaleSources'][str(response['_id'])] = {
+                        'key': user_keys[key_dump],
+                        'data': response['meta']['subScaleSource']
+                    }
+
 def _oneResponsePerDatePerVersion(responses, offset):
     newResponses = {}
     for response in responses:

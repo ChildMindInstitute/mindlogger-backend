@@ -162,7 +162,8 @@ class ResponseItem(Resource):
             'responses': {},
             'dataSources': {},
             'keys': [],
-            'items': {}
+            'items': {},
+            'subScaleSources': {}
         }
 
         # Get the responses for each users and generate the group responses data.
