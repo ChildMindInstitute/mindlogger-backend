@@ -282,6 +282,7 @@ class Events(Model):
 
         lastEvent = {}
         onlyScheduledDay = {}
+
         for event in events:
             event['id'] = event['_id']
             event.pop('_id')
@@ -303,8 +304,27 @@ class Events(Model):
                 else:
                     lastEvent[activityId] = None
 
-                if event['data'].get('eventType', None) and event['data'].get('onlyScheduledDay', False):
-                    onlyScheduledDay[activityId] = True
+                if event['data'].get('onlyScheduledDay', False):
+                    onlyScheduledDay[activityId] = event
+
+        print('onlyScheduled day is', onlyScheduledDay, lastEvent)
+
+        results = []
+
+        for event in events:
+            if event['valid']:
+                results.append(event)
+
+        for value in lastEvent.values():
+            if value and (value[1]['data'].get('completion', False) or value[1]['data'].get('activity_id', None) in onlyScheduledDay):
+                results.append(value[1])
+
+        for event in results:
+            if event['data'].get('activity_id', None) in onlyScheduledDay:
+                onlyScheduledDay.pop(event['data']['activity_id'])
+
+        for activityId in onlyScheduledDay:
+            results.append(onlyScheduledDay[activityId])
 
         return {
             "type": 2,
@@ -317,9 +337,5 @@ class Events(Model):
             "updateRows": True,
             "updateColumns": False,
             "around": 1585724400000,
-            'events': ([
-                event for event in events if event['valid']
-            ] + [
-                value[1] for value in lastEvent.values() if value and (value[1]['data'].get('completion', False) or value[1]['data'].get('activity_id', None) in onlyScheduledDay)
-            ])
+            'events': results
         }
