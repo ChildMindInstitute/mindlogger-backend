@@ -11,6 +11,8 @@ from girderformindlogger.utility import ziputil
 from girderformindlogger.utility.model_importer import ModelImporter
 from girderformindlogger.utility.progress import ProgressContext
 from bson.objectid import ObjectId
+from girderformindlogger.utility import jsonld_expander
+from girderformindlogger.models.account_profile import AccountProfile
 
 class Folder(Resource):
     """API Endpoint for folders."""
@@ -36,6 +38,8 @@ class Folder(Resource):
         self.route('PUT',(':id','add'),self.addApplet)
         self.route('DELETE',(':id','remove'),self.removeApplet)
         self.route('GET',(':id','applets'),self.getApplets)
+        self.route('PUT',(':id','pin'),self.pinApplet)
+        self.route('PUT',(':id','unpin'),self.unpinApplet)
 
     @access.public(scope=TokenScope.DATA_READ)
     @filtermodel(model=FolderModel)
@@ -134,24 +138,68 @@ class Folder(Resource):
         return stream
 
     @access.user(scope=TokenScope.DATA_READ)
-    @filtermodel(model=AppletModel)
     @autoDescribeRoute(
-        Description('Adds an applet into a folder')
-            .responseClass('Applet')
+        Description('Get all applets in a folder')
             .modelParam('id', model=FolderModel, level=AccessType.WRITE)
+            .param(
+            'retrieveSchedule',
+            'true if retrieve schedule info in applet metadata',
+            default=False,
+            required=False,
+            dataType='boolean'
+            )
+            .param(
+            'retrieveAllEvents',
+            'true if retrieve all events in applet metadata',
+            default=False,
+            required=False,
+            dataType='boolean'
+            )
             .errorResponse('ID was invalid.')
             .errorResponse('Write access was denied for the folder or its new parent object.', 403)
     )
-    def getApplets(self,folder):
-        folder_applets=[]
+    def getApplets(self,folder,retrieveSchedule=False, retrieveAllEvents=False):
+        user = self.getCurrentUser()
+
+        account = AccountProfile().findOne({'accountId': user['accountId'], 'userId': user['_id']})
+        folder_applets,sorted_folder_applets=[],[]
 
         if folder['meta'].get('applets'):
-            applet_meta=folder['meta']['applets']
+            _applets=folder['meta']['applets']
 
-            for _meta in applet_meta:
-                folder_applets.append(Applet().getApplet(id=_meta['_id']))
+            for _applet in _applets:
 
-        return folder_applets
+                applet = AppletModel().findOne(query={
+                    '_id': ObjectId(_applet['_id']),
+                })
+
+                formatted = jsonld_expander.formatLdObject(
+                    applet,
+                    'applet',
+                    user,
+                    refreshCache=False
+                )
+
+                if retrieveSchedule:
+                    formatted['applet']['schedule'] = AppletModel().getSchedule(applet, user, retrieveAllEvents)
+
+                formatted['updated'] = applet['updated']
+                formatted['accountId'] = applet['accountId']
+
+                if _applet.get('_pin_order'):
+                    formatted['pinOrder']=_applet['_pin_order']
+
+                formatted['roles']=[]
+
+                for role in account['applets']:
+                    if ObjectId(_applet['_id']) in account['applets'][role]:
+                        formatted['roles'].append(role)
+
+                folder_applets.append(formatted)
+
+            sorted_folder_applets = sorted(folder_applets, key=lambda k: ("pinOrder" not in k, k.get("pinOrder", None)))
+
+        return sorted_folder_applets
 
     @access.user(scope=TokenScope.DATA_WRITE)
     @filtermodel(model=FolderModel)
@@ -170,7 +218,27 @@ class Folder(Resource):
         if not _metadata.get('applets'):
             _metadata['applets'] = []
 
-        _metadata['applets'].append({'_id':appletId})
+
+        applet=AppletModel().findOne(query={
+            '_id': ObjectId(appletId),
+        })
+
+        _metadata['applets'].append({'_id':appletId,'_base_parent_id':applet['baseParentId'],
+                                     '_base_parent_type':applet['baseParentType'],
+                                     '_parent_collection':applet['parentCollection'],
+                                     '_parentId':applet['parentId']})
+
+
+        AppletModel().update({
+            '_id': ObjectId(appletId)
+        }, {
+            '$set': {
+                'baseParentId': ObjectId(applet['creatorId']),
+                'baseParentType':'user',
+                'parentId':ObjectId(folder['_id']),
+                'parentCollection':'folder'}
+           }
+        )
 
         folder = self._model.setMetadata(folder, _metadata)
 
@@ -190,10 +258,90 @@ class Folder(Resource):
         _metadata = folder['meta']
 
         if _metadata.get('applets'):
+            for applet in _metadata['applets']:
+                if applet['_id']==appletId:
+
+                    AppletModel().update({
+                        '_id': ObjectId(appletId)
+                    }, {
+                        '$set': {
+                            'baseParentId': ObjectId(applet['_base_parent_id']),
+                            'baseParentType': applet['_base_parent_type'],
+                            'parentId': ObjectId(applet['_parentId']),
+                            'parentCollection': applet['_parent_collection']}
+                    }
+                    )
+
+                    break
+
             _metadata['applets']=[d for d in _metadata['applets'] if d.get('_id') != appletId]
             folder = self._model.setMetadata(folder, _metadata)
 
         return folder
+
+    @access.user(scope=TokenScope.DATA_WRITE)
+    @filtermodel(model=FolderModel)
+    @autoDescribeRoute(
+        Description('Pins an applet into a folder')
+            .responseClass('Folder')
+            .modelParam('id', model=FolderModel, level=AccessType.WRITE)
+            .param('appletId', 'Applet id to be pinned', required=True, strip=True)
+            .errorResponse('ID was invalid.')
+            .errorResponse('Write access was denied for the folder or its new parent object.', 403)
+    )
+    def pinApplet(self,folder,appletId):
+        _metadata = folder['meta']
+
+        last_pin_order=0
+
+        if _metadata.get('applets'):
+            for applet in _metadata['applets']:
+                if applet.get('_pin_order') and applet['_pin_order']>last_pin_order:
+                    last_pin_order=applet['_pin_order']
+
+            last_pin_order+=1
+            for applet in _metadata['applets']:
+                if applet['_id']==appletId:
+                    applet['_pin_order']=last_pin_order
+                    break
+
+            folder = self._model.setMetadata(folder, _metadata)
+
+        return folder
+
+    @access.user(scope=TokenScope.DATA_WRITE)
+    @filtermodel(model=FolderModel)
+    @autoDescribeRoute(
+        Description('Unpins an applet into a folder')
+            .responseClass('Folder')
+            .modelParam('id', model=FolderModel, level=AccessType.WRITE)
+            .param('appletId', 'Applet id to be unpinned', required=True, strip=True)
+            .errorResponse('ID was invalid.')
+            .errorResponse('Write access was denied for the folder or its new parent object.', 403)
+    )
+    def unpinApplet(self, folder, appletId):
+        _metadata = folder['meta']
+
+        removed_pin_order = 0
+
+        if _metadata.get('applets'):
+
+            for applet in _metadata['applets']:
+                if applet['_id'] == appletId:
+                    removed_pin_order=applet['_pin_order']
+                    del applet['_pin_order']
+                    break
+
+            for applet in _metadata['applets']:
+                if applet.get('_pin_order') and applet['_pin_order'] > removed_pin_order:
+                    applet['_pin_order']=applet['_pin_order']-1
+
+            folder = self._model.setMetadata(folder, _metadata)
+
+        return folder
+
+
+
 
     @access.user(scope=TokenScope.DATA_WRITE)
     @filtermodel(model=FolderModel)
@@ -330,6 +478,12 @@ class Folder(Resource):
         .errorResponse('Admin access was denied for the folder.', 403)
     )
     def deleteFolder(self, folder, progress):
+
+        if folder['meta'].get('applets') and len(folder['meta']['applets'])>0:
+            return {'status_code':403,
+                    'status':'Forbidden',
+                    'message': '{%s} folder cannot be deleted because it contains applets ' % folder['name']}
+
         with ProgressContext(progress, user=self.getCurrentUser(),
                              title='Deleting folder %s' % folder['name'],
                              message='Calculating folder size...') as ctx:
