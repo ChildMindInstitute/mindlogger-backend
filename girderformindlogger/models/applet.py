@@ -1618,7 +1618,7 @@ class Applet(FolderModel):
                 parent = pathFromRoot[-1]['object']
                 if (
                     parent['name'] == "Applets" and
-                    doc['baseParentType'] in {'collection', 'user'}
+                    doc['baseParentType'] in {'collection', 'user','folder'}
                 ):
                     """
                     Check if parent is "Applets" collection or user

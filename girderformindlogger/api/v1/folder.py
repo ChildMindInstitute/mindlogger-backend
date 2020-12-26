@@ -223,21 +223,16 @@ class Folder(Resource):
             '_id': ObjectId(appletId),
         })
 
-        _metadata['applets'].append({'_id':appletId,'_base_parent_id':applet['baseParentId'],
-                                     '_base_parent_type':applet['baseParentType'],
-                                     '_parent_collection':applet['parentCollection'],
-                                     '_parentId':applet['parentId']})
-
+        _metadata['applets'].append({'_id': appletId, '_base_parent_id': applet['baseParentId'],
+                                     '_base_parent_type': applet['baseParentType']})
 
         AppletModel().update({
             '_id': ObjectId(appletId)
         }, {
             '$set': {
-                'baseParentId': ObjectId(applet['creatorId']),
-                'baseParentType':'user',
-                'parentId':ObjectId(folder['_id']),
-                'parentCollection':'folder'}
-           }
+                'baseParentId': ObjectId(folder['_id']),
+                'baseParentType': 'folder'}
+        }
         )
 
         folder = self._model.setMetadata(folder, _metadata)
@@ -266,9 +261,7 @@ class Folder(Resource):
                     }, {
                         '$set': {
                             'baseParentId': ObjectId(applet['_base_parent_id']),
-                            'baseParentType': applet['_base_parent_type'],
-                            'parentId': ObjectId(applet['_parentId']),
-                            'parentCollection': applet['_parent_collection']}
+                            'baseParentType': applet['_base_parent_type']}
                     }
                     )
 
