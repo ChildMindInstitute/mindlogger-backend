@@ -441,19 +441,21 @@ def add_latest_daily_response(data, responses):
     for response in responses:
         activity_id = str(response['meta']['activity']['@id'])
 
+        date = response['meta'].get('subject', {}).get('userTime').isoformat()
+        version = response['meta'].get('applet', {}).get('version', '0.0.0')
+        key_dump = json_util.dumps(response['meta']['userPublicKey'])
+
         for item in response['meta']['responses']:
             if item not in data['responses']:
                 data['responses'][item] = []
 
             data['responses'][item].append({
-                "date": response['meta'].get('subject', {}).get('userTime').isoformat(),
+                "date": date,
                 "value": response['meta']['responses'][item],
-                "version": response['meta'].get('applet', {}).get('version', '0.0.0'),
+                "version": version,
             })
 
             if str(response['_id']) not in data['dataSources'] and 'dataSource' in response['meta']:
-                key_dump = json_util.dumps(response['meta']['userPublicKey'])
-
                 if key_dump not in user_keys:
                     user_keys[key_dump] = len(data['keys'])
                     data['keys'].append(response['meta']['userPublicKey'])
@@ -463,11 +465,30 @@ def add_latest_daily_response(data, responses):
                     'data': response['meta']['dataSource']
                 }
 
-                if 'subScaleSource' in response['meta']:
-                    data['subScaleSources'][str(response['_id'])] = {
-                        'key': user_keys[key_dump],
-                        'data': response['meta']['subScaleSource']
-                    }
+        activityId = response['meta'].get('activity', {}).get('@id', None)
+
+        if not activityId:
+            continue
+        activityId = str(activityId)
+
+        for subScale in response['meta']['subScales']:
+            if activityId not in data['subScales']:
+                data['subScales'][activityId] = {}
+
+            if subScale not in data['subScales'][activityId]:
+                data['subScales'][activityId][subScale] = []
+
+            data['subScales'][activityId][subScale].append({
+                "date": date,
+                "value": response['meta']['subScales'][subScale],
+                "version": version,
+            })
+
+            if str(response['_id']) not in data['subScaleSources'] and 'subScaleSource' in response['meta']:
+                data['subScaleSources'][str(response['_id'])] = {
+                    'key': user_keys[key_dump],
+                    'data': response['meta']['subScaleSource']
+                }
 
 def _oneResponsePerDatePerVersion(responses, offset):
     newResponses = {}
