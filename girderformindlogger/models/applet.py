@@ -1093,7 +1093,7 @@ class Applet(FolderModel):
                 },
                 "profile": True,
                 "reviewers": reviewerProfile["_id"]
-            }, fields=["userId"]))
+            }))
         else:
             profiles = list(Profile().find(query={
                 "reviewers": reviewerProfile["_id"],
