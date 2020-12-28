@@ -471,6 +471,9 @@ def add_latest_daily_response(data, responses):
             continue
         activityId = str(activityId)
 
+        if 'subScales' not in response['meta']:
+            continue
+
         for subScale in response['meta']['subScales']:
             if activityId not in data['subScales']:
                 data['subScales'][activityId] = {}
