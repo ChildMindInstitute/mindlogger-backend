@@ -45,6 +45,7 @@ from girderformindlogger.models.setting import Setting
 from girderformindlogger.settings import SettingKey
 from girderformindlogger.models.profile import Profile as ProfileModel
 from girderformindlogger.models.account_profile import AccountProfile
+from girderformindlogger.models.invitation import Invitation as InvitationModel
 from girderformindlogger.i18n import t
 from girderformindlogger.models.response_alerts import ResponseAlerts
 from dateutil.relativedelta import relativedelta
@@ -1428,6 +1429,10 @@ class Applet(Resource):
                 'Invalid role.',
                 'role'
             )
+
+        invitation = InvitationModel().findOne({'appletId': applet['_id'], 'MRN': MRN})
+        if invitation:
+            raise ValidationException(t('mrn_is_duplicated', lang))
 
         invitation = Invitation().createInvitationForSpecifiedUser(
             applet=applet,
