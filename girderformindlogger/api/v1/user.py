@@ -24,6 +24,7 @@ from girderformindlogger.utility import jsonld_expander, mail_utils
 from girderformindlogger.i18n import t
 import os
 
+from dateutil.relativedelta import relativedelta
 
 class User(Resource):
     """API Endpoint for users in the system."""
@@ -600,11 +601,11 @@ class User(Resource):
             dataType='boolean'
         )
         .param(
-            'getTodayEvents',
+            'numberOfDays',
             'true only if get today\'s event, valid only if getAllEvents is set to false',
             required=False,
-            default=False,
-            dataType='boolean'
+            default=0,
+            dataType='integer'
         )
         .errorResponse('ID was invalid.')
         .errorResponse(
@@ -620,7 +621,7 @@ class User(Resource):
         getAllApplets=False,
         retrieveSchedule=False,
         retrieveAllEvents=False,
-        getTodayEvents=False
+        numberOfDays=0
     ):
         from bson.objectid import ObjectId
         from girderformindlogger.utility.jsonld_expander import loadCache
@@ -671,7 +672,7 @@ class User(Resource):
                                                               role=role,
                                                               retrieveSchedule=retrieveSchedule,
                                                               retrieveAllEvents=retrieveAllEvents,
-                                                              eventFilter=currentUserDate if getTodayEvents else None)
+                                                              eventFilter=(currentUserDate, numberOfDays) if numberOfDays else None)
                     result.append(formatted)
 
             return(result)
