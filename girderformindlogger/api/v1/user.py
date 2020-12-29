@@ -793,12 +793,12 @@ class User(Resource):
                             if ObjectId(_id)==applet_id:
                                 del account['applets'][_role][i]
 
-            account['folders'].append(folder['_id'])
+            account['folders'].append({'id':folder['_id'],'name':folder['name']})
 
         token['accountId'] = ObjectId(accountId)
         token = Token().save(token)
 
-        fields = ['accountId', 'accountName', 'applets','folders']
+        fields = ['accountId', 'accountName','folders']
         tokenInfo = {
             'account': {
                 field: account[field] for field in fields
@@ -809,6 +809,31 @@ class User(Resource):
                 'scope': token['scope']
             }
         }
+
+        appletRoles = {}
+        for role in ['reviewer', 'editor', 'coordinator', 'manager', 'owner']:
+            for appletId in account['applets'].get(role, []):
+                if str(appletId) not in appletRoles:
+                    appletRoles[str(appletId)] = []
+
+                appletRoles[str(appletId)].append(role)
+
+        applets = []
+
+        for appletId in appletRoles:
+            applet = AppletModel().load(appletId, force=True)
+
+            applets.append({
+                'updated': applet['updated'],
+                'name': applet['meta'].get('applet', {}).get('displayName', applet.get('displayName', 'applet')),
+                'id': appletId,
+                'encryption': applet['meta']['encryption'] if applet['meta'].get('encryption', {}).get(
+                    'appletPublicKey', None) else None,
+                'hasUrl': (applet['meta'].get('protocol', {}).get('url', None) != None),
+                'roles': appletRoles[appletId]
+            })
+
+        tokenInfo['account']['applets'] = applets
 
         if token['accountId'] == user['accountId']:
             tokenInfo['account']['isDefaultName'] = False if user['accountName'] else True
