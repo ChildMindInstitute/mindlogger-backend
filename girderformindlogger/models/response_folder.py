@@ -17,27 +17,21 @@
 #  limitations under the License.
 ###############################################################################
 
-import copy
 import datetime
 import itertools
-import json
-import os
-import six
 
+import cherrypy
 from bson.objectid import ObjectId
-from girderformindlogger import events
 from girderformindlogger.constants import AccessType
-from girderformindlogger.exceptions import ValidationException, GirderException
-from girderformindlogger.models.applet import Applet
+from girderformindlogger.exceptions import GirderException
 from girderformindlogger.models.assignment import Assignment
 from girderformindlogger.models.folder import Folder
 from girderformindlogger.models.item import Item
-from girderformindlogger.models.model_base import AccessControlledModel
 from girderformindlogger.models.roles import getUserCipher
-from girderformindlogger.models.aes_encrypt import AESEncryption 
+from girderformindlogger.models.aes_encrypt import AESEncryption
 
-from girderformindlogger.utility.progress import noProgress, setResponseTimeLimit
 from bson import json_util
+
 
 class ResponseItem(AESEncryption, Item):
     def initialize(self):
@@ -60,6 +54,10 @@ class ResponseItem(AESEncryption, Item):
             ('meta.responses', 1024),
             ('meta.last7Days.responses', 1024),
         ], 6)
+
+    def reconnectToDb(self, db_uri=cherrypy.config['database']['uri']):
+        self.db_uri = db_uri
+        self.reconnect()
 
     def decodeDocument(self, document):
         metadata = document.get('meta', None)

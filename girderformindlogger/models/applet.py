@@ -44,6 +44,13 @@ from girderformindlogger.models.profile import Profile
 from girderformindlogger.models.events import Events as EventsModel
 from bson import json_util
 
+RETENTION_SET = {
+    'day': 1,
+    'week': 7,
+    'month': 30,
+    'year': 365
+}
+
 class Applet(FolderModel):
     """
     Applets are access-controlled Folders, each of which links to an
@@ -1077,6 +1084,13 @@ class Applet(FolderModel):
 
         applet = self.load(appletId, level=AccessType.READ, user=reviewer)
 
+        retentionSettings = applet['meta'].get('retentionSettings', None)
+
+        retention = retentionSettings.get('retention', 'year')
+        period = retentionSettings.get('period', 5)
+
+        timedelta_in_days = int(period) * int(RETENTION_SET[retention])
+
         query = {
             "baseParentType": "user",
             "meta.applet.@id": ObjectId(appletId)
@@ -1105,6 +1119,9 @@ class Applet(FolderModel):
 
         query["creatorId"] = {
             "$in": [profile['userId'] for profile in profiles]
+        }
+        query['created']= {
+                '$gte': datetime.datetime.now() - datetime.timedelta(days=timedelta_in_days)
         }
 
         responses = list(ResponseItem().find(

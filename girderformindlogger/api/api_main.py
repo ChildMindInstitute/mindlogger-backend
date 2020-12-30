@@ -2,7 +2,7 @@
 import cherrypy
 
 from . import describe
-from .v1 import activity, api_key, applet, assetstore, collection, context,    \
+from .v1 import account, activity, api_key, applet, assetstore, collection, context,    \
     file, folder, group, invitation, item, protocol, relationship, resource,   \
     response, schedule, screen, system, token, user, notification, account_profile
 
@@ -26,6 +26,7 @@ def addApiToNode(node):
 def _addV1ToNode(node):
     node.v1 = describe.ApiDocs()
     node.v1.describe = describe.Describe()
+    node.v1.account = account.Account()
     node.v1.activity = activity.Activity()
     node.v1.api_key = api_key.ApiKey()
     node.v1.applet = applet.Applet()
