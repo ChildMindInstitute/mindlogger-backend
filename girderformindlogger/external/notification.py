@@ -83,6 +83,7 @@ def send_push_notification(applet_id, event_id, activity_id=None, send_time=None
                 registration_ids=message_requests[badge],
                 message_title=event['data']['title'],
                 message_body=event['data']['description'],
+                time_to_live=5,
                 data_message={
                     "event_id": str(event_id),
                     "applet_id": str(applet_id),
