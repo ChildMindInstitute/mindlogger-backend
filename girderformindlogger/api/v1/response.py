@@ -169,7 +169,8 @@ class ResponseItem(Resource):
                 query={"created": { "$lte": toDate, "$gt": fromDate },
                        "meta.applet.@id": ObjectId(applet['_id']),
                        "meta.activity.@id": { "$in": activities },
-                       "meta.subject.@id": user['_id']},
+                       "meta.subject.@id": user['_id'],
+                       "isCumulative": {"$ne": True}},
                 force=True,
                 sort=[("created", DESCENDING)])
 
@@ -412,6 +413,39 @@ class ResponseItem(Resource):
                             'src': newItem['_id'],
                             'ptr': metadata['subScales'][subScale]
                         }
+
+                if metadata.get('tokenCumulations', None):
+                    cumulative = self._model.createResponseItem(
+                        folder=AppletSubjectResponsesFolder,
+                        name=f'cumulation of {str(metadata["applet"]["@id"])} for {str(subject_id)}',
+                        creator=informant,
+                        description="{} response on {} at {}".format(
+                            Folder().preferredName(activity),
+                            now.strftime("%Y-%m-%d"),
+                            now.strftime("%H:%M:%S %Z")
+                        ), reuseExisting=True,
+                        isCumulative=True,
+                    )
+
+                    for itemIRI in metadata['tokenCumulations']:
+                        metadata['tokenCumulations'][itemIRI]['src'] = cumulative['_id']
+
+                    cumulativeMeta = {
+                        'userPublicKey': metadata['userPublicKey'],
+                        'subject': metadata['subject'],
+                        'applet': metadata['applet'],
+                        'responses': metadata['tokenCumulations']
+                    }
+                    metadata.pop('tokenCumulations')
+
+                    if metadata.get('tokenCumulationSource', None):
+                        cumulativeMeta.update({
+                            'dataSource': metadata['tokenCumulationSource'],
+                        })
+                        metadata.pop('tokenCumulationSource')
+
+                    self._model.setMetadata(cumulative, cumulativeMeta)
+
 
                 newItem = self._model.setMetadata(newItem, metadata)
 
