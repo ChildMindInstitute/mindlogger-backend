@@ -110,7 +110,7 @@ class ResponseItem(Resource):
         from girderformindlogger.models.profile import Profile
         from girderformindlogger.models.account_profile import AccountProfile
         from girderformindlogger.utility.response import (
-            delocalize, add_missing_dates, add_latest_daily_response, getOldVersions)
+            delocalize, add_latest_daily_response, getOldVersions)
 
         user = self.getCurrentUser()
         profile = Profile().findOne({'appletId': applet['_id'],
@@ -152,7 +152,9 @@ class ResponseItem(Resource):
             'responses': {},
             'dataSources': {},
             'keys': [],
-            'items': {}
+            'items': {},
+            'subScaleSources': {},
+            'subScales': {},
         }
 
         # Get the responses for each users and generate the group responses data.
@@ -167,7 +169,8 @@ class ResponseItem(Resource):
                 query={"created": { "$lte": toDate, "$gt": fromDate },
                        "meta.applet.@id": ObjectId(applet['_id']),
                        "meta.activity.@id": { "$in": activities },
-                       "meta.subject.@id": user['_id']},
+                       "meta.subject.@id": user['_id'],
+                       "isCumulative": {"$ne": True}},
                 force=True,
                 sort=[("created", DESCENDING)])
 
@@ -182,7 +185,6 @@ class ResponseItem(Resource):
                 )
 
             add_latest_daily_response(data, responses)
-        add_missing_dates(data, fromDate, toDate)
 
         self._model.reconnectToDb()
 
@@ -412,6 +414,39 @@ class ResponseItem(Resource):
                             'ptr': metadata['subScales'][subScale]
                         }
 
+                if metadata.get('tokenCumulations', None):
+                    cumulative = self._model.createResponseItem(
+                        folder=AppletSubjectResponsesFolder,
+                        name=f'cumulation of {str(metadata["applet"]["@id"])} for {str(subject_id)}',
+                        creator=informant,
+                        description="{} response on {} at {}".format(
+                            Folder().preferredName(activity),
+                            now.strftime("%Y-%m-%d"),
+                            now.strftime("%H:%M:%S %Z")
+                        ), reuseExisting=True,
+                        isCumulative=True,
+                    )
+
+                    for itemIRI in metadata['tokenCumulations']:
+                        metadata['tokenCumulations'][itemIRI]['src'] = cumulative['_id']
+
+                    cumulativeMeta = {
+                        'userPublicKey': metadata['userPublicKey'],
+                        'subject': metadata['subject'],
+                        'applet': metadata['applet'],
+                        'responses': metadata['tokenCumulations']
+                    }
+                    metadata.pop('tokenCumulations')
+
+                    if metadata.get('tokenCumulationSource', None):
+                        cumulativeMeta.update({
+                            'dataSource': metadata['tokenCumulationSource'],
+                        })
+                        metadata.pop('tokenCumulationSource')
+
+                    self._model.setMetadata(cumulative, cumulativeMeta)
+
+
                 newItem = self._model.setMetadata(newItem, metadata)
 
             if not pending:
@@ -436,6 +471,7 @@ class ResponseItem(Resource):
                     "completed_time": now
                 })
 
+            data['updated'] = now
             profile.save(data, validate=False)
 
             return(newItem)
@@ -458,21 +494,36 @@ class ResponseItem(Resource):
             destName='applet',
             description='The ID of the Applet this response is to.'
         )
+        .param(
+            'user',
+            'profile id for user',
+            required=False,
+            default=None
+        )
         .jsonParam('responses',
                    'A JSON object containing the new response data and public key.',
                    paramType='form', requireObject=True, required=True)
         .errorResponse()
         .errorResponse('Write access was denied on the parent folder.', 403)
     )
-    def updateReponseItems(self, applet, responses):
+    def updateReponseItems(self, applet, user, responses):
         from girderformindlogger.models.profile import Profile
         from girderformindlogger.models.account_profile import AccountProfile
 
-        user = self.getCurrentUser()
-        profile = Profile().findOne({
-            'appletId': applet['_id'],
-            'userId': user['_id']
-        })
+        if not user:
+            user = self.getCurrentUser()
+            profile = Profile().findOne({
+                'appletId': applet['_id'],
+                'userId': user['_id']
+            })
+        else:
+            profile = Profile().findOne({
+                '_id': ObjectId(user),
+                'appletId': applet['_id']
+            })
+
+        if not profile:
+            raise ValidationException('unable to find user with specified id')
 
         is_manager = 'manager' in profile.get('roles', [])
 

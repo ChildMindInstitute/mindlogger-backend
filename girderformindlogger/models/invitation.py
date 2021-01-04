@@ -205,9 +205,6 @@ class Invitation(AESEncryption):
             if user:
                 invitation['userId'] = user['_id']
 
-        if role == 'reviewer':
-            accessibleUsers = [ObjectId(accessibleUser) for accessibleUser in accessibleUsers]
-
         invitation.update({
             'inviterId': coordinator['_id'],
             'role': role,
@@ -308,10 +305,13 @@ class Invitation(AESEncryption):
         profile['lastName'] = invitation.get('lastName', '')
         profile['MRN'] = invitation.get('MRN', '')
 
+        if 'invited_role' != 'user':
+            profile['email'] = userEmail
+
         Profile().save(profile, validate=False)
 
         if invited_role == 'reviewer':
-            Profile().updateReviewerList(profile, invitation.get('accessibleUsers'))
+            Profile().updateReviewerList(profile, invitation.get('accessibleUsers', []), isMRNList=True)
         elif invited_role == 'manager':
             Profile().updateReviewerList(profile)
 
@@ -332,14 +332,15 @@ class Invitation(AESEncryption):
 
         for duplicate in duplicates:
             newInvitation = self.createInvitationForSpecifiedUser(
-                duplicate,
-                UserModel().load(invitation['inviterId'], force=True),
-                invitation.get('role', 'user'),
-                user,
-                invitation.get('firstName', ''),
-                invitation.get('lastName', ''),
-                invitation.get('MRN', ''),
-                userEmail
+                applet=duplicate,
+                coordinator=UserModel().load(invitation['inviterId'], force=True),
+                role=invitation.get('role', 'user'),
+                user=user,
+                firstName=invitation.get('firstName', ''),
+                lastName=invitation.get('lastName', ''),
+                lang='en',
+                MRN=invitation.get('MRN', ''),
+                userEmail=userEmail
             )
 
             self.acceptInvitation(self.load(newInvitation['_id'], force=True), user, userEmail)

@@ -133,7 +133,8 @@ KEYS_TO_EXPAND = [
 
 PROFILE_FIELDS = [
     '_id',
-    'displayName',
+    'firstName',
+    'lastName',
     'schema:knows',
     'MRN'
 ]

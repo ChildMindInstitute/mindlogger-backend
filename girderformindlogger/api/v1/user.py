@@ -565,18 +565,9 @@ class User(Resource):
             'ids_only',
             'If true, only returns an Array of the IDs of assigned applets. '
             'Otherwise, returns an Array of Objects keyed with "applet" '
-            '"protocol", "activities" and "items" with expanded JSON-LD as '
-            'values. This parameter takes precedence over `unexpanded`.',
+            '"protocol", "activities" and "items" with expanded JSON-LD as values.',
             required=False,
-            dataType='boolean'
-        )
-        .param(
-            'unexpanded',
-            'If true, only returns an Array of assigned applets, but only the '
-            'applet-level information. Otherwise, returns an Array of Objects '
-            'keyed with "applet", "protocol", "activities" and "items" with '
-            'expanded JSON-LD as values.',
-            required=False,
+            default=False,
             dataType='boolean'
         )
         .param(
@@ -617,7 +608,6 @@ class User(Resource):
         self,
         role,
         ids_only=False,
-        unexpanded=False,
         getAllApplets=False,
         retrieveSchedule=False,
         retrieveAllEvents=False,
@@ -656,12 +646,8 @@ class User(Resource):
 
         if ids_only:
             return applet_ids
-        applets = [AppletModel().load(ObjectId(applet_id), AccessType.READ) for applet_id in applet_ids]
 
-        if unexpanded:
-            return([{
-                'applet': AppletModel().unexpanded(applet)
-            } for applet in applets])
+        applets = [AppletModel().load(ObjectId(applet_id), AccessType.READ) for applet_id in applet_ids]
 
         try:
             result = []
@@ -788,7 +774,7 @@ class User(Resource):
         token['accountId'] = ObjectId(accountId)
         token = Token().save(token)
 
-        fields = ['accountId', 'accountName', 'applets']
+        fields = ['accountId', 'accountName']
         tokenInfo = {
             'account': {
                 field: account[field] for field in fields
@@ -799,6 +785,30 @@ class User(Resource):
                 'scope': token['scope']
             }
         }
+
+        appletRoles = {}
+        for role in ['reviewer', 'editor', 'coordinator', 'manager', 'owner']:
+                for appletId in account['applets'].get(role, []):
+                    if str(appletId) not in appletRoles:
+                        appletRoles[str(appletId)] = []
+
+                    appletRoles[str(appletId)].append(role)
+
+        applets = []
+
+        for appletId in appletRoles:
+            applet = AppletModel().load(appletId, force=True)
+
+            applets.append({
+                'updated': applet['updated'],
+                'name': applet['meta'].get('applet', {}).get('displayName', applet.get('displayName', 'applet')),
+                'id': appletId,
+                'encryption': applet['meta']['encryption'] if applet['meta'].get('encryption', {}).get('appletPublicKey', None) else None,
+                'hasUrl': (applet['meta'].get('protocol', {}).get('url', None) != None),
+                'roles': appletRoles[appletId]
+            })
+
+        tokenInfo['account']['applets'] = applets
 
         if token['accountId'] == user['accountId']:
             tokenInfo['account']['isDefaultName'] = False if user['accountName'] else True
