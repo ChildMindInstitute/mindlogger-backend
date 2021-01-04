@@ -137,7 +137,8 @@ def aggregate(metadata, informant, startDate=None, endDate=None):
                 # "$lt": endDate
             },
             "meta.applet.@id": metadata["applet_id"],
-            "meta.subject.@id": metadata["subject_id"]
+            "meta.subject.@id": metadata["subject_id"],
+            "isCumulative": {"$ne": True}
         }
 
     definedRange = list(ResponseItem().find(
@@ -304,6 +305,39 @@ def delocalize(dt):
     print("Here's the problem: {}".format(dt))
     raise TypeError
 
+def getCumulatives(
+    metadata,
+    informant
+):
+    query = {
+        "baseParentType": 'user',
+        "baseParentId": informant.get("_id") if isinstance(
+            informant,
+            dict
+        ) else informant,
+        "meta.applet.@id": metadata["applet_id"],
+        "meta.subject.@id": metadata["subject_id"],
+        "isCumulative": True
+    }
+
+    cumulative = ResponseItem().findOne(
+        query=query,
+        force=True,
+        sort=[("created", ASCENDING)]
+    )
+
+    result = {}
+    dataSources = {}
+
+    if cumulative:
+        result = cumulative.get('meta', {}).get('responses', {})
+        dataSources[str(cumulative['_id'])] = cumulative.get('meta', {}).get('dataSource', {})
+
+    return {
+        'dataSources': dataSources,
+        'cumulatives': result,
+    }
+
 def last7Days(
     appletId,
     appletInfo,
@@ -362,6 +396,14 @@ def last7Days(
                 l7d['dataSources'][sourceId] = dataSources[sourceId]
 
     l7d.update(getOldVersions(l7d['responses'], appletInfo))
+
+    cumulatives = getCumulatives({
+        'applet_id': profile['appletId'],
+        'subject_id': profile['_id']
+    }, informantId)
+
+    l7d['dataSources'].update(cumulatives['dataSources'])
+    l7d['cumulatives'] = cumulatives['cumulatives']
 
     return l7d
 
