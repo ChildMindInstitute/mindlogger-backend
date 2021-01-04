@@ -8,6 +8,9 @@ Changes
 -------
 Unreleased
 ==========
+2020-1-4 v0.15.1
+Updates for Admin Dashboard New Design
+
 2020-11-10 v0.14.26
 disable http cache, redirect to https
 
