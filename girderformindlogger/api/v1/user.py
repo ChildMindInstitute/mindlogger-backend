@@ -1597,7 +1597,7 @@ class User(Resource):
     )
     def getTokenBalance(self):
         accountProfile = self.getAccountProfile()
-        return accountProfile['tokenBalance']
+        return accountProfile.get('tokenBalance', 0)
 
     @access.user(scope=TokenScope.DATA_OWN)
     @autoDescribeRoute(
@@ -1631,7 +1631,7 @@ class User(Resource):
     )
     def updateTokenBalance(self, offset):
         accountProfile = self.getAccountProfile()
-        balance = accountProfile['tokenBalance']
+        balance = accountProfile.get('tokenBalance', 0)
         try:
             offset_int = int(offset)
             balance += offset_int
