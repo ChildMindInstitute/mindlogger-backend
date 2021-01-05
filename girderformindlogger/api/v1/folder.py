@@ -202,10 +202,8 @@ class Folder(Resource):
         return sorted_folder_applets
 
     @access.user(scope=TokenScope.DATA_WRITE)
-    @filtermodel(model=FolderModel)
     @autoDescribeRoute(
         Description('Adds an applet into a folder')
-            .responseClass('Folder')
             .modelParam('id', model=FolderModel, level=AccessType.WRITE)
             .param('appletId', 'Applet of the id to be added', required=True, strip=True)
             .errorResponse('ID was invalid.')
@@ -223,21 +221,28 @@ class Folder(Resource):
             '_id': ObjectId(appletId),
         })
 
-        _metadata['applets'].append({'_id': appletId, '_base_parent_id': applet['baseParentId'],
-                                     '_base_parent_type': applet['baseParentType']})
+        if applet['baseParentType']=='collection':
 
-        AppletModel().update({
-            '_id': ObjectId(appletId)
-        }, {
-            '$set': {
-                'baseParentId': ObjectId(folder['_id']),
-                'baseParentType': 'folder'}
-        }
-        )
+            _metadata['applets'].append({'_id': appletId, '_base_parent_id': applet['baseParentId'],
+                                         '_base_parent_type': applet['baseParentType']})
 
-        folder = self._model.setMetadata(folder, _metadata)
+            AppletModel().update({
+                '_id': ObjectId(appletId)
+            }, {
+                '$set': {
+                    'baseParentId': ObjectId(folder['_id']),
+                    'baseParentType': 'folder'}
+            }
+            )
 
-        return folder
+            folder = self._model.setMetadata(folder, _metadata)
+
+            return folder
+
+        else:
+            return {'status_code': 403,
+                    'status': 'Forbidden',
+                    'message': 'You can only add applets in a folder'}
 
     @access.user(scope=TokenScope.DATA_WRITE)
     @filtermodel(model=FolderModel)
