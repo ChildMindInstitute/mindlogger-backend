@@ -47,7 +47,8 @@ class AccountProfile(AccessControlledModel):
         account = {
             'userId': user['_id'],
             'accountName': user['firstName'],
-            'applets': {}
+            'applets': {},
+            'tokenBalance': 0
         }
         account = self.save(account)
         account['accountId'] = account['_id']
@@ -85,7 +86,8 @@ class AccountProfile(AccessControlledModel):
             'userId': userId,
             'accountName': ownerAccount['accountName'],
             'accountId': accountId,
-            'applets': {}
+            'applets': {},
+            'tokenBalance': 0
         }
         return self.save(accountProfile)
 
@@ -121,3 +123,9 @@ class AccountProfile(AccessControlledModel):
         else:
             self.save(profile)
 
+    def updateTokenBalance(self, profile, balance):
+        self.update({
+            '_id': ObjectId(profile['_id'])
+        }, {'$set': {
+            'tokenBalance': balance
+        }})
