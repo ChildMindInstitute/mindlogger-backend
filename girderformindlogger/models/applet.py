@@ -209,9 +209,9 @@ class Applet(FolderModel):
 
         return formatted
 
-    def getSchedule(self, applet, user, getAllEvents, dayFilter=None):
+    def getSchedule(self, applet, user, getAllEvents, eventFilter=None):
         if not getAllEvents:
-            schedule = EventsModel().getScheduleForUser(applet['_id'], user['_id'], dayFilter)
+            schedule = EventsModel().getScheduleForUser(applet['_id'], user['_id'], eventFilter)
         else:
             if not self.isCoordinator(applet['_id'], user):
                 raise AccessException(
@@ -1093,7 +1093,8 @@ class Applet(FolderModel):
 
         query = {
             "baseParentType": "user",
-            "meta.applet.@id": ObjectId(appletId)
+            "meta.applet.@id": ObjectId(appletId),
+            "isCumulative": {"$ne": True}
         }
 
         reviewerProfile = Profile().findOne(query={
@@ -1107,7 +1108,7 @@ class Applet(FolderModel):
                 },
                 "profile": True,
                 "reviewers": reviewerProfile["_id"]
-            }, fields=["userId"]))
+            }))
         else:
             profiles = list(Profile().find(query={
                 "reviewers": reviewerProfile["_id"],
@@ -1618,7 +1619,7 @@ class Applet(FolderModel):
                 parent = pathFromRoot[-1]['object']
                 if (
                     parent['name'] == "Applets" and
-                    doc['baseParentType'] in {'collection', 'user','folder'}
+                    doc['baseParentType'] in {'collection', 'user', 'folder'}
                 ):
                     """
                     Check if parent is "Applets" collection or user

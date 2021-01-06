@@ -137,7 +137,8 @@ def aggregate(metadata, informant, startDate=None, endDate=None):
                 # "$lt": endDate
             },
             "meta.applet.@id": metadata["applet_id"],
-            "meta.subject.@id": metadata["subject_id"]
+            "meta.subject.@id": metadata["subject_id"],
+            "isCumulative": {"$ne": True}
         }
 
     definedRange = list(ResponseItem().find(
@@ -304,6 +305,39 @@ def delocalize(dt):
     print("Here's the problem: {}".format(dt))
     raise TypeError
 
+def getCumulatives(
+    metadata,
+    informant
+):
+    query = {
+        "baseParentType": 'user',
+        "baseParentId": informant.get("_id") if isinstance(
+            informant,
+            dict
+        ) else informant,
+        "meta.applet.@id": metadata["applet_id"],
+        "meta.subject.@id": metadata["subject_id"],
+        "isCumulative": True
+    }
+
+    cumulative = ResponseItem().findOne(
+        query=query,
+        force=True,
+        sort=[("created", ASCENDING)]
+    )
+
+    result = {}
+    dataSources = {}
+
+    if cumulative:
+        result = cumulative.get('meta', {}).get('responses', {})
+        dataSources[str(cumulative['_id'])] = cumulative.get('meta', {}).get('dataSource', {})
+
+    return {
+        'dataSources': dataSources,
+        'cumulatives': result,
+    }
+
 def last7Days(
     appletId,
     appletInfo,
@@ -362,6 +396,14 @@ def last7Days(
                 l7d['dataSources'][sourceId] = dataSources[sourceId]
 
     l7d.update(getOldVersions(l7d['responses'], appletInfo))
+
+    cumulatives = getCumulatives({
+        'applet_id': profile['appletId'],
+        'subject_id': profile['_id']
+    }, informantId)
+
+    l7d['dataSources'].update(cumulatives['dataSources'])
+    l7d['cumulatives'] = cumulatives['cumulatives']
 
     return l7d
 
@@ -441,19 +483,21 @@ def add_latest_daily_response(data, responses):
     for response in responses:
         activity_id = str(response['meta']['activity']['@id'])
 
+        date = response['meta'].get('subject', {}).get('userTime').isoformat()
+        version = response['meta'].get('applet', {}).get('version', '0.0.0')
+        key_dump = json_util.dumps(response['meta']['userPublicKey'])
+
         for item in response['meta']['responses']:
             if item not in data['responses']:
                 data['responses'][item] = []
 
             data['responses'][item].append({
-                "date": response['meta'].get('subject', {}).get('userTime').isoformat(),
+                "date": date,
                 "value": response['meta']['responses'][item],
-                "version": response['meta'].get('applet', {}).get('version', '0.0.0'),
+                "version": version,
             })
 
             if str(response['_id']) not in data['dataSources'] and 'dataSource' in response['meta']:
-                key_dump = json_util.dumps(response['meta']['userPublicKey'])
-
                 if key_dump not in user_keys:
                     user_keys[key_dump] = len(data['keys'])
                     data['keys'].append(response['meta']['userPublicKey'])
@@ -461,6 +505,34 @@ def add_latest_daily_response(data, responses):
                 data['dataSources'][str(response['_id'])] = {
                     'key': user_keys[key_dump],
                     'data': response['meta']['dataSource']
+                }
+
+        activityId = response['meta'].get('activity', {}).get('@id', None)
+
+        if not activityId:
+            continue
+        activityId = str(activityId)
+
+        if 'subScales' not in response['meta']:
+            continue
+
+        for subScale in response['meta']['subScales']:
+            if activityId not in data['subScales']:
+                data['subScales'][activityId] = {}
+
+            if subScale not in data['subScales'][activityId]:
+                data['subScales'][activityId][subScale] = []
+
+            data['subScales'][activityId][subScale].append({
+                "date": date,
+                "value": response['meta']['subScales'][subScale],
+                "version": version,
+            })
+
+            if str(response['_id']) not in data['subScaleSources'] and 'subScaleSource' in response['meta']:
+                data['subScaleSources'][str(response['_id'])] = {
+                    'key': user_keys[key_dump],
+                    'data': response['meta']['subScaleSource']
                 }
 
 def _oneResponsePerDatePerVersion(responses, offset):

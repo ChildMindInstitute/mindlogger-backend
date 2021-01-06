@@ -9,7 +9,7 @@ from ..describe import Description, autoDescribeRoute
 from girderformindlogger.api import access
 from girderformindlogger.api.rest import Resource, filtermodel, setCurrentUser
 from girderformindlogger.constants import AccessType, SortDir, TokenScope, USER_ROLES
-from girderformindlogger.exceptions import RestException, AccessException
+from girderformindlogger.exceptions import RestException, AccessException, ValidationException
 from girderformindlogger.models.applet import Applet as AppletModel
 from girderformindlogger.models.group import Group as GroupModel
 from girderformindlogger.models.folder import Folder as FolderModel
@@ -26,6 +26,7 @@ from girderformindlogger.utility import jsonld_expander, mail_utils
 from girderformindlogger.i18n import t
 import os
 
+from dateutil.relativedelta import relativedelta
 
 class User(Resource):
     """API Endpoint for users in the system."""
@@ -77,6 +78,9 @@ class User(Resource):
         self.route('POST', ('verification',), self.sendVerificationEmail)
         self.route('POST', ('responseUpdateRequest', ), self.requestResponseReUpload)
         self.route('GET', ('updates',), self.getUserUpdates)
+        self.route('GET', ('getTokenBalance',), self.getTokenBalance)
+        self.route('POST', ('setTokenBalance',), self.setTokenBalance)
+        self.route('PUT', ('updateTokenBalance',), self.updateTokenBalance)
 
     @access.user
     @autoDescribeRoute(
@@ -593,11 +597,11 @@ class User(Resource):
             dataType='boolean'
         )
         .param(
-            'getTodayEvents',
+            'numberOfDays',
             'true only if get today\'s event, valid only if getAllEvents is set to false',
             required=False,
-            default=False,
-            dataType='boolean'
+            default=0,
+            dataType='integer'
         )
         .errorResponse('ID was invalid.')
         .errorResponse(
@@ -612,7 +616,7 @@ class User(Resource):
         getAllApplets=False,
         retrieveSchedule=False,
         retrieveAllEvents=False,
-        getTodayEvents=False
+        numberOfDays=0
     ):
         from bson.objectid import ObjectId
         from girderformindlogger.utility.jsonld_expander import loadCache
@@ -659,7 +663,7 @@ class User(Resource):
                                                               role=role,
                                                               retrieveSchedule=retrieveSchedule,
                                                               retrieveAllEvents=retrieveAllEvents,
-                                                              eventFilter=currentUserDate if getTodayEvents else None)
+                                                              eventFilter=(currentUserDate, numberOfDays) if numberOfDays else None)
                     result.append(formatted)
 
             return(result)
@@ -798,7 +802,7 @@ class User(Resource):
         token['accountId'] = ObjectId(accountId)
         token = Token().save(token)
 
-        fields = ['accountId', 'accountName','folders']
+        fields = ['accountId', 'accountName', 'folders']
         tokenInfo = {
             'account': {
                 field: account[field] for field in fields
@@ -1610,3 +1614,63 @@ class User(Resource):
             send_custom_notification(notifications[0])
 
         Notification().deleteNotificationByType(user, 'response-data-alert')
+
+    @access.user
+    @autoDescribeRoute(
+        Description('Get user token balance.')
+        .notes('This endpoint is used to get token balance for auth user')
+        .errorResponse(('You are not logged in.',), 401)
+    )
+    def getTokenBalance(self):
+        accountProfile = self.getAccountProfile()
+        return accountProfile.get('tokenBalance', 0)
+
+    @access.user(scope=TokenScope.DATA_OWN)
+    @autoDescribeRoute(
+        Description('Set token balance.')
+        .param('balance', 'TokenBalance Value', required=True, paramType='path')
+        .errorResponse('Missing token balance.')
+    )
+    def setTokenBalance(self, balance):
+        accountProfile = self.getAccountProfile()
+        try:
+            balance_int = int(balance)
+            if balance_int < 0:
+                raise ValidationException(
+                    "Token balance can not be less than zero."
+                )
+        except ValueError:
+            raise ValidationException(
+                "Token balance must be integer"
+            )
+
+        AccountProfile().updateTokenBalance(accountProfile, balance_int)
+        accountProfile['tokenBalance'] = balance_int
+
+        return accountProfile
+
+    @access.user(scope=TokenScope.DATA_OWN)
+    @autoDescribeRoute(
+        Description('Update token balance.')
+        .param('offset', 'TokenBalance Value', required=True, paramType='path')
+        .errorResponse('Missing token balance offset.')
+    )
+    def updateTokenBalance(self, offset):
+        accountProfile = self.getAccountProfile()
+        balance = accountProfile.get('tokenBalance', 0)
+        try:
+            offset_int = int(offset)
+            balance += offset_int
+            if balance < 0:
+                raise ValidationException(
+                    "Token balance can not be less than zero."
+                )
+        except ValueError:
+            raise ValidationException(
+                "Token balance must be integer"
+            )
+
+        AccountProfile().updateTokenBalance(accountProfile, balance)
+        accountProfile['tokenBalance'] = balance
+
+        return accountProfile
