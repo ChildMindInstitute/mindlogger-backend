@@ -12,6 +12,8 @@ from girderformindlogger.constants import AccessType, SortDir, TokenScope, USER_
 from girderformindlogger.exceptions import RestException, AccessException, ValidationException
 from girderformindlogger.models.applet import Applet as AppletModel
 from girderformindlogger.models.group import Group as GroupModel
+from girderformindlogger.models.folder import Folder as FolderModel
+from girderformindlogger.utility.model_importer import ModelImporter
 from girderformindlogger.models.ID_code import IDCode
 from girderformindlogger.models.profile import Profile as ProfileModel
 from girderformindlogger.models.setting import Setting
@@ -766,18 +768,41 @@ class User(Resource):
         try:
             token = self.getCurrentToken()
             user = self.getCurrentUser()
+
+            parentType='user'
+            parentId=user['_id']
+            folders=[]
+
             if user:
                 account = AccountProfile().findOne({'accountId': ObjectId(accountId), 'userId': user['_id']})
+
+
+                parent = ModelImporter.model(parentType).load(
+                    parentId, user=user, level=AccessType.READ, exc=True)
+                folders=FolderModel().childFolders(parentType=parentType,parent=parent,user=user)
 
             if not user or not account:
                 raise Exception('error.')
         except:
             raise AccessException('account does not exist or you are not allowed to access to this account')
 
+        account['folders']=[]
+
+        for folder in folders:
+            if folder['meta'].get('applets'):
+                for applet in folder['meta']['applets']:
+                    _id=applet['_id']
+                    for _role in account['applets']:
+                        for (i,applet_id) in enumerate(account['applets'][_role]):
+                            if ObjectId(_id)==applet_id:
+                                del account['applets'][_role][i]
+
+            account['folders'].append({'id':folder['_id'],'name':folder['name']})
+
         token['accountId'] = ObjectId(accountId)
         token = Token().save(token)
 
-        fields = ['accountId', 'accountName']
+        fields = ['accountId', 'accountName', 'folders']
         tokenInfo = {
             'account': {
                 field: account[field] for field in fields
@@ -791,11 +816,11 @@ class User(Resource):
 
         appletRoles = {}
         for role in ['reviewer', 'editor', 'coordinator', 'manager', 'owner']:
-                for appletId in account['applets'].get(role, []):
-                    if str(appletId) not in appletRoles:
-                        appletRoles[str(appletId)] = []
+            for appletId in account['applets'].get(role, []):
+                if str(appletId) not in appletRoles:
+                    appletRoles[str(appletId)] = []
 
-                    appletRoles[str(appletId)].append(role)
+                appletRoles[str(appletId)].append(role)
 
         applets = []
 
@@ -806,7 +831,8 @@ class User(Resource):
                 'updated': applet['updated'],
                 'name': applet['meta'].get('applet', {}).get('displayName', applet.get('displayName', 'applet')),
                 'id': appletId,
-                'encryption': applet['meta']['encryption'] if applet['meta'].get('encryption', {}).get('appletPublicKey', None) else None,
+                'encryption': applet['meta']['encryption'] if applet['meta'].get('encryption', {}).get(
+                    'appletPublicKey', None) else None,
                 'hasUrl': (applet['meta'].get('protocol', {}).get('url', None) != None),
                 'roles': appletRoles[appletId]
             })
