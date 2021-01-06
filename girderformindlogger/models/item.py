@@ -42,6 +42,13 @@ class Item(acl_mixin.AccessControlMixin, Model):
                     ('name', 1),
                     ('meta.screen.@type', 1),
                     ('meta.screen.url', 1)
+                ], {}),
+                ([
+                    ('baseParentId', 1),
+                    ('meta.applet.@id', 1),
+                    ('meta.subject.@id', 1),
+                    ('baseParentType', 1),
+                    ('isCumulative', 1)
                 ], {})
             )
         )
