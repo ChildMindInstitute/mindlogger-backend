@@ -32,6 +32,8 @@ from girderformindlogger.models.applet import Applet as AppletModel
 from girderformindlogger.models.folder import Folder
 from girderformindlogger.models.response_folder import ResponseFolder as \
     ResponseFolderModel, ResponseItem as ResponseItemModel
+from girderformindlogger.models.item import Item as ItemModel
+from girderformindlogger.models.response_alerts import ResponseAlerts
 from girderformindlogger.models.upload import Upload as UploadModel
 from pymongo import DESCENDING
 from bson import ObjectId
@@ -446,6 +448,26 @@ class ResponseItem(Resource):
 
                     self._model.setMetadata(cumulative, cumulativeMeta)
 
+                if metadata.get('alerts', []):
+                    alerts = metadata.get('alerts', [])
+
+                    for alert in alerts:
+                        item = ItemModel().findOne({
+                            '_id': ObjectId(alert['id'])
+                        })
+
+                        if item:
+                            screen = item.get('meta', {}).get('screen', {})
+
+                            responseOptions = screen.get('reprolib:terms/responseOptions', [])
+
+                            if len(responseOptions) and 'reprolib:terms/responseAlertMessage' in responseOptions[0]:
+                                ResponseAlerts().addResponseAlerts(
+                                    profile,
+                                    alert['id'],
+                                    alert['schema'],
+                                    responseOptions[0]['reprolib:terms/responseAlertMessage'][0]['@value']
+                                )
 
                 newItem = self._model.setMetadata(newItem, metadata)
 
