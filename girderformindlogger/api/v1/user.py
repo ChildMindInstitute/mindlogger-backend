@@ -789,7 +789,7 @@ class User(Resource):
         account['folders']=[]
 
         for folder in folders:
-            if folder['meta'].get('applets'):
+            if folder.get('accountId') and folder['accountId']==ObjectId(accountId) and folder['meta'].get('applets'):
                 for applet in folder['meta']['applets']:
                     _id=applet['_id']
                     for _role in account['applets']:
@@ -797,7 +797,7 @@ class User(Resource):
                             if ObjectId(_id)==applet_id:
                                 del account['applets'][_role][i]
 
-            account['folders'].append({'id':folder['_id'],'name':folder['name']})
+                account['folders'].append({'id':folder['_id'],'name':folder['name']})
 
         token['accountId'] = ObjectId(accountId)
         token = Token().save(token)
@@ -825,7 +825,10 @@ class User(Resource):
         applets = []
 
         for appletId in appletRoles:
-            applet = AppletModel().load(appletId, force=True)
+            #applet = AppletModel().load(appletId, force=True)
+            applet = AppletModel().findOne(query={
+                '_id': ObjectId(appletId),
+            })
 
             applets.append({
                 'updated': applet['updated'],

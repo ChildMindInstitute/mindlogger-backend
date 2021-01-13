@@ -415,6 +415,7 @@ class Folder(Resource):
         .param('parentType', "Type of the folder's parent", required=False,
                enum=['folder', 'user', 'collection'], default='folder')
         .param('parentId', "The ID of the folder's parent.")
+        .param('accountId', "The ID of the folder's account.")
         .param('name', 'Name of the folder.', strip=True)
         .param('description', 'Description for the folder.', required=False,
                default='', strip=True)
@@ -430,7 +431,7 @@ class Folder(Resource):
         .errorResponse()
         .errorResponse('Write access was denied on the parent', 403)
     )
-    def createFolder(self, public, parentType, parentId, name, description,
+    def createFolder(self, public, parentType, parentId,accountId, name, description,
                      reuseExisting, metadata):
         user = self.getCurrentUser()
         parent = ModelImporter.model(parentType).load(
@@ -438,7 +439,7 @@ class Folder(Resource):
 
         newFolder = self._model.createFolder(
             parent=parent, name=name, parentType=parentType, creator=user,
-            description=description, public=public, reuseExisting=reuseExisting)
+            description=description, public=public,accountId=ObjectId(accountId),reuseExisting=reuseExisting)
         if metadata:
             newFolder = self._model.setMetadata(newFolder, metadata)
         return newFolder
