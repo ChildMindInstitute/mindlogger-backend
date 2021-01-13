@@ -32,7 +32,9 @@ from girderformindlogger.models.applet import Applet as AppletModel
 from girderformindlogger.models.folder import Folder
 from girderformindlogger.models.response_folder import ResponseFolder as \
     ResponseFolderModel, ResponseItem as ResponseItemModel
+from girderformindlogger.models.response_tokens import ResponseTokens
 from girderformindlogger.models.upload import Upload as UploadModel
+from bson import json_util
 from pymongo import DESCENDING
 from bson import ObjectId
 import boto3
@@ -48,6 +50,7 @@ class ResponseItem(Resource):
         self.route('GET', (':applet',), self.getResponsesForApplet)
         self.route('GET', ('last7Days', ':applet'), self.getLast7Days)
         self.route('POST', (':applet', ':activity'), self.createResponseItem)
+        self.route('POST', (':applet', 'updateResponseToken'), self.updateResponseToken)
         self.route('PUT', (':applet',), self.updateReponseItems)
 
     @access.user(scope=TokenScope.DATA_READ)
@@ -155,6 +158,10 @@ class ResponseItem(Resource):
             'items': {},
             'subScaleSources': {},
             'subScales': {},
+            'tokens': {
+                'cumulativeToken': [],
+                'tokenUpdates': [],
+            },
         }
 
         # Get the responses for each users and generate the group responses data.
@@ -183,7 +190,9 @@ class ResponseItem(Resource):
                     )
                 )
 
-            add_latest_daily_response(data, responses)
+            tokens = ResponseTokens().getResponseTokens(profile, retrieveUserKeys=True)
+
+            add_latest_daily_response(data, responses, tokens)
 
         self._model.reconnectToDb()
 
@@ -251,7 +260,52 @@ class ResponseItem(Resource):
             print(traceback.print_tb(sys.exc_info()[2]))
             return({})
 
+    @access.public(scope=TokenScope.DATA_WRITE)
+    @autoDescribeRoute(
+        Description('Use Response token.')
+        .notes(
+            'This endpoint is used when a user selects token-prize on mobile app.'
+        )
+        .modelParam(
+            'applet',
+            model=AppletModel,
+            level=AccessType.READ,
+            destName='applet',
+            description='The ID of the Applet this response is to.'
+        )
+        .jsonParam('updateInfo',
+                   'A JSON object containing the token update and cumulative.',
+                   paramType='form', requireObject=True, required=True)
+    )
+    def updateResponseToken(
+        self,
+        applet,
+        updateInfo
+    ):
+        from girderformindlogger.models.profile import Profile
+        user = self.getCurrentUser()
 
+        profile = Profile().findOne({
+            'appletId': applet['_id'],
+            'userId': user['_id']
+        })
+
+        if updateInfo.get('tokenUpdate', None):
+            ResponseTokens().saveResponseToken(
+                profile,
+                updateInfo['tokenUpdate'],
+                False,
+                updateInfo.get('userPublicKey', None),
+                updateInfo.get('version', None)
+            )
+
+        if updateInfo.get('cumulative', None):
+            ResponseTokens().saveResponseToken(
+                profile, 
+                updateInfo['cumulative'], 
+                True, 
+                updateInfo.get('userPublicKey', None)
+            )
 
     @access.user(scope=TokenScope.DATA_WRITE)
     @autoDescribeRoute(
@@ -412,6 +466,9 @@ class ResponseItem(Resource):
                             'src': newItem['_id'],
                             'ptr': metadata['subScales'][subScale]
                         }
+
+                if metadata.get('tokenCumulation', None):
+                    ResponseTokens().saveResponseToken(profile, metadata['tokenCumulation'], True, metadata.get('userPublicKey', None))
 
                 newItem = self._model.setMetadata(newItem, metadata)
 

@@ -19,7 +19,7 @@ from bson import json_util
 
 class AccountProfile(AccessControlledModel):
     """
-    collection for manage schedule and notification.
+    collection for managing account profiles
     """
 
     def initialize(self):
@@ -48,7 +48,6 @@ class AccountProfile(AccessControlledModel):
             'userId': user['_id'],
             'accountName': user['firstName'],
             'applets': {},
-            'tokenBalance': 0
         }
         account = self.save(account)
         account['accountId'] = account['_id']
@@ -87,7 +86,6 @@ class AccountProfile(AccessControlledModel):
             'accountName': ownerAccount['accountName'],
             'accountId': accountId,
             'applets': {},
-            'tokenBalance': 0
         }
         return self.save(accountProfile)
 
@@ -122,10 +120,3 @@ class AccountProfile(AccessControlledModel):
             self.remove(profile)
         else:
             self.save(profile)
-
-    def updateTokenBalance(self, profile, balance):
-        self.update({
-            '_id': ObjectId(profile['_id'])
-        }, {'$set': {
-            'tokenBalance': balance
-        }})

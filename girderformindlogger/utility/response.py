@@ -11,6 +11,7 @@ from datetime import date, datetime, timedelta
 from girderformindlogger.models.applet import Applet as AppletModel
 from girderformindlogger.models.user import User as UserModel
 from girderformindlogger.models.response_folder import ResponseItem
+from girderformindlogger.models.response_tokens import ResponseTokens
 from girderformindlogger.models.account_profile import AccountProfile
 from girderformindlogger.utility import clean_empty
 from pandas.api.types import is_numeric_dtype
@@ -344,6 +345,7 @@ def last7Days(
                 resp['date'] = determine_date(resp['date'] + timedelta(hours=profile['timezone']))
 
     l7d = {}
+    l7d['tokens'] = ResponseTokens().getResponseTokens(profile, startDate, False)
     l7d["responses"] = _oneResponsePerDatePerVersion(outputResponses, profile['timezone']) if groupByDateActivity else outputResponses
 
     endDate = referenceDate.date()
@@ -435,7 +437,7 @@ def responseDateList(appletId, userId, reviewer):
     rdl.sort(reverse=True)
     return(rdl)
 
-def add_latest_daily_response(data, responses):
+def add_latest_daily_response(data, responses, tokens):
     user_keys = {}
 
     for response in responses:
@@ -492,6 +494,23 @@ def add_latest_daily_response(data, responses):
                     'key': user_keys[key_dump],
                     'data': response['meta']['subScaleSource']
                 }
+
+    for tokenField in ['cumulativeToken', 'tokenUpdates']:
+        if isinstance(tokens[tokenField], dict):
+            tokens[tokenField] = [tokens[tokenField]]
+
+        for value in tokens[tokenField]:
+            key_dump = json_util.dumps(value['userPublicKey'])
+
+            if key_dump not in user_keys:
+                user_keys[key_dump] = len(data['keys'])
+                data['keys'].append(value['userPublicKey'])
+
+            value['key'] = user_keys[key_dump]
+            value.pop('userPublicKey')
+
+            data['tokens'][tokenField].append(value)
+
 
 def _oneResponsePerDatePerVersion(responses, offset):
     newResponses = {}
