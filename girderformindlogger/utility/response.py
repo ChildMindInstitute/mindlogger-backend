@@ -499,6 +499,9 @@ def add_latest_daily_response(data, responses, tokens):
         if isinstance(tokens[tokenField], dict):
             tokens[tokenField] = [tokens[tokenField]]
 
+        if not tokens[tokenField]:
+            continue
+
         for value in tokens[tokenField]:
             key_dump = json_util.dumps(value['userPublicKey'])
 
