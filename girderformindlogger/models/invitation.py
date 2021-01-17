@@ -14,6 +14,7 @@ from girderformindlogger.models.account_profile import AccountProfile
 from girderformindlogger.utility.model_importer import ModelImporter
 from girderformindlogger.utility.progress import noProgress, \
     setResponseTimeLimit
+from girderformindlogger.i18n import t
 
 class Invitation(AESEncryption):
     """
@@ -387,6 +388,21 @@ class Invitation(AESEncryption):
             skin = {}
         instanceName = skin.get("name", "MindLogger")
         role = invitation.get("role", "user")
+
+        existingProfile = Profile().findOne({
+            'userId': invitation['userId'],
+            'appletId': invitation['appletId'],
+            'deactivated': {
+                '$ne': True
+            }
+        })
+
+        if existingProfile and (role == 'user' or len(existingProfile.get('roles', [])) > 1):
+            return {
+                'body': t('invitation_already_accepted', invitation.get("lang", "en"), {'appletName': appletName}),
+                'acceptable': False
+            }
+
         try:
             coordinator = Profile().coordinatorProfile(
                 applet['_id'],
@@ -440,22 +456,25 @@ class Invitation(AESEncryption):
             'url': f'https://{web_url}/#/invitation/{str(invitation["_id"])}'
         })
 
-        return(body if not fullDoc else """
-            <!DOCTYPE html>
-            <html>
-            <head>
-            <meta charset="UTF-8">
-            <title>Invitation to {appletName} on {instanceName}</title>
-            </head>
-            <body>
-            {body}
-            </body>
-            </html>
-        """.format(
-            appletName=appletName,
-            instanceName=instanceName,
-            body=body
-        ).strip())
+        return {
+            'body': (body if not fullDoc else """
+                <!DOCTYPE html>
+                <html>
+                <head>
+                <meta charset="UTF-8">
+                <title>Invitation to {appletName} on {instanceName}</title>
+                </head>
+                <body>
+                {body}
+                </body>
+                </html>
+            """.format(
+                appletName=appletName,
+                instanceName=instanceName,
+                body=body
+            ).strip()),
+            'acceptable': True
+        }
 
     def countFolders(self, folder, user=None, level=None):
         """
