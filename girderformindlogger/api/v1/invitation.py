@@ -28,6 +28,7 @@ from girderformindlogger.models.token import Token
 from girderformindlogger.models.user import User as UserModel
 from girderformindlogger.models.account_profile import AccountProfile
 from girderformindlogger.utility import jsonld_expander, response
+from bson.objectid import ObjectId
 
 
 class Invitation(Resource):
@@ -49,11 +50,10 @@ class Invitation(Resource):
             'This endpoint is used to get invitation from id. <br>'
             '(Used in the website to get invitation-html from id)'
         )
-        .modelParam(
+        .param(
             'id',
-            model=InvitationModel,
-            force=True,
-            destName='invitation'
+            'ID of invitation',
+            required=True
         )
         .param(
             'fullHTML',
@@ -69,24 +69,27 @@ class Invitation(Resource):
         )
         .errorResponse()
     )
-    def getInvitation(self, invitation, fullHTML=False, includeLink=True):
+    def getInvitation(self, id, fullHTML=False, includeLink=True):
         """
         Get an invitation as a string.
         """
+
         from girderformindlogger.models.profile import Profile
 
         currentUser = self.getCurrentUser()
 
+        if not currentUser:
+            raise AccessException(
+                "You must be logged in to get invitation."
+            )
+
         htmlInvitation = InvitationModel().htmlInvitation(
-            invitation,
+            id,
             currentUser,
             fullDoc=fullHTML,
             includeLink=includeLink if includeLink is not None else True
         )
-        return {
-            **htmlInvitation,
-            "lang": invitation.get("lang", "en")
-        }
+        return htmlInvitation
 
     @access.public(scope=TokenScope.USER_INFO_READ)
     @autoDescribeRoute(

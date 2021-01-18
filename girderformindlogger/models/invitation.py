@@ -12,6 +12,7 @@ from girderformindlogger.exceptions import ValidationException, GirderException
 from girderformindlogger.models.aes_encrypt import AESEncryption, AccessControlledModel
 from girderformindlogger.models.account_profile import AccountProfile
 from girderformindlogger.utility.model_importer import ModelImporter
+from girderformindlogger.exceptions import AccessException
 from girderformindlogger.utility.progress import noProgress, \
     setResponseTimeLimit
 from girderformindlogger.i18n import t
@@ -250,6 +251,9 @@ class Invitation(AESEncryption):
 
             UserModel().save(user)
 
+        if invitation.get('lang', '') != user.get('lang', ''):
+            user['lang'] = invitation['lang']
+            UserModel().save(user)
 
         applet = Applet().load(invitation['appletId'], force=True)
         if not applet:
@@ -305,7 +309,7 @@ class Invitation(AESEncryption):
         profile['firstName'] = invitation.get('firstName', '')
         profile['lastName'] = invitation.get('lastName', '')
         profile['MRN'] = invitation.get('MRN', '')
-
+        profile['invitationId'] = invitation['_id']
         if 'invited_role' != 'user':
             profile['email'] = userEmail
 
@@ -348,7 +352,7 @@ class Invitation(AESEncryption):
 
     def htmlInvitation(
         self,
-        invitation,
+        invitationId,
         invitee=None,
         fullDoc=False,
         includeLink=True
@@ -372,6 +376,28 @@ class Invitation(AESEncryption):
         from girderformindlogger.api.rest import getApiUrl
         from girderformindlogger.utility import context as contextUtil,        \
             mail_utils
+
+        invitation = self.findOne({
+            '_id': ObjectId(invitationId)
+        })
+
+        if not invitation:
+            existingProfile = Profile().findOne({
+                'userId': invitee['_id'],
+                'invitationId': ObjectId(invitationId)
+            })
+
+            if existingProfile:
+                applet = Applet().load(ObjectId(existingProfile['appletId']), force=True)
+                appletName = applet['meta']['applet'].get('displayName', applet.get('displayName', 'new applet'))
+
+                return {
+                    'body': t('invitation_already_accepted', invitee.get("lang", "en"), {'appletName': appletName}),
+                    'acceptable': False,
+                    'lang': invitee.get("lang", "en")
+                }
+
+            raise AccessException('invalid invitation')
 
         web_url = os.getenv('WEB_URI') or 'localhost:8082'
 
@@ -400,7 +426,8 @@ class Invitation(AESEncryption):
         if existingProfile and (role == 'user' or len(existingProfile.get('roles', [])) > 1):
             return {
                 'body': t('invitation_already_accepted', invitation.get("lang", "en"), {'appletName': appletName}),
-                'acceptable': False
+                'acceptable': False,
+                'lang': invitation.get("lang", "en")
             }
 
         try:
@@ -473,7 +500,8 @@ class Invitation(AESEncryption):
                 instanceName=instanceName,
                 body=body
             ).strip()),
-            'acceptable': True
+            'acceptable': True,
+            'lang': invitation.get("lang", "en")
         }
 
     def countFolders(self, folder, user=None, level=None):
