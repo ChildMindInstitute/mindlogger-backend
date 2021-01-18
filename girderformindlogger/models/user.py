@@ -520,7 +520,7 @@ class User(AESEncryption):
         user['accountId'] = account['_id']
         self.update({'_id': user['_id']}, {'$set': {'accountId': user['accountId']}})
 
-        self.createTemplatesFolder(user)
+        #self.createTemplatesFolder(user)
 
         user = self._getGroupInvitesFromProtoUser(user)
         self._deleteProtoUser(user)
