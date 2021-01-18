@@ -382,22 +382,7 @@ class Invitation(AESEncryption):
         })
 
         if not invitation:
-            existingProfile = Profile().findOne({
-                'userId': invitee['_id'],
-                'invitationId': ObjectId(invitationId)
-            })
-
-            if existingProfile:
-                applet = Applet().load(ObjectId(existingProfile['appletId']), force=True)
-                appletName = applet['meta']['applet'].get('displayName', applet.get('displayName', 'new applet'))
-
-                return {
-                    'body': t('invitation_already_accepted', invitee.get("lang", "en"), {'appletName': appletName}),
-                    'acceptable': False,
-                    'lang': invitee.get("lang", "en")
-                }
-
-            raise AccessException('invalid invitation')
+            return self.getMessageForAlreadyAcceptedInvitation(invitationId, invitee)
 
         web_url = os.getenv('WEB_URI') or 'localhost:8082'
 
@@ -503,6 +488,31 @@ class Invitation(AESEncryption):
             'acceptable': True,
             'lang': invitation.get("lang", "en")
         }
+
+    def getMessageForAlreadyAcceptedInvitation(
+        self,
+        invitationId,
+        invitee
+    ):
+        from girderformindlogger.models.applet import Applet
+        from girderformindlogger.models.profile import Profile
+
+        existingProfile = Profile().findOne({
+            'userId': invitee['_id'],
+            'invitationId': ObjectId(invitationId)
+        })
+
+        if existingProfile:
+            applet = Applet().load(ObjectId(existingProfile['appletId']), force=True)
+            appletName = applet['meta']['applet'].get('displayName', applet.get('displayName', 'new applet'))
+
+            return {
+                'body': t('invitation_already_accepted', invitee.get("lang", "en"), {'appletName': appletName}),
+                'acceptable': False,
+                'lang': invitee.get("lang", "en")
+            }
+
+        raise AccessException('invalid invitation')
 
     def countFolders(self, folder, user=None, level=None):
         """
