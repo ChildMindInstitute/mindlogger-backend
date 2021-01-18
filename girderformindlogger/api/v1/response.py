@@ -17,37 +17,26 @@
 #  limitations under the License.
 ###############################################################################
 
-import itertools
 import tzlocal
 import pytz
-from datetime import date, datetime, timedelta, timezone
-from bson.objectid import ObjectId
+from datetime import timedelta, timezone
 
 from ..describe import Description, autoDescribeRoute
-from ..rest import Resource, filtermodel, setResponseHeader, \
-    setContentDisposition
+from ..rest import Resource
 from datetime import datetime
-from girderformindlogger.utility import ziputil
 from girderformindlogger.constants import AccessType, TokenScope
-from girderformindlogger.exceptions import AccessException, RestException, \
-    ValidationException
+from girderformindlogger.exceptions import ValidationException
 from girderformindlogger.api import access
 from girderformindlogger.models.activity import Activity as ActivityModel
 from girderformindlogger.models.applet import Applet as AppletModel
-from girderformindlogger.models.assignment import Assignment as AssignmentModel
 from girderformindlogger.models.folder import Folder
 from girderformindlogger.models.response_folder import ResponseFolder as \
     ResponseFolderModel, ResponseItem as ResponseItemModel
-from girderformindlogger.models.roles import getCanonicalUser, getUserCipher
-from girderformindlogger.models.user import User as UserModel
 from girderformindlogger.models.upload import Upload as UploadModel
-from girderformindlogger.utility.response import formatResponse, \
-    string_or_ObjectID
-from girderformindlogger.utility.resource import listFromString
-from pymongo import ASCENDING, DESCENDING
+from pymongo import DESCENDING
 from bson import ObjectId
-import hashlib
-
+import boto3
+import os
 
 
 class ResponseItem(Resource):
@@ -119,8 +108,9 @@ class ResponseItem(Resource):
         includeOldItems=True,
     ):
         from girderformindlogger.models.profile import Profile
+        from girderformindlogger.models.account_profile import AccountProfile
         from girderformindlogger.utility.response import (
-            delocalize, add_missing_dates, add_latest_daily_response, getOldVersions)
+            delocalize, add_latest_daily_response, getOldVersions)
 
         user = self.getCurrentUser()
         profile = Profile().findOne({'appletId': applet['_id'],
@@ -162,16 +152,25 @@ class ResponseItem(Resource):
             'responses': {},
             'dataSources': {},
             'keys': [],
-            'items': {}
+            'items': {},
+            'subScaleSources': {},
+            'subScales': {},
         }
 
         # Get the responses for each users and generate the group responses data.
+        owner_account = AccountProfile().findOne({
+            'applets.owner': applet.get('_id')
+        })
+        if owner_account and owner_account.get('db', None):
+            self._model.reconnectToDb(db_uri=owner_account.get('db', None))
+
         for user in users:
-            responses = ResponseItemModel().find(
+            responses = self._model.find(
                 query={"created": { "$lte": toDate, "$gt": fromDate },
                        "meta.applet.@id": ObjectId(applet['_id']),
                        "meta.activity.@id": { "$in": activities },
-                       "meta.subject.@id": user['_id']},
+                       "meta.subject.@id": user['_id'],
+                       "isCumulative": {"$ne": True}},
                 force=True,
                 sort=[("created", DESCENDING)])
 
@@ -186,7 +185,8 @@ class ResponseItem(Resource):
                 )
 
             add_latest_daily_response(data, responses)
-        add_missing_dates(data, fromDate, toDate)
+
+        self._model.reconnectToDb()
 
         data.update(getOldVersions(data['responses'], applet))
 
@@ -299,6 +299,7 @@ class ResponseItem(Resource):
         params
     ):
         from girderformindlogger.models.profile import Profile
+        from girderformindlogger.models.account_profile import AccountProfile
         try:
             # TODO: pending
             metadata['applet'] = {
@@ -353,6 +354,13 @@ class ResponseItem(Resource):
                 parent=UserAppletResponsesFolder, parentType='folder',
                 name=str(subject_id), reuseExisting=True, public=False)
 
+            owner_account = AccountProfile().findOne({
+                'applets.owner': applet.get('_id')
+            })
+
+            if owner_account and owner_account.get('db', None):
+                self._model.reconnectToDb(db_uri=owner_account.get('db', None))
+
             try:
                 newItem = self._model.createResponseItem(
                     folder=AppletSubjectResponsesFolder,
@@ -362,7 +370,8 @@ class ResponseItem(Resource):
                         Folder().preferredName(activity),
                         now.strftime("%Y-%m-%d"),
                         now.strftime("%H:%M:%S %Z")
-                    ), reuseExisting=False)
+                    ), reuseExisting=False
+                )
             except:
                 raise ValidationException(
                     "Couldn't find activity name for this response"
@@ -376,6 +385,7 @@ class ResponseItem(Resource):
                     key,
                     metadata['responses'][key]['type'].split('/')[-1]
                 )
+
                 newUpload = um.uploadFromFile(
                     value.file,
                     metadata['responses'][key]['size'],
@@ -383,8 +393,9 @@ class ResponseItem(Resource):
                     'item',
                     newItem,
                     informant,
-                    metadata['responses'][key]['type']
+                    metadata['responses'][key]['type'],
                 )
+
                 # now, replace the metadata key with a link to this upload
                 metadata['responses'][key] = "file::{}".format(newUpload['_id'])
 
@@ -396,11 +407,51 @@ class ResponseItem(Resource):
                             'ptr': metadata['responses'][item]
                         }
 
+                if metadata.get('subScaleSource', None):
+                    for subScale in metadata.get('subScales', {}):
+                        metadata['subScales'][subScale] = {
+                            'src': newItem['_id'],
+                            'ptr': metadata['subScales'][subScale]
+                        }
+
+                if metadata.get('tokenCumulations', None):
+                    cumulative = self._model.createResponseItem(
+                        folder=AppletSubjectResponsesFolder,
+                        name=f'cumulation of {str(metadata["applet"]["@id"])} for {str(subject_id)}',
+                        creator=informant,
+                        description="{} response on {} at {}".format(
+                            Folder().preferredName(activity),
+                            now.strftime("%Y-%m-%d"),
+                            now.strftime("%H:%M:%S %Z")
+                        ), reuseExisting=True,
+                        isCumulative=True,
+                    )
+
+                    for itemIRI in metadata['tokenCumulations']:
+                        metadata['tokenCumulations'][itemIRI]['src'] = cumulative['_id']
+
+                    cumulativeMeta = {
+                        'userPublicKey': metadata['userPublicKey'],
+                        'subject': metadata['subject'],
+                        'applet': metadata['applet'],
+                        'responses': metadata['tokenCumulations']
+                    }
+                    metadata.pop('tokenCumulations')
+
+                    if metadata.get('tokenCumulationSource', None):
+                        cumulativeMeta.update({
+                            'dataSource': metadata['tokenCumulationSource'],
+                        })
+                        metadata.pop('tokenCumulationSource')
+
+                    self._model.setMetadata(cumulative, cumulativeMeta)
+
+
                 newItem = self._model.setMetadata(newItem, metadata)
 
             if not pending:
                 newItem['readOnly'] = True
-            print(newItem)
+            self._model.reconnectToDb()
 
             # update profile activity
             profile = Profile()
@@ -420,6 +471,7 @@ class ResponseItem(Resource):
                     "completed_time": now
                 })
 
+            data['updated'] = now
             profile.save(data, validate=False)
 
             return(newItem)
@@ -442,34 +494,57 @@ class ResponseItem(Resource):
             destName='applet',
             description='The ID of the Applet this response is to.'
         )
+        .param(
+            'user',
+            'profile id for user',
+            required=False,
+            default=None
+        )
         .jsonParam('responses',
                    'A JSON object containing the new response data and public key.',
                    paramType='form', requireObject=True, required=True)
         .errorResponse()
         .errorResponse('Write access was denied on the parent folder.', 403)
     )
-    def updateReponseItems(self, applet, responses):
+    def updateReponseItems(self, applet, user, responses):
         from girderformindlogger.models.profile import Profile
+        from girderformindlogger.models.account_profile import AccountProfile
 
-        user = self.getCurrentUser()
-        profile = Profile().findOne({
-            'appletId': applet['_id'],
-            'userId': user['_id']
-        })
+        if not user:
+            user = self.getCurrentUser()
+            profile = Profile().findOne({
+                'appletId': applet['_id'],
+                'userId': user['_id']
+            })
+        else:
+            profile = Profile().findOne({
+                '_id': ObjectId(user),
+                'appletId': applet['_id']
+            })
+
+        if not profile:
+            raise ValidationException('unable to find user with specified id')
 
         is_manager = 'manager' in profile.get('roles', [])
 
         now = datetime.utcnow()
 
+        owner_account = AccountProfile().findOne({
+            'applets.owner': applet.get('_id')
+        })
+
+        if owner_account and owner_account.get('db', None):
+            self._model.reconnectToDb(db_uri=owner_account.get('db', None))
+
         for responseId in responses['dataSources']:
             query = {
-                "meta.applet.@id": applet['_id'], 
+                "meta.applet.@id": applet['_id'],
                 "_id": ObjectId(responseId)
             }
             if not is_manager:
                 query["meta.subject.@id"] = profile['_id']
 
-            ResponseItemModel().update(
+            self._model.update(
                 query,
                 {
                     '$set': {
@@ -477,9 +552,11 @@ class ResponseItem(Resource):
                         'meta.userPublicKey': responses['userPublicKey'],
                         'updated': now
                     }
-                }, 
+                },
                 multi=False
             )
+
+        self._model.reconnectToDb()
 
         if profile.get('refreshRequest', None):
             profile.pop('refreshRequest')

@@ -36,6 +36,7 @@ installReqs = [
     'click',
     'click-plugins',
     'cryptography>=2.3',
+    'cerberus==1.3.2',
     'backports-datetime-fromisoformat',
     'dictdiffer',
     'dnspython',

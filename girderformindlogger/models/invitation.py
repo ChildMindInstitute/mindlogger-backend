@@ -14,6 +14,7 @@ from girderformindlogger.models.account_profile import AccountProfile
 from girderformindlogger.utility.model_importer import ModelImporter
 from girderformindlogger.utility.progress import noProgress, \
     setResponseTimeLimit
+from girderformindlogger.i18n import t
 
 class Invitation(AESEncryption):
     """
@@ -205,9 +206,6 @@ class Invitation(AESEncryption):
             if user:
                 invitation['userId'] = user['_id']
 
-        if role == 'reviewer':
-            accessibleUsers = [ObjectId(accessibleUser) for accessibleUser in accessibleUsers]
-
         invitation.update({
             'inviterId': coordinator['_id'],
             'role': role,
@@ -308,10 +306,13 @@ class Invitation(AESEncryption):
         profile['lastName'] = invitation.get('lastName', '')
         profile['MRN'] = invitation.get('MRN', '')
 
+        if 'invited_role' != 'user':
+            profile['email'] = userEmail
+
         Profile().save(profile, validate=False)
 
         if invited_role == 'reviewer':
-            Profile().updateReviewerList(profile, invitation.get('accessibleUsers'))
+            Profile().updateReviewerList(profile, invitation.get('accessibleUsers', []), isMRNList=True)
         elif invited_role == 'manager':
             Profile().updateReviewerList(profile)
 
@@ -332,14 +333,15 @@ class Invitation(AESEncryption):
 
         for duplicate in duplicates:
             newInvitation = self.createInvitationForSpecifiedUser(
-                duplicate,
-                UserModel().load(invitation['inviterId'], force=True),
-                invitation.get('role', 'user'),
-                user,
-                invitation.get('firstName', ''),
-                invitation.get('lastName', ''),
-                invitation.get('MRN', ''),
-                userEmail
+                applet=duplicate,
+                coordinator=UserModel().load(invitation['inviterId'], force=True),
+                role=invitation.get('role', 'user'),
+                user=user,
+                firstName=invitation.get('firstName', ''),
+                lastName=invitation.get('lastName', ''),
+                lang='en',
+                MRN=invitation.get('MRN', ''),
+                userEmail=userEmail
             )
 
             self.acceptInvitation(self.load(newInvitation['_id'], force=True), user, userEmail)
@@ -386,6 +388,21 @@ class Invitation(AESEncryption):
             skin = {}
         instanceName = skin.get("name", "MindLogger")
         role = invitation.get("role", "user")
+
+        existingProfile = Profile().findOne({
+            'userId': invitation['userId'],
+            'appletId': invitation['appletId'],
+            'deactivated': {
+                '$ne': True
+            }
+        })
+
+        if existingProfile and (role == 'user' or len(existingProfile.get('roles', [])) > 1):
+            return {
+                'body': t('invitation_already_accepted', invitation.get("lang", "en"), {'appletName': appletName}),
+                'acceptable': False
+            }
+
         try:
             coordinator = Profile().coordinatorProfile(
                 applet['_id'],
@@ -439,22 +456,25 @@ class Invitation(AESEncryption):
             'url': f'https://{web_url}/#/invitation/{str(invitation["_id"])}'
         })
 
-        return(body if not fullDoc else """
-            <!DOCTYPE html>
-            <html>
-            <head>
-            <meta charset="UTF-8">
-            <title>Invitation to {appletName} on {instanceName}</title>
-            </head>
-            <body>
-            {body}
-            </body>
-            </html>
-        """.format(
-            appletName=appletName,
-            instanceName=instanceName,
-            body=body
-        ).strip())
+        return {
+            'body': (body if not fullDoc else """
+                <!DOCTYPE html>
+                <html>
+                <head>
+                <meta charset="UTF-8">
+                <title>Invitation to {appletName} on {instanceName}</title>
+                </head>
+                <body>
+                {body}
+                </body>
+                </html>
+            """.format(
+                appletName=appletName,
+                instanceName=instanceName,
+                body=body
+            ).strip()),
+            'acceptable': True
+        }
 
     def countFolders(self, folder, user=None, level=None):
         """

@@ -73,15 +73,18 @@ class Invitation(Resource):
         """
         Get an invitation as a string.
         """
+        from girderformindlogger.models.profile import Profile
+
         currentUser = self.getCurrentUser()
 
+        htmlInvitation = InvitationModel().htmlInvitation(
+            invitation,
+            currentUser,
+            fullDoc=fullHTML,
+            includeLink=includeLink if includeLink is not None else True
+        )
         return {
-            'body': InvitationModel().htmlInvitation(
-                invitation,
-                currentUser,
-                fullDoc=fullHTML,
-                includeLink=includeLink if includeLink is not None else True
-            ),
+            **htmlInvitation,
             "lang": invitation.get("lang", "en")
         }
 

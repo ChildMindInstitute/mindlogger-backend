@@ -4,6 +4,7 @@ import datetime
 import json
 import os
 import six
+import cherrypy
 
 from bson.objectid import ObjectId
 from girderformindlogger import events
@@ -41,6 +42,13 @@ class Item(acl_mixin.AccessControlMixin, Model):
                     ('name', 1),
                     ('meta.screen.@type', 1),
                     ('meta.screen.url', 1)
+                ], {}),
+                ([
+                    ('baseParentId', 1),
+                    ('meta.applet.@id', 1),
+                    ('meta.subject.@id', 1),
+                    ('baseParentType', 1),
+                    ('isCumulative', 1)
                 ], {})
             )
         )
@@ -68,6 +76,10 @@ class Item(acl_mixin.AccessControlMixin, Model):
         if not isinstance(value, six.string_types):
             value = str(value)
         return value.strip()
+
+    def reconnectToDb(self, db_uri=cherrypy.config['database']['uri']):
+        self.db_uri = db_uri
+        self.reconnect()
 
     def validate(self, doc):
         from girderformindlogger.models.folder import Folder

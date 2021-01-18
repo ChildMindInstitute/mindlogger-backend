@@ -26,6 +26,7 @@ from girderformindlogger.models.setting import Setting
 from girderformindlogger.models.token import Token
 from girderformindlogger.models.user import User
 from girderformindlogger.models.account_profile import AccountProfile
+from girderformindlogger.models.shield import Shield
 from girderformindlogger.settings import SettingKey
 from girderformindlogger.utility import toBool, config, JsonEncoder, optionalArgumentDecorator
 from girderformindlogger.utility._cache import requestCache
@@ -540,6 +541,15 @@ def _createResponse(val):
     # Default behavior will just be normal JSON output. Keep this
     # outside of the loop body in case no Accept header is passed.
     setResponseHeader('Content-Type', 'application/json')
+
+    # disable api responses to be automatically cached on frontend
+    setResponseHeader('Cache-Control', 'private, no-cache, no-store, max-age=0')
+    setResponseHeader('Pragma', 'no-cache')
+    setResponseHeader('Expires', '0')
+
+    # use https
+    setResponseHeader('Strict-Transport-Security', 'max-age=31536000; includeSubDomains')
+
     return json.dumps(val, sort_keys=True, allow_nan=False,
                       cls=JsonEncoder).encode('utf8')
 
@@ -642,6 +652,14 @@ def endpoint(fun):
         cherrypy.lib.caching.expires(0)
         cherrypy.request.girderRequestUid = str(uuid.uuid4())
         setResponseHeader('Girder-Request-Uid', cherrypy.request.girderRequestUid)
+
+        setResponseHeader('Set-Cookie', f'domain=.mindlogger.org; Secure; HttpOnly;')
+        setResponseHeader('X-Frame-Options', 'SAMEORIGIN')
+        setResponseHeader('Cache-Control', 'private, no-cache, no-store, max-age=0')
+        setResponseHeader('Pragma', 'no-cache')
+        setResponseHeader('Expires', '0')
+        setResponseHeader('Strict-Transport-Security', 'max-age=60; includeSubDomains')
+        setResponseHeader('Content-Security-Policy', "script-src 'self'")
 
         try:
             val = fun(self, path, params)
@@ -1157,6 +1175,39 @@ class Resource(object):
                   If returnToken=True, returns a tuple of (user, token).
         """
         return getCurrentUser(returnToken)
+
+    def shield(self, ctx=None):
+        user = getCurrentUser()
+        prev = Shield().findOne({
+            "user": user.get('_id'),
+            "source": ctx
+        })
+
+        if prev:
+            prev["count"] += 1
+            elapsed_time = (datetime.datetime.now() - prev['date']).total_seconds() / 60
+
+            if elapsed_time <= 2 and prev["count"] >= 10 and not prev['blocked']:
+                prev["blocked"] = True
+                prev['date_blocked'] = datetime.datetime.now() + datetime.timedelta(minutes=2)
+
+            if elapsed_time > 2 and not prev["blocked"]:
+                prev["date"] = datetime.datetime.now()
+                prev["count"] = 0
+
+            Shield().save(prev, validate=False)
+            if prev["blocked"]:
+                if prev['date_blocked'] > datetime.datetime.now():
+                    raise Exception(f"Too many requests send in one time")
+                else:
+                    prev["date"] = datetime.datetime.now()
+                    prev["count"] = 1
+                    prev["blocked"] = False
+                    prev["date_blocked"] = None
+
+            Shield().save(prev, validate=False)
+        else:
+            Shield().set_default(user, ctx)
 
     def getAccountProfile(self):
         return getAccountProfile()

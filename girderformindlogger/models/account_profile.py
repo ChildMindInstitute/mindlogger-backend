@@ -3,6 +3,8 @@ import copy
 import datetime
 import json
 import os
+import re
+
 import six
 
 from bson.objectid import ObjectId
@@ -36,11 +38,17 @@ class AccountProfile(AccessControlledModel):
 
         return document
 
+    def validateDBURL(self, db_uri: str):
+        match = re.fullmatch(r'^mongodb://\w+:\w+@\w+:\d+/\w+', db_uri)
+        if not match:
+            raise ValidationException('MongoDB url is not correct.')
+
     def createOwner(self, user):
         account = {
             'userId': user['_id'],
             'accountName': user['firstName'],
-            'applets': {}
+            'applets': {},
+            'tokenBalance': 0
         }
         account = self.save(account)
         account['accountId'] = account['_id']
@@ -78,7 +86,8 @@ class AccountProfile(AccessControlledModel):
             'userId': userId,
             'accountName': ownerAccount['accountName'],
             'accountId': accountId,
-            'applets': {}
+            'applets': {},
+            'tokenBalance': 0
         }
         return self.save(accountProfile)
 
@@ -114,3 +123,9 @@ class AccountProfile(AccessControlledModel):
         else:
             self.save(profile)
 
+    def updateTokenBalance(self, profile, balance):
+        self.update({
+            '_id': ObjectId(profile['_id'])
+        }, {'$set': {
+            'tokenBalance': balance
+        }})
