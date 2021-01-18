@@ -261,6 +261,7 @@ class Invitation(Resource):
         if not invitation:
             return InvitationModel().getMessageForAlreadyAcceptedInvitation(id, currentUser)
 
+        InvitationModel().remove(invitation)
         return {
             'lang': invitation.get('lang', 'en'),
             'body': t('invitationRemoved', invitation.get('lang', 'en'))
