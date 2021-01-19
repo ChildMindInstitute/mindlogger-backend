@@ -1093,8 +1093,7 @@ class Applet(FolderModel):
 
         query = {
             "baseParentType": "user",
-            "meta.applet.@id": ObjectId(appletId),
-            "isCumulative": {"$ne": True}
+            "meta.applet.@id": ObjectId(appletId)
         }
 
         reviewerProfile = Profile().findOne(query={

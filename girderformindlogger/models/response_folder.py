@@ -90,7 +90,7 @@ class ResponseItem(AESEncryption, Item):
 
 
     def createResponseItem(self, name, creator, folder, description='',
-                   reuseExisting=False, readOnly=False, isCumulative=False):
+                   reuseExisting=False, readOnly=False):
         """
         Create a new response item. The creator will be given admin access to it.
 
@@ -138,8 +138,7 @@ class ResponseItem(AESEncryption, Item):
             'created': now,
             'updated': now,
             'size': 0,
-            'readOnly': readOnly,
-            'isCumulative': isCumulative,
+            'readOnly': readOnly
         })
 
 
