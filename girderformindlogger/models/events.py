@@ -329,10 +329,6 @@ class Events(Model):
                     if value and (value[1]['data'].get('completion', False) or value[1]['data'].get('activity_id', None) in onlyScheduledDay):
                         data.append(value[1])
 
-                for value in lastEvent.values():
-                    if value and (value[1]['data'].get('completion', False) or value[1]['data'].get('activity_id', None) in onlyScheduledDay):
-                        data.append(value[1])
-
                 for event in data:
                     if event['data'].get('activity_id', None) in onlyScheduledDay:
                         onlyScheduledDay.pop(event['data']['activity_id'])
@@ -345,8 +341,8 @@ class Events(Model):
 
                 result['data'][dayFilter.strftime('%Y/%m/%d')] = [
                     {
-                        'id': str(event['id']),
-                        'valid': event['valid']
+                        'id': str(card['id']),
+                        'valid': card['valid']
                     } for card in data
                 ]
 

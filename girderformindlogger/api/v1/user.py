@@ -20,6 +20,7 @@ from girderformindlogger.models.setting import Setting
 from girderformindlogger.models.token import Token
 from girderformindlogger.models.user import User as UserModel
 from girderformindlogger.models.account_profile import AccountProfile
+from girderformindlogger.models.response_alerts import ResponseAlerts
 from girderformindlogger.models.notification import Notification
 from girderformindlogger.settings import SettingKey
 from girderformindlogger.utility import jsonld_expander, mail_utils
@@ -834,6 +835,8 @@ class User(Resource):
                 'roles': appletRoles[appletId]
             })
 
+        tokenInfo['account']['alerts'] = ResponseAlerts().getResponseAlerts(user['_id'], account['_id'])
+
         tokenInfo['account']['applets'] = applets
 
         if token['accountId'] == user['accountId']:
@@ -937,12 +940,16 @@ class User(Resource):
             if deviceId:
                 user['deviceId'] = deviceId
                 user['timezone'] = float(timezone)
+                user['lang'] = lang
                 self._model.save(user)
                 ProfileModel().updateProfiles(user, {
                     'deviceId': deviceId,
                     'timezone': float(timezone),
                     'badge': 0
                 })
+            elif user['lang'] != lang:
+                user['lang'] = lang
+                self._model.save(user)
 
             setCurrentUser(user)
             token = self.sendAuthTokenCookie(user)
