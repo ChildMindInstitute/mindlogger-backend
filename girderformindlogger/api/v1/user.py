@@ -947,7 +947,7 @@ class User(Resource):
                     'timezone': float(timezone),
                     'badge': 0
                 })
-            elif user['lang'] != lang:
+            elif (user.get('lang') and user['lang'] != lang) or (not user.get('lang')):
                 user['lang'] = lang
                 self._model.save(user)
 
