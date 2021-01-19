@@ -27,6 +27,7 @@ class Profile(AESEncryption, dict):
                 'completed_activities',
                 'reviewers',
                 'MRN',
+                'invitationId',
                 'updated',
                 ([
                     ('appletId', 1),
