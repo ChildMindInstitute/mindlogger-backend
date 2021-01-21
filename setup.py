@@ -58,6 +58,7 @@ installReqs = [
     'redis==3.5.2',
     'requests',
     'rq==1.5.0',
+	'pyfcm==1.4.7',
     'rq-scheduler==0.10.0',
     "shutilwhich ; python_version < '3'",
     'sentry-sdk==0.16.0',
