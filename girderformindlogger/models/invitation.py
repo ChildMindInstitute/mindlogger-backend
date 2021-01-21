@@ -389,13 +389,16 @@ class Invitation(AESEncryption):
         instanceName = skin.get("name", "MindLogger")
         role = invitation.get("role", "user")
 
-        existingProfile = Profile().findOne({
-            'userId': invitation['userId'],
-            'appletId': invitation['appletId'],
-            'deactivated': {
-                '$ne': True
-            }
-        })
+        existingProfile=None
+
+        if invitation.get('userId'):
+            existingProfile = Profile().findOne({
+                'userId': invitation['userId'],
+                'appletId': invitation['appletId'],
+                'deactivated': {
+                    '$ne': True
+                }
+            })
 
         if existingProfile and (role == 'user' or len(existingProfile.get('roles', [])) > 1):
             return {
