@@ -133,7 +133,9 @@ class ResponseAlerts(AccessControlledModel):
                     userProfiles[str(alert['profileId'])] = data
         return {
             'profiles': userProfiles,
-            'list': alerts
+            'list': [
+                alert for alert in alerts if str(alert['profileId']) in userProfiles
+            ]
         }
 
 
