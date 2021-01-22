@@ -110,8 +110,12 @@ class ResponseAlerts(AccessControlledModel):
 
             if str(alert['profileId']) not in userProfiles:
                 profile = Profile().findOne({
-                    '_id': alert['profileId']
+                    '_id': alert['profileId'],
+                    'deactivated': {'$ne': True}
                 })
+
+                if not profile:
+                    continue
 
                 appletId = str(profile['appletId'])
                 if appletId not in viewerProfiles:
@@ -137,3 +141,10 @@ class ResponseAlerts(AccessControlledModel):
         return alerts
     def validate(self, document):
         return document
+
+    def deleteResponseAlerts(self, profileId):
+        self.removeWithQuery(
+            query={
+                'profileId': ObjectId(profileId)
+            }
+        )
