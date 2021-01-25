@@ -39,6 +39,8 @@ class Events(Model):
         return document
     
     def updateScheduleUpdateTime(self, event):
+        now = datetime.datetime.utcnow()
+
         if event['individualized']:
             ProfileModel().update(query={
                     "_id": {
@@ -54,9 +56,7 @@ class Events(Model):
         else:
             ProfileModel().update(
                 query={
-                    "_id": {
-                        "$in": event['applet_id']
-                    },
+                    'appletId': event['applet_id']
                 },
                 update={
                     '$set': {

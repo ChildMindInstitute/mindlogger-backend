@@ -213,7 +213,7 @@ class Applet(FolderModel):
     def getSchedule(self, applet, user, getAllEvents, eventFilter=None, localScheduleTime=None):
         profile = Profile().findOne({'appletId': ObjectId(applet['_id']), 'userId': ObjectId(user['_id'])})
 
-        if localScheduleTime and profile.get('scheduleUpdateTime', None) == localScheduleTime:
+        if localScheduleTime and profile['scheduleUpdateTime'] and profile['scheduleUpdateTime'].isoformat() == localScheduleTime:
             return None
 
         if not getAllEvents:
@@ -226,6 +226,9 @@ class Applet(FolderModel):
             schedule = EventsModel().getSchedule(applet['_id'])
 
         schedule['scheduleUpdateTime'] = profile.get('scheduleUpdateTime', None)
+        if schedule['scheduleUpdateTime']:
+            schedule['scheduleUpdateTime'] = schedule['scheduleUpdateTime'].isoformat()
+
         return schedule
 
     def grantRole(self, applet, userProfile, newRole, users):
@@ -1457,7 +1460,7 @@ class Applet(FolderModel):
 
         formatted = {}
 
-        if not localInfo.get('contentUpdateTime', None) or applet['updated'] != localInfo['contentUpdateTime']:
+        if not localInfo.get('contentUpdateTime', None) or applet['updated'].isoformat() != localInfo['contentUpdateTime']:
             formatted = {
                 **jsonld_expander.formatLdObject(
                     applet,
@@ -1496,14 +1499,16 @@ class Applet(FolderModel):
             }
 
         if retrieveSchedule:
-            if applet['updated'] != localInfo.get('contentUpdateTime', None):
-                formatted["schedule"] = self.getSchedule(
-                    applet, 
-                    reviewer, 
-                    retrieveAllEvents, 
-                    eventFilter if not retrieveAllEvents else None,
-                    localInfo.get('scheduleUpdateTime', None)
-                )
+            schedule = self.getSchedule(
+                applet, 
+                reviewer, 
+                retrieveAllEvents, 
+                eventFilter if not retrieveAllEvents else None,
+                None if applet['updated'].isoformat() != localInfo.get('contentUpdateTime', None) else localInfo.get('scheduleUpdateTime', None)
+            )
+
+            if schedule:
+                formatted["schedule"] = schedule
 
         if retrieveResponses:
             formatted["responses"] = last7Days(
@@ -1519,7 +1524,7 @@ class Applet(FolderModel):
                 localInfo.get('localActivities', [])
             )
 
-        formatted["updated"] = applet["updated"]
+        formatted["updated"] = applet['updated'].isoformat()
 
         return formatted
 
