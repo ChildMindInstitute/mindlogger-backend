@@ -46,6 +46,7 @@ from girderformindlogger.settings import SettingKey
 from girderformindlogger.models.profile import Profile as ProfileModel
 from girderformindlogger.models.account_profile import AccountProfile
 from girderformindlogger.i18n import t
+from girderformindlogger.models.response_alerts import ResponseAlerts
 from dateutil.relativedelta import relativedelta
 from pymongo import ASCENDING, DESCENDING
 from bson import json_util
@@ -579,6 +580,8 @@ class Applet(Resource):
                 profile = self._model.revokeRole(applet, profile, role)
 
         profile = self._model.revokeRole(applet, profile, 'user')
+
+        ResponseAlerts().deleteResponseAlerts(profile['_id'])
 
         if deleteResponse:
             ProfileModel().remove(profile)
