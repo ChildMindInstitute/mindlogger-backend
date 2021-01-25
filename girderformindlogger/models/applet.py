@@ -1086,10 +1086,11 @@ class Applet(FolderModel):
 
         retentionSettings = applet['meta'].get('retentionSettings', None)
 
-        retention = retentionSettings.get('retention', 'year')
-        period = retentionSettings.get('period', 5)
+        if retentionSettings != None:
+            retention = retentionSettings.get('retention', 'year')
+            period = retentionSettings.get('period', 5)
 
-        timedelta_in_days = int(period) * int(RETENTION_SET[retention])
+            timedelta_in_days = int(period) * int(RETENTION_SET[retention])
 
         query = {
             "baseParentType": "user",
@@ -1120,9 +1121,15 @@ class Applet(FolderModel):
         query["creatorId"] = {
             "$in": [profile['userId'] for profile in profiles]
         }
-        query['created']= {
+
+        if retentionSettings != None:
+            query['created'] = {
                 '$gte': datetime.datetime.now() - datetime.timedelta(days=timedelta_in_days)
-        }
+            }
+        else:
+            query['created'] = {
+                '$gte': applet['created']
+            }
 
         responses = list(ResponseItem().find(
             query=query,
