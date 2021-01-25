@@ -567,8 +567,7 @@ class User(Resource):
         .jsonParam(
             'localInfo',
             'parameter specifying applets metadata in local device',
-            required=False,
-            default={}
+            required=True,
         )
         .param(
             'getAllApplets',

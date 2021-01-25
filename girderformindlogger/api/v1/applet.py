@@ -1159,7 +1159,7 @@ class Applet(Resource):
         )
 
         if retrieveSchedule:
-            formatted['applet']['schedule'] = self._model.getSchedule(applet, user, retrieveAllEvents)
+            formatted['schedule'] = self._model.getSchedule(applet, user, retrieveAllEvents)
 
         formatted['updated'] = applet['updated']
         formatted['accountId'] = applet['accountId']
