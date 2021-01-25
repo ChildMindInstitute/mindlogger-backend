@@ -313,7 +313,9 @@ def last7Days(
     subject=None,
     referenceDate=None,
     includeOldItems=True,
-    groupByDateActivity=True
+    groupByDateActivity=True,
+    localItems=[],
+    localActivities=[]
 ):
     from girderformindlogger.models.profile import Profile
     if referenceDate is None:
@@ -364,6 +366,14 @@ def last7Days(
                 l7d['dataSources'][sourceId] = dataSources[sourceId]
 
     l7d.update(getOldVersions(l7d['responses'], appletInfo))
+
+    for itemId in list(l7d.get('items', {}).keys()):
+        if itemId in localItems:
+            l7d['items'].pop(itemId)
+
+    for activityId in list(l7d.get('activities', {}).keys()):
+        if activityId in localActivities:
+            l7d['activities'].pop(activityId)
 
     return l7d
 

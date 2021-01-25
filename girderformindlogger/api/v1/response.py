@@ -235,6 +235,18 @@ class ResponseItem(Resource):
             required=False,
             default=True
         )
+        .jsonParam(
+            'localItems',
+            'item id array which represents historical items that user has on local device.',
+            required=False,
+            default=[]
+        )
+        .jsonParam(
+            'localActivities',
+            'activity id array which represents historical activities that user has on local device.',
+            required=False,
+            default=[]
+        )
         .errorResponse('ID was invalid.')
         .errorResponse(
             'Read access was denied for this applet for this user.',
@@ -248,14 +260,27 @@ class ResponseItem(Resource):
         referenceDate=None,
         includeOldItems=True,
         groupByDateActivity=True,
+        localItems=[],
+        localActivities=[]
     ):
         from girderformindlogger.utility.response import last7Days
         from bson.objectid import ObjectId
+
         try:
             appletInfo = AppletModel().findOne({'_id': ObjectId(applet)})
             user = self.getCurrentUser()
 
-            return(last7Days(applet, appletInfo, user.get('_id'), user, referenceDate=referenceDate, includeOldItems=includeOldItems, groupByDateActivity=groupByDateActivity))
+            return(last7Days(
+                applet, 
+                appletInfo, 
+                user.get('_id'), 
+                user, 
+                referenceDate=referenceDate, 
+                includeOldItems=includeOldItems, 
+                groupByDateActivity=groupByDateActivity,
+                localItems=localItems,
+                localActivities=localActivities
+            ))
         except:
             import sys, traceback
             print(sys.exc_info())
