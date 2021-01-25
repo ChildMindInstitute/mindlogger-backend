@@ -114,17 +114,6 @@ def aggregate(metadata, informant, startDate=None, endDate=None):
     """
     Function to calculate aggregates
     """
-    thisResponseTime = datetime.now(
-        tzlocal.get_localzone()
-    )
-
-    startDate = datetime.fromisoformat(startDate.isoformat(
-    )).astimezone(pytz.utc).replace(tzinfo=None) if startDate is not None else None
-
-    endDate = datetime.fromisoformat((
-        thisResponseTime if endDate is None else endDate
-    ).isoformat()).astimezone(pytz.utc).replace(tzinfo=None)
-
     query = {
             "baseParentType": 'user',
             "baseParentId": informant.get("_id") if isinstance(
@@ -132,10 +121,8 @@ def aggregate(metadata, informant, startDate=None, endDate=None):
                 dict
             ) else informant,
             "created": {
-                "$gte": startDate,
-                # "$lt": endDate
+                "$gt": startDate,
             } if startDate else {
-                # "$lt": endDate
             },
             "meta.applet.@id": metadata["applet_id"],
             "meta.subject.@id": metadata["subject_id"]
@@ -153,8 +140,11 @@ def aggregate(metadata, informant, startDate=None, endDate=None):
 
     startDate = min([response.get(
         'created',
-        endDate
-    ) for response in definedRange]) if startDate is None else startDate
+    ) for response in definedRange])
+
+    endDate = max([response.get(
+        'created'
+    ) for response in definedRange])
 
     duration = isodate.duration_isoformat(
         delocalize(endDate) - delocalize(startDate)
@@ -311,20 +301,27 @@ def last7Days(
     informantId,
     reviewer,
     subject=None,
-    referenceDate=None,
+    startDate=None,
     includeOldItems=True,
     groupByDateActivity=True,
     localItems=[],
     localActivities=[]
 ):
     from girderformindlogger.models.profile import Profile
-    if referenceDate is None:
-        referenceDate = datetime.combine(
-            datetime.utcnow().date() + timedelta(days=1), datetime.min.time()
-        )
 
-    startDate = delocalize(referenceDate - timedelta(days=7))
-    referenceDate = delocalize(referenceDate)
+    referenceDate = datetime.combine(
+        datetime.utcnow().date() + timedelta(days=1), datetime.min.time()
+    )
+
+    try:
+        startDate = datetime.fromisoformat(startDate)
+    except:
+        startDate = None
+
+    if startDate:
+        startDate = delocalize(startDate)
+    else:
+        startDate = delocalize(referenceDate - timedelta(days=8))
 
     profile = Profile().findOne({'userId': ObjectId(informantId), 'appletId': ObjectId(appletId)})
 
@@ -350,13 +347,11 @@ def last7Days(
     l7d['tokens'] = ResponseTokens().getResponseTokens(profile, startDate, False)
     l7d["responses"] = _oneResponsePerDatePerVersion(outputResponses, profile['timezone']) if groupByDateActivity else outputResponses
 
-    endDate = referenceDate.date()
-    l7d["schema:endDate"] = endDate.isoformat()
-    startDate = endDate - timedelta(days=7)
+    l7d["schema:endDate"] = responses.get("schema:endDate", datetime.utcnow()).isoformat()
     l7d["schema:startDate"] = startDate.isoformat()
-    l7d["schema:duration"] = isodate.duration_isoformat(
-        endDate - startDate
-    )
+    l7d["schema:duration"] = responses.get("schema:duration", isodate.duration_isoformat(
+        referenceDate - startDate
+    ))
 
     l7d['dataSources'] = {}
     for itemResponses in dict.values(l7d["responses"]):

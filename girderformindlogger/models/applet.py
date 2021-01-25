@@ -211,24 +211,23 @@ class Applet(FolderModel):
 
         return formatted
 
-    def getSchedule(self, applet, user, getAllEvents, eventFilter=None, localScheduleTime=None):
-        profile = Profile().findOne({'appletId': ObjectId(applet['_id']), 'userId': ObjectId(user['_id'])})
-
-        if localScheduleTime and profile['scheduleUpdateTime'] and profile['scheduleUpdateTime'].isoformat() == localScheduleTime:
-            return None
-
+    def getSchedule(self, applet, user, getAllEvents, eventFilter=None, localEvents=[]):
         if not getAllEvents:
             schedule = EventsModel().getScheduleForUser(applet['_id'], user['_id'], eventFilter)
+            events = schedule.get('events', {})
+
+            for localEvent in localEvents:
+                eventId = localEvent.get('id', None)
+                updated = localEvent.get('updated', None)
+
+                if eventId in events and events[eventId].get('updated', None) == updated:
+                    events.pop(eventId)
         else:
             if not self.isCoordinator(applet['_id'], user):
                 raise AccessException(
                     "Only coordinators and managers can get all events."
                 )
             schedule = EventsModel().getSchedule(applet['_id'])
-
-        schedule['scheduleUpdateTime'] = profile.get('scheduleUpdateTime', None)
-        if schedule['scheduleUpdateTime']:
-            schedule['scheduleUpdateTime'] = schedule['scheduleUpdateTime'].isoformat()
 
         return schedule
 
@@ -1454,6 +1453,7 @@ class Applet(FolderModel):
         eventFilter=None, 
         retrieveResponses=False, 
         groupByDateActivity=True,
+        startDate=None,
         retrieveLastResponseTime=False,
         localInfo={}
     ):
@@ -1506,7 +1506,7 @@ class Applet(FolderModel):
                 reviewer, 
                 retrieveAllEvents, 
                 eventFilter if not retrieveAllEvents else None,
-                None if applet['updated'].isoformat() != localInfo.get('contentUpdateTime', None) else localInfo.get('scheduleUpdateTime', None)
+                [] if applet['updated'].isoformat() != localInfo.get('contentUpdateTime', None) else localInfo.get('localEvents', [])
             )
 
             if schedule:
@@ -1519,7 +1519,7 @@ class Applet(FolderModel):
                 reviewer.get('_id'),
                 reviewer,
                 None,
-                None,
+                localInfo.get('startDate', None),
                 True,
                 groupByDateActivity,
                 localInfo.get('localItems', []),

@@ -217,8 +217,8 @@ class ResponseItem(Resource):
             required=False
         )
         .param(
-            'referenceDate',
-            'Final date of 7 day range. (Not plugged in yet).',
+            'startDate',
+            'start date for response data.',
             required=False
         )
         .param(
@@ -257,7 +257,7 @@ class ResponseItem(Resource):
         self,
         applet,
         subject=None,
-        referenceDate=None,
+        startDate=None,
         includeOldItems=True,
         groupByDateActivity=True,
         localItems=[],
@@ -275,7 +275,7 @@ class ResponseItem(Resource):
                 appletInfo, 
                 user.get('_id'), 
                 user, 
-                referenceDate=referenceDate, 
+                startDate=startDate, 
                 includeOldItems=includeOldItems, 
                 groupByDateActivity=groupByDateActivity,
                 localItems=localItems,

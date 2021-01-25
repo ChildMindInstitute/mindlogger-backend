@@ -1624,7 +1624,12 @@ class Applet(Resource):
 
         currentUserDate = datetime.datetime.utcnow() + datetime.timedelta(hours=int(user['timezone']))
 
-        return self._model.getSchedule(applet, user, getAllEvents, (currentUserDate.replace(hour=0, minute=0, second=0, microsecond=0), numberOfDays) if numberOfDays and not getAllEvents else None)
+        return self._model.getSchedule(
+            applet, 
+            user, 
+            getAllEvents, 
+            (currentUserDate.replace(hour=0, minute=0, second=0, microsecond=0), numberOfDays) if numberOfDays and not getAllEvents else None
+        )
 
     @access.user(scope=TokenScope.DATA_WRITE)
     @autoDescribeRoute(
