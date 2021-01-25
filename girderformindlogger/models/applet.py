@@ -830,6 +830,7 @@ class Applet(FolderModel):
                 }, {
                     '$set': {
                         'data.title': self.preferredName(formatted['activities'][activity]),
+                        'updated': datetime.datetime.utcnow()
                     },
                 })
 
@@ -1506,7 +1507,7 @@ class Applet(FolderModel):
                 reviewer, 
                 retrieveAllEvents, 
                 eventFilter if not retrieveAllEvents else None,
-                [] if applet['updated'].isoformat() != localInfo.get('contentUpdateTime', None) else localInfo.get('localEvents', [])
+                localInfo.get('localEvents', [])
             )
 
             if schedule:
