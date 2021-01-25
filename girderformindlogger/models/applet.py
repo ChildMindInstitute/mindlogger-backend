@@ -42,6 +42,7 @@ from girderformindlogger.utility.progress import noProgress,                   \
 from girderformindlogger.models.account_profile import AccountProfile
 from girderformindlogger.models.profile import Profile
 from girderformindlogger.models.events import Events as EventsModel
+from girderformindlogger.external.notification import send_applet_update_notification
 from bson import json_util
 
 RETENTION_SET = {
@@ -851,6 +852,13 @@ class Applet(FolderModel):
 
             if activityUpdated:
                 Profile().save(profile, validate=False)
+
+        thread = threading.Thread(
+            target=send_applet_update_notification,
+            args=(applet,)
+        )
+
+        thread.start()
 
         return formatted
 

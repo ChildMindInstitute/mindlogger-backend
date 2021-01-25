@@ -120,3 +120,32 @@ def send_custom_notification(notification):
                     "type": notification['type']
                 }
             )
+
+def send_applet_update_notification(applet):
+    from girderformindlogger.models.profile import Profile
+
+    applet_id = applet['_id']
+    appletName = applet['meta']['applet'].get('displayName', applet.get('displayName', 'new applet'))
+
+    profiles = Profile().get_profiles_by_applet_id(applet_id)
+
+    # ordered by badge
+    message_requests = defaultdict(list)
+    for profile in profiles:
+        if not profile.get('deactivated', False) and profile.get('deviceId', None):
+            message_requests[profile['badge']].append(profile['deviceId'])
+
+    for badge in message_requests:
+        result = push_service.notify_multiple_devices(
+            registration_ids=message_requests[badge],
+            message_title='Applet Update',
+            message_body= f'Content of your applet ({appletName}) was updated by editor.',
+            time_to_live=0,
+            data_message={
+                "applet_id": str(applet_id),
+                "type": 'applet-update-alert'
+            },
+            badge=int(badge) +1
+        )
+
+    Profile().updateProfileBadgets(profiles)

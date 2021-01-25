@@ -37,11 +37,40 @@ class Events(Model):
 
     def validate(self, document):
         return document
+    
+    def updateScheduleUpdateTime(self, event):
+        if event['individualized']:
+            ProfileModel().update(query={
+                    "_id": {
+                        "$in": event['data']['users']
+                    }
+                }, 
+                update={
+                    '$set': {
+                        'scheduleUpdateTime': now
+                    }
+                }
+            )
+        else:
+            ProfileModel().update(
+                query={
+                    "_id": {
+                        "$in": event['applet_id']
+                    },
+                },
+                update={
+                    '$set': {
+                        'scheduleUpdateTime': now
+                    }
+                }
+            )
 
     def deleteEvent(self, event_id):
         event = self.findOne({'_id': ObjectId(event_id)})
 
         if event:
+            self.updateScheduleUpdateTime(event)
+
             if event['individualized']:
                 ProfileModel().update(query={
                     "_id": {
@@ -100,7 +129,10 @@ class Events(Model):
         newEvent = self.save(newEvent)
         self.setSchedule(newEvent)
 
-        return self.save(newEvent)
+        newEvent = self.save(newEvent)
+
+        self.updateScheduleUpdateTime(newEvent)
+        return newEvent
 
     def updateIndividualSchedulesParameter(self, newEvent, oldEvent):
         new = newEvent['data']['users'] if 'users' in newEvent['data'] else []

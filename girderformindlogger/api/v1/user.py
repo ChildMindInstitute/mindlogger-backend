@@ -565,15 +565,6 @@ class User(Resource):
             default='user'
         )
         .param(
-            'ids_only',
-            'If true, only returns an Array of the IDs of assigned applets. '
-            'Otherwise, returns an Array of Objects keyed with "applet" '
-            '"protocol", "activities" and "items" with expanded JSON-LD as values.',
-            required=False,
-            default=False,
-            dataType='boolean'
-        )
-        .param(
             'getAllApplets',
             'If true, applets returned from backend does not depend on account_id',
             required=True,
@@ -610,7 +601,6 @@ class User(Resource):
     def getOwnApplets(
         self,
         role,
-        ids_only=False,
         getAllApplets=False,
         retrieveSchedule=False,
         retrieveAllEvents=False,
@@ -646,9 +636,6 @@ class User(Resource):
             for account in accounts:
                 for applet in account.get('applets', {}).get(role, []):
                     applet_ids.append(applet)
-
-        if ids_only:
-            return applet_ids
 
         applets = [AppletModel().load(ObjectId(applet_id), AccessType.READ) for applet_id in applet_ids]
 
