@@ -25,6 +25,7 @@ import os
 import six
 import threading
 import re
+import pytz
 
 from bson.objectid import ObjectId
 from girderformindlogger import events
@@ -1453,6 +1454,7 @@ class Applet(FolderModel):
         eventFilter=None, 
         retrieveResponses=False, 
         groupByDateActivity=True,
+        retrieveLastResponseTime=False,
         localInfo={}
     ):
         from girderformindlogger.utility import jsonld_expander
@@ -1523,6 +1525,23 @@ class Applet(FolderModel):
                 localInfo.get('localItems', []),
                 localInfo.get('localActivities', [])
             )
+
+        if retrieveLastResponseTime:
+            profile = Profile().findOne({'appletId': applet['_id'], 'userId': reviewer['_id']})
+            activities = profile['completed_activities']
+
+            formatted['lastResponses'] = {}
+
+            for activity in activities:
+                completed_time = activity['completed_time']
+                timezone = str(profile.get('timezone', 0))
+                if completed_time:
+                    if isinstance(timezone, str) and timezone in pytz.all_timezones:
+                        completed_time = activity['completed_time'].astimezone(pytz.timezone(timezone)).isoformat()
+                    else:
+                        completed_time = activity['completed_time'].isoformat()
+
+                formatted['lastResponses'][str(activity['activity_id'])] = completed_time
 
         formatted["updated"] = applet['updated'].isoformat()
 

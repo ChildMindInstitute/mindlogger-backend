@@ -567,7 +567,8 @@ class User(Resource):
         .jsonParam(
             'localInfo',
             'parameter specifying applets metadata in local device',
-            required=True
+            required=False,
+            default={}
         )
         .param(
             'getAllApplets',
@@ -611,6 +612,13 @@ class User(Resource):
             required=False,
             dataType='boolean'
         )
+        .param(
+            'retrieveLastResponseTime',
+            'if true, retrieve last response time',
+            default=False,
+            required=False,
+            dataType='boolean'
+        )
         .errorResponse('ID was invalid.')
         .errorResponse(
             'You do not have permission to see any of this user\'s applets.',
@@ -627,6 +635,7 @@ class User(Resource):
         numberOfDays=0,
         retrieveResponses=False,
         groupByDateActivity=True,
+        retrieveLastResponseTime=False,
     ):
         from bson.objectid import ObjectId
         from girderformindlogger.utility.jsonld_expander import loadCache
@@ -672,6 +681,7 @@ class User(Resource):
                                                                 eventFilter=(currentUserDate, numberOfDays) if numberOfDays else None,
                                                             retrieveResponses=retrieveResponses,
                                                             groupByDateActivity=groupByDateActivity,
+                                                            retrieveLastResponseTime=retrieveLastResponseTime,
                                                             localInfo=localInfo.get(str(applet['_id']), {}) if localInfo else {},
                                                             )
                 result.append(formatted)
