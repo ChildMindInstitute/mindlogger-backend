@@ -419,7 +419,7 @@ class Protocol(FolderModel):
         })
 
         for reference in updates:
-            if reference['meta'].get('lastVersion', None) == localVersion:
+            if reference['meta'].get('lastVersion', None) != localVersion:
                 references.append(reference)
 
         for reference in references:
