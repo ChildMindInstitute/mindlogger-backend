@@ -22,7 +22,7 @@ class AccountProfile(Resource):
 
         self.route('GET', ('users',), self.getUsers)
         self.route('PUT', ('manage', 'pin', ), self.updatePin)
-        self.route('PUT', ('updateAlertStatus',), self.updateAlertStatus)
+        self.route('PUT', ('updateAlertStatus', ':id', ), self.updateAlertStatus)
 
     @access.user(scope=TokenScope.DATA_OWN)
     @autoDescribeRoute(
@@ -30,13 +30,19 @@ class AccountProfile(Resource):
         .notes(
             'This endpoint is used for reviewer/manager to update view status for notifications. <br>'
         )
+        .param(
+            'id',
+            'id of alert to update status',
+            required=True
+        )
     )
-    def updateAlertStatus(self):
+    def updateAlertStatus(self, id):
         accountProfile = self.getAccountProfile()
 
         ResponseAlerts().update({
             'reviewerId': accountProfile['userId'],
-            'accountId': accountProfile['accountId']
+            'accountId': accountProfile['accountId'],
+            '_id': ObjectId(id)
         }, {
             '$set': {
                 'viewed': True

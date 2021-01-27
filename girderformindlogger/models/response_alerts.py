@@ -72,9 +72,11 @@ class ResponseAlerts(AccessControlledModel):
                 }, fields=['lang'])
 
                 admin_url = os.getenv('ADMIN_URI') or 'localhost:8082'
-                url = f'https://{admin_url}/'
 
-                html = mail_utils.renderTemplate(f'responseAlert.{reviewerInfo.get("lang", "") or "en"}.mako', {
+                lang = reviewerInfo.get("lang", "en")
+                url = f'https://{admin_url}/#/dashboard?lang={lang}_{"US" if lang == "en" else "FR"}'
+
+                html = mail_utils.renderTemplate(f'responseAlert.{lang}.mako', {
                     'url': url
                 })
 
@@ -106,7 +108,7 @@ class ResponseAlerts(AccessControlledModel):
         userProfiles = {}
         viewerProfiles = {}
         for alert in alerts:
-            alert.pop('_id')
+            alert['id'] = alert.pop('_id')
 
             if str(alert['profileId']) not in userProfiles:
                 profile = Profile().findOne({
@@ -137,8 +139,6 @@ class ResponseAlerts(AccessControlledModel):
                 alert for alert in alerts if str(alert['profileId']) in userProfiles
             ]
         }
-
-
 
         return alerts
     def validate(self, document):

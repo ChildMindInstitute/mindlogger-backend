@@ -835,7 +835,7 @@ class User(Resource):
                 'roles': appletRoles[appletId]
             })
 
-        tokenInfo['account']['alerts'] = ResponseAlerts().getResponseAlerts(user['_id'], account['_id'])
+        tokenInfo['account']['alerts'] = ResponseAlerts().getResponseAlerts(user['_id'], account['accountId'])
 
         tokenInfo['account']['applets'] = applets
 
