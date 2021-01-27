@@ -166,7 +166,7 @@ class Events(Model):
             push_notification.set_schedules()
 
     def getSchedule(self, applet_id):
-        events = list(self.find({'applet_id': ObjectId(applet_id)}, fields=['data', 'schedule']))
+        events = list(self.find({'applet_id': ObjectId(applet_id)}, fields=['data', 'schedule', 'updated']))
 
         for event in events:
             event['id'] = event['_id']

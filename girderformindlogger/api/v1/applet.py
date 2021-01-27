@@ -70,9 +70,9 @@ class Applet(Resource):
         self.route('PUT', (':id', 'informant'), self.updateInformant)
         self.route('PUT', (':id', 'assign'), self.assignGroup)
         self.route('PUT', (':id', 'constraints'), self.setConstraints)
-        self.route('PUT', (':id', 'schedule'), self.setSchedule)
+        self.route('PUT', (':id', 'setSchedule'), self.setSchedule)
+        self.route('PUT', (':id', 'getSchedule'), self.getSchedule)
         self.route('PUT', (':id', 'refresh'), self.refresh)
-        self.route('GET', (':id', 'schedule'), self.getSchedule)
         self.route('POST', (':id', 'invite'), self.invite)
         self.route('POST', (':id', 'inviteUser'), self.inviteUser)
 
@@ -1616,10 +1616,17 @@ class Applet(Resource):
             default=0,
             dataType='integer'
         )
+        .jsonParam(
+            'localEvents',
+            'events that user cached on local device',
+            paramType='form',
+            required=False,
+            default=None
+        )
         .errorResponse('Invalid applet ID.')
         .errorResponse('Read access was denied for this applet.', 403)
     )
-    def getSchedule(self, applet, getAllEvents = False, numberOfDays = 0):
+    def getSchedule(self, applet, getAllEvents = False, numberOfDays = 0, localEvents=None):
         user = self.getCurrentUser()
 
         currentUserDate = datetime.datetime.utcnow() + datetime.timedelta(hours=int(user['timezone']))
@@ -1628,7 +1635,8 @@ class Applet(Resource):
             applet, 
             user, 
             getAllEvents, 
-            (currentUserDate.replace(hour=0, minute=0, second=0, microsecond=0), numberOfDays) if numberOfDays and not getAllEvents else None
+            (currentUserDate.replace(hour=0, minute=0, second=0, microsecond=0), numberOfDays) if numberOfDays and not getAllEvents else None,
+            localEvents or []
         )
 
     @access.user(scope=TokenScope.DATA_WRITE)
