@@ -54,7 +54,7 @@ class User(Resource):
         self.route('GET', (':id', 'applets'), self.getUserApplets)
         self.route('PUT', (':id', 'code'), self.updateIDCode)
         self.route('DELETE', (':id', 'code'), self.removeIDCode)
-        self.route('GET', ('applets',), self.getOwnApplets)
+        self.route('PUT', ('applets',), self.getOwnApplets)
         self.route('GET', ('applet', ':id'), self.getOwnAppletById)
         self.route('GET', ('accounts',), self.getAccounts)
         self.route('PUT', ('switchAccount', ), self.switchAccount)
@@ -567,6 +567,7 @@ class User(Resource):
         .jsonParam(
             'localInfo',
             'parameter specifying applets metadata in local device',
+            paramType='form',
             required=True,
         )
         .param(

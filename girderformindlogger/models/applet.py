@@ -43,6 +43,7 @@ from girderformindlogger.utility.progress import noProgress,                   \
 from girderformindlogger.models.account_profile import AccountProfile
 from girderformindlogger.models.profile import Profile
 from girderformindlogger.models.events import Events as EventsModel
+from girderformindlogger.models.item import Item as ItemModel
 from girderformindlogger.external.notification import send_applet_update_notification
 from bson import json_util
 
@@ -783,6 +784,7 @@ class Applet(FolderModel):
         from girderformindlogger.utility import jsonld_expander
 
         # get a protocol from single json file
+        now = datetime.datetime.utcnow()
         displayName = protocol['protocol']['data'].get('skos:prefLabel', protocol['protocol']['data'].get('skos:altLabel', '')).strip()
 
         suffix = re.findall('^(.*?)\s*\((\d+)\)$', displayName)
@@ -806,8 +808,9 @@ class Applet(FolderModel):
             accountId,
             currentApplet = applet
         )
+        applet['meta']['applet']['version'] = protocol['schema:schemaVersion'][0].get('@value', '0.0.0') if 'schema:schemaVersion' in protocol else '0.0.0'
 
-        applet['updated'] = datetime.datetime.utcnow()
+        applet['updated'] = now
         applet = self.setMetadata(folder=applet, metadata=applet['meta'])
 
         # update appletProfile according to updated applet
@@ -927,6 +930,7 @@ class Applet(FolderModel):
                     }, {
                         '$set': {
                             'data.activity_id': activity['_id'],
+                            'updated': datetime.datetime.utcnow()
                         }
                     })
 
@@ -1041,7 +1045,8 @@ class Applet(FolderModel):
                     'data.activity_id': activity['_id']
                 }, {
                     '$set': {
-                        'data.URI': self.preferredName(activity)
+                        'data.URI': self.preferredName(activity),
+                        'updated': datetime.datetime.utcnow()
                     }
                 })
 
@@ -1460,10 +1465,19 @@ class Applet(FolderModel):
     ):
         from girderformindlogger.utility import jsonld_expander
         from girderformindlogger.utility.response import responseDateList, last7Days
+        from girderformindlogger.models.protocol import Protocol
 
         formatted = {}
 
         if not localInfo.get('contentUpdateTime', None) or applet['updated'].isoformat() != localInfo['contentUpdateTime']:
+            localVersion = localInfo.get('appletVersion', None)
+            if localVersion:
+                (isInitialVersion, updates) = Protocol().getProtocolChanges(
+                    applet.get('meta', {}).get('protocol', {}).get('_id', '').split('/')[-1], 
+                    localVersion, 
+                    localInfo['contentUpdateTime']
+                )
+
             formatted = {
                 **jsonld_expander.formatLdObject(
                     applet,
@@ -1500,6 +1514,26 @@ class Applet(FolderModel):
                         ]
                 ]
             }
+
+            formatted['removedActivities'] = []
+            formatted['removedItems'] = []
+
+            if localVersion and updates:
+                for itemId in list(formatted['items'].keys()):
+                    if itemId not in updates['screen'] and not isInitialVersion:
+                        formatted['items'].pop(itemId)
+
+                for itemId in updates['screen']:
+                    if itemId not in formatted['items'] and (updates['screen'][itemId] == 'updated' or isInitialVersion):
+                        formatted['removedItems'].append(itemId)
+
+                for activityId in list(formatted['activities'].keys()):
+                    if activityId not in updates['activity'] and not isInitialVersion:
+                        formatted['activities'].pop(activityId)
+
+                for activityId in updates['activity']:
+                    if activityId not in formatted['activities'] and (updates['activity'][activityId] == 'updated' or isInitialVersion):
+                        formatted['removedActivities'].append(activityId)
 
         if retrieveSchedule:
             schedule = self.getSchedule(
@@ -1545,6 +1579,7 @@ class Applet(FolderModel):
                 formatted['lastResponses'][str(activity['activity_id'])] = completed_time
 
         formatted["updated"] = applet['updated'].isoformat()
+        formatted["id"] = applet['_id']
 
         return formatted
 

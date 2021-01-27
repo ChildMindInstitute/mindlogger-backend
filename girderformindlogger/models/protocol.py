@@ -381,3 +381,67 @@ class Protocol(FolderModel):
                     itemReferences[version][IRI] = None # this is same as latest version
 
         return result
+
+    def getProtocolChanges(self, protocolId, localVersion, localUpdateTime):
+        from girderformindlogger.models.item import Item as ItemModel
+
+        changeInfo = { 'screen': {}, 'activity': {} }
+        hasUrl = False
+
+        protocol = Protocol().load(protocolId, force=True)
+
+        schemaVersion = protocol.get('meta', {}).get('protocol', {}).get('schema:schemaVersion', None)
+
+        currentVersion = schemaVersion[0].get('@value', '0.0.0') if schemaVersion else '0.0.0'
+
+        if 'historyId' not in protocol.get('meta', {}):
+            return None
+
+        historyFolder = FolderModel().load(protocol['meta']['historyId'], force=True)
+
+        if 'referenceId' not in historyFolder.get('meta', {}):
+            return None
+
+        referencesFolder = FolderModel().load(historyFolder['meta']['referenceId'], force=True)
+
+        itemModel = ItemModel()
+
+        references = list(itemModel.find({
+            'folderId': referencesFolder['_id'],
+            'meta.lastVersion': localVersion
+        }))
+
+        updates = itemModel.find({ 
+            'folderId': referencesFolder['_id'], 
+            'updated': {
+                '$gt': datetime.datetime.fromisoformat(localUpdateTime)
+            }
+        })
+
+        for reference in updates:
+            if reference['meta'].get('lastVersion', None) == localVersion:
+                references.append(reference)
+
+        for reference in references:
+            history = reference['meta'].get('history')
+
+            if reference['meta'].get('identifier', '') and len(history):
+                modelType = reference['meta'].get('modelType', '')
+
+                if str(reference['meta']['identifier']).startswith('https://'):
+                    hasUrl = True
+
+                # to handle old data without modelType in the schema
+                if not modelType:
+                    lastReference = history[len(history)-1]['reference']
+                    if lastReference:
+                        modelType = lastReference.split('/')[0]
+                    else:
+                        modelType = 'screen' if '/' in str(reference['meta']['identifier']) else 'activity'
+
+                if self.compareVersions(history[0]['version'], localVersion) < 0:
+                    changeInfo[modelType][str(reference['meta']['identifier'])] = 'updated'
+                else:
+                    changeInfo[modelType][str(reference['meta']['identifier'])] = 'created'
+
+        return (hasUrl, changeInfo)
