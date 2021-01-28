@@ -5,7 +5,7 @@
 </p>
 
 <p>
-    You were invited by ${coordinatorName} to be a ${role} of ${appletName} applet on MindLogger. 
+    You were invited by ${coordinatorName} to be a ${role} of "${appletName}" applet on MindLogger. 
 <br>
     Below are users that have access to your data
 </p>

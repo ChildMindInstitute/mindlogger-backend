@@ -5,7 +5,7 @@
 </p>
 
 <p>
-    ${ownerName} sent you invitation to transfer ownership of ${appletName} applet on MindLogger. 
+    ${ownerName} sent you invitation to transfer ownership of "${appletName}" applet on MindLogger. 
 </p>
 
 <p>
