@@ -5,7 +5,7 @@
 </p>
 
 <p>
-    You were invited by ${coordinatorName} to be ${'an' if role == 'editor' else 'a'} ${role} of ${appletName} applet on MindLogger. 
+    You were invited by ${coordinatorName} to be ${'an' if role == 'editor' else 'a'} ${role} of "${appletName}" applet on MindLogger. 
 </p>
 
 <p>
