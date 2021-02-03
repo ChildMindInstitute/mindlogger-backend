@@ -25,8 +25,6 @@ import os
 import six
 import threading
 import re
-import math
-import multiprocessing
 
 from bson.objectid import ObjectId
 from girderformindlogger import events
@@ -1166,6 +1164,9 @@ class Applet(FolderModel):
 
         insertedIRI = {}
 
+        external_responses=[]
+        external_responses_activity=[]
+
         for response in responses:
             meta = response.get('meta', {})
 
@@ -1191,30 +1192,47 @@ class Applet(FolderModel):
                     'version': meta['applet'].get('version', '0.0.0')
                 })
 
-            else:
-
-                data['responses'].append({
-                    '_id': response['_id'],
-                    'activity': meta.get('activity', {}),
-                    'userId': str(profile['_id']),
-                    'MRN': MRN,
-                    'data': meta.get('responses', {}),
-                    'subScales': meta.get('subScales', {}),
-                    'created': response.get('created', None),
-                    'version': meta['applet'].get('version', '0.0.0')
-                })
-
-                q = {'meta.activityId': ObjectId(meta['activity']['@id'])}
-                screens = list(ItemModel().find(query=q,
-                                                user=reviewer,
-                                                sort=[("created", DESCENDING)]))
-
-                for res in response['meta']['responses']:
-                    _screen_name=str(res).split('/')[-1]
-                    curr_screen=next((screen for screen in screens if screen["name"] == _screen_name), None)
-                    version = meta['applet'].get('version', '0.0.0')
+            elif meta.get('activity') and '@id' in meta['activity']:
+                external_responses.append(response)
+                external_responses_activity.append(meta['activity']['@id'])
 
 
+        q = {'meta.activityId': {
+            '$in': external_responses_activity
+        }}
+        screens = list(ItemModel().find(query=q,
+                                        user=reviewer,
+                                        sort=[("created", DESCENDING)]))
+
+        for external_resp in external_responses:
+
+            meta = external_resp.get('meta', {})
+
+            profile = profileIDToData.get(str(meta.get('subject', {}).get('@id', None)), None)
+
+            if not profile:
+                continue
+
+            MRN = profile['MRN'] if profile.get('MRN',
+                                                '') else f"None ({profile.get('userDefined', {}).get('email', '')})"
+
+            data['responses'].append({
+                '_id': external_resp['_id'],
+                'activity': meta.get('activity', {}),
+                'userId': str(profile['_id']),
+                'MRN': MRN,
+                'data': meta.get('responses', {}),
+                'subScales': meta.get('subScales', {}),
+                'created': external_resp.get('created', None),
+                'version': meta['applet'].get('version', '0.0.0')
+            })
+
+            for res in external_resp['meta']['responses']:
+                _screen_name=str(res).split('/')[-1]
+                curr_screen=next((screen for screen in screens if screen["name"] == _screen_name), None)
+
+                if curr_screen:
+                    version =meta['applet'].get('version', '0.0.0')
 
                     data['items'][res]=curr_screen['meta']['screen']
 
@@ -1222,7 +1240,6 @@ class Applet(FolderModel):
                         data['itemReferences'][version] = {}
 
                     data['itemReferences'][version][res]={}
-
 
             for IRI in meta.get('responses', {}):
                 if IRI not in IRIs:
