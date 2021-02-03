@@ -27,7 +27,6 @@ from bson.objectid import ObjectId
 from girderformindlogger import events
 from girderformindlogger.constants import AccessType, SortDir
 from girderformindlogger.exceptions import ValidationException, GirderException
-from girderformindlogger.models.applet import Applet as AppletModel
 from girderformindlogger.models.collection import Collection as CollectionModel
 from girderformindlogger.models.folder import Folder
 from girderformindlogger.utility.progress import noProgress, setResponseTimeLimit

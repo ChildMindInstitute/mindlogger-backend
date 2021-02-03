@@ -170,7 +170,7 @@ class Protocol(FolderModel):
             activityId2Key[activityId] = activityKey
 
         itemId2ActivityId = {}
-        
+
         items = list(Screen().find({'meta.protocolId': protocolId}))
         for item in items:
             itemId2ActivityId[str(item['_id'])] = str(item['meta'].get('activityId', None))
@@ -326,9 +326,7 @@ class Protocol(FolderModel):
         activities = {}
         itemReferences = {}
         result = {
-            'items': items,
-            'activities': activities,
-            'itemReferences': itemReferences
+            'activities': activities
         }
 
         if 'historyId' not in protocol.get('meta', {}):

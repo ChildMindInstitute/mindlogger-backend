@@ -25,6 +25,8 @@ import os
 import six
 import threading
 import re
+import math
+import multiprocessing
 
 from bson.objectid import ObjectId
 from girderformindlogger import events
@@ -35,6 +37,7 @@ from girderformindlogger.exceptions import AccessException, GirderException, \
 from girderformindlogger.models.collection import Collection as CollectionModel
 from girderformindlogger.models.folder import Folder as FolderModel
 from girderformindlogger.models.group import Group as GroupModel
+from girderformindlogger.models.activity import Activity as ActivityModel
 from girderformindlogger.models.protoUser import ProtoUser as ProtoUserModel
 from girderformindlogger.models.user import User as UserModel
 from girderformindlogger.utility.progress import noProgress,                   \
@@ -1073,6 +1076,7 @@ class Applet(FolderModel):
         """
         from girderformindlogger.models.ID_code import IDCode
         from girderformindlogger.models.response_folder import ResponseItem
+        from girderformindlogger.models.item import Item as ItemModel
         from girderformindlogger.models.user import User
         from girderformindlogger.models.protocol import Protocol
         from pymongo import DESCENDING
@@ -1142,7 +1146,9 @@ class Applet(FolderModel):
             'dataSources': {},
             'subScaleSources': {},
             'keys': [],
-            'responses': []
+            'responses': [],
+            'items':{},
+            'itemReferences':{}
         }
 
         userKeys = {}
@@ -1170,16 +1176,53 @@ class Applet(FolderModel):
 
             MRN = profile['MRN'] if profile.get('MRN', '') else f"None ({profile.get('userDefined', {}).get('email', '')})"
 
-            data['responses'].append({
-                '_id': response['_id'],
-                'activity': meta.get('activity', {}),
-                'userId': str(profile['_id']),
-                'MRN': MRN,
-                'data': meta.get('responses', {}),
-                'subScales': meta.get('subScales', {}),
-                'created': response.get('created', None),
-                'version': meta['applet'].get('version', '0.0.0')
-            })
+            if (meta.get('activity') and 'url' in meta['activity'] and meta['activity']['url']==None) \
+                or (meta.get('responses',{})
+                and isinstance(meta['responses'], (bytes, bytearray))):
+
+                data['responses'].append({
+                    '_id': response['_id'],
+                    'activity': meta.get('activity', {}),
+                    'userId': str(profile['_id']),
+                    'MRN': MRN,
+                    'data': meta.get('responses', {}),
+                    'subScales': meta.get('subScales', {}),
+                    'created': response.get('created', None),
+                    'version': meta['applet'].get('version', '0.0.0')
+                })
+
+            else:
+
+                data['responses'].append({
+                    '_id': response['_id'],
+                    'activity': meta.get('activity', {}),
+                    'userId': str(profile['_id']),
+                    'MRN': MRN,
+                    'data': meta.get('responses', {}),
+                    'subScales': meta.get('subScales', {}),
+                    'created': response.get('created', None),
+                    'version': meta['applet'].get('version', '0.0.0')
+                })
+
+                q = {'meta.activityId': ObjectId(meta['activity']['@id'])}
+                screens = list(ItemModel().find(query=q,
+                                                user=reviewer,
+                                                sort=[("created", DESCENDING)]))
+
+                for res in response['meta']['responses']:
+                    _screen_name=str(res).split('/')[-1]
+                    curr_screen=next((screen for screen in screens if screen["name"] == _screen_name), None)
+                    version = meta['applet'].get('version', '0.0.0')
+
+
+
+                    data['items'][res]=curr_screen['meta']['screen']
+
+                    if version not in data['itemReferences']:
+                        data['itemReferences'][version] = {}
+
+                    data['itemReferences'][version][res]={}
+
 
             for IRI in meta.get('responses', {}):
                 if IRI not in IRIs:
