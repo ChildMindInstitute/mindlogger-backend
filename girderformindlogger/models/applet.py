@@ -1073,6 +1073,7 @@ class Applet(FolderModel):
         """
         from girderformindlogger.models.ID_code import IDCode
         from girderformindlogger.models.response_folder import ResponseItem
+        from girderformindlogger.models.item import Item as ItemModel
         from girderformindlogger.models.user import User
         from girderformindlogger.models.protocol import Protocol
         from pymongo import DESCENDING
@@ -1094,7 +1095,8 @@ class Applet(FolderModel):
 
         query = {
             "baseParentType": "user",
-            "meta.applet.@id": ObjectId(appletId)
+            "meta.applet.@id": ObjectId(appletId),
+            "isCumulative": {"$ne": True}
         }
 
         reviewerProfile = Profile().findOne(query={
@@ -1115,7 +1117,8 @@ class Applet(FolderModel):
                 "profile": True,
             }))
 
-        if reviewerProfile['_id'] not in reviewerProfile['reviewers'] and (str(reviewerProfile['_id']) in users or not users):
+        if reviewerProfile['_id'] not in reviewerProfile['reviewers'] and (
+                str(reviewerProfile['_id']) in users or not users):
             profiles.append(reviewerProfile)
 
         query["creatorId"] = {
@@ -1141,7 +1144,9 @@ class Applet(FolderModel):
             'dataSources': {},
             'subScaleSources': {},
             'keys': [],
-            'responses': []
+            'responses': [],
+            'items': {},
+            'itemReferences': {}
         }
 
         userKeys = {}
@@ -1159,6 +1164,9 @@ class Applet(FolderModel):
 
         insertedIRI = {}
 
+        external_responses = []
+        external_responses_activity = []
+
         for response in responses:
             meta = response.get('meta', {})
 
@@ -1167,18 +1175,71 @@ class Applet(FolderModel):
             if not profile:
                 continue
 
-            MRN = profile['MRN'] if profile.get('MRN', '') else f"None ({profile.get('userDefined', {}).get('email', '')})"
+            MRN = profile['MRN'] if profile.get('MRN',
+                                                '') else f"None ({profile.get('userDefined', {}).get('email', '')})"
+
+            if (meta.get('activity') and 'url' in meta['activity'] and meta['activity']['url'] == None) \
+                or (meta.get('responses', {})
+                    and isinstance(meta['responses'], (bytes, bytearray))):
+
+                data['responses'].append({
+                    '_id': response['_id'],
+                    'activity': meta.get('activity', {}),
+                    'userId': str(profile['_id']),
+                    'MRN': MRN,
+                    'data': meta.get('responses', {}),
+                    'subScales': meta.get('subScales', {}),
+                    'created': response.get('created', None),
+                    'version': meta['applet'].get('version', '0.0.0')
+                })
+
+            elif meta.get('activity') and '@id' in meta['activity']:
+                external_responses.append(response)
+                external_responses_activity.append(meta['activity']['@id'])
+
+        q = {'meta.activityId': {
+            '$in': external_responses_activity
+        }}
+        screens = list(ItemModel().find(query=q,
+                                        user=reviewer,
+                                        sort=[("created", DESCENDING)]))
+
+        for external_resp in external_responses:
+
+            meta = external_resp.get('meta', {})
+
+            profile = profileIDToData.get(str(meta.get('subject', {}).get('@id', None)), None)
+
+            if not profile:
+                continue
+
+            MRN = profile['MRN'] if profile.get('MRN',
+                                                '') else f"None ({profile.get('userDefined', {}).get('email', '')})"
 
             data['responses'].append({
-                '_id': response['_id'],
+                '_id': external_resp['_id'],
                 'activity': meta.get('activity', {}),
                 'userId': str(profile['_id']),
                 'MRN': MRN,
                 'data': meta.get('responses', {}),
                 'subScales': meta.get('subScales', {}),
-                'created': response.get('created', None),
+                'created': external_resp.get('created', None),
                 'version': meta['applet'].get('version', '0.0.0')
             })
+
+            for res in external_resp['meta']['responses']:
+                _screen_name = str(res).split('/')[-1]
+                curr_screen = next((screen for screen in screens if screen["name"] == _screen_name), None)
+
+                if curr_screen:
+                    version = meta['applet'].get('version', '0.0.0')
+
+                    data['items'][res] = curr_screen['meta']['screen']
+
+                    if version not in data['itemReferences']:
+                        data['itemReferences'][version] = {}
+
+                    data['itemReferences'][version][res] = {}
 
             for IRI in meta.get('responses', {}):
                 if IRI not in IRIs:
