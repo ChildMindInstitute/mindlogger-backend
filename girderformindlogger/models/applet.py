@@ -833,7 +833,7 @@ class Applet(FolderModel):
                 }, {
                     '$set': {
                         'data.title': self.preferredName(formatted['activities'][activity]),
-                        'updated': datetime.datetime.utcnow()
+                        # 'updated': datetime.datetime.utcnow()
                     },
                 })
 
