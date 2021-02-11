@@ -320,8 +320,10 @@ def last7Days(
 
     if startDate:
         startDate = delocalize(startDate)
-    else:
-        startDate = delocalize(referenceDate - timedelta(days=8))
+
+    weekBefore = delocalize(referenceDate - timedelta(days=8))
+
+    startDate = weekBefore if not startDate or startDate < weekBefore else startDate
 
     profile = Profile().findOne({'userId': ObjectId(informantId), 'appletId': ObjectId(appletId)})
 
