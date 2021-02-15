@@ -275,36 +275,87 @@ class Events(Model):
             lastAvailableTime = endDate + timeDelta + timeout if endDate else None
             return ( (not endDate or lastAvailableTime >= date), lastAvailableTime )
 
-    def getScheduleForUser(self, applet_id, user_id, dayFilter=None):
+    def getScheduleForUser(self, applet_id, user_id, eventFilter=None):
         profile = Profile().findOne({'appletId': ObjectId(applet_id), 'userId': ObjectId(user_id)})
+        if not profile:
+            return {}
+
         individualized = profile['individual_events'] > 0
         events = self.getEvents(applet_id, individualized, profile['_id'])
 
-        lastEvent = {}
-        onlyScheduledDay = {}
+        result = {}
+
         for event in events:
             event['id'] = event['_id']
             event.pop('_id')
 
-            event['valid'] = True
-            if dayFilter:
-                event['valid'], lastAvailableTime = self.dateMatch(event, dayFilter)
+        if eventFilter:
+            dayFilter = eventFilter[0]
 
-                activityId = event.get('data', {}).get('activity_id', None)
+            result["events"] = {}
+            result["data"] = {}
 
-                if not activityId:
-                    event['valid'] = False
-                    continue
+            usedEventCards = {}
 
-                if not event['valid']:
-                    if lastAvailableTime:
-                        if activityId not in lastEvent or (lastEvent[activityId] and lastAvailableTime > lastEvent[activityId][0]):
-                            lastEvent[activityId] = (lastAvailableTime, event)
-                else:
-                    lastEvent[activityId] = None
+            for i in range(0, eventFilter[1]):
+                lastEvent = {}
+                onlyScheduledDay = {}
 
-                if event['data'].get('eventType', None) and event['data'].get('onlyScheduledDay', False):
-                    onlyScheduledDay[activityId] = True
+                for event in events:
+                    event['valid'], lastAvailableTime = self.dateMatch(event, dayFilter)
+
+                    activityId = event.get('data', {}).get('activity_id', None)
+
+                    if not activityId:
+                        event['valid'] = False
+                        continue
+
+                    if not event['valid']:
+                        if lastAvailableTime:
+                            if activityId not in lastEvent or (lastEvent[activityId] and lastAvailableTime > lastEvent[activityId][0]):
+                                lastEvent[activityId] = (lastAvailableTime, event)
+                    else:
+                        lastEvent[activityId] = None
+
+                    if event['data'].get('onlyScheduledDay', False):
+                        onlyScheduledDay[activityId] = event
+
+                data = []
+                for event in events:
+                    if event['valid']:
+                        data.append(event)
+
+                for value in lastEvent.values():
+                    if value and (value[1]['data'].get('completion', False) or value[1]['data'].get('activity_id', None) in onlyScheduledDay):
+                        data.append(value[1])
+
+                for event in data:
+                    if event['data'].get('activity_id', None) in onlyScheduledDay:
+                        onlyScheduledDay.pop(event['data']['activity_id'])
+
+                for activityId in onlyScheduledDay:
+                    data.append(onlyScheduledDay[activityId])
+
+                for card in data:
+                    usedEventCards[str(card['id'])] = True
+
+                result['data'][dayFilter.strftime('%Y/%m/%d')] = [
+                    {
+                        'id': str(card['id']),
+                        'valid': card['valid']
+                    } for card in data
+                ]
+
+                dayFilter = dayFilter + relativedelta(days=1)
+
+            for event in events:
+                event.pop('valid')
+
+                if usedEventCards.get(str(event["id"]), False):
+                    result["events"][str(event["id"])] = event
+
+        else:
+            result['events'] = events
 
         return {
             "type": 2,
@@ -317,9 +368,5 @@ class Events(Model):
             "updateRows": True,
             "updateColumns": False,
             "around": 1585724400000,
-            'events': ([
-                event for event in events if event['valid']
-            ] + [
-                value[1] for value in lastEvent.values() if value and (value[1]['data'].get('completion', False) or value[1]['data'].get('activity_id', None) in onlyScheduledDay)
-            ])
+            **result
         }

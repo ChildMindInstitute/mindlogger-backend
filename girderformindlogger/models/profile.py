@@ -25,7 +25,15 @@ class Profile(AESEncryption, dict):
                 'userId',
                 'individual_events',
                 'completed_activities',
-                'reviewers'
+                'reviewers',
+                'MRN',
+                'invitationId',
+                'updated',
+                ([
+                    ('appletId', 1),
+                    ('roles', 1),
+                    ('MRN', 1),
+                ], {})
             )
         )
 
@@ -641,6 +649,60 @@ class Profile(AESEncryption, dict):
         # Now validate and save the folder.
         return self.save(folder)
 
+    def getProfileData(self, profile, viewer):
+        isUser = len(profile.get('roles', [])) <= 1
+
+        if viewer['appletId'] != profile['appletId']:
+            return None
+
+        if not isUser:
+            fields = ['_id', 'updated', 'roles', 'firstName', 'lastName', 'email']
+        else:
+            fields = ['_id', 'updated', 'roles', 'MRN']
+
+        data = {
+            field: profile.get(field, '') for field in fields
+        }
+
+        data['pinned'] = viewer['_id'] in profile.get('pinnedBy', [])
+        if profile.get('deactivated', False):
+            return None
+
+        # these are temporary
+        if 'email' in fields and not data['email']:
+            data['email'] = profile.get('userDefined', {}).get('email', '')
+
+        if 'firstName' in fields and not data['firstName']:
+            data['firstName'] = profile.get('userDefined', {}).get('displayName', '')
+
+        # reviewers don't need to view user's roles
+        if 'coordinator' not in viewer['roles'] and 'manager' not in viewer['roles']:
+            if viewer['_id'] not in profile.get('reviewers', []):
+                return None
+
+            data.pop('roles')
+
+        if 'coordinator' in viewer['roles']:
+            data['hasIndividualEvent'] = (profile.get('individual_events', 0) > 0)
+
+        data['viewable'] = False
+        if viewer['_id'] in profile.get('reviewers', []) or viewer['_id'] == profile['_id']:
+            data['refreshRequest'] = profile.get('refreshRequest', None)
+            data['viewable'] = True
+
+        data['updated'] = None
+        for userActivityUpdate in profile.get('completed_activities', []):
+            if userActivityUpdate['completed_time'] and (not data['updated'] or data['updated'] < userActivityUpdate['completed_time']):
+                data['updated'] = userActivityUpdate['completed_time']
+
+        if 'roles' in data and 'manager' in data['roles']:
+            if 'owner' in data['roles']:
+                data['roles'] = ['owner']
+            elif 'manager' in data['roles']:
+                data['roles'] = ['manager']
+
+        return data
+
     def generateMissing(self, applet):
         """
         Helper function to generate profiles for users that predate this class.
@@ -723,8 +785,19 @@ class Profile(AESEncryption, dict):
 
         return self.save(appletProfile, validate=False)
 
-    def updateReviewerList(self, reviewer, users=None, operation='replace'):
+    # isMRNList - if true, content of users array is mrn list
+    def updateReviewerList(self, reviewer, users=None, operation='replace', isMRNList=False):
         profiles = self.find({'appletId': reviewer['appletId']})
+
+        if isMRNList and users:
+            MrnToProfileId = {}
+            for profile in profiles:
+                if 'MRN' in profile:
+                    MrnToProfileId[profile['MRN']] = profile['_id']
+
+            users = [
+                MrnToProfileId[MRN] for MRN in users if MRN in MrnToProfileId
+            ]
 
         for profile in profiles:
             if reviewer['_id'] == profile['_id']:
@@ -866,9 +939,14 @@ class Profile(AESEncryption, dict):
                 },
                 'reviewers': [
                     manager['_id'] for manager in managers
-                ]
+                ],
+                'firstName': user['firstName'],
+                'lastName': user['lastName']
             }.items() if v is not None
         }
+
+        if role != 'user' and not user.get('email_encrypted', True):
+            profile['email'] = user['email']
 
         if existing:
             profile['_id'] = existing['_id']

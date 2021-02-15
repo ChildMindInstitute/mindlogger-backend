@@ -209,9 +209,9 @@ class Applet(FolderModel):
 
         return formatted
 
-    def getSchedule(self, applet, user, getAllEvents, dayFilter=None):
+    def getSchedule(self, applet, user, getAllEvents, eventFilter=None):
         if not getAllEvents:
-            schedule = EventsModel().getScheduleForUser(applet['_id'], user['_id'], dayFilter)
+            schedule = EventsModel().getScheduleForUser(applet['_id'], user['_id'], eventFilter)
         else:
             if not self.isCoordinator(applet['_id'], user):
                 raise AccessException(
@@ -246,7 +246,7 @@ class Applet(FolderModel):
         profile.save(userProfile, validate=False)
 
         if newRole == 'reviewer':
-            profile.updateReviewerList(userProfile, users)
+            profile.updateReviewerList(userProfile, users, isMRNList=True)
         elif newRole == 'manager':
             profile.updateReviewerList(userProfile)
 
@@ -795,6 +795,8 @@ class Applet(FolderModel):
             accountId,
             currentApplet = applet
         )
+
+        applet['updated'] = datetime.datetime.utcnow()
         applet = self.setMetadata(folder=applet, metadata=applet['meta'])
 
         # update appletProfile according to updated applet
@@ -1084,10 +1086,11 @@ class Applet(FolderModel):
 
         retentionSettings = applet['meta'].get('retentionSettings', None)
 
-        retention = retentionSettings.get('retention', 'year')
-        period = retentionSettings.get('period', 5)
+        if retentionSettings != None:
+            retention = retentionSettings.get('retention', 'year')
+            period = retentionSettings.get('period', 5)
 
-        timedelta_in_days = int(period) * int(RETENTION_SET[retention])
+            timedelta_in_days = int(period) * int(RETENTION_SET[retention])
 
         query = {
             "baseParentType": "user",
@@ -1105,7 +1108,7 @@ class Applet(FolderModel):
                 },
                 "profile": True,
                 "reviewers": reviewerProfile["_id"]
-            }, fields=["userId"]))
+            }))
         else:
             profiles = list(Profile().find(query={
                 "reviewers": reviewerProfile["_id"],
@@ -1118,9 +1121,15 @@ class Applet(FolderModel):
         query["creatorId"] = {
             "$in": [profile['userId'] for profile in profiles]
         }
-        query['created']= {
+
+        if retentionSettings != None:
+            query['created'] = {
                 '$gte': datetime.datetime.now() - datetime.timedelta(days=timedelta_in_days)
-        }
+            }
+        else:
+            query['created'] = {
+                '$gte': applet['created']
+            }
 
         responses = list(ResponseItem().find(
             query=query,
@@ -1136,6 +1145,9 @@ class Applet(FolderModel):
         }
 
         userKeys = {}
+        profileIDToData = {}
+        for profile in profiles:
+            profileIDToData[str(profile['_id'])] = profile
 
         IRIs = {}
         # IRIs refers to available versions for specified IRI
@@ -1150,10 +1162,18 @@ class Applet(FolderModel):
         for response in responses:
             meta = response.get('meta', {})
 
+            profile = profileIDToData.get(str(meta.get('subject', {}).get('@id', None)), None)
+
+            if not profile:
+                continue
+
+            MRN = profile['MRN'] if profile.get('MRN', '') else f"None ({profile.get('userDefined', {}).get('email', '')})"
+
             data['responses'].append({
                 '_id': response['_id'],
                 'activity': meta.get('activity', {}),
-                'userId': meta.get('subject', {}).get('@id', None),
+                'userId': str(profile['_id']),
+                'MRN': MRN,
                 'data': meta.get('responses', {}),
                 'subScales': meta.get('subScales', {}),
                 'created': response.get('created', None),
@@ -1214,25 +1234,6 @@ class Applet(FolderModel):
         applet['meta']['applet']['informantRelationship'] = relationship
 
         return self.save(applet, validate=False)
-
-    def unexpanded(self, applet):
-        from girderformindlogger.utility.jsonld_expander import loadCache
-        return({
-            **(
-                loadCache(applet.get(
-                    'cached',
-                    {}
-                )).get('applet') if isinstance(
-                    applet,
-                    dict
-                ) and 'cached' in applet else {
-                    '_id': "applet/{}".format(
-                        str(applet.get('_id'))
-                    ),
-                    **applet.get('meta', {}).get('applet', {})
-                }
-            )
-        })
 
     def getAppletGroups(self, applet, arrayOfObjects=False):
         # get role list for applet
@@ -1345,12 +1346,12 @@ class Applet(FolderModel):
                     if not len(displayName) and key.endswith(candidate) and isinstance(protocol[key], list):
                         displayName = protocol[key][0]['@value']
 
-            #suffix = re.findall('^(.*?)\s*\((\d+)\)$', applet.get('meta', {}).get('applet', {}).get('displayName', {}))
-            #if len(suffix):
-            #    displayName = '%s (%s)' % (displayName, suffix[0][1])
+            suffix = re.findall('^(.*?)\s*\((\d+)\)$', applet.get('meta', {}).get('applet', {}).get('displayName', {}))
+            if len(suffix):
+                displayName = '%s (%s)' % (displayName, suffix[0][1])
 
             applet['meta']['applet']['displayName'] = self.validateAppletName(
-                applet['displayName'],
+                displayName,
                 CollectionModel().findOne({"name": "Applets"}),
                 accountId = applet['accountId'],
                 currentApplet = applet
@@ -1361,7 +1362,6 @@ class Applet(FolderModel):
         from girderformindlogger.utility import jsonld_expander
 
         jsonld_expander.clearCache(applet, 'applet')
-        print('Cache clear')
 
         formatted = jsonld_expander.formatLdObject(
             applet,
@@ -1485,6 +1485,8 @@ class Applet(FolderModel):
         if retrieveSchedule:
             formatted["applet"]["schedule"] = self.getSchedule(applet, reviewer, retrieveAllEvents, eventFilter if not retrieveAllEvents else None)
 
+        formatted["updated"] = applet["updated"]
+
         return formatted
 
     def getAppletUsers(self, applet, user=None, force=False, retrieveRoles=False, retrieveRequests=False):
@@ -1559,6 +1561,19 @@ class Applet(FolderModel):
             print(sys.exc_info())
             return({traceback.print_tb(sys.exc_info()[2])})
 
+    def getAppletInvitations(self, applet):
+        from girderformindlogger.models.invitation import Invitation
+
+        invitations = []
+        for p in list(Invitation().find(query={'appletId': applet['_id']})):
+            fields = ['_id', 'firstName', 'lastName', 'role', 'MRN', 'created', 'lang']
+            if p['role'] != 'owner':
+                invitations.append({
+                    key: p[key] for key in fields if p.get(key, None)
+                })
+
+        return invitations
+
     def load(self, id, level=AccessType.ADMIN, user=None, objectId=True,
              force=False, fields=None, exc=False):
         """
@@ -1610,7 +1625,7 @@ class Applet(FolderModel):
                 parent = pathFromRoot[-1]['object']
                 if (
                     parent['name'] == "Applets" and
-                    doc['baseParentType'] in {'collection', 'user'}
+                    doc['baseParentType'] in {'collection', 'user', 'folder'}
                 ):
                     """
                     Check if parent is "Applets" collection or user

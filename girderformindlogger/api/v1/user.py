@@ -9,21 +9,25 @@ from ..describe import Description, autoDescribeRoute
 from girderformindlogger.api import access
 from girderformindlogger.api.rest import Resource, filtermodel, setCurrentUser
 from girderformindlogger.constants import AccessType, SortDir, TokenScope, USER_ROLES
-from girderformindlogger.exceptions import RestException, AccessException
+from girderformindlogger.exceptions import RestException, AccessException, ValidationException
 from girderformindlogger.models.applet import Applet as AppletModel
 from girderformindlogger.models.group import Group as GroupModel
+from girderformindlogger.models.folder import Folder as FolderModel
+from girderformindlogger.utility.model_importer import ModelImporter
 from girderformindlogger.models.ID_code import IDCode
 from girderformindlogger.models.profile import Profile as ProfileModel
 from girderformindlogger.models.setting import Setting
 from girderformindlogger.models.token import Token
 from girderformindlogger.models.user import User as UserModel
 from girderformindlogger.models.account_profile import AccountProfile
+from girderformindlogger.models.response_alerts import ResponseAlerts
 from girderformindlogger.models.notification import Notification
 from girderformindlogger.settings import SettingKey
 from girderformindlogger.utility import jsonld_expander, mail_utils
 from girderformindlogger.i18n import t
 import os
 
+from dateutil.relativedelta import relativedelta
 
 class User(Resource):
     """API Endpoint for users in the system."""
@@ -564,18 +568,9 @@ class User(Resource):
             'ids_only',
             'If true, only returns an Array of the IDs of assigned applets. '
             'Otherwise, returns an Array of Objects keyed with "applet" '
-            '"protocol", "activities" and "items" with expanded JSON-LD as '
-            'values. This parameter takes precedence over `unexpanded`.',
+            '"protocol", "activities" and "items" with expanded JSON-LD as values.',
             required=False,
-            dataType='boolean'
-        )
-        .param(
-            'unexpanded',
-            'If true, only returns an Array of assigned applets, but only the '
-            'applet-level information. Otherwise, returns an Array of Objects '
-            'keyed with "applet", "protocol", "activities" and "items" with '
-            'expanded JSON-LD as values.',
-            required=False,
+            default=False,
             dataType='boolean'
         )
         .param(
@@ -600,11 +595,11 @@ class User(Resource):
             dataType='boolean'
         )
         .param(
-            'getTodayEvents',
+            'numberOfDays',
             'true only if get today\'s event, valid only if getAllEvents is set to false',
             required=False,
-            default=False,
-            dataType='boolean'
+            default=0,
+            dataType='integer'
         )
         .errorResponse('ID was invalid.')
         .errorResponse(
@@ -616,11 +611,10 @@ class User(Resource):
         self,
         role,
         ids_only=False,
-        unexpanded=False,
         getAllApplets=False,
         retrieveSchedule=False,
         retrieveAllEvents=False,
-        getTodayEvents=False
+        numberOfDays=0
     ):
         from bson.objectid import ObjectId
         from girderformindlogger.utility.jsonld_expander import loadCache
@@ -655,12 +649,8 @@ class User(Resource):
 
         if ids_only:
             return applet_ids
-        applets = [AppletModel().load(ObjectId(applet_id), AccessType.READ) for applet_id in applet_ids]
 
-        if unexpanded:
-            return([{
-                'applet': AppletModel().unexpanded(applet)
-            } for applet in applets])
+        applets = [AppletModel().load(ObjectId(applet_id), AccessType.READ) for applet_id in applet_ids]
 
         try:
             result = []
@@ -671,7 +661,7 @@ class User(Resource):
                                                               role=role,
                                                               retrieveSchedule=retrieveSchedule,
                                                               retrieveAllEvents=retrieveAllEvents,
-                                                              eventFilter=currentUserDate if getTodayEvents else None)
+                                                              eventFilter=(currentUserDate, numberOfDays) if numberOfDays else None)
                     result.append(formatted)
 
             return(result)
@@ -776,18 +766,41 @@ class User(Resource):
         try:
             token = self.getCurrentToken()
             user = self.getCurrentUser()
+
+            parentType='user'
+            parentId=user['_id']
+            folders=[]
+
             if user:
                 account = AccountProfile().findOne({'accountId': ObjectId(accountId), 'userId': user['_id']})
+
+
+                parent = ModelImporter.model(parentType).load(
+                    parentId, user=user, level=AccessType.READ, exc=True)
+                folders=FolderModel().childFolders(parentType=parentType,parent=parent,user=user)
 
             if not user or not account:
                 raise Exception('error.')
         except:
             raise AccessException('account does not exist or you are not allowed to access to this account')
 
+        account['folders']=[]
+
+        for folder in folders:
+            if folder['meta'].get('applets'):
+                for applet in folder['meta']['applets']:
+                    _id=applet['_id']
+                    for _role in account['applets']:
+                        for (i,applet_id) in enumerate(account['applets'][_role]):
+                            if ObjectId(_id)==applet_id:
+                                del account['applets'][_role][i]
+
+            account['folders'].append({'id':folder['_id'],'name':folder['name']})
+
         token['accountId'] = ObjectId(accountId)
         token = Token().save(token)
 
-        fields = ['accountId', 'accountName', 'applets']
+        fields = ['accountId', 'accountName', 'folders']
         tokenInfo = {
             'account': {
                 field: account[field] for field in fields
@@ -798,6 +811,33 @@ class User(Resource):
                 'scope': token['scope']
             }
         }
+
+        appletRoles = {}
+        for role in ['reviewer', 'editor', 'coordinator', 'manager', 'owner']:
+            for appletId in account['applets'].get(role, []):
+                if str(appletId) not in appletRoles:
+                    appletRoles[str(appletId)] = []
+
+                appletRoles[str(appletId)].append(role)
+
+        applets = []
+
+        for appletId in appletRoles:
+            applet = AppletModel().load(appletId, force=True)
+
+            applets.append({
+                'updated': applet['updated'],
+                'name': applet['meta'].get('applet', {}).get('displayName', applet.get('displayName', 'applet')),
+                'id': appletId,
+                'encryption': applet['meta']['encryption'] if applet['meta'].get('encryption', {}).get(
+                    'appletPublicKey', None) else None,
+                'hasUrl': (applet['meta'].get('protocol', {}).get('url', None) != None),
+                'roles': appletRoles[appletId]
+            })
+
+        tokenInfo['account']['alerts'] = ResponseAlerts().getResponseAlerts(user['_id'], account['accountId'])
+
+        tokenInfo['account']['applets'] = applets
 
         if token['accountId'] == user['accountId']:
             tokenInfo['account']['isDefaultName'] = False if user['accountName'] else True
@@ -900,12 +940,16 @@ class User(Resource):
             if deviceId:
                 user['deviceId'] = deviceId
                 user['timezone'] = float(timezone)
+                user['lang'] = lang
                 self._model.save(user)
                 ProfileModel().updateProfiles(user, {
                     'deviceId': deviceId,
                     'timezone': float(timezone),
                     'badge': 0
                 })
+            elif (user.get('lang') and user['lang'] != lang) or (not user.get('lang')):
+                user['lang'] = lang
+                self._model.save(user)
 
             setCurrentUser(user)
             token = self.sendAuthTokenCookie(user)

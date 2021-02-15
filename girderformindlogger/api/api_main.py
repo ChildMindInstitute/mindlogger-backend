@@ -4,7 +4,7 @@ import cherrypy
 from . import describe
 from .v1 import account, activity, api_key, applet, assetstore, collection, context,    \
     file, folder, group, invitation, item, protocol, relationship, resource,   \
-    response, schedule, screen, system, token, user, notification
+    response, schedule, screen, system, token, user, notification, account_profile
 
 
 class ApiDocs(object):
@@ -48,5 +48,6 @@ def _addV1ToNode(node):
     node.v1.system = system.System()
     node.v1.token = token.Token()
     node.v1.user = user.User()
+    node.v1.account = account_profile.AccountProfile()
 
     return node

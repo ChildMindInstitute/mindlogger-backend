@@ -32,7 +32,11 @@ from girderformindlogger.models.applet import Applet as AppletModel
 from girderformindlogger.models.folder import Folder
 from girderformindlogger.models.response_folder import ResponseFolder as \
     ResponseFolderModel, ResponseItem as ResponseItemModel
+from girderformindlogger.models.response_tokens import ResponseTokens
+from girderformindlogger.models.item import Item as ItemModel
+from girderformindlogger.models.response_alerts import ResponseAlerts
 from girderformindlogger.models.upload import Upload as UploadModel
+from bson import json_util
 from pymongo import DESCENDING
 from bson import ObjectId
 import boto3
@@ -51,6 +55,7 @@ class ResponseItem(Resource):
         self.route('GET', (':applet',), self.getResponsesForApplet)
         self.route('GET', ('last7Days', ':applet'), self.getLast7Days)
         self.route('POST', (':applet', ':activity'), self.createResponseItem)
+        self.route('POST', (':applet', 'updateResponseToken'), self.updateResponseToken)
         self.route('PUT', (':applet',), self.updateReponseItems)
 
     @access.user(scope=TokenScope.DATA_READ)
@@ -113,7 +118,7 @@ class ResponseItem(Resource):
         from girderformindlogger.models.profile import Profile
         from girderformindlogger.models.account_profile import AccountProfile
         from girderformindlogger.utility.response import (
-            delocalize, add_missing_dates, add_latest_daily_response, getOldVersions)
+            delocalize, add_latest_daily_response, getOldVersions)
 
         user = self.getCurrentUser()
         profile = Profile().findOne({'appletId': applet['_id'],
@@ -155,7 +160,13 @@ class ResponseItem(Resource):
             'responses': {},
             'dataSources': {},
             'keys': [],
-            'items': {}
+            'items': {},
+            'subScaleSources': {},
+            'subScales': {},
+            'tokens': {
+                'cumulativeToken': [],
+                'tokenUpdates': [],
+            },
         }
 
         # Get the responses for each users and generate the group responses data.
@@ -184,8 +195,9 @@ class ResponseItem(Resource):
                     )
                 )
 
-            add_latest_daily_response(data, responses)
-        add_missing_dates(data, fromDate, toDate)
+            tokens = ResponseTokens().getResponseTokens(profile, retrieveUserKeys=True)
+
+            add_latest_daily_response(data, responses, tokens)
 
         self._model.reconnectToDb()
 
@@ -253,7 +265,52 @@ class ResponseItem(Resource):
             print(traceback.print_tb(sys.exc_info()[2]))
             return({})
 
+    @access.public(scope=TokenScope.DATA_WRITE)
+    @autoDescribeRoute(
+        Description('Use Response token.')
+        .notes(
+            'This endpoint is used when a user selects token-prize on mobile app.'
+        )
+        .modelParam(
+            'applet',
+            model=AppletModel,
+            level=AccessType.READ,
+            destName='applet',
+            description='The ID of the Applet this response is to.'
+        )
+        .jsonParam('updateInfo',
+                   'A JSON object containing the token update and cumulative.',
+                   paramType='form', requireObject=True, required=True)
+    )
+    def updateResponseToken(
+        self,
+        applet,
+        updateInfo
+    ):
+        from girderformindlogger.models.profile import Profile
+        user = self.getCurrentUser()
 
+        profile = Profile().findOne({
+            'appletId': applet['_id'],
+            'userId': user['_id']
+        })
+
+        if updateInfo.get('tokenUpdate', None):
+            ResponseTokens().saveResponseToken(
+                profile,
+                updateInfo['tokenUpdate'],
+                False,
+                updateInfo.get('userPublicKey', None),
+                updateInfo.get('version', None)
+            )
+
+        if updateInfo.get('cumulative', None):
+            ResponseTokens().saveResponseToken(
+                profile, 
+                updateInfo['cumulative'], 
+                True, 
+                updateInfo.get('userPublicKey', None)
+            )
 
     @access.user(scope=TokenScope.DATA_WRITE)
     @autoDescribeRoute(
@@ -418,6 +475,30 @@ class ResponseItem(Resource):
                             'ptr': metadata['subScales'][subScale]
                         }
 
+                if metadata.get('tokenCumulation', None):
+                    ResponseTokens().saveResponseToken(profile, metadata['tokenCumulation'], True, metadata.get('userPublicKey', None))
+
+                if metadata.get('alerts', []):
+                    alerts = metadata.get('alerts', [])
+
+                    for alert in alerts:
+                        item = ItemModel().findOne({
+                            '_id': ObjectId(alert['id'])
+                        })
+
+                        if item:
+                            screen = item.get('meta', {}).get('screen', {})
+
+                            responseOptions = screen.get('reprolib:terms/responseOptions', [])
+
+                            if len(responseOptions) and 'reprolib:terms/responseAlertMessage' in responseOptions[0]:
+                                ResponseAlerts().addResponseAlerts(
+                                    profile,
+                                    alert['id'],
+                                    alert['schema'],
+                                    responseOptions[0]['reprolib:terms/responseAlertMessage'][0]['@value']
+                                )
+
                 newItem = self._model.setMetadata(newItem, metadata)
 
             if not pending:
@@ -442,6 +523,7 @@ class ResponseItem(Resource):
                     "completed_time": now
                 })
 
+            data['updated'] = now
             profile.save(data, validate=False)
 
             return(newItem)
@@ -464,21 +546,36 @@ class ResponseItem(Resource):
             destName='applet',
             description='The ID of the Applet this response is to.'
         )
+        .param(
+            'user',
+            'profile id for user',
+            required=False,
+            default=None
+        )
         .jsonParam('responses',
                    'A JSON object containing the new response data and public key.',
                    paramType='form', requireObject=True, required=True)
         .errorResponse()
         .errorResponse('Write access was denied on the parent folder.', 403)
     )
-    def updateReponseItems(self, applet, responses):
+    def updateReponseItems(self, applet, user, responses):
         from girderformindlogger.models.profile import Profile
         from girderformindlogger.models.account_profile import AccountProfile
 
-        user = self.getCurrentUser()
-        profile = Profile().findOne({
-            'appletId': applet['_id'],
-            'userId': user['_id']
-        })
+        if not user:
+            user = self.getCurrentUser()
+            profile = Profile().findOne({
+                'appletId': applet['_id'],
+                'userId': user['_id']
+            })
+        else:
+            profile = Profile().findOne({
+                '_id': ObjectId(user),
+                'appletId': applet['_id']
+            })
+
+        if not profile:
+            raise ValidationException('unable to find user with specified id')
 
         is_manager = 'manager' in profile.get('roles', [])
 

@@ -45,7 +45,10 @@ from girderformindlogger.models.setting import Setting
 from girderformindlogger.settings import SettingKey
 from girderformindlogger.models.profile import Profile as ProfileModel
 from girderformindlogger.models.account_profile import AccountProfile
+from girderformindlogger.models.invitation import Invitation as InvitationModel
 from girderformindlogger.i18n import t
+from girderformindlogger.models.response_alerts import ResponseAlerts
+from dateutil.relativedelta import relativedelta
 from pymongo import ASCENDING, DESCENDING
 from bson import json_util
 from pyld import jsonld
@@ -83,6 +86,7 @@ class Applet(Resource):
 
         self.route('GET', (':id', 'roles'), self.getAppletRoles)
         self.route('GET', (':id', 'users'), self.getAppletUsers)
+        self.route('GET', (':id', 'invitations'), self.getAppletInvitations)
         self.route('DELETE', (':id',), self.deactivateApplet)
         self.route('POST', ('fromJSON', ), self.createAppletFromProtocolData)
         self.route('GET', (':id', 'protocolData'), self.getProtocolData)
@@ -183,7 +187,9 @@ class Applet(Resource):
             raise AccessException('only manager/owners can change applet encryption info')
 
         applet['meta']['encryption'] = encryption
-        self._model.setMetadata(applet, applet['meta'])
+        applet['updated'] = datetime.datetime.utcnow()
+
+        applet = self._model.setMetadata(applet, applet['meta'])
 
         jsonld_expander.clearCache(applet, 'applet')
         return { 'message': 'successed' }
@@ -238,7 +244,7 @@ class Applet(Resource):
                         applet,
                         userProfile,
                         role,
-                        [ObjectId(userId) for userId in roleInfo[role]] if role == 'reviewer' and isinstance(roleInfo[role], list) else []
+                        roleInfo[role] if role == 'reviewer' and isinstance(roleInfo[role], list) else []
                     )
                 else:
                     userProfile = self._model.revokeRole(applet, userProfile, role)
@@ -427,6 +433,29 @@ class Applet(Resource):
 
         return AppletModel().getAppletUsers(applet, user, force=True, retrieveRoles=retrieveRoles, retrieveRequests=AppletModel().isManager(applet['_id'], user))
 
+    @access.user(scope=TokenScope.DATA_OWN)
+    @autoDescribeRoute(
+        Description('Get invitations for applet.')
+        .notes(
+            'this endpoint is used to getting invitations for an applet. <br>'
+            'coordinator/managers can make request to this endpoint.'
+        )
+        .modelParam(
+            'id',
+            model=FolderModel,
+            level=AccessType.READ,
+            destName='applet'
+        )
+    )
+    def getAppletInvitations(self, applet):
+        user = self.getCurrentUser()
+        is_coordinator = self._model.isCoordinator(applet['_id'], user)
+
+        if not is_coordinator:
+            raise AccessException("Only coordinators, managers and reviewers can view invitations.")
+
+        return self._model.getAppletInvitations(applet)
+
     @access.user(scope=TokenScope.DATA_READ)
     @autoDescribeRoute(
         Description('Get content of protocol by applet id.')
@@ -552,6 +581,8 @@ class Applet(Resource):
                 profile = self._model.revokeRole(applet, profile, role)
 
         profile = self._model.revokeRole(applet, profile, 'user')
+
+        ResponseAlerts().deleteResponseAlerts(profile['_id'])
 
         if deleteResponse:
             ProfileModel().remove(profile)
@@ -743,9 +774,15 @@ class Applet(Resource):
             'Name to give the applet.',
             required=True
         )
+        .param(
+            'lang',
+            'Language of response message',
+            default='en',
+            required=True
+        )
         .errorResponse('Write access was denied for this applet.', 403)
     )
-    def duplicateApplet(self, applet, name):
+    def duplicateApplet(self, applet, name, lang='en'):
         thisUser = self.getCurrentUser()
         accountProfile = self.getAccountProfile()
 
@@ -765,7 +802,7 @@ class Applet(Resource):
         thread.start()
 
         return({
-            "message": "The applet is being duplicated. We will send you an email in 10 min or less when it has been successfully duplicated."
+            "message": t('applet_is_duplicated', lang)
         })
 
     @access.user(scope=TokenScope.DATA_WRITE)
@@ -1112,17 +1149,10 @@ class Applet(Resource):
             required=False,
             dataType='boolean'
         )
-        .param(
-            'retrieveItems',
-            'true if retrieve items',
-            default=True,
-            required=False,
-            dataType='boolean'
-        )
         .errorResponse('Invalid applet ID.')
         .errorResponse('Read access was denied for this applet.', 403)
     )
-    def getApplet(self, applet, retrieveSchedule=False, retrieveAllEvents=False, retrieveItems=True):
+    def getApplet(self, applet, retrieveSchedule=False, retrieveAllEvents=False):
         user = self.getCurrentUser()
 
         formatted = jsonld_expander.formatLdObject(
@@ -1134,8 +1164,9 @@ class Applet(Resource):
 
         if retrieveSchedule:
             formatted['applet']['schedule'] = self._model.getSchedule(applet, user, retrieveAllEvents)
-        if not retrieveItems:
-            formatted.pop('items')
+
+        formatted['updated'] = applet['updated']
+        formatted['accountId'] = applet['accountId']
 
         return formatted
 
@@ -1152,10 +1183,16 @@ class Applet(Resource):
             level=AccessType.READ,
             destName='applet'
         )
+        .param(
+            'lang',
+            'Language of response message',
+            default='en',
+            required=True
+        )
         .errorResponse('Invalid applet ID.')
         .errorResponse('Write access was denied for this applet.', 403)
     )
-    def refresh(self, applet):
+    def refresh(self, applet, lang='en'):
         user = self.getCurrentUser()
 
         if not self._model._hasRole(applet['_id'], user, 'editor'):
@@ -1171,8 +1208,7 @@ class Applet(Resource):
         thread.start()
 
         return({
-            "message": "The protocol is being reloaded and cached data is being updated. Please check back "
-                        "in several mintutes to see it."
+            "message": t('applet_is_refreshed', lang)
         })
 
 
@@ -1394,6 +1430,10 @@ class Applet(Resource):
                 'role'
             )
 
+        invitation = InvitationModel().findOne({'appletId': applet['_id'], 'MRN': MRN})
+        if invitation:
+            raise ValidationException(t('mrn_is_duplicated', lang))
+
         invitation = Invitation().createInvitationForSpecifiedUser(
             applet=applet,
             coordinator=thisUser,
@@ -1578,20 +1618,21 @@ class Applet(Resource):
             dataType='boolean'
         )
         .param(
-            'getTodayEvents',
+            'numberOfDays',
             'true only if get today\'s event, valid only if getAllEvents is set to false',
             required=False,
-            default=False,
-            dataType='boolean'
+            default=0,
+            dataType='integer'
         )
         .errorResponse('Invalid applet ID.')
         .errorResponse('Read access was denied for this applet.', 403)
     )
-    def getSchedule(self, applet, getAllEvents = False, getTodayEvents = False):
+    def getSchedule(self, applet, getAllEvents = False, numberOfDays = 0):
         user = self.getCurrentUser()
 
         currentUserDate = datetime.datetime.utcnow() + datetime.timedelta(hours=int(user['timezone']))
-        return self._model.getSchedule(applet, user, getAllEvents, currentUserDate.replace(hour=0, minute=0, second=0, microsecond=0) if getTodayEvents and not getAllEvents else None)
+
+        return self._model.getSchedule(applet, user, getAllEvents, (currentUserDate.replace(hour=0, minute=0, second=0, microsecond=0), numberOfDays) if numberOfDays and not getAllEvents else None)
 
     @access.user(scope=TokenScope.DATA_WRITE)
     @autoDescribeRoute(
@@ -1663,11 +1704,7 @@ class Applet(Resource):
                 savedEvent = EventsModel().upsertEvent(event, applet, event.get('id', None))
                 event['id'] = savedEvent['_id']
 
-        return {
-            "applet": {
-                "schedule": schedule if rewrite else EventsModel().getSchedule(applet['_id'])
-            }
-        }
+        return schedule if rewrite else EventsModel().getSchedule(applet['_id'])
 
 
 def authorizeReviewer(applet, reviewer, user):

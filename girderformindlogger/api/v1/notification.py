@@ -333,8 +333,10 @@ class Notification(Resource):
         # notification['dateSend'] = self.user_timezone_time.strftime('%Y/%m/%d')
         message_title = notification['head']
         message_body = notification['content']
+        time_to_live = 0
         result = self.push_service.notify_multiple_devices(registration_ids=user_ids,
                                                            message_title=message_title,
+                                                           time_to_live=time_to_live,
                                                            message_body=message_body)
         notification['attempts'] += 1
         notification['progress'] = ProgressState.ACTIVE

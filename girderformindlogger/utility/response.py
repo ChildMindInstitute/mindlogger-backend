@@ -11,6 +11,7 @@ from datetime import date, datetime, timedelta
 from girderformindlogger.models.applet import Applet as AppletModel
 from girderformindlogger.models.user import User as UserModel
 from girderformindlogger.models.response_folder import ResponseItem
+from girderformindlogger.models.response_tokens import ResponseTokens
 from girderformindlogger.models.account_profile import AccountProfile
 from girderformindlogger.utility import clean_empty
 from pandas.api.types import is_numeric_dtype
@@ -344,6 +345,7 @@ def last7Days(
                 resp['date'] = determine_date(resp['date'] + timedelta(hours=profile['timezone']))
 
     l7d = {}
+    l7d['tokens'] = ResponseTokens().getResponseTokens(profile, startDate, False)
     l7d["responses"] = _oneResponsePerDatePerVersion(outputResponses, profile['timezone']) if groupByDateActivity else outputResponses
 
     endDate = referenceDate.date()
@@ -435,37 +437,27 @@ def responseDateList(appletId, userId, reviewer):
     rdl.sort(reverse=True)
     return(rdl)
 
-
-def add_missing_dates(response_data, from_date, to_date):
-    for activity in response_data['responses']:
-        for n in range(int((to_date - from_date).days)):
-            current_date = (to_date - timedelta(days=n)).date()
-
-            # If the date entry is not found, create it.
-            if not any([r['date'] == current_date for r in response_data['responses'][activity]]):
-                response_data['responses'][activity].append({"date": current_date, "value": []})
-
-
-def add_latest_daily_response(data, responses):
+def add_latest_daily_response(data, responses, tokens):
     user_keys = {}
 
     for response in responses:
         activity_id = str(response['meta']['activity']['@id'])
-        # response['updated'] = response['updated'].date()  # consider time value to handle users with different timezones.
+
+        date = response['meta'].get('subject', {}).get('userTime').isoformat()
+        version = response['meta'].get('applet', {}).get('version', '0.0.0')
+        key_dump = json_util.dumps(response['meta']['userPublicKey'])
 
         for item in response['meta']['responses']:
             if item not in data['responses']:
                 data['responses'][item] = []
 
             data['responses'][item].append({
-                "date": response['meta'].get('subject', {}).get('userTime').isoformat(),
+                "date": date,
                 "value": response['meta']['responses'][item],
-                "version": response['meta'].get('applet', {}).get('version', '0.0.0'),
+                "version": version,
             })
 
             if str(response['_id']) not in data['dataSources'] and 'dataSource' in response['meta']:
-                key_dump = json_util.dumps(response['meta']['userPublicKey'])
-
                 if key_dump not in user_keys:
                     user_keys[key_dump] = len(data['keys'])
                     data['keys'].append(response['meta']['userPublicKey'])
@@ -474,6 +466,54 @@ def add_latest_daily_response(data, responses):
                     'key': user_keys[key_dump],
                     'data': response['meta']['dataSource']
                 }
+
+        activityId = response['meta'].get('activity', {}).get('@id', None)
+
+        if not activityId:
+            continue
+        activityId = str(activityId)
+
+        if 'subScales' not in response['meta']:
+            continue
+
+        for subScale in response['meta']['subScales']:
+            if activityId not in data['subScales']:
+                data['subScales'][activityId] = {}
+
+            if subScale not in data['subScales'][activityId]:
+                data['subScales'][activityId][subScale] = []
+
+            data['subScales'][activityId][subScale].append({
+                "date": date,
+                "value": response['meta']['subScales'][subScale],
+                "version": version,
+            })
+
+            if str(response['_id']) not in data['subScaleSources'] and 'subScaleSource' in response['meta']:
+                data['subScaleSources'][str(response['_id'])] = {
+                    'key': user_keys[key_dump],
+                    'data': response['meta']['subScaleSource']
+                }
+
+    for tokenField in ['cumulativeToken', 'tokenUpdates']:
+        if isinstance(tokens[tokenField], dict):
+            tokens[tokenField] = [tokens[tokenField]]
+
+        if not tokens[tokenField]:
+            continue
+
+        for value in tokens[tokenField]:
+            key_dump = json_util.dumps(value['userPublicKey'])
+
+            if key_dump not in user_keys:
+                user_keys[key_dump] = len(data['keys'])
+                data['keys'].append(value['userPublicKey'])
+
+            value['key'] = user_keys[key_dump]
+            value.pop('userPublicKey')
+
+            data['tokens'][tokenField].append(value)
+
 
 def _oneResponsePerDatePerVersion(responses, offset):
     newResponses = {}
