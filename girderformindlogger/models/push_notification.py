@@ -34,6 +34,9 @@ class PushNotification(Scheduler):
         event_type = self.event.get('data', {}).get('eventType', '')
 
         for notification in notifications:
+            if not notification['start']:
+                continue
+
             self.date_format(notification)
 
             if notification['random']:
