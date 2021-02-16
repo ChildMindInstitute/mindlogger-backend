@@ -14,5 +14,5 @@ locale = {
     'invitation_already_accepted': 'Your invitation to "{appletName}" has already been accepted.',
     'invitationAccepted': 'Invitation Accepted',
     'invitationRemoved': 'Invitation Removed',
-    'mrn_is_duplicated': "Duplicate MRN found in your applet",
+    'mrn_is_duplicated': "Duplicate Secret User ID found in your applet",
 }
