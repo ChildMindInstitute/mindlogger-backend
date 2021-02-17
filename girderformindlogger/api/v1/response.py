@@ -458,7 +458,7 @@ class ResponseItem(Resource):
                 # )
 
                 # now, replace the metadata key with a link to this upload
-                metadata['responses'][key] = "s3://{}/{}".format(os.environ['S3_MEDIA_BUCKET'],_file_obj_key)
+                metadata['responses'][key] = "https://{}.s3.amazonaws.com/{}".format(os.environ['S3_MEDIA_BUCKET'],_file_obj_key)
 
             if metadata:
                 if metadata.get('dataSource', None):
