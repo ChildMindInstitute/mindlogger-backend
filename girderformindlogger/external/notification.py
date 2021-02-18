@@ -120,3 +120,41 @@ def send_custom_notification(notification):
                     "type": notification['type']
                 }
             )
+
+def send_applet_update_notification(applet, isDeleted=False, profiles=[]):
+    from girderformindlogger.models.profile import Profile
+
+    applet_id = applet['_id']
+    appletName = applet['meta']['applet'].get('displayName', applet.get('displayName', 'new applet'))
+
+    profiles = Profile().get_profiles_by_applet_id(applet_id) if not profiles else profiles
+
+    # ordered by badge
+    message_requests = defaultdict(list)
+    for profile in profiles:
+        if (isDeleted or not profile.get('deactivated', False)) and profile.get('deviceId', None):
+            message_requests[profile['badge']].append(profile['deviceId'])
+
+    message_title='Applet Update',
+    message_body= f'Content of your applet ({appletName}) was updated by editor.',
+    data_message={
+        "applet_id": str(applet_id),
+        "type": 'applet-update-alert'
+    }
+
+    if isDeleted:
+        message_title = 'Applet Delete'
+        message_body = f'Your applet ({appletName}) was deleted by manager'
+        data_message['type'] = 'applet-delete-alert'
+
+    for badge in message_requests:
+        result = push_service.notify_multiple_devices(
+            registration_ids=message_requests[badge],
+            message_title=message_title,
+            message_body= message_body,
+            time_to_live=0,
+            data_message=data_message,
+            badge=int(badge) +1
+        )
+
+    Profile().updateProfileBadgets(profiles)

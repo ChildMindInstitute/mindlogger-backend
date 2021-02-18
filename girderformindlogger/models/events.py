@@ -37,7 +37,7 @@ class Events(Model):
 
     def validate(self, document):
         return document
-
+    
     def deleteEvent(self, event_id):
         event = self.findOne({'_id': ObjectId(event_id)})
 
@@ -97,10 +97,14 @@ class Events(Model):
         if 'schedule' in event:
             newEvent['schedule'] = event['schedule']
 
+        newEvent['updated'] = datetime.datetime.utcnow()
+
         newEvent = self.save(newEvent)
         self.setSchedule(newEvent)
 
-        return self.save(newEvent)
+        newEvent = self.save(newEvent)
+
+        return newEvent
 
     def updateIndividualSchedulesParameter(self, newEvent, oldEvent):
         new = newEvent['data']['users'] if 'users' in newEvent['data'] else []
@@ -139,13 +143,15 @@ class Events(Model):
 
     def getEvents(self, applet_id, individualized, profile_id = None):
         if not individualized or not profile_id:
-            events = list(self.find({'applet_id': ObjectId(applet_id), 'individualized': individualized}, fields=['data', 'schedule']))
+            events = list(self.find({'applet_id': ObjectId(applet_id), 'individualized': individualized}, fields=['data', 'schedule', 'updated']))
         else:
-            events = list(self.find({'applet_id': ObjectId(applet_id), 'individualized': individualized, 'data.users': profile_id}, fields=['data', 'schedule']))
+            events = list(self.find({'applet_id': ObjectId(applet_id), 'individualized': individualized, 'data.users': profile_id}, fields=['data', 'schedule', 'updated']))
 
         for event in events:
             if 'data' in event and 'users' in event['data']:
                 event['data'].pop('users')
+            if 'updated' in event:
+                event['updated'] = event['updated'].isoformat()
 
         return events
 
@@ -160,7 +166,7 @@ class Events(Model):
             push_notification.set_schedules()
 
     def getSchedule(self, applet_id):
-        events = list(self.find({'applet_id': ObjectId(applet_id)}, fields=['data', 'schedule']))
+        events = list(self.find({'applet_id': ObjectId(applet_id)}, fields=['data', 'schedule', 'updated']))
 
         for event in events:
             event['id'] = event['_id']

@@ -54,7 +54,7 @@ class User(Resource):
         self.route('GET', (':id', 'applets'), self.getUserApplets)
         self.route('PUT', (':id', 'code'), self.updateIDCode)
         self.route('DELETE', (':id', 'code'), self.removeIDCode)
-        self.route('GET', ('applets',), self.getOwnApplets)
+        self.route('PUT', ('applets',), self.getOwnApplets)
         self.route('GET', ('applet', ':id'), self.getOwnAppletById)
         self.route('GET', ('accounts',), self.getAccounts)
         self.route('PUT', ('switchAccount', ), self.switchAccount)
@@ -564,14 +564,11 @@ class User(Resource):
             required=False,
             default='user'
         )
-        .param(
-            'ids_only',
-            'If true, only returns an Array of the IDs of assigned applets. '
-            'Otherwise, returns an Array of Objects keyed with "applet" '
-            '"protocol", "activities" and "items" with expanded JSON-LD as values.',
-            required=False,
-            default=False,
-            dataType='boolean'
+        .jsonParam(
+            'localInfo',
+            'parameter specifying applets metadata in local device',
+            paramType='form',
+            required=True,
         )
         .param(
             'getAllApplets',
@@ -582,7 +579,7 @@ class User(Resource):
         )
         .param(
             'retrieveSchedule',
-            'true if retrieve schedule info in applet metadata',
+            'if true, retrieve schedule info in applet metadata',
             default=False,
             required=False,
             dataType='boolean'
@@ -601,6 +598,27 @@ class User(Resource):
             default=0,
             dataType='integer'
         )
+        .param(
+            'retrieveResponses',
+            'if true, responses are returned',
+            default=False,
+            required=False,
+            dataType='boolean'
+        )
+        .param(
+            'groupByDateActivity',
+            'if true, group responses by date and activity',
+            default=True,
+            required=False,
+            dataType='boolean'
+        )
+        .param(
+            'retrieveLastResponseTime',
+            'if true, retrieve last response time',
+            default=False,
+            required=False,
+            dataType='boolean'
+        )
         .errorResponse('ID was invalid.')
         .errorResponse(
             'You do not have permission to see any of this user\'s applets.',
@@ -610,11 +628,14 @@ class User(Resource):
     def getOwnApplets(
         self,
         role,
-        ids_only=False,
+        localInfo,
         getAllApplets=False,
         retrieveSchedule=False,
         retrieveAllEvents=False,
-        numberOfDays=0
+        numberOfDays=0,
+        retrieveResponses=False,
+        groupByDateActivity=True,
+        retrieveLastResponseTime=False,
     ):
         from bson.objectid import ObjectId
         from girderformindlogger.utility.jsonld_expander import loadCache
@@ -647,28 +668,25 @@ class User(Resource):
                 for applet in account.get('applets', {}).get(role, []):
                     applet_ids.append(applet)
 
-        if ids_only:
-            return applet_ids
-
         applets = [AppletModel().load(ObjectId(applet_id), AccessType.READ) for applet_id in applet_ids]
 
-        try:
-            result = []
-            for applet in applets:
-                if applet.get('cached'):
-                    formatted = AppletModel().appletFormatted(applet=applet,
-                                                              reviewer=reviewer,
-                                                              role=role,
-                                                              retrieveSchedule=retrieveSchedule,
-                                                              retrieveAllEvents=retrieveAllEvents,
-                                                              eventFilter=(currentUserDate, numberOfDays) if numberOfDays else None)
-                    result.append(formatted)
+        result = []
+        for applet in applets:
+            if applet.get('cached'):
+                formatted = AppletModel().appletFormatted(applet=applet,
+                                                            reviewer=reviewer,
+                                                            role=role,
+                                                            retrieveSchedule=retrieveSchedule,
+                                                            retrieveAllEvents=retrieveAllEvents,
+                                                                eventFilter=(currentUserDate, numberOfDays) if numberOfDays else None,
+                                                            retrieveResponses=retrieveResponses,
+                                                            groupByDateActivity=groupByDateActivity,
+                                                            retrieveLastResponseTime=retrieveLastResponseTime,
+                                                            localInfo=localInfo.get(str(applet['_id']), {}) if localInfo else {},
+                                                            )
+                result.append(formatted)
 
-            return(result)
-        except:
-            import sys, traceback
-            print(sys.exc_info())
-            return([])
+        return(result)
 
     @access.public(scope=TokenScope.DATA_READ)
     @autoDescribeRoute(
