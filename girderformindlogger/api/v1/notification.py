@@ -337,7 +337,8 @@ class Notification(Resource):
         result = self.push_service.notify_multiple_devices(registration_ids=user_ids,
                                                            message_title=message_title,
                                                            time_to_live=time_to_live,
-                                                           message_body=message_body)
+                                                           message_body=message_body,
+                                                           extra_kwargs={"apns_expiration": "0"})
         notification['attempts'] += 1
         notification['progress'] = ProgressState.ACTIVE
         if result['failure']:

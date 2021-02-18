@@ -90,6 +90,7 @@ def send_push_notification(applet_id, event_id, activity_id=None, send_time=None
                     "activity_id": str(activity_id),
                     "type": 'event-alert'
                 },
+                extra_kwargs={"apns_expiration": "0"},
                 badge=int(badge) +1
             )
 
