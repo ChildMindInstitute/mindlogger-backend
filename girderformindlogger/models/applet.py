@@ -475,15 +475,15 @@ class Applet(FolderModel):
         applet = self.setMetadata(applet, applet.get('meta'))
 
         successed = True
-        profiles = []
+        # profiles = []
 
         if applet.get('meta', {}).get('applet', {}).get('deleted')==True:
 
             accountProfiles = list(AccountProfile().find({'accountId': applet['accountId'], 'applets.user': applet['_id'] }))
-            profiles = list(Profile().find({
-                'appletId': applet['_id'],
-                'deactivated': {'$ne': True}
-            }))
+            # profiles = list(Profile().find({
+            #     'appletId': applet['_id'],
+            #     'deactivated': {'$ne': True}
+            # }))
 
             Profile().deactivateProfile(applet['_id'], None)
 
@@ -492,11 +492,11 @@ class Applet(FolderModel):
         else:
             successed = False
 
-        thread = threading.Thread(
-            target=send_applet_update_notification,
-            args=(applet,True, profiles)
-        )
-        thread.start()
+        # thread = threading.Thread(
+        #    target=send_applet_update_notification,
+        #    args=(applet,True, profiles)
+        # )
+        # thread.start()
 
         return successed
 
