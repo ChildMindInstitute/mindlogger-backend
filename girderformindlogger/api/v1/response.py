@@ -503,7 +503,7 @@ class ResponseItem(Resource):
 
             if not pending:
                 newItem['readOnly'] = True
-            self._model.reconnectToDb()
+            #self._model.reconnectToDb()
 
             # update profile activity
             profile = Profile()
