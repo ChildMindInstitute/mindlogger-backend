@@ -880,12 +880,12 @@ class Applet(FolderModel):
             if activityUpdated:
                 Profile().save(profile, validate=False)
 
-        thread = threading.Thread(
-            target=send_applet_update_notification,
-            args=(applet,)
-        )
+        # thread = threading.Thread(
+        #     target=send_applet_update_notification,
+        #     args=(applet,)
+        # )
 
-        thread.start()
+        # thread.start()
 
         return formatted
 
