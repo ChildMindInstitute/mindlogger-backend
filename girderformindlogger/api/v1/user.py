@@ -805,6 +805,9 @@ class User(Resource):
         account['folders']=[]
 
         for folder in folders:
+            if folder['meta'].get('responseFolder', False):
+                continue
+
             if folder['meta'].get('applets'):
                 for applet in folder['meta']['applets']:
                     _id=applet['_id']

@@ -177,6 +177,10 @@ class ResponseFolder(Folder):
             user=reviewer,
             level=AccessType.READ
         )
+        responseFolder = Folder().setMetadata(responseFolder, {
+            'responseFolder': True
+        })
+
         accessList = Folder().getFullAccessList(responseFolder)
         accessList = {
             k: [
