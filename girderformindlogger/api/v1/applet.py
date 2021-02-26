@@ -1431,8 +1431,20 @@ class Applet(Resource):
             )
 
         if role == 'user':
-            invitation = InvitationModel().findOne({'appletId': applet['_id'], 'MRN': MRN})
+            invitation = InvitationModel().findOne({
+                'appletId': applet['_id'],
+                'MRN': MRN
+            })
             if invitation:
+                raise ValidationException(t('mrn_is_duplicated', lang))
+
+            invitedAccount = ProfileModel().findOne({
+                'accountId': thisUser['accountId'],
+                'appletId': applet['_id'],
+                'roles': role,
+                'MRN': MRN
+            })
+            if invitedAccount:
                 raise ValidationException(t('mrn_is_duplicated', lang))
 
         invitation = Invitation().createInvitationForSpecifiedUser(
