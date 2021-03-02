@@ -1,6 +1,6 @@
 ## -*- coding: utf-8 -*-
 <div
-    style="border-top: 2px solid rgb(216,216,216); width: 440px;"
+    style="width: 440px;"
 >
     <p>
         If you have had any issues joining an applet or creating an account, please <a href="https://gitreports.com/issue/ChildMindInstitute/MindLogger-bug-reports">write us</a> and we can help you.
@@ -14,7 +14,7 @@
         The Mindlogger Team
     </p>
 
-    <div style="padding-top: 25px; ">
+    <div style="border-top: 2px solid rgb(216,216,216); padding-top: 25px; ">
         <img
             src="https://raw.githubusercontent.com/ChildMindInstitute/mindlogger-admin/feature/759/src/assets/mail-footer.png"
             style="width: 200px; margin-left: 120px;"
