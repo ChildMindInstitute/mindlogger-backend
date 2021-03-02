@@ -25,4 +25,4 @@
     </p>
 </div>
 
-<%include file="_footer.mako"/>
+<%include file="_footer.en.mako"/>

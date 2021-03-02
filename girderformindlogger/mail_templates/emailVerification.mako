@@ -9,4 +9,4 @@
     The link provided expires 24 hours after it was requested.</p>
 </div>
 
-<%include file="_footer.mako"/>
+<%include file="_footer.en.mako"/>

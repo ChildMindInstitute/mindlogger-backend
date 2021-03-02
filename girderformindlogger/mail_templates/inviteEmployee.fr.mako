@@ -26,4 +26,4 @@
     </p>
 <div>
 
-<%include file="_footer.mako"/>
+<%include file="_footer.fr.mako"/>
