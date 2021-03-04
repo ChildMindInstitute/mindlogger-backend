@@ -49,7 +49,8 @@ class ResponseTokens(AccessControlledModel):
         if isCumulative:
             tokenInfo = self.findOne({
                 'userId': profile['userId'],
-                'appletId': profile['appletId']
+                'appletId': profile['appletId'],
+                'isCumulative': isCumulative
             }) or {}
 
         tokenInfo.update({
