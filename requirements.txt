@@ -14,7 +14,7 @@ cherrypy-cors==1.6
 CherryPy==11.0.0
 Click==7.0
 click-plugins==1.1.1
-cryptography==2.7
+cryptography==3.3.2
 decorator==4.4.0
 dictdiffer==0.8.0
 dnspython==1.16.0
