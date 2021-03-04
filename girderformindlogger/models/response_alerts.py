@@ -11,6 +11,7 @@ from girderformindlogger import events
 from girderformindlogger.constants import AccessType
 from girderformindlogger.exceptions import ValidationException, GirderException
 from girderformindlogger.models.model_base import AccessControlledModel, Model
+from girderformindlogger.models.aes_encrypt import AESEncryption
 from girderformindlogger.models.profile import Profile
 from girderformindlogger.models.user import User
 from girderformindlogger.utility.model_importer import ModelImporter
@@ -21,7 +22,7 @@ from girderformindlogger.utility import mail_utils
 from bson import json_util
 from pymongo import DESCENDING, ASCENDING
 
-class ResponseAlerts(AccessControlledModel):
+class ResponseAlerts(AESEncryption):
     """
     collection for manage schedule and notification.
     """
@@ -38,6 +39,10 @@ class ResponseAlerts(AccessControlledModel):
                 ], {})
             )
         )
+
+        self.initAES([
+            ('alertMessage', 256),
+        ])
 
     def addResponseAlerts(self, userProfile, itemId, itemSchema, alertMessage):
         now = datetime.utcnow()
