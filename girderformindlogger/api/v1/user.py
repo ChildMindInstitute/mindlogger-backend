@@ -807,6 +807,8 @@ class User(Resource):
         for folder in folders:
             if folder['meta'].get('responseFolder', False):
                 continue
+            if folder['meta'].get('contentType', '') == 'templates':
+                continue
 
             if folder['meta'].get('applets'):
                 for applet in folder['meta']['applets']:
