@@ -15,4 +15,6 @@ locale = {
     'invitationAccepted': 'Invitation Accepted',
     'invitationRemoved': 'Invitation Removed',
     'mrn_is_duplicated': "Duplicate Secret User ID found in your applet",
+    'applet_upload_sucess': 'Applet upload success!',
+    'applet_upload_failed': 'Applet upload failed!'
 }
