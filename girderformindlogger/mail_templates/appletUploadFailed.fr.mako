@@ -1,3 +1,4 @@
+## -*- coding: utf-8 -*-
 <%include file="_header.mako"/>
 
 <div style="max-width: 440px;">
