@@ -8,4 +8,4 @@
 </div>
 
 
-<%include file="_footer.en.mako"/>
+<%include file="_footer.fr.mako"/>
