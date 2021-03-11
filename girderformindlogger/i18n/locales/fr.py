@@ -14,4 +14,6 @@ locale = {
     'invitation_already_accepted': 'Votre invitation à "{appletName}" a déjà été acceptée.',
     'invitationAccepted': 'Invitation acceptée',
     'invitationRemoved': 'Invitation supprimée',
+    'applet_upload_sucess': 'téléchargement de l\'applet réussi!',
+    'applet_upload_failed': 'le téléchargement de l\'applet a échoué !'
 }

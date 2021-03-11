@@ -46,6 +46,8 @@ from girderformindlogger.models.events import Events as EventsModel
 from girderformindlogger.models.item import Item as ItemModel
 from girderformindlogger.external.notification import send_applet_update_notification
 from bson import json_util
+from girderformindlogger.utility import mail_utils
+from girderformindlogger.i18n import t
 
 RETENTION_SET = {
     'day': 1,
@@ -682,28 +684,24 @@ class Applet(FolderModel):
                 encryption=encryption
             )
 
-            emailMessage = "Hi {}.  <br>" \
-                "Your applet {} was successfully uploaded! <br>" \
-                "It is ready to have invitations sent out and schedule created.".format(
-                    user['firstName'],
-                    name
-                )
+            html = mail_utils.renderTemplate(f'appletUploadSuccess.{user.get("lang", "en")}.mako', {
+                'userName': user['firstName'],
+                'appletName': name
+            })
+            subject = t('applet_upload_sucess', user.get('lang', 'en'))
 
         except Exception as e:
-            emailMessage = "Hi, {}. <br>" \
-                "Your applet ({}), unfortunately, was not able to be uploaded. <br>" \
-                "Please double check your applet and try again".format(
-                    user['firstName'],
-                    protocolUrl
-                )
-            subject = 'applet upload failed!'
+            html = mail_utils.renderTemplate(f'appletUploadFailed.{user.get("lang", "en")}.mako', {
+                'userName': user['firstName'],
+                'appletName': name
+            })
+            subject = t('applet_upload_failed', user.get('lang', 'en'))
 
         if 'email' in user and not user.get('email_encrypted', True):
-            from girderformindlogger.utility.mail_utils import sendMail
-            sendMail(
-                subject=subject,
-                text=emailMessage,
-                to=[user['email']]
+            mail_utils.sendMail(
+                subject,
+                html,
+                [user['email']]
             )
 
     def createAppletFromProtocolData(
@@ -762,26 +760,26 @@ class Applet(FolderModel):
                 accountId=accountId,
                 encryption=encryption
             )
-            emailMessage = "Hi {}.  <br>" \
-                "Your applet {} was successfully uploaded! <br>" \
-                "It is ready to have invitations sent out and schedule created.".format(
-                    user['firstName'],
-                    name
-                )
+
+            html = mail_utils.renderTemplate(f'appletUploadSuccess.{user.get("lang", "en")}.mako', {
+                'userName': user['firstName'],
+                'appletName': name
+            })
+
+            subject = t('applet_upload_sucess', user.get('lang', 'en'))
 
         except Exception as e:
-            emailMessage = "Hi, {}. <br>" \
-                "Your applet, unfortunately, was not able to be uploaded. <br>" \
-                "Please double check your applet and try again".format(
-                    user['firstName']
-                )
-            subject = 'applet upload failed!'
+            html = mail_utils.renderTemplate(f'appletUploadFailed.{user.get("lang", "en")}.mako', {
+                'userName': user['firstName'],
+                'appletName': name
+            })
+            subject = t('applet_upload_failed', user.get('lang', 'en'))
 
         if 'email' in user and not user.get('email_encrypted', True):
             from girderformindlogger.utility.mail_utils import sendMail
             sendMail(
-                subject=subject,
-                text=emailMessage,
+                subject,
+                html,
                 to=[user['email']]
             )
 
