@@ -187,12 +187,12 @@ class ResponseItem(Resource):
                 response['meta']['subject']['userTime'] = response["created"].replace(tzinfo=pytz.timezone("UTC")).astimezone(
                     timezone(
                         timedelta(
-                            hours=profile["timezone"] if 'timezone' not in response['meta']['subject'] else response['meta']['subject']['timezone']
+                            hours=user["timezone"] if 'timezone' not in response['meta']['subject'] else response['meta']['subject']['timezone']
                         )
                     )
                 )
 
-            tokens = ResponseTokens().getResponseTokens(profile, retrieveUserKeys=True)
+            tokens = ResponseTokens().getResponseTokens(user, retrieveUserKeys=True)
 
             add_latest_daily_response(data, responses, tokens)
 
