@@ -45,7 +45,9 @@ class AppletLibrary(Resource):
         for libraryApplet in libraryApplets:
             appletIds.append(libraryApplet['appletId'])
 
-        applets = list(AppletModel().find({
+        appletModel = AppletModel()
+
+        applets = list(appletModel.find({
             '_id': {
                 '$in': appletIds
             }
@@ -53,7 +55,7 @@ class AppletLibrary(Resource):
 
         appletMetaInfoById = {}
         for applet in applets:
-            appletMetaInfoById[str(applet['_id'])] = applet.get('meta', {}).get('applet', {})
+            appletMetaInfoById[str(applet['_id'])] = appletModel.getAppletMeta(applet)
 
         result = []
         for libraryApplet in libraryApplets:
