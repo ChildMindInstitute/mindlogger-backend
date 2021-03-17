@@ -311,11 +311,11 @@ class Applet(FolderModel):
             from girderformindlogger.utility import jsonld_expander
             formatted = jsonld_expander.formatLdObject(applet)
             description = formatted['applet'].get('schema:description', [])
-            image = formatted['applet'].get('schema:image', [])
+            image = formatted['applet'].get('schema:image', '')
 
             meta.update({
                 'description': description[0]['@value'] if description else '',
-                'image': image[0]['@value'] if image else ''
+                'image': image
             })
 
             applet['meta']['applet'] = meta
@@ -699,7 +699,12 @@ class Applet(FolderModel):
                 },
                 user=user,
                 roles=roles,
-                constraints=constraints,
+                constraints={
+                    **(
+                        constraints if constraints else {}
+                    ),
+                    **Protocol().getImageAndDescription(protocol)
+                },
                 appletRole=appletRole,
                 accountId=accountId,
                 encryption=encryption
@@ -776,7 +781,12 @@ class Applet(FolderModel):
                 },
                 user=user,
                 roles=roles,
-                constraints=constraints,
+                constraints={
+                    **(
+                        constraints if constraints else {}
+                    ),
+                    **Protocol().getImageAndDescription(protocol)
+                },
                 appletRole=appletRole,
                 accountId=accountId,
                 encryption=encryption
@@ -841,6 +851,7 @@ class Applet(FolderModel):
             currentApplet = applet
         )
         applet['meta']['applet']['version'] = protocol['schema:schemaVersion'][0].get('@value', '0.0.0') if 'schema:schemaVersion' in protocol else '0.0.0'
+        applet['meta']['applet'].update(Protocol().getImageAndDescription(protocol))
 
         applet['updated'] = now
         applet = self.setMetadata(folder=applet, metadata=applet['meta'])
