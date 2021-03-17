@@ -39,7 +39,36 @@ class AppletLibrary(Resource):
         )
     )
     def getApplets(self):
-        pass
+        libraryApplets = list(self._model.find({}))
+
+        appletIds = []
+        for libraryApplet in libraryApplets:
+            appletIds.append(libraryApplet['appletId'])
+
+        applets = list(AppletModel().find({
+            '_id': {
+                '$in': appletIds
+            }
+        }))
+
+        appletMetaInfoById = {}
+        for applet in applets:
+            appletMetaInfoById[str(applet['_id'])] = applet.get('meta', {}).get('applet', {})
+
+        result = []
+        for libraryApplet in libraryApplets:
+            result.append({
+                'id': libraryApplet['_id'],
+                'name': libraryApplet['name'],
+                'accountId': libraryApplet['accountId'],
+                'categoryId': libraryApplet['categoryId'],
+                'subCategoryId': libraryApplet['subCategoryId'],
+                'keywords': libraryApplet['keywords'],
+                'description': appletMetaInfoById[str(libraryApplet['appletId'])].get('description', ''),
+                'image': appletMetaInfoById[str(libraryApplet['appletId'])].get('image', '')
+            })
+
+        return result
 
     @access.public
     @autoDescribeRoute(
