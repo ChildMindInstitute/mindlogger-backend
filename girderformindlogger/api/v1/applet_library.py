@@ -9,6 +9,7 @@ from girderformindlogger.models.profile import Profile as ProfileModel
 from girderformindlogger.models.applet_categories import AppletCategory
 from girderformindlogger.models.applet import Applet as AppletModel
 from girderformindlogger.models.user import User as UserModel
+from girderformindlogger.utility import jsonld_expander
 from pymongo import DESCENDING, ASCENDING
 from bson.objectid import ObjectId
 
@@ -26,7 +27,7 @@ class AppletLibrary(Resource):
         self.route('GET', ('applets',), self.getApplets)
         self.route('GET', ('categories',), self.getCategories)
         self.route('GET', (':id', 'checkName',), self.checkAppletName)
-        self.route('GET', ('applet', ':id', 'content'), self.getPublishedApplet)
+        self.route('GET', ('applet', 'content'), self.getPublishedApplet)
 
         self.route('POST', ('categories',), self.addCategory)
 
@@ -46,15 +47,17 @@ class AppletLibrary(Resource):
         .notes(
             'Get Content of published applet.'
         )
-        .modelParam(
-            'id',
-            model=AppletLibraryModel,
+        .param(
+            'libraryId',
             description='ID of the applet in the library',
-            destName='libraryApplet',
-            level=AccessType.READ
+            required=True
         )
     )
-    def getPublishedApplet(self, libraryApplet):
+    def getPublishedApplet(self, libraryId):
+        libraryApplet = self._model.findOne({
+            '_id': ObjectId(libraryId)
+        })
+
         applet = AppletModel().findOne({
             '_id': libraryApplet['appletId']
         })

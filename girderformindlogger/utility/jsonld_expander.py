@@ -1446,7 +1446,7 @@ def formatLdObject(
 
             if protocolUrl is not None and not protocol:
                 # get protocol from url
-                protocol = ProtocolModel().load(ObjectId(protocolId), user)
+                protocol = ProtocolModel().load(ObjectId(protocolId), user, force=True)
 
                 if 'appletId' not in protocol.get('meta', {}):
                     protocol['meta']['appletId'] = 'None'
