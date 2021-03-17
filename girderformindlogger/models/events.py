@@ -162,7 +162,7 @@ class Events(Model):
         notifications = event.get('data', {}).get('notifications', [])
         hasNotifications = len(notifications) > 0
 
-        if useNotifications and hasNotifications and (event['data'].get('reminder', {}).get('valid', False) or notifications[0]['start']):
+        if useNotifications and hasNotifications and (event['data'].get('reminder', {}).get('valid', False) or notifications[0]['allow']):
             push_notification.set_schedules()
 
     def getSchedule(self, applet_id):
