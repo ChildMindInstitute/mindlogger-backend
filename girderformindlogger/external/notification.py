@@ -57,27 +57,30 @@ def send_push_notification(applet_id, event_id, activity_id=None, send_time=None
 
                 rangeStart = now - datetime.timedelta(days=days, hours=int(time[:2]), minutes=int(time[-2:]))
 
-            query['completed_activities'] = {
-                '$elemMatch': {
-                    '$or': [
-                        {
-                            'activity_id': activity_id,
-                            'completed_time': {
-                                '$not': {
-                                    '$gt': rangeStart,
-                                    '$lt': now
+            availability = event.get('data', {}).get('availability', False)
+
+            if not availability:
+                query['completed_activities'] = {
+                    '$elemMatch': {
+                        '$or': [
+                            {
+                                'activity_id': activity_id,
+                                'completed_time': {
+                                    '$not': {
+                                        '$gt': rangeStart,
+                                        '$lt': now
+                                    }
+                                }
+                            },
+                            {
+                                'activity_id': activity_id,
+                                'completed_time': {
+                                    '$eq': None
                                 }
                             }
-                        },
-                        {
-                            'activity_id': activity_id,
-                            'completed_time': {
-                                '$eq': None
-                            }
-                        }
-                    ]
+                        ]
+                    }
                 }
-            }
 
         profiles = list(Profile().find(query=query, fields=['deviceId', 'badge']))
 
