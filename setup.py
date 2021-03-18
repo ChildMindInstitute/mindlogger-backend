@@ -39,7 +39,6 @@ installReqs = [
     'cryptography==3.3.2',
     'cerberus==1.3.2',
     'backports-datetime-fromisoformat==1.0.0',
-	'backports.functools-lru-cache==1.6.1',
     'dictdiffer',
     'dnspython',
     'dogpile.cache',
