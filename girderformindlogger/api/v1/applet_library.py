@@ -39,7 +39,7 @@ class AppletLibrary(Resource):
         )
     )
     def getApplets(self):
-        libraryApplets = list(self._model.find({}))
+        libraryApplets = list(self._model.find({}, sort=[("name", ASCENDING)]))
 
         appletIds = []
         for libraryApplet in libraryApplets:
