@@ -28,7 +28,7 @@ jobs:
           command: echo ". $CIRCLE_WORKING_DIRECTORY/girder_env/bin/activate" >> $BASH_ENV
       - run:
           name: Upgrade Python toolchain
-          command: pip install --upgrade pip==20.2.4 setuptools==50.3.2
+          command: pip install --upgrade pip==20.2.4 setuptools
       - run:
           name: Install Girder
           command: pip install --upgrade --upgrade-strategy eager --editable .[sftp,mount] --editable clients/python --requirement requirements-dev.txt
