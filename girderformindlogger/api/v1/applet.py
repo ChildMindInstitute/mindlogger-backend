@@ -99,6 +99,7 @@ class Applet(Resource):
         self.route('PUT', (':id', 'transferOwnerShip', ), self.transferOwnerShip)
         self.route('DELETE', (':id', 'deleteUser', ), self.deleteUserFromApplet)
         self.route('GET', ('validateName',), self.validateAppletName)
+        self.route('PUT', (':id', 'name', ), self.renameApplet)
         self.route('PUT', (':id', 'status'), self.updateAppletPublishStatus)
         self.route('PUT', (':id', 'searchTerms'), self.updateAppletSearch)
 
@@ -758,6 +759,43 @@ class Applet(Resource):
         )
         thread.start()
         return {"message": t('applet_is_building', lang)}
+
+    @access.user(scope=TokenScope.DATA_OWN)
+    @autoDescribeRoute(
+        Description('Change name of an applet.')
+        .notes(
+            'Use this endpoint to change name of applet. <br>'
+        )
+        .modelParam(
+            'id',
+            model=AppletModel,
+            description='ID of the applet',
+            destName='applet',
+            level=AccessType.WRITE
+        )
+        .param(
+            'name',
+            'name of applet',
+            required=True,
+        )
+        .errorResponse('Write access was denied for this applet.', 403)
+    )
+    def renameApplet(self, applet, name):
+        editor = self.getCurrentUser()
+
+        profile = ProfileModel().findOne({
+            'appletId': applet['_id'],
+            'userId': editor['_id']
+        })
+
+        if 'editor' not in profile.get('roles', []) and 'manager' not in profile.get('roles', []):
+            raise AccessException("You don't have enough permission to update this applet.")
+
+        self._model.renameApplet(applet, name, editor)
+
+        return {
+            'message': 'success'
+        }
 
     @access.user(scope=TokenScope.DATA_OWN)
     @autoDescribeRoute(

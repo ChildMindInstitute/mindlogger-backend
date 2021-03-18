@@ -919,6 +919,37 @@ class Applet(FolderModel):
 
         return formatted
 
+    def renameApplet(
+        self,
+        applet,
+        displayName,
+        user
+    ):
+        from girderformindlogger.utility import jsonld_expander
+
+        suffix = re.findall('^(.*?)\s*\((\d+)\)$', displayName)
+        if not len(suffix) or applet.get('meta', {}).get('protocol', {}).get('name', '') != suffix[0][0]:
+            applet['meta']['protocol']['name'] = displayName
+            displayName = '%s (0)' % (displayName)
+
+        applet['meta']['applet']['displayName'] = self.validateAppletName(
+            displayName,
+            CollectionModel().findOne({"name": "Applets"}),
+            applet['accountId'],
+            currentApplet = applet
+        )
+
+        applet['updated'] = datetime.datetime.utcnow()
+        applet = self.setMetadata(folder=applet, metadata=applet['meta'])
+
+        jsonld_expander.clearCache(applet, 'applet')
+
+        return jsonld_expander.formatLdObject(
+            applet,
+            'applet',
+            user
+        )
+
     def prepareAppletForEdit(
         self,
         applet,
