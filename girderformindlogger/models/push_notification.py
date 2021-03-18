@@ -37,7 +37,7 @@ class PushNotification(Scheduler):
             self.set_reminders()
 
         for notification in notifications:
-            if not notification['start']:
+            if not notification['start'] or not notification['allow']:
                 continue
 
             self.date_format(notification)
@@ -62,6 +62,9 @@ class PushNotification(Scheduler):
     def set_reminders(self):
         event_type = self.event.get('data', {}).get('eventType', '')
         reminder = self.event.get('data', {}).get('reminder', {})
+
+        if (not reminder.get('time', '')):
+            return
 
         self.date_format({
             "start": reminder.get('time', '00:00'),
