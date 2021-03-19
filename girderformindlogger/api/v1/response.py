@@ -53,7 +53,7 @@ class ResponseItem(Resource):
         self.route('GET', ('last7Days', ':applet'), self.getLast7Days)
         self.route('POST', (':applet', ':activity'), self.createResponseItem)
         self.route('POST', (':applet', 'updateResponseToken'), self.updateResponseToken)
-        self.route('PUT', (':applet',), self.updateReponseItems)
+        self.route('PUT', (':applet',), self.updateReponseHistory)
 
     @access.user(scope=TokenScope.DATA_READ)
     @autoDescribeRoute(
@@ -577,7 +577,7 @@ class ResponseItem(Resource):
         .errorResponse()
         .errorResponse('Write access was denied on the parent folder.', 403)
     )
-    def updateReponseItems(self, applet, user, responses):
+    def updateReponseHistory(self, applet, user, responses):
         from girderformindlogger.models.profile import Profile
         from girderformindlogger.models.account_profile import AccountProfile
 
@@ -626,6 +626,24 @@ class ResponseItem(Resource):
                 },
                 multi=False
             )
+
+        responseTokenModel = ResponseTokens()
+
+        for tokenUpdateId in responses['tokenUpdates']:
+            query = {
+                'appletId': applet['_id'],
+                '_id': ObjectId(tokenUpdateId),
+                'userId': profile['userId']
+            }
+
+            tokenUpdate = responseTokenModel.findOne(query)
+            tokenUpdate.update({
+                'data': responses['tokenUpdates'][tokenUpdateId],
+                'userPublicKey': responses['userPublicKey'],
+                'updated': now
+            })
+
+            responseTokenModel.save(tokenUpdate)
 
         self._model.reconnectToDb()
 
