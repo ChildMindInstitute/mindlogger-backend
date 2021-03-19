@@ -123,7 +123,8 @@ class ResponseTokens(AESEncryption, dict):
                     )
                 )
             ).isoformat()
-            tokenUpdate.pop('_id')
+
+            tokenUpdate['id'] = tokenUpdate.pop('_id')
 
         return {
             'cumulativeToken': cumulativeToken,
