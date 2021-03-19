@@ -23,6 +23,7 @@ with open('README.rst') as f:
     readme = f.read()
 
 installReqs = [
+	'setuptools==50.3.2',
     'boto3',
     'botocore',
     'cherrypy_cors==1.6',
