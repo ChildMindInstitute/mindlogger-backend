@@ -12,6 +12,7 @@ from girderformindlogger import events
 from girderformindlogger.constants import AccessType
 from girderformindlogger.exceptions import ValidationException, GirderException
 from girderformindlogger.models.model_base import AccessControlledModel, Model
+from girderformindlogger.models.aes_encrypt import AESEncryption
 from girderformindlogger.utility.model_importer import ModelImporter
 from girderformindlogger.utility.progress import noProgress, setResponseTimeLimit
 from datetime import date, datetime, timedelta, timezone
@@ -19,7 +20,7 @@ from girderformindlogger.constants import USER_ROLES
 from pymongo import ASCENDING, DESCENDING
 from bson import json_util
 
-class ResponseTokens(AccessControlledModel):
+class ResponseTokens(AESEncryption, dict):
     """
     collection for managing user's token balance
     """
@@ -39,8 +40,22 @@ class ResponseTokens(AccessControlledModel):
             )
         )
 
+        self.initAES([
+            ('data', 256),
+        ])
+
     def validate(self, document):
         return document
+
+    def encodeDocument(self, document):
+        if isinstance(document.get('data', ''), dict):
+            document['data'] = json_util.dumps(document['data'])
+
+    def decodeDocument(self, document):
+        try:
+            document['data'] = json_util.loads(document['data'])
+        except:
+            pass
 
     def saveResponseToken(self, profile, data, isCumulative, userPublicKey, version=None):
         now = datetime.utcnow()
