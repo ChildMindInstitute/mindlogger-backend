@@ -108,8 +108,11 @@ jobs:
           name: Install Girder plugin system dependencies
           command: sudo apt-get install -y libldap2-dev libsasl2-dev
       - run:
+          name: List files
+          command: ls -a
+      - run:
           name: Remove eggs directory
-          command: rm -d /home/circleci/project/girderformindlogger/.eggs/
+          command: rm -d .eggs
       - run:
           name: Install Girder with extras
           command: >-
