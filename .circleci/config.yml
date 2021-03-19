@@ -112,7 +112,7 @@ jobs:
           command: ls -a
       - run:
           name: Remove eggs directory
-          command: rm -d .eggs
+          command: rm -d /girderformindlogger/.eggs
       - run:
           name: Install Girder with extras
           command: >-
