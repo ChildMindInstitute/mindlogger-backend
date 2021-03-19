@@ -23,7 +23,6 @@ with open('README.rst') as f:
     readme = f.read()
 
 installReqs = [
-	'wheel==0.36.2',
     'boto3',
     'botocore',
     'cherrypy_cors==1.6',
