@@ -109,7 +109,7 @@ jobs:
           command: sudo apt-get install -y libldap2-dev libsasl2-dev
       - run:
           name: Remove eggs directory
-          command: rm -d /home/circleci/project/girderformindlogger/.eggs
+          command: rm -d /home/circleci/project/girderformindlogger/.eggs/
       - run:
           name: Install Girder with extras
           command: >-
