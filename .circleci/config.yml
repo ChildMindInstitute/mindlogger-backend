@@ -33,11 +33,6 @@ jobs:
           name: Install Girder
           command: pip install --upgrade --upgrade-strategy eager --editable .[sftp,mount] --editable clients/python --requirement requirements-dev.txt
           working_directory: girderformindlogger
-      - run:
-          name: Reduce workspace size
-          command: |
-            pyclean girderformindlogger
-            pyclean girder_env
       - save_cache:
           paths: girder_env
           key: venv-py3.6-{{ arch }}-{{ checksum "girderformindlogger/py-env-checksum" }}
@@ -98,9 +93,7 @@ jobs:
              pyenv global 3.6.3
       - run:
           name: Create and activate virtual environment
-          command: |
-            python3 -m venv /home/circleci/.virtualenvs/girderformindlogger
-            echo '. /home/circleci/.virtualenvs/girderformindlogger/bin/activate' >> $BASH_ENV
+          command: echo ". $CIRCLE_WORKING_DIRECTORY/girder_env/bin/activate" >> $BASH_ENV
       - run:
           name: Upgrade Python toolchain
           command: pip install --upgrade pytest wheel setuptools==50.3.2
@@ -112,7 +105,7 @@ jobs:
           command: ls -a /home/circleci/project/girderformindlogger
       - run:
           name: Remove eggs directory
-          command: rm -rf girderformindlogger/.eggs
+          command: rm -rf /home/circleci/project/girderformindlogger/.eggs
       - run:
           name: Install Girder with extras
           command: >-
