@@ -132,7 +132,7 @@ jobs:
             girderformindlogger build &&
             girderformindlogger serve &
             sleep 300 &&
-            pytest girderformindlogger/test
+            python -m pytest girderformindlogger/test
             --capture=no --cov=girderformindlogger
             --cov-report html --cov-report xml
       - store_test_results:
