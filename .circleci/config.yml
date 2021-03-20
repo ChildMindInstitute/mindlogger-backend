@@ -103,7 +103,7 @@ jobs:
             echo '. /home/circleci/.virtualenvs/girderformindlogger/bin/activate' >> $BASH_ENV
       - run:
           name: Upgrade Python toolchain
-          command: pip install --upgrade pytest wheel setuptools
+          command: pip install --upgrade pytest-cov pytest wheel setuptools
       - run:
           name: Install Girder plugin system dependencies
           command: sudo apt-get install -y libldap2-dev libsasl2-dev
