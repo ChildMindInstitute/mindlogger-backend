@@ -112,7 +112,7 @@ jobs:
           command: ls -a /home/circleci/project/girderformindlogger
       - run:
           name: Remove eggs directory
-          command: [[ -d girderformindlogger/.eggs ]] && rm -r girderformindlogger/.eggs
+          command: rm -rf girderformindlogger/.eggs
       - run:
           name: Install Girder with extras
           command: >-
