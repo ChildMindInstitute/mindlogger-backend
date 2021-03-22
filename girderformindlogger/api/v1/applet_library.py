@@ -80,6 +80,7 @@ class AppletLibrary(Resource):
         .jsonParam(
             'selection',
             'A JSON Object containing information about basket update.',
+            paramType='form',
             required=True
         )
     )
