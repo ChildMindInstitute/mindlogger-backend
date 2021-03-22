@@ -9,6 +9,7 @@ from girderformindlogger.models.profile import Profile as ProfileModel
 from girderformindlogger.models.applet_categories import AppletCategory
 from girderformindlogger.models.applet import Applet as AppletModel
 from girderformindlogger.models.user import User as UserModel
+from girderformindlogger.models.applet_basket import AppletBasket
 from girderformindlogger.utility import jsonld_expander
 from pymongo import DESCENDING, ASCENDING
 from bson.objectid import ObjectId
@@ -30,6 +31,88 @@ class AppletLibrary(Resource):
         self.route('GET', ('applet', 'content'), self.getPublishedApplet)
 
         self.route('POST', ('categories',), self.addCategory)
+        self.route('POST', ('basket', ), self.setBasket)
+        self.route('GET', ('basket', ), self.getBasket)
+        self.route('PUT', ('basket', 'selection'), self.updateBasket)
+        self.route('DELETE', ('basket', 'applet'), self.deleteAppletFromBasket)
+
+    @access.user(scope=TokenScope.DATA_OWN)
+    @autoDescribeRoute(
+        Description('Set Basket.')
+        .notes(
+            'This endpoint is used after user logs in applet library. ( items added to based on logged out state are sent for initialization. )'
+        )
+        .jsonParam(
+            'basket',
+            'a json object specifying initial basket data',
+            paramType='form',
+            required=True
+        )
+    )
+    def setBasket(self, basket):
+        user = self.getCurrentUser()
+
+        AppletBasket().setSelection(user['_id'], basket)
+
+    @access.user(scope=TokenScope.DATA_OWN)
+    @autoDescribeRoute(
+        Description('Set Basket.')
+        .notes(
+            'This endpoint is used for getting current basket for user'
+        )
+    )
+    def getBasket(self):
+        user = self.getCurrentUser()
+
+        return AppletBasket().getBasket(user['_id'])
+
+    @access.user(scope=TokenScope.DATA_OWN)
+    @autoDescribeRoute(
+        Description('Update applet/activity/item selection.')
+        .notes(
+            'This endpoint is used when user adds new item in the basket or update selection on applet.'
+        )
+        .param(
+            'appletId',
+            'id of applet that selection is updated',
+            required=True
+        )
+        .jsonParam(
+            'selection',
+            'A JSON Object containing information about basket update.',
+            required=True
+        )
+    )
+    def updateBasket(self, appletId, selection):
+        user = self.getCurrentUser()
+
+        for activitySelection in selection:
+            AppletBasket().updateSelection(
+                user['_id'],
+                ObjectId(appletId),
+                ObjectId(activitySelection['activityId']),
+                activitySelection['items']
+            )
+
+    @access.user(scope=TokenScope.DATA_OWN)
+    @autoDescribeRoute(
+        Description('Delete a selection from basket.')
+        .notes(
+            'This endpoint is used for deleting a selection (applet) from basket.'
+        )
+        .param(
+            'appletId',
+            'id of applet that selection is going to be removed.',
+            required=True
+        )
+    )
+    def deleteAppletFromBasket(self, appletId):
+        user = self.getCurrentUser()
+
+        AppletBasket().deleteSelection(user['_id'], ObjectId(appletId))
+        return {
+            'message': 'deleted'
+        }
 
     @access.public
     @autoDescribeRoute(
