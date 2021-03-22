@@ -65,11 +65,7 @@ installReqs = [
     'sentry-sdk==0.16.0',
     'simplejson',
     'six>=1.9',
-    'tzlocal>=1.5.1',
-	'pytest-cov==2.7.1',
-	'pytest==3.6.1',
-	'wheel',
-	'setuptools'
+    'tzlocal>=1.5.1'
 ]
 
 extrasReqs = {

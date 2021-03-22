@@ -102,11 +102,17 @@ jobs:
             python3 -m venv /home/circleci/.virtualenvs/girderformindlogger
             echo '. /home/circleci/.virtualenvs/girderformindlogger/bin/activate' >> $BASH_ENV
       - run:
+          name: Upgrade Python toolchain
+          command: pip install --upgrade pytest-cov==2.7.1 pytest==3.6.1 wheel setuptools
+      - run:
           name: Install Girder plugin system dependencies
           command: sudo apt-get install -y libldap2-dev libsasl2-dev
       - run:
+          name: List files
+          command: sudo ls -a /home/circleci/project/girderformindlogger
+      - run:
           name: Remove eggs directory
-          command: rm -rf /home/circleci/project/girderformindlogger/.eggs
+          command: sudo rm -rf /home/circleci/project/girderformindlogger/.eggs/
       - run:
           name: Install Girder with extras
           command: >-
