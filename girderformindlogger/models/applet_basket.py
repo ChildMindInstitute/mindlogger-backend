@@ -60,7 +60,7 @@ class AppletBasket(AccessControlledModel):
 
                 activitySelection['items'] = [
                     ObjectId(itemId) for itemId in items
-                ]
+                ] if items is not None else None
 
         if not updated:
             document['selection'] = document.get('selection', [])
@@ -69,7 +69,7 @@ class AppletBasket(AccessControlledModel):
                 'activityId': ObjectId(activityId),
                 'items': [
                     ObjectId(itemId) for itemId in items
-                ]
+                ] if items is not None else None
             })
 
         self.save(document)
@@ -96,13 +96,13 @@ class AppletBasket(AccessControlledModel):
                 for activitySelection in selection[appletId]:
                     try:
                         activityId = activitySelection['activityId']
-                        items = activitySelection['items']
+                        items = activitySelection.get('items', None)
 
                         document['selection'].append({
                             'activityId': ObjectId(activityId),
                             'items': [
                                 ObjectId(itemId) for itemId in items
-                            ]
+                            ] if items is not None else None
                         })
                     except:
                         pass

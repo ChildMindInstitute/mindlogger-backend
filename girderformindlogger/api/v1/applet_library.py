@@ -92,7 +92,7 @@ class AppletLibrary(Resource):
                 user['_id'],
                 ObjectId(appletId),
                 ObjectId(activitySelection['activityId']),
-                activitySelection['items']
+                activitySelection.get('items', None)
             )
 
     @access.user(scope=TokenScope.DATA_OWN)
