@@ -112,8 +112,8 @@ jobs:
           command: ls -a girderformindlogger
       - run:
           name: Install Girder with extras
-          shell: /bin/sh
-          command: >-
+          command:>-
+            set +e
             pip install -r requirements.txt & pip install
             --upgrade --upgrade-strategy eager
             --editable .[sftp,mount]
