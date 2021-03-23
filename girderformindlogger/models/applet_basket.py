@@ -35,7 +35,7 @@ class AppletBasket(AccessControlledModel):
     def validate(self, document):
         return document
 
-    def updateSelection(self, userId, appletId, activityId, items):
+    def updateSelection(self, userId, appletId, selection):
         libraryApplet = AppletLibrary().findOne({'appletId': appletId})
 
         if not libraryApplet:
@@ -53,25 +53,33 @@ class AppletBasket(AccessControlledModel):
                 'appletId': ObjectId(appletId)
             }
 
-        updated = False
+        if not selection:
+            document['selection'] = None
+        else:
+            for activitySelection in selection:
+                activityId = ObjectId(activitySelection['activityId'])
+                items = activitySelection.get('items', None)
 
-        for activitySelection in document.get('selection', []):
-            if activitySelection['activityId'] == ObjectId(activityId):
-                updated = True
+                updated = False
 
-                activitySelection['items'] = [
-                    ObjectId(itemId) for itemId in items
-                ] if items is not None else None
+                if not document.get('selection', []):
+                    document['selection'] = []
 
-        if not updated:
-            document['selection'] = document.get('selection', [])
+                for activitySelection in document['selection']:
+                    if activitySelection['activityId'] == activityId:
+                        updated = True
 
-            document['selection'].append({
-                'activityId': ObjectId(activityId),
-                'items': [
-                    ObjectId(itemId) for itemId in items
-                ] if items is not None else None
-            })
+                        activitySelection['items'] = [
+                            ObjectId(itemId) for itemId in items
+                        ] if items is not None else None
+
+                if not updated:
+                    document['selection'].append({
+                        'activityId': activityId,
+                        'items': [
+                            ObjectId(itemId) for itemId in items
+                        ] if items is not None else None
+                    })
 
         self.save(document)
 

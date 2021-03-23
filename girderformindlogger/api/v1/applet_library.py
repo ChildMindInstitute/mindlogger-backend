@@ -99,13 +99,15 @@ class AppletLibrary(Resource):
     def updateBasket(self, appletId, selection=None):
         user = self.getCurrentUser()
 
-        for activitySelection in selection:
-            AppletBasket().updateSelection(
-                user['_id'],
-                ObjectId(appletId),
-                ObjectId(activitySelection['activityId']),
-                activitySelection.get('items', None)
-            )
+        AppletBasket().updateSelection(
+            user['_id'],
+            ObjectId(appletId),
+            selection
+        )
+
+        return {
+            'message': 'updated'
+        }
 
     @access.user(scope=TokenScope.DATA_OWN)
     @autoDescribeRoute(
