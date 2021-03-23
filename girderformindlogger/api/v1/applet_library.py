@@ -75,7 +75,65 @@ class AppletLibrary(Resource):
         )
     )
     def getBasketContent(self):
-        pass
+        result = {}
+
+        user = self.getCurrentUser()
+        basket = AppletBasket().getBasket(user['_id'])
+
+        for appletId in basket:
+            selection = basket[appletId]
+
+            applet = AppletModel().findOne({
+                '_id': ObjectId(appletId)
+            })
+
+            formatted = jsonld_expander.formatLdObject(
+                applet,
+                'applet',
+                None,
+                refreshCache=False
+            )
+
+            formatted['accountId'] = applet['accountId']
+
+            if selection is None: # select whole applet
+                result[appletId] = formatted
+            else:
+                activityIDToIRI = {}
+                itemIDToIRI = {}
+                content = { 'activities': {}, 'items': {} }
+
+                for activityIRI in formatted['activities']:
+                    activity = formatted['activities'][activityIRI]
+                    activityIDToIRI[activity['_id'].split('/')[-1]] = activityIRI
+
+                for itemIRI in formatted['items']:
+                    item = formatted['items'][itemIRI]
+                    itemIDToIRI[item['_id'].split('/')[-1]] = itemIRI
+
+                for activitySelection in selection:
+                    activityId = activitySelection['activityId']
+                    items = activitySelection.get('items', None)
+
+                    if items: # select specific items
+                        for itemId in items:
+                            itemIRI = itemIDToIRI.get(str(itemId), None)
+
+                            if not itemIRI:
+                                continue
+
+                            content['items'][itemIRI] = formatted['items'][itemIRI]
+                    else: # select whole activity
+                        activityIRI = activityIDToIRI[str(activityId)]
+                        activity = content['activities'][activityIRI] = formatted['activities'][activityIRI]
+
+                        if len(activity.get('reprolib:terms/order', [])):
+                            for itemIRI in activity['reprolib:terms/order'][0]['@list']:
+                                content['items'][itemIRI['@id']] = formatted['items'][itemIRI['@id']]
+
+                result[appletId] = content
+
+        return result
 
     @access.user(scope=TokenScope.DATA_OWN)
     @autoDescribeRoute(
