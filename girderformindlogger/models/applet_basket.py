@@ -13,6 +13,7 @@ from girderformindlogger.constants import AccessType
 from girderformindlogger.exceptions import ValidationException, GirderException
 from girderformindlogger.models.model_base import AccessControlledModel, Model
 from girderformindlogger.models.applet_library import AppletLibrary
+from girderformindlogger.exceptions import AccessException, ValidationException
 from girderformindlogger.utility.model_importer import ModelImporter
 from girderformindlogger.constants import USER_ROLES
 from bson import json_util
@@ -118,7 +119,7 @@ class AppletBasket(AccessControlledModel):
 
         basket = {}
         for applet in applets:
-            appletId = str(applet['_id'])
+            appletId = str(applet['appletId'])
 
             basket[appletId] = applet['selection']
 

@@ -33,6 +33,7 @@ class AppletLibrary(Resource):
         self.route('POST', ('categories',), self.addCategory)
         self.route('POST', ('basket', ), self.setBasket)
         self.route('GET', ('basket', ), self.getBasket)
+        self.route('GET', ('basket', 'content',), self.getBasketContent)
         self.route('PUT', ('basket', 'selection'), self.updateBasket)
         self.route('DELETE', ('basket', 'applet'), self.deleteAppletFromBasket)
 
@@ -56,7 +57,7 @@ class AppletLibrary(Resource):
 
     @access.user(scope=TokenScope.DATA_OWN)
     @autoDescribeRoute(
-        Description('Set Basket.')
+        Description('Get Basket.')
         .notes(
             'This endpoint is used for getting current basket for user'
         )
@@ -65,6 +66,16 @@ class AppletLibrary(Resource):
         user = self.getCurrentUser()
 
         return AppletBasket().getBasket(user['_id'])
+
+    @access.user(scope=TokenScope.DATA_OWN)
+    @autoDescribeRoute(
+        Description('Set Basket.')
+        .notes(
+            'This endpoint is used for getting content of basket for user'
+        )
+    )
+    def getBasketContent(self):
+        pass
 
     @access.user(scope=TokenScope.DATA_OWN)
     @autoDescribeRoute(
@@ -81,10 +92,11 @@ class AppletLibrary(Resource):
             'selection',
             'A JSON Object containing information about basket update.',
             paramType='form',
-            required=True
+            required=False,
+            default=None
         )
     )
-    def updateBasket(self, appletId, selection):
+    def updateBasket(self, appletId, selection=None):
         user = self.getCurrentUser()
 
         for activitySelection in selection:
@@ -145,6 +157,7 @@ class AppletLibrary(Resource):
         for libraryApplet in libraryApplets:
             result.append({
                 'id': libraryApplet['_id'],
+                'appletId': libraryApplet['appletId'],
                 'name': libraryApplet['name'],
                 'accountId': libraryApplet['accountId'],
                 'categoryId': libraryApplet['categoryId'],
