@@ -108,9 +108,6 @@ jobs:
           name: Install Girder plugin system dependencies
           command: sudo apt-get install -y libldap2-dev libsasl2-dev
       - run:
-          name: Get virtualenv path
-          command: ls -a girderformindlogger
-      - run:
           name: Install Girder with extras
           command: set +e | >-
             pip install -r requirements.txt & pip install
@@ -122,9 +119,6 @@ jobs:
       - run:
           name: Create Girder build directory
           command: mkdir girder_build
-      - run:
-          name: Get virtualenv path
-          command: ls -a
       - run:
           name: Install, build, run and test Girder for MindLogger
           command: >-
