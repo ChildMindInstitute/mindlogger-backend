@@ -97,13 +97,14 @@ jobs:
              pyenv install 3.6.3 || true
              pyenv global 3.6.3
       - run:
-          name: Create and activate virtual environment
-          command: |
-            python3 -m venv /home/circleci/.virtualenvs/girderformindlogger
-            echo '. /home/circleci/.virtualenvs/girderformindlogger/bin/activate' >> $BASH_ENV
+          name: Create virtual environment
+          command: python3 -m venv /home/circleci/.virtualenvs/girderformindlogger
+      - run:
+          name: Activate virtual environment
+          command: . /home/circleci/.virtualenvs/girderformindlogger/bin/activate
       - run:
           name: Upgrade Python toolchain
-          command: pip install --upgrade setuptools==50.3.2
+          command: pip install --upgrade wheel setuptools==50.3.2
       - run:
           name: Get virtualenv path
           command: which python3
