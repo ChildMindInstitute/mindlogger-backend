@@ -24,7 +24,7 @@ with open('README.rst') as f:
 
 installReqs = [
 	'asn1crypto==0.24.0',
-	'attrs==19.1.0',
+	'attrs==19.2.0',
     'boto3',
     'botocore',
     'cherrypy_cors==1.6',
