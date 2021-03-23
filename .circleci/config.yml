@@ -105,17 +105,8 @@ jobs:
           name: Get virtualenv path
           command: which python3
       - run:
-          name: Upgrade Python toolchain
-          command: pip install --upgrade pytest-cov==2.7.1 pytest==3.6.1 wheel setuptools
-      - run:
           name: Install Girder plugin system dependencies
           command: sudo apt-get install -y libldap2-dev libsasl2-dev
-      - run:
-          name: List files
-          command: sudo ls -a /home/circleci/project/girderformindlogger
-      - run:
-          name: Remove eggs directory
-          command: sudo rm -rf /home/circleci/project/girderformindlogger/.eggs/
       - run:
           name: Install Girder with extras
           command: >-
@@ -135,7 +126,7 @@ jobs:
             girderformindlogger build &&
             girderformindlogger serve &
             sleep 300 &&
-            python -m pytest girderformindlogger/test
+            pytest girderformindlogger/test
             --capture=no --cov=girderformindlogger
             --cov-report html --cov-report xml
       - store_test_results:
