@@ -68,7 +68,7 @@ installReqs = [
     'simplejson',
     'six>=1.9',
     'tzlocal>=1.5.1',
-	'pytest==3.6.1',
+	'pytest==6.2.2',
 	'pytest-cov==2.7.1',
 	'girder_client==3.0.3'
 ]
