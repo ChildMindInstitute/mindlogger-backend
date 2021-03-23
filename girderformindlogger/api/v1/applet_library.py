@@ -69,7 +69,7 @@ class AppletLibrary(Resource):
 
     @access.user(scope=TokenScope.DATA_OWN)
     @autoDescribeRoute(
-        Description('Set Basket.')
+        Description('Get Content applets in Basket.')
         .notes(
             'This endpoint is used for getting content of basket for user'
         )
