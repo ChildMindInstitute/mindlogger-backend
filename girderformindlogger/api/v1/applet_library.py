@@ -13,7 +13,8 @@ from girderformindlogger.models.applet_basket import AppletBasket
 from girderformindlogger.utility import jsonld_expander
 from pymongo import DESCENDING, ASCENDING
 from bson.objectid import ObjectId
-
+from girderformindlogger.models.protocol import Protocol as ProtocolModel
+from girderformindlogger.models.item import Item as ItemModel
 
 USER_ROLE_KEYS = USER_ROLES.keys()
 
@@ -36,6 +37,82 @@ class AppletLibrary(Resource):
         self.route('GET', ('basket', 'content',), self.getBasketContent)
         self.route('PUT', ('basket', 'selection'), self.updateBasket)
         self.route('DELETE', ('basket', 'applet'), self.deleteAppletFromBasket)
+
+        self.route('GET', ('contribution', 'origin'), self.getProtocolContributions)
+        self.route('GET', ('contribution', 'updates'), self.getProtocolUpdates)
+
+    @access.user(scope=TokenScope.DATA_READ)
+    @autoDescribeRoute(
+        Description('Get content of protocol by applet id.')
+        .param(
+            'libraryId',
+            description='ID of the applet in the library',
+            required=True
+        )
+        .errorResponse('Invalid applet ID.')
+        .errorResponse('Read access was denied for this applet.', 403)
+    )
+    def getProtocolContributions(self, libraryId):
+        libraryApplet = self._model.findOne({
+            '_id': ObjectId(libraryId)
+        })
+
+        applet = AppletModel().findOne({
+            '_id': libraryApplet['appletId']
+        })
+
+        protocolId = applet.get('meta', {}).get('protocol', {}).get('_id', '').split('/')[-1]
+
+        return ProtocolModel().getContributions(protocolId)
+
+    @access.user(scope=TokenScope.DATA_READ)
+    @autoDescribeRoute(
+        Description('Get content of protocol by applet id.')
+        .param(
+            'libraryId',
+            description='ID of the applet in the library',
+            required=True
+        )
+        .errorResponse('Invalid applet ID.')
+        .errorResponse('Read access was denied for this applet.', 403)
+    )
+    def getProtocolUpdates(self, libraryId):
+        libraryApplet = self._model.findOne({
+            '_id': ObjectId(libraryId)
+        })
+
+        applet = AppletModel().findOne({
+            '_id': libraryApplet['appletId']
+        })
+
+        protocolId = applet.get('meta', {}).get('protocol', {}).get('_id', '').split('/')[-1]
+
+        items = list(ItemModel().find({
+            'meta.protocolId': ObjectId(protocolId)
+        }))
+
+        updates = {}
+        editors = {}
+
+        userModel = UserModel()
+        for item in items:
+            if 'identifier' in item['meta'] and 'lastUpdatedBy' in item:
+                editorId = str(item['lastUpdatedBy'])
+
+                if editorId not in editors:
+                    user = userModel.findOne({
+                        '_id': item['lastUpdatedBy']
+                    })
+
+                    editors[editorId] = user['firstName']
+
+                updates[item['meta']['identifier']] = {
+                    'updated': item['updated'],
+                    'lastUpdatedBy': editors[editorId]
+                }
+
+        return updates
+
 
     @access.user(scope=TokenScope.DATA_OWN)
     @autoDescribeRoute(
