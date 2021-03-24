@@ -534,6 +534,103 @@ def cacheProtocolContent(protocol, document, user, editExisting=False):
 
         ItemModel().save(item)
 
+def updateContributions(protocol, document, user):
+    contributionFolder = None
+
+    if protocol.get('meta', {}).get('contributionId', None):
+        contributionFolder = FolderModel().load(protocol['meta']['contributionId'], force=True)
+        contributionFolder['name'] = 'contribution of ' + protocol['name']
+
+        FolderModel().validate(contributionFolder, allowRename=True)
+
+    if not contributionFolder:
+        contributionFolder = FolderModel().createFolder(
+            name='contribution of ' + protocol['name'],
+            parent=protocol,
+            parentType='folder',
+            public=False,
+            creator=user,
+            allowRename=True,
+            reuseExisting=True
+        )
+
+        protocol['meta']['contributionId'] = contributionFolder['_id']
+        FolderModel().setMetadata(protocol, protocol['meta'])
+
+        ## log new contributions
+        appletIdToAccountId = {}
+
+        for activity in document['protocol']['activities'].values():
+            if activity.get('baseActivityId', None):
+                try: # save information about activity was based from
+                    baseActivity = FolderModel().load(activity['baseActivityId'], force=True)
+                    baseActivity['meta']['baseActivityId'] = baseActivity.pop('_id')
+
+                    baseActivity['meta']['activityId'] = activity['_id']
+                    baseActivity['parentId'] = contributionFolder['_id']
+                    baseActivity['cached'] = None
+
+                    baseActivity['meta']['baseAppletId'] = appletId = activity['baseAppletId']
+
+                    if appletId not in appletIdToAccountId:
+                        applet = FolderModel().findOne({'_id': ObjectId(appletId)})
+                        appletIdToAccountId[appletId] = applet['accountId']
+
+                    baseActivity['meta']['baseAccountId'] = appletIdToAccountId[appletId]
+
+                    FolderModel().save(baseActivity)
+                except:
+                    pass
+
+            if 'items' in activity:
+                for item in activity['items'].values():
+                    if item.get('baseItemId', None):
+                        try: # save information about item was based from
+                            baseItem = ItemModel().load(item['baseItemId'], force=True)
+                            baseItem['meta']['baseItemId'] = baseItem.pop('_id')
+
+                            baseItem['meta']['itemId'] = item['_id']
+                            baseItem['folderId'] = contributionFolder['_id']
+
+                            baseItem['meta']['baseAppletId'] = appletId = item['baseAppletId']
+
+                            if appletId not in appletIdToAccountId:
+                                applet = FolderModel().findOne({'_id': ObjectId(appletId)})
+                                appletIdToAccountId[appletId] = applet['accountId']
+
+                            baseItem['meta']['baseAccountId'] = appletIdToAccountId[appletId]
+
+                            if baseItem.get('cached', None):
+                                cache = loadCache(baseItem['cached'])
+                                baseItem['cached'] = None
+
+                                cache['_id'] = f'screen/{str(item["_id"])}'
+                                createCache(baseItem, cache, 'screen', user)
+
+                            ItemModel().save(baseItem)
+                        except:
+                            pass
+
+        removedActivities = document.get('removed', {}).get('activities')
+        removedItems = document.get('removed', {}).get('items')
+
+        # remove contribution info for deleted activities
+        for activityId in removedActivities:
+            FolderModel().removeWithQuery({
+                'meta.activityId': ObjectId(activityId),
+                'parentId': contributionFolder['_id']
+            })
+
+        # remove contribution info for deleted items
+        for itemId in removedItems:
+            item = ScreenModel().findOne({
+                'meta.itemId': ObjectId(item),
+                'folderId': contributionFolder['_id']
+            })
+            if item:
+                clearCache(item, 'screen')
+                ScreenModel().remove(item)
+
 def loadFromSingleFile(document, user, editExisting=False):
     if 'protocol' not in document or 'data' not in document['protocol']:
         raise ValidationException(
@@ -583,6 +680,7 @@ def loadFromSingleFile(document, user, editExisting=False):
     protocol = ProtocolModel().load(protocolId, force=True)
 
     cacheProtocolContent(protocol, document, user, editExisting)
+    updateContributions(protocol, document, user)
 
     return formatLdObject(
         protocol,

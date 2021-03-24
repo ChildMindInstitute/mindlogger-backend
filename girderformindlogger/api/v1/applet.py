@@ -92,6 +92,7 @@ class Applet(Resource):
         self.route('POST', ('fromJSON', ), self.createAppletFromProtocolData)
         self.route('GET', (':id', 'protocolData'), self.getProtocolData)
         self.route('GET', (':id', 'versions'), self.getProtocolVersions)
+        self.route('GET', (':id', 'contribution', 'origin'), self.getProtocolContributions)
         self.route('PUT', (':id', 'prepare',), self.prepareAppletForEdit)
         self.route('PUT', (':id', 'fromJSON'), self.updateAppletFromProtocolData)
         self.route('POST', (':id', 'duplicate', ), self.duplicateApplet)
@@ -535,6 +536,23 @@ class Applet(Resource):
         return [
             item['version'] for item in items
         ]
+
+    @access.user(scope=TokenScope.DATA_READ)
+    @autoDescribeRoute(
+        Description('Get content of protocol by applet id.')
+        .modelParam('id', model=AppletModel, level=AccessType.READ, destName='applet')
+        .errorResponse('Invalid applet ID.')
+        .errorResponse('Read access was denied for this applet.', 403)
+    )
+    def getProtocolContributions(self, applet):
+        thisUser = self.getCurrentUser()
+
+        if not self._model._hasRole(applet['_id'], thisUser, 'editor'):
+            raise AccessException('You don\'t have enough permission to get contribution info of this protocol.')
+
+        protocolId = applet.get('meta', {}).get('protocol', {}).get('_id', '').split('/')[-1]
+
+        return ProtocolModel().getContributions(protocolId)
 
     @access.user(scope=TokenScope.DATA_WRITE)
     @autoDescribeRoute(

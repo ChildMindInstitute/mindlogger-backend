@@ -267,6 +267,20 @@ class Protocol(FolderModel):
             protocol['meta']['contentId'] = contentFolder['_id']
             updated = True
 
+        if not protocol['meta'].get('contributionId'):
+            contributionFolder = FolderModel().createFolder(
+                name='contribution of ' + protocol['name'],
+                parent=protocol,
+                parentType='folder',
+                public=False,
+                creator=user,
+                allowRename=True,
+                reuseExisting=True
+            )
+
+            protocol['meta']['contributionId'] = contributionFolder['_id']
+            updated = True
+
         if updated:
             protocol = self.setMetadata(protocol, protocol['meta'])
 
@@ -454,3 +468,24 @@ class Protocol(FolderModel):
                     changeInfo[modelType][str(reference['meta']['identifier'])] = 'created'
 
         return (hasUrl, changeInfo)
+
+    def getContributions(self, protocolId):
+        from girderformindlogger.utility import jsonld_expander
+        from girderformindlogger.models.item import Item as ItemModel
+
+        protocol = self.load(protocolId, force=True)
+
+        if not protocol.get('meta', {}).get('contributionId', None):
+            return {}
+
+        contributions = list(ItemModel().find({
+            'folderId': protocol['meta']['contributionId']
+        }))
+
+        result = {}
+        for item in contributions:
+            formattedItem = jsonld_expander.loadCache(item['cached'])
+
+            result[str(item['meta']['itemId'])] = formattedItem
+
+        return result
