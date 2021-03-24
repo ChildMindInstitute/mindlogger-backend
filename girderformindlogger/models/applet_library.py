@@ -40,6 +40,14 @@ class AppletLibrary(AccessControlledModel):
         return document
 
     def addAppletToLibrary(self, applet):
+        libraryApplet = self.findOne({
+            'appletId': applet['_id']
+        })
+
+        if libraryApplet:
+            return libraryApplet
+
+
         libraryApplet = {
             'name': applet.get('meta', {}).get('applet', {}).get('displayName', ''),
             'appletId': applet['_id'],
