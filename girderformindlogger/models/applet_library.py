@@ -93,4 +93,6 @@ class AppletLibrary(AccessControlledModel):
             'keywords': keywords
         })
 
-        return libraryApplet.save()
+        libraryApplet = self.save(libraryApplet)
+
+        return libraryApplet
