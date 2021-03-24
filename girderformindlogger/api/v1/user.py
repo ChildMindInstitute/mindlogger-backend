@@ -71,6 +71,7 @@ class User(Resource):
                    self.checkTemporaryPassword)
         self.route('PUT', ('password', 'temporary'),
                    self.generateTemporaryPassword)
+        self.route('POST', ('token',), self.generateOneTimeToken)
         self.route('POST', (':id', 'otp'), self.initializeOtp)
         self.route('PUT', (':id', 'otp'), self.finalizeOtp)
         self.route('DELETE', (':id', 'otp'), self.removeOtp)
@@ -183,6 +184,25 @@ class User(Resource):
         from bson.objectid import ObjectId
         user = self.getCurrentUser()
         return(ProfileModel().getProfile(id, user))
+
+    @access.user(scope=TokenScope.DATA_OWN)
+    @autoDescribeRoute(
+        Description('Set or update your own custom schedule information for an applet.')
+        .notes(
+            'This endpoint is used for generating one-time token. <br>'
+        )
+    )
+    def generateOneTimeToken(self):
+        user = self.getCurrentUser()
+
+        token = Token().createToken(user, days=(1/1440.0), scope=[
+            TokenScope.ONE_TIME_AUTH,
+            TokenScope.USER_AUTH
+        ])
+
+        return {
+            'token': token['_id']
+        }
 
     @access.user(scope=TokenScope.DATA_WRITE)
     @autoDescribeRoute(
@@ -976,6 +996,10 @@ class User(Resource):
                 self._model.save(user)
 
             setCurrentUser(user)
+            token = self.sendAuthTokenCookie(user)
+
+        if user and Token().hasScope(token, TokenScope.ONE_TIME_AUTH):
+            Token().remove(token)
             token = self.sendAuthTokenCookie(user)
 
         account = AccountProfile().findOne({'_id': user['accountId']})

@@ -322,6 +322,7 @@ class TokenScope(object):
     of strings.
     """
 
+    ONE_TIME_AUTH = 'core.one_time'
     ANONYMOUS_SESSION = 'core.anonymous_session'
     USER_AUTH = 'core.user_auth'
     TEMPORARY_USER_AUTH = 'core.user_auth.temporary'
