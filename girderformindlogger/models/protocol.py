@@ -30,6 +30,7 @@ from girderformindlogger.api.rest import getCurrentUser
 from girderformindlogger.constants import AccessType, SortDir, MODELS
 from girderformindlogger.exceptions import ValidationException, GirderException
 from girderformindlogger.models.folder import Folder as FolderModel
+from girderformindlogger.models.account_profile import AccountProfile
 from girderformindlogger.models.user import User as UserModel
 from girderformindlogger.utility.progress import noProgress, setResponseTimeLimit
 
@@ -483,8 +484,20 @@ class Protocol(FolderModel):
         }))
 
         result = {}
+
+        accountID2Name = {}
+
         for item in contributions:
             formattedItem = jsonld_expander.loadCache(item['cached'])
+            formattedItem['created'] = item['created']
+
+            baseAccountId = item['meta']['baseAccountId']
+
+            if str(baseAccountId) in accountIDToName:
+                account = AccountProfile().getOwner(baseAccountId)
+                accountID2Name[str(baseAccountId)] = account['accountName']
+
+            formattedItem['baseAccount'] = accountID2Name[str(baseAccountId)]
 
             result[str(item['meta']['itemId'])] = formattedItem
 
