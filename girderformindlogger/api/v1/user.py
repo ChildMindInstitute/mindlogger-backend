@@ -195,7 +195,7 @@ class User(Resource):
     def generateOneTimeToken(self):
         user = self.getCurrentUser()
 
-        token = Token().createToken(user, days=(1/1440.0), scope=[
+        token = Token().createToken(user, days=(10/1440.0), scope=[
             TokenScope.ONE_TIME_AUTH,
             TokenScope.USER_AUTH
         ])
