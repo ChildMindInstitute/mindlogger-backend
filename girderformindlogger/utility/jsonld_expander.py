@@ -163,6 +163,7 @@ def insertHistoryData(obj, identifier, modelType, baseVersion, historyFolder, hi
         obj = createCache(obj, formatted, modelClass.name, user)
 
     itemModel = ItemModel()
+
     # update references
     referenceObj = itemModel.findOne({
         'folderId': historyReferenceFolder['_id'],
@@ -176,6 +177,7 @@ def insertHistoryData(obj, identifier, modelType, baseVersion, historyFolder, hi
             reuseExisting=False
         ), {
             'identifier': identifier,
+            'modelType': modelType,
             'history': []
         })
 
@@ -190,7 +192,8 @@ def insertHistoryData(obj, identifier, modelType, baseVersion, historyFolder, hi
             }
         },
         '$set': {
-            'updated': now
+            'updated': now,
+            'meta.lastVersion': baseVersion
         }
     })
 

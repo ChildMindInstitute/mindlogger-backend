@@ -14,7 +14,7 @@ AMOUNT_MESSAGES_PER_REQUEST = 1000
 
 
 # this handles notifications for activities
-def send_push_notification(applet_id, event_id, activity_id=None, send_time=None):
+def send_push_notification(applet_id, event_id, activity_id=None, send_time=None, reminder=False):
     from girderformindlogger.models.events import Events
     from girderformindlogger.models.profile import Profile
 
@@ -49,6 +49,14 @@ def send_push_notification(applet_id, event_id, activity_id=None, send_time=None
             }
 
         if activity_id:
+            rangeStart = now - datetime.timedelta(hours=12)
+
+            if reminder:
+                days = int(event.get('data', {}).get('reminder', {}).get('days', 0))
+                time = event.get('data', {}).get('reminder', {}).get('time', '00:00')
+
+                rangeStart = now - datetime.timedelta(days=days, hours=int(time[:2]), minutes=int(time[-2:]))
+
             query['completed_activities'] = {
                 '$elemMatch': {
                     '$or': [
@@ -56,7 +64,7 @@ def send_push_notification(applet_id, event_id, activity_id=None, send_time=None
                             'activity_id': activity_id,
                             'completed_time': {
                                 '$not': {
-                                    '$gt': now - datetime.timedelta(hours=12),
+                                    '$gt': rangeStart,
                                     '$lt': now
                                 }
                             }
@@ -79,10 +87,16 @@ def send_push_notification(applet_id, event_id, activity_id=None, send_time=None
             message_requests[profile["badge"]].append(profile["deviceId"])
 
         for badge in message_requests:
+            message_title = event['data']['title']
+            message_body  = event['data']['description']
+
+            if reminder:
+                message_title = f'This is a reminder to take {message_title}.'
+
             result = push_service.notify_multiple_devices(
                 registration_ids=message_requests[badge],
-                message_title=event['data']['title'],
-                message_body=event['data']['description'],
+                message_title=message_title,
+                message_body=message_body,
                 time_to_live=0,
                 data_message={
                     "event_id": str(event_id),
@@ -90,6 +104,7 @@ def send_push_notification(applet_id, event_id, activity_id=None, send_time=None
                     "activity_id": str(activity_id),
                     "type": 'event-alert'
                 },
+                extra_kwargs={"apns_expiration": "0"},
                 badge=int(badge) +1
             )
 
@@ -99,7 +114,7 @@ def send_push_notification(applet_id, event_id, activity_id=None, send_time=None
         Profile().updateProfileBadgets(profiles)
 
         # if random time we will reschedule it in time between 23:45 and 23:59
-        if event['data']['notifications'][0]['random'] and now.hour == 23 and 59 >= now.minute >= 45:
+        if not reminder and event['data']['notifications'][0]['random'] and now.hour == 23 and 59 >= now.minute >= 45:
             Events().rescheduleRandomNotifications(event)
 
 # this handles other custom notifications
@@ -120,3 +135,41 @@ def send_custom_notification(notification):
                     "type": notification['type']
                 }
             )
+
+def send_applet_update_notification(applet, isDeleted=False, profiles=[]):
+    from girderformindlogger.models.profile import Profile
+
+    applet_id = applet['_id']
+    appletName = applet['meta']['applet'].get('displayName', applet.get('displayName', 'new applet'))
+
+    profiles = Profile().get_profiles_by_applet_id(applet_id) if not profiles else profiles
+
+    # ordered by badge
+    message_requests = defaultdict(list)
+    for profile in profiles:
+        if (isDeleted or not profile.get('deactivated', False)) and profile.get('deviceId', None):
+            message_requests[profile['badge']].append(profile['deviceId'])
+
+    message_title='Applet Update',
+    message_body= f'Content of your applet ({appletName}) was updated by editor.',
+    data_message={
+        "applet_id": str(applet_id),
+        "type": 'applet-update-alert'
+    }
+
+    if isDeleted:
+        message_title = 'Applet Delete'
+        message_body = f'Your applet ({appletName}) was deleted by manager'
+        data_message['type'] = 'applet-delete-alert'
+
+    for badge in message_requests:
+        result = push_service.notify_multiple_devices(
+            registration_ids=message_requests[badge],
+            message_title=message_title,
+            message_body= message_body,
+            time_to_live=0,
+            data_message=data_message,
+            badge=int(badge) +1
+        )
+
+    Profile().updateProfileBadgets(profiles)

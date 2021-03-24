@@ -28,6 +28,8 @@ from girderformindlogger.models.token import Token
 from girderformindlogger.models.user import User as UserModel
 from girderformindlogger.models.account_profile import AccountProfile
 from girderformindlogger.utility import jsonld_expander, response
+from bson.objectid import ObjectId
+from girderformindlogger.i18n import t
 
 
 class Invitation(Resource):
@@ -49,11 +51,10 @@ class Invitation(Resource):
             'This endpoint is used to get invitation from id. <br>'
             '(Used in the website to get invitation-html from id)'
         )
-        .modelParam(
+        .param(
             'id',
-            model=InvitationModel,
-            force=True,
-            destName='invitation'
+            'ID of invitation',
+            required=True
         )
         .param(
             'fullHTML',
@@ -69,24 +70,27 @@ class Invitation(Resource):
         )
         .errorResponse()
     )
-    def getInvitation(self, invitation, fullHTML=False, includeLink=True):
+    def getInvitation(self, id, fullHTML=False, includeLink=True):
         """
         Get an invitation as a string.
         """
+
         from girderformindlogger.models.profile import Profile
 
         currentUser = self.getCurrentUser()
 
+        if not currentUser:
+            raise AccessException(
+                "You must be logged in to get invitation."
+            )
+
         htmlInvitation = InvitationModel().htmlInvitation(
-            invitation,
+            id,
             currentUser,
             fullDoc=fullHTML,
             includeLink=includeLink if includeLink is not None else True
         )
-        return {
-            **htmlInvitation,
-            "lang": invitation.get("lang", "en")
-        }
+        return htmlInvitation
 
     @access.public(scope=TokenScope.USER_INFO_READ)
     @autoDescribeRoute(
@@ -135,11 +139,10 @@ class Invitation(Resource):
         .notes(
             'This endpoint is used for logged in user to accept invitation.'
         )
-        .modelParam(
+        .param(
             'id',
-            model=InvitationModel,
-            force=True,
-            destName='invitation'
+            'ID of invitation',
+            required=True
         )
         .param(
             'email',
@@ -149,7 +152,7 @@ class Invitation(Resource):
         )
         .errorResponse()
     )
-    def acceptInvitation(self, invitation, email):
+    def acceptInvitation(self, id, email):
         """
         Accept an invitation.
         """
@@ -161,6 +164,11 @@ class Invitation(Resource):
 
         email = email.lower().strip()
 
+        invitation = InvitationModel().findOne({ '_id': ObjectId(id) })
+
+        if not invitation:
+            return InvitationModel().getMessageForAlreadyAcceptedInvitation(id, currentUser)
+
         if invitation.get('role', 'user') == 'owner':
             profile = AppletModel().receiveOwnerShip(AppletModel().load(invitation['appletId'], force=True), currentUser, email)
         else:
@@ -171,16 +179,19 @@ class Invitation(Resource):
 
         InvitationModel().remove(invitation)
 
-        return profile
+        return {
+            'lang': invitation.get('lang', 'en'),
+            'body': t('invitationAccepted', invitation.get('lang', 'en'))
+        }
+
 
     @access.public(scope=TokenScope.USER_INFO_READ)
     @autoDescribeRoute(
         Description('Accept an invitation by token.')
-        .modelParam(
+        .param(
             'id',
-            model=InvitationModel,
-            force=True,
-            destName='invitation'
+            'ID of invitation',
+            required=True
         )
         .param(
             'email',
@@ -195,7 +206,7 @@ class Invitation(Resource):
         )
         .errorResponse()
     )
-    def acceptInvitationByToken(self, invitation, lang, email, token):
+    def acceptInvitationByToken(self, id, lang, email, token):
         """
         Accept an invitation.
         """
@@ -211,6 +222,12 @@ class Invitation(Resource):
             raise AccessException(
                 "Invalid token."
             )
+
+        invitation = InvitationModel().findOne({ '_id': ObjectId(id) })
+
+        if not invitation:
+            return InvitationModel().getMessageForAlreadyAcceptedInvitation(id, currentUser)
+
         if invitation.get('role', 'user') == 'owner':
             AppletModel().receiveOwnerShip(AppletModel().load(invitation['appletId'], force=True), currentUser, email)
         else:
@@ -226,17 +243,26 @@ class Invitation(Resource):
     @access.public(scope=TokenScope.USER_INFO_READ)
     @autoDescribeRoute(
         Description('Decline an invitation from id.')
-        .modelParam(
+        .param(
             'id',
-            model=InvitationModel,
-            force=True,
-            destName='invitation'
+            'ID of invitation',
+            required=True
         )
         .errorResponse()
     )
-    def declineInvitation(self, invitation):
+    def declineInvitation(self, id):
         """
         Decline an invitation.
         """
+        currentUser = self.getCurrentUser()
+
+        invitation = InvitationModel().findOne({ '_id': ObjectId(id) })
+
+        if not invitation:
+            return InvitationModel().getMessageForAlreadyAcceptedInvitation(id, currentUser)
+
         InvitationModel().remove(invitation)
-        return("Successfully deleted invitation.")
+        return {
+            'lang': invitation.get('lang', 'en'),
+            'body': t('invitationRemoved', invitation.get('lang', 'en'))
+        }

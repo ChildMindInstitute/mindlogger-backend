@@ -39,6 +39,14 @@ class Item(acl_mixin.AccessControlMixin, Model):
                 'meta.identifier',
                 ([
                     ('folderId', 1),
+                    ('meta.lastVersion', 1),
+                ], {}),
+                ([
+                    ('folderId', 1),
+                    ('updated', 1),
+                ], {}),
+                ([
+                    ('folderId', 1),
                     ('name', 1),
                     ('meta.screen.@type', 1),
                     ('meta.screen.url', 1)

@@ -23,6 +23,8 @@ with open('README.rst') as f:
     readme = f.read()
 
 installReqs = [
+	'asn1crypto==0.24.0',
+	'attrs==19.2.0',
     'boto3',
     'botocore',
     'cherrypy_cors==1.6',
@@ -30,15 +32,16 @@ installReqs = [
     # https://github.com/cherrypy/cherrypy/issues/1662
     'CherryPy<11.1',
     'rq==1.5.0',
-    'rq-scheduler==0.10.0',
+	'rq-scheduler==0.10.0',
 	'pyfcm==1.4.7',
     'pycryptodomex',
     'json5',
     'click',
     'click-plugins',
-    'cryptography>=2.3',
+    'cryptography==3.3.2',
     'cerberus==1.3.2',
-    'backports-datetime-fromisoformat',
+    'backports-datetime-fromisoformat==1.0.0',
+	'backports.functools-lru-cache==1.5',
     'dictdiffer',
     'dnspython',
     'dogpile.cache',
@@ -64,7 +67,10 @@ installReqs = [
     'sentry-sdk==0.16.0',
     'simplejson',
     'six>=1.9',
-    'tzlocal>=1.5.1'
+    'tzlocal>=1.5.1',
+	'pytest==6.2.2',
+	'pytest-cov==2.7.1',
+	'girder_client==3.0.3'
 ]
 
 extrasReqs = {
