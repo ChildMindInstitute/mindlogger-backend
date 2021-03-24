@@ -832,6 +832,9 @@ class Applet(Resource):
 
         library_url = os.getenv('LIBRARY_URI') or 'localhost:8081'
 
+        applet['meta']['published'] = publish
+        applet = self._model.setMetadata(applet, applet['meta'])
+
         if publish:
             libraryApplet = AppletLibrary().addAppletToLibrary(applet)
             url = f'{library_url}/applets/{str(libraryApplet["_id"])}'

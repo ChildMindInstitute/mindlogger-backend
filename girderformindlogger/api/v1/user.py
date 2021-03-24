@@ -855,7 +855,8 @@ class User(Resource):
                 'encryption': applet['meta']['encryption'] if applet['meta'].get('encryption', {}).get(
                     'appletPublicKey', None) else None,
                 'hasUrl': (applet['meta'].get('protocol', {}).get('url', None) != None),
-                'roles': appletRoles[appletId]
+                'roles': appletRoles[appletId],
+                'published': applet['meta'].get('published', False)
             })
 
         tokenInfo['account']['alerts'] = ResponseAlerts().getResponseAlerts(user['_id'], account['accountId'])
