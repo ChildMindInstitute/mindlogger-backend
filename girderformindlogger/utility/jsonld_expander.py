@@ -561,7 +561,7 @@ def updateContributions(protocol, document, user):
         appletIdToAccountId = {}
 
         for activity in document['protocol']['activities'].values():
-            if activity.get('baseActivityId', None):
+            if activity.get('baseActivityId', None) and activity.get('baseAppletId', None):
                 try: # save information about activity was based from
                     baseActivity = FolderModel().load(activity['baseActivityId'], force=True)
                     baseActivity['meta']['baseActivityId'] = baseActivity.pop('_id')
@@ -584,7 +584,7 @@ def updateContributions(protocol, document, user):
 
             if 'items' in activity:
                 for item in activity['items'].values():
-                    if item.get('baseItemId', None):
+                    if item.get('baseItemId', None) and activity.get('baseAppletId', None):
                         try: # save information about item was based from
                             baseItem = ItemModel().load(item['baseItemId'], force=True)
                             baseItem['meta']['baseItemId'] = baseItem.pop('_id')
