@@ -32,6 +32,7 @@ from girderformindlogger.exceptions import ValidationException, GirderException
 from girderformindlogger.models.folder import Folder as FolderModel
 from girderformindlogger.models.account_profile import AccountProfile
 from girderformindlogger.models.user import User as UserModel
+from bson import json_util
 from girderformindlogger.utility.progress import noProgress, setResponseTimeLimit
 
 class Protocol(FolderModel):
@@ -486,19 +487,31 @@ class Protocol(FolderModel):
         result = {}
 
         accountID2Name = {}
+        appletId2Name = {}
 
         for item in contributions:
-            formattedItem = jsonld_expander.loadCache(item['cached'])
-            formattedItem['created'] = item['created']
+            formattedItem = json_util.loads(item['content'])
 
             baseAccountId = item['meta']['baseAccountId']
+            baseAppletId = item['meta']['baseAppletId']
 
-            if str(baseAccountId) in accountIDToName:
+            if str(baseAccountId) not in accountID2Name:
                 account = AccountProfile().getOwner(baseAccountId)
                 accountID2Name[str(baseAccountId)] = account['accountName']
 
-            formattedItem['baseAccount'] = accountID2Name[str(baseAccountId)]
+            if str(baseAppletId) not in appletId2Name:
+                applet = FolderModel().findOne({
+                    '_id': baseAppletId
+                })
+                appletId2Name[str(baseAppletId)] = applet['meta']['applet'].get('displayName', '')
 
-            result[str(item['meta']['itemId'])] = formattedItem
+            result[str(item['meta']['itemId'])] = {
+                'content': formattedItem,
+                'baseItem': {
+                    'account': accountID2Name[str(baseAccountId)],
+                    'applet': appletId2Name[str(baseAppletId)],
+                    'itemDate': item['meta']['created']
+                }
+            }
 
         return result

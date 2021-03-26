@@ -536,7 +536,6 @@ def cacheProtocolContent(protocol, document, user, editExisting=False):
 
 def updateContributions(protocol, document, user):
     contributionFolder = None
-
     if protocol.get('meta', {}).get('contributionId', None):
         contributionFolder = FolderModel().load(protocol['meta']['contributionId'], force=True)
         contributionFolder['name'] = 'contribution of ' + protocol['name']
@@ -561,55 +560,48 @@ def updateContributions(protocol, document, user):
     appletIdToAccountId = {}
 
     for activity in document['protocol']['activities'].values():
-        if activity.get('baseActivityId', None) and activity.get('baseAppletId', None):
-            try: # save information about activity was based from
-                baseActivity = FolderModel().load(activity['baseActivityId'], force=True)
-                baseActivity['meta']['baseActivityId'] = baseActivity.pop('_id')
-
-                baseActivity['meta']['activityId'] = activity['_id']
-                baseActivity['parentId'] = contributionFolder['_id']
-                baseActivity['cached'] = None
-
-                baseActivity['meta']['baseAppletId'] = appletId = activity['baseAppletId']
-
-                if appletId not in appletIdToAccountId:
-                    applet = FolderModel().findOne({'_id': ObjectId(appletId)})
-                    appletIdToAccountId[appletId] = applet['accountId']
-
-                baseActivity['meta']['baseAccountId'] = appletIdToAccountId[appletId]
-
-                FolderModel().save(baseActivity)
-            except:
-                pass
-
         if 'items' in activity:
             for item in activity['items'].values():
-                if item.get('baseItemId', None) and activity.get('baseAppletId', None):
-                    try: # save information about item was based from
-                        baseItem = ItemModel().load(item['baseItemId'], force=True)
-                        baseItem['meta']['baseItemId'] = baseItem.pop('_id')
+                if item.get('baseItemId', None) and item.get('baseAppletId', None):
+                    ScreenModel().removeWithQuery({
+                        'meta.baseItemId': ObjectId(item['baseItemId']),
+                        'meta.baseAppletId': ObjectId(item['baseAppletId'])
+                    })
 
-                        baseItem['meta']['itemId'] = item['_id']
-                        baseItem['folderId'] = contributionFolder['_id']
+                    contribution = ScreenModel().createItem(
+                        name=f'contribution of {item.get("name", "")}',
+                        creator=user,
+                        folder=contributionFolder,
+                        reuseExisting=False
+                    )
 
-                        baseItem['meta']['baseAppletId'] = appletId = item['baseAppletId']
+                    baseItem = ScreenModel().load(item['baseItemId'], force=True)
+                    contribution['meta'] = {
+                        'baseItemId': baseItem['_id'],
+                        'itemId': item['_id'],
+                        'baseAppletId': ObjectId(item['baseAppletId']),
+                        'created': baseItem['created']
+                    }
+                    appletId = str(contribution['meta']['baseAppletId'])
 
-                        if appletId not in appletIdToAccountId:
-                            applet = FolderModel().findOne({'_id': ObjectId(appletId)})
-                            appletIdToAccountId[appletId] = applet['accountId']
+                    if appletId not in appletIdToAccountId:
+                        applet = FolderModel().findOne({'_id': ObjectId(appletId)})
+                        appletIdToAccountId[appletId] = applet['accountId']
 
-                        baseItem['meta']['baseAccountId'] = appletIdToAccountId[appletId]
+                    contribution['meta']['baseAccountId'] = appletIdToAccountId[appletId]
 
-                        if baseItem.get('cached', None):
-                            cache = loadCache(baseItem['cached'])
-                            baseItem['cached'] = None
+                    if baseItem.get('cached', None):
+                        cache = loadCache(baseItem['cached'])
+                    else:
+                        cache = _fixUpFormat(formatLdObject(
+                            baseItem,
+                            mesoPrefix='screen',
+                            user=user
+                        ))
 
-                            cache['_id'] = f'screen/{str(item["_id"])}'
-                            createCache(baseItem, cache, 'screen', user)
+                    contribution['content'] = json_util.dumps(cache)
 
-                        ItemModel().save(baseItem)
-                    except:
-                        pass
+                    ScreenModel().save(contribution)
 
     removedActivities = document.get('removed', {}).get('activities')
     removedItems = document.get('removed', {}).get('items')
