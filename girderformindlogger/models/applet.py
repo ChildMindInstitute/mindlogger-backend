@@ -304,6 +304,27 @@ class Applet(FolderModel):
 
         return userProfile
 
+    def getAppletMeta(self, applet):
+        meta = applet.get('meta', {}).get('applet', {})
+
+        ## handle old applets
+        if 'description' not in meta or 'image' not in meta:
+            from girderformindlogger.utility import jsonld_expander
+            formatted = jsonld_expander.formatLdObject(applet)
+            description = formatted['applet'].get('schema:description', [])
+            image = formatted['applet'].get('schema:image', '')
+
+            meta.update({
+                'description': description[0]['@value'] if description else '',
+                'image': image
+            })
+
+            applet['meta']['applet'] = meta
+
+            self.setMetadata(applet, metadata=applet['meta'])
+
+        return meta
+
     # users won't use this function, so all emails are plain text (this endpoint is used for owners/managers to get access to new applet automatically)
     def grantAccessToApplet(self, user, applet, role, inviter):
         from girderformindlogger.models.invitation import Invitation
