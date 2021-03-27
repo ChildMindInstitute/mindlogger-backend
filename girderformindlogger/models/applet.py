@@ -700,7 +700,12 @@ class Applet(FolderModel):
                 },
                 user=user,
                 roles=roles,
-                constraints=constraints,
+                constraints={
+                    **(
+                        constraints if constraints else {}
+                    ),
+                    **Protocol().getImageAndDescription(protocol)
+                },
                 appletRole=appletRole,
                 accountId=accountId,
                 encryption=encryption
@@ -777,7 +782,12 @@ class Applet(FolderModel):
                 },
                 user=user,
                 roles=roles,
-                constraints=constraints,
+                constraints={
+                    **(
+                        constraints if constraints else {}
+                    ),
+                    **Protocol().getImageAndDescription(protocol)
+                },
                 appletRole=appletRole,
                 accountId=accountId,
                 encryption=encryption
