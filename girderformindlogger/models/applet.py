@@ -842,6 +842,7 @@ class Applet(FolderModel):
             currentApplet = applet
         )
         applet['meta']['applet']['version'] = protocol['schema:schemaVersion'][0].get('@value', '0.0.0') if 'schema:schemaVersion' in protocol else '0.0.0'
+        applet['meta']['applet'].update(Protocol().getImageAndDescription(protocol))
 
         applet['updated'] = now
         applet = self.setMetadata(folder=applet, metadata=applet['meta'])
