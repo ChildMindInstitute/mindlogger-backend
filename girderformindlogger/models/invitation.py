@@ -399,8 +399,9 @@ class Invitation(AESEncryption):
             skin = {}
         instanceName = skin.get("name", "MindLogger")
         role = invitation.get("role", "user")
-
+		
         existingProfile=None
+		
         if invitation.get('userId'):
             existingProfile = Profile().findOne({
                 'userId': invitation['userId'],
