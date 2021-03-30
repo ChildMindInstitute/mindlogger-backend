@@ -48,6 +48,7 @@ from girderformindlogger.external.notification import send_applet_update_notific
 from bson import json_util
 from girderformindlogger.utility import mail_utils
 from girderformindlogger.i18n import t
+from datetime import datetime as dt
 
 RETENTION_SET = {
     'day': 1,
@@ -1172,6 +1173,10 @@ class Applet(FolderModel):
             sort=[("created", DESCENDING)]
         ))
 
+        user=getCurrentUser()
+
+        schedule = EventsModel().getScheduleForUser(applet['_id'], user['_id'])
+
         data = {
             'dataSources': {},
             'subScaleSources': {},
@@ -1204,6 +1209,25 @@ class Applet(FolderModel):
 
             MRN = profile['MRN'] if profile.get('MRN', '') else f"None ({profile.get('userDefined', {}).get('email', '')})"
 
+            responseStarted=''
+            responseCompleted=''
+
+            if not meta.get('responseStarted'):
+                responseStarted=response.get('created',None)
+            else:
+                ts = meta.get('responseStarted')
+                secs, millis = divmod(ts, 1000)
+                date_time = dt.utcfromtimestamp(secs).replace(microsecond=millis * 1000)
+                responseStarted = date_time.strftime("%Y-%m-%d %H:%M:%S")
+
+            if not meta.get('responseCompleted'):
+                responseCompleted=response.get('created',None)
+            else:
+                ts = meta.get('responseCompleted')
+                secs, millis = divmod(ts, 1000)
+                date_time= dt.utcfromtimestamp(secs).replace(microsecond=millis * 1000)
+                responseCompleted = date_time.strftime("%Y-%m-%d %H:%M:%S")
+
             data['responses'].append({
                 '_id': response['_id'],
                 'activity': meta.get('activity', {}),
@@ -1212,6 +1236,8 @@ class Applet(FolderModel):
                 'data': meta.get('responses', {}),
                 'subScales': meta.get('subScales', {}),
                 'created': response.get('created', None),
+                'responseStarted':responseStarted,
+                'responseCompleted':responseCompleted,
                 'version': meta['applet'].get('version', '0.0.0')
             })
 
@@ -1468,14 +1494,14 @@ class Applet(FolderModel):
         return(userlist)
 
     def appletFormatted(
-        self, 
-        applet, 
-        reviewer, 
-        role='user', 
-        retrieveSchedule=True, 
-        retrieveAllEvents=True, 
-        eventFilter=None, 
-        retrieveResponses=False, 
+        self,
+        applet,
+        reviewer,
+        role='user',
+        retrieveSchedule=True,
+        retrieveAllEvents=True,
+        eventFilter=None,
+        retrieveResponses=False,
         groupByDateActivity=True,
         startDate=None,
         retrieveLastResponseTime=False,
@@ -1493,8 +1519,8 @@ class Applet(FolderModel):
 
             if localVersion:
                 (isInitialVersion, updates) = Protocol().getProtocolChanges(
-                    applet.get('meta', {}).get('protocol', {}).get('_id', '').split('/')[-1], 
-                    localVersion, 
+                    applet.get('meta', {}).get('protocol', {}).get('_id', '').split('/')[-1],
+                    localVersion,
                     localInfo['contentUpdateTime']
                 )
 
@@ -1557,9 +1583,9 @@ class Applet(FolderModel):
 
         if retrieveSchedule:
             schedule = self.getSchedule(
-                applet, 
-                reviewer, 
-                retrieveAllEvents, 
+                applet,
+                reviewer,
+                retrieveAllEvents,
                 eventFilter if not retrieveAllEvents else None,
                 localInfo.get('localEvents', [])
             )
