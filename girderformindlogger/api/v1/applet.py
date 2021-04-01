@@ -1408,7 +1408,7 @@ class Applet(Resource):
 
         appletProfile = ProfileModel().findOne({'appletId': applet['_id'], 'userId': thisUser['_id']})
 
-        if not appletProfile or 'coordinator' not in appletProfile.get('roles', []) or \
+        if not appletProfile or ('coordinator' not in appletProfile.get('roles', []) and 'manager' not in appletProfile.get('roles', [])) or \
                 (role != 'user' and role !='reviewer' and 'manager' not in appletProfile.get('roles', [])):
             raise AccessException('You don\'t have enough permission to invite other user to specified role')
 
