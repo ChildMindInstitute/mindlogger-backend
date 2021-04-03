@@ -35,7 +35,7 @@ def send_push_notification(applet_id, event_id, activity_id=None, send_time=None
         elif timezone < -12:
             timezone = timezone + 24
 
-        timezone = round(timezone / 0.25, 0) * 0.25
+        timezone = round(timezone * 4, 0) / 4
 
         query = {
             'appletId': applet_id,
