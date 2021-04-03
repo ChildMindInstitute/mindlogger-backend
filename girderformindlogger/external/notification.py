@@ -35,12 +35,19 @@ def send_push_notification(applet_id, event_id, activity_id=None, send_time=None
         elif timezone < -12:
             timezone = timezone + 24
 
+        timezone = round(timezone * 4, 0) / 4
+
         query = {
             'appletId': applet_id,
             'timezone': round(timezone, 2),
             'profile': True,
             'individual_events': 0
         }
+
+        print('current time - ', now)
+        print('applet id - ', applet_id)
+        print('event id - ', event_id)
+        print('query - ', query)
 
         if event['individualized']:
             query['individual_events'] = {'$gte': 1}
@@ -81,6 +88,7 @@ def send_push_notification(applet_id, event_id, activity_id=None, send_time=None
 
         profiles = list(Profile().find(query=query, fields=['deviceId', 'badge']))
 
+        print('profiles ', profiles)
         # ordered by badge
         message_requests = defaultdict(list)
         for profile in profiles:
