@@ -37,7 +37,7 @@ class Events(Model):
 
     def validate(self, document):
         return document
-    
+
     def deleteEvent(self, event_id):
         event = self.findOne({'_id': ObjectId(event_id)})
 
@@ -332,7 +332,7 @@ class Events(Model):
                         data.append(event)
 
                 for value in lastEvent.values():
-                    if value and (value[1]['data'].get('completion', False) or value[1]['data'].get('activity_id', None) in onlyScheduledDay):
+                    if value and (value[1]['data'].get('completion', False) or value[1]['data'].get('activity_id', None) in onlyScheduledDay or not value[1]['data'].get('availability', False)):
                         data.append(value[1])
 
                 for event in data:
