@@ -126,6 +126,7 @@ def send_push_notification(applet_id, event_id, activity_id=None, send_time=None
         if not reminder and event['data']['notifications'][0]['random'] and now.hour == 23 and 59 >= now.minute >= 45:
             eventsModel.rescheduleRandomNotifications(event)
         elif abs(diff-timezone) * 30 >= 1: # reschedule notification if difference is larger than 2 min
+            print('rescheduling event ...')
             eventsModel.setSchedule(event)
 
 # this handles other custom notifications
