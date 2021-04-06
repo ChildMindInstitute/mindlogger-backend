@@ -9,6 +9,7 @@ from girderformindlogger.models.profile import Profile as ProfileModel
 from girderformindlogger.models.applet_categories import AppletCategory
 from girderformindlogger.models.applet import Applet as AppletModel
 from girderformindlogger.models.user import User as UserModel
+from girderformindlogger.models.activity import Activity as ActivityModel
 from girderformindlogger.models.applet_basket import AppletBasket
 from girderformindlogger.utility import jsonld_expander
 from pymongo import DESCENDING, ASCENDING
@@ -84,6 +85,7 @@ class AppletLibrary(Resource):
         applet = AppletModel().findOne({
             '_id': libraryApplet['appletId']
         })
+        appletName = AppletModel().preferredName(applet)
 
         protocolId = applet.get('meta', {}).get('protocol', {}).get('_id', '').split('/')[-1]
 
@@ -92,23 +94,51 @@ class AppletLibrary(Resource):
         }))
 
         updates = {}
+        creators = {}
         editors = {}
+        activities = {}
 
         userModel = UserModel()
         for item in items:
-            if 'identifier' in item['meta'] and 'lastUpdatedBy' in item:
-                editorId = str(item['lastUpdatedBy'])
+            if 'identifier' in item['meta']:
+                item_creatorId = item['creatorId']
+                item_editorId = item['lastUpdatedBy']
+                creatorId = str(item_creatorId)
+                editorId = str(item_editorId)
 
+                if creatorId not in creators:
+                    user = userModel.findOne({
+                        '_id': item_creatorId
+                    })
+                    creators[creatorId] = user
                 if editorId not in editors:
                     user = userModel.findOne({
-                        '_id': item['lastUpdatedBy']
+                        '_id': item_editorId
                     })
+                    editors[editorId] = user
 
-                    editors[editorId] = user['firstName']
+                item_activityId = item['meta']['activityId']
+                activityId = str(item_activityId)
+
+                if activityId not in activities:
+                    activity = ActivityModel().load(
+                        item_activityId,
+                        user=creators[creatorId],
+                        level=AccessType.READ
+                    )
+                    activities[activityId] = activity
 
                 updates[item['meta']['identifier']] = {
+                    'creator': creators[creatorId]['firstName'],
+                    'created': item['created'],
+                    'editor': editors[editorId]['firstName'],
                     'updated': item['updated'],
-                    'lastUpdatedBy': editors[editorId]
+                    'appletName': appletName,
+                    'activityName': ActivityModel().preferredName(activities[activityId]),
+                    'itemName': item['meta']['screen']['@id'],
+                    'itemQuestion': item['meta']['screen']['schema:question'][0]['@value'],
+                    'changes': '',
+                    'version': item['meta']['screen']['schema:version'][0]['@value'],
                 }
 
         return updates
