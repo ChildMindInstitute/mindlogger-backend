@@ -1216,7 +1216,10 @@ class Applet(FolderModel):
             }
 
             for key in times:
-                ts = meta.get(key)
+                ts = meta.get(key, 0)
+                if not ts:
+                    continue
+
                 secs, millis = divmod(ts, 1000)
                 date_time = dt.utcfromtimestamp(secs).replace(microsecond=millis * 1000)
                 times[key] = date_time.strftime("%Y-%m-%d %H:%M:%S")
