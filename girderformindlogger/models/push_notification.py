@@ -40,7 +40,10 @@ class PushNotification(Scheduler):
             if not notification['start']:
                 continue
 
-            self.date_format(notification)
+            try:
+                self.date_format(notification)
+            except:
+                continue
 
             if notification['random']:
                 return self._set_scheduler_with_random_time()
