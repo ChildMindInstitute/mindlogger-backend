@@ -9,3 +9,5 @@ events = model.find({})
 
 for event in events:
     model.setSchedule(event)
+    model.save(event)
+
