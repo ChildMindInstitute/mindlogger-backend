@@ -128,6 +128,7 @@ def send_push_notification(applet_id, event_id, activity_id=None, send_time=None
         elif abs(diff-timezone) * 30 >= 1: # reschedule notification if difference is larger than 2 min
             print('rescheduling event ...')
             eventsModel.setSchedule(event)
+            eventsModel.save(event)
 
 # this handles other custom notifications
 def send_custom_notification(notification):
