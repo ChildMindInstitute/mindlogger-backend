@@ -42,25 +42,25 @@ class PushNotification(Scheduler):
 
             try:
                 self.date_format(notification)
-            except:
-                continue
 
-            if notification['random']:
-                return self._set_scheduler_with_random_time()
+                if notification['random']:
+                    return self._set_scheduler_with_random_time()
 
-            self.event['sendTime'].append(self.start_time.strftime('%H:%M'))
+                self.event['sendTime'].append(self.start_time.strftime('%H:%M'))
 
-            if event_type == '' or event_type == 'Daily':  # Daily or non-recurrent event.
-                launch_time = self.first_launch_time()
-                repeat = self.repeat_time(launch_time)
-                self.__set_job(launch_time, repeat)
+                if event_type == '' or event_type == 'Daily':  # Daily or non-recurrent event.
+                    launch_time = self.first_launch_time()
+                    repeat = self.repeat_time(launch_time)
+                    self.__set_job(launch_time, repeat)
 
-            if event_type == 'Weekly':
-                self.__set_cron(self.prepare_weekly_schedule())
+                if event_type == 'Weekly':
+                    self.__set_cron(self.prepare_weekly_schedule())
 
-            if event_type == 'Monthly':
-                self.__set_cron(self.prepare_monthly_schedule())
+                if event_type == 'Monthly':
+                    self.__set_cron(self.prepare_monthly_schedule())
 
+            except Exception as e:
+                print('notification error', e)
 
     def set_reminders(self):
         event_type = self.event.get('data', {}).get('eventType', '')
