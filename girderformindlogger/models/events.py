@@ -196,14 +196,14 @@ class Events(Model):
 
         timeout = datetime.timedelta(days=0)
 
-        if eventTimeout and eventTimeout.get('allow', False) and event['data'].get('completion', False) and not event['data'].get('onlyScheduledDay', False):
+        if eventTimeout and eventTimeout.get('allow', False) and event['data'].get('completion', False):
             timeout = datetime.timedelta(
                 days=eventTimeout.get('day', 0),
                 hours=eventTimeout.get('hour', 0),
                 minutes=eventTimeout.get('minute', 0)
             )
 
-        if event['data'].get('extendedTime', {}).get('allow', False) and not event['data'].get('onlyScheduledDay', False):
+        if event['data'].get('extendedTime', {}).get('allow', False):
             timeout = timeout + datetime.timedelta(
                 days=event['data']['extendedTime'].get('days', 0)
             )
@@ -305,7 +305,6 @@ class Events(Model):
 
             for i in range(0, eventFilter[1]):
                 lastEvent = {}
-                onlyScheduledDay = {}
                 activityEvents = {}
 
                 for event in events:
@@ -324,9 +323,6 @@ class Events(Model):
                     else:
                         lastEvent[activityId] = None
 
-                    if event['data'].get('onlyScheduledDay', False):
-                        onlyScheduledDay[activityId] = event
-
                     activityEvents[activityId] = event
 
                 data = []
@@ -335,18 +331,11 @@ class Events(Model):
                         data.append(event)
 
                 for value in lastEvent.values():
-                    if value and (value[1]['data'].get('completion', False) or value[1]['data'].get('activity_id', None) in onlyScheduledDay or not value[1]['data'].get('availability', False)):
+                    if value and (value[1]['data'].get('completion', False) or not value[1]['data'].get('availability', False)):
                         data.append(value[1])
 
                     activityId = event.get('data', {}).get('activity_id', None)
                     activityEvents.pop(activityId)
-
-                for event in data:
-                    if event['data'].get('activity_id', None) in onlyScheduledDay:
-                        onlyScheduledDay.pop(event['data']['activity_id'])
-
-                for activityId in onlyScheduledDay:
-                    data.append(onlyScheduledDay[activityId])
 
                 for card in data:
                     activityId = event.get('data', {}).get('activity_id', None)
