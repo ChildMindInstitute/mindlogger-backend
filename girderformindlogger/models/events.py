@@ -335,7 +335,8 @@ class Events(Model):
                         data.append(value[1])
 
                     activityId = event.get('data', {}).get('activity_id', None)
-                    activityEvents.pop(activityId)
+                    if activityId in activityEvents:
+                        activityEvents.pop(activityId)
 
                 for card in data:
                     activityId = event.get('data', {}).get('activity_id', None)
