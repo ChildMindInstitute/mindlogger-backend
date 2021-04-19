@@ -399,8 +399,9 @@ class Invitation(AESEncryption):
             skin = {}
         instanceName = skin.get("name", "MindLogger")
         role = invitation.get("role", "user")
-
+		
         existingProfile=None
+		
         if invitation.get('userId'):
             existingProfile = Profile().findOne({
                 'userId': invitation['userId'],
@@ -418,10 +419,10 @@ class Invitation(AESEncryption):
             }
 
         try:
-            coordinator = Profile().coordinatorProfile(
-                applet['_id'],
-                invitation["invitedBy"]
-            )
+            coordinator = Profile().findOne({
+                'userId': invitation['inviterId'],
+                'appletId': invitation['appletId']
+            })
         except:
             coordinator = None
         displayProfile = Profile().displayProfileFields(invitation, invitee)
@@ -452,7 +453,7 @@ class Invitation(AESEncryption):
             'accept': accept,
             'appletName': appletName,
             'byCoordinator': "by {} ({}) ".format(
-                coordinator.get("displayName", "an anonymous entity"),
+                coordinator.get("firstName", "an anonymous entity"),
                 "<a href=\"mailto:{email}\">{email}</a>".format(
                     email=coordinator["email"]
                 ) if "email" in coordinator and coordinator["email"] is not None else "email not available"

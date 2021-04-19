@@ -25,6 +25,7 @@ import os
 import six
 import threading
 import re
+import pytz
 
 from bson.objectid import ObjectId
 from girderformindlogger import events
@@ -42,7 +43,12 @@ from girderformindlogger.utility.progress import noProgress,                   \
 from girderformindlogger.models.account_profile import AccountProfile
 from girderformindlogger.models.profile import Profile
 from girderformindlogger.models.events import Events as EventsModel
+from girderformindlogger.models.item import Item as ItemModel
+from girderformindlogger.external.notification import send_applet_update_notification
 from bson import json_util
+from girderformindlogger.utility import mail_utils
+from girderformindlogger.i18n import t
+from datetime import datetime as dt
 
 RETENTION_SET = {
     'day': 1,
@@ -209,15 +215,24 @@ class Applet(FolderModel):
 
         return formatted
 
-    def getSchedule(self, applet, user, getAllEvents, eventFilter=None):
+    def getSchedule(self, applet, user, getAllEvents, eventFilter=None, localEvents=[]):
         if not getAllEvents:
             schedule = EventsModel().getScheduleForUser(applet['_id'], user['_id'], eventFilter)
+            events = schedule.get('events', {})
+
+            for localEvent in localEvents:
+                eventId = localEvent.get('id', None)
+                updated = localEvent.get('updated', None)
+
+                if eventId in events and events[eventId].get('updated', None) == updated:
+                    events.pop(eventId)
         else:
             if not self.isCoordinator(applet['_id'], user):
                 raise AccessException(
                     "Only coordinators and managers can get all events."
                 )
             schedule = EventsModel().getSchedule(applet['_id'])
+
         return schedule
 
     def grantRole(self, applet, userProfile, newRole, users):
@@ -463,15 +478,28 @@ class Applet(FolderModel):
         applet = self.setMetadata(applet, applet.get('meta'))
 
         successed = True
+        # profiles = []
+
         if applet.get('meta', {}).get('applet', {}).get('deleted')==True:
 
             accountProfiles = list(AccountProfile().find({'accountId': applet['accountId'], 'applets.user': applet['_id'] }))
+            # profiles = list(Profile().find({
+            #     'appletId': applet['_id'],
+            #     'deactivated': {'$ne': True}
+            # }))
+
             Profile().deactivateProfile(applet['_id'], None)
 
             for accountProfile in accountProfiles:
                 AccountProfile().removeApplet(accountProfile, applet['_id'])
         else:
             successed = False
+
+        # thread = threading.Thread(
+        #    target=send_applet_update_notification,
+        #    args=(applet,True, profiles)
+        # )
+        # thread.start()
 
         return successed
 
@@ -657,28 +685,24 @@ class Applet(FolderModel):
                 encryption=encryption
             )
 
-            emailMessage = "Hi {}.  <br>" \
-                "Your applet {} was successfully uploaded! <br>" \
-                "It is ready to have invitations sent out and schedule created.".format(
-                    user['firstName'],
-                    name
-                )
+            html = mail_utils.renderTemplate(f'appletUploadSuccess.{user.get("lang", "en")}.mako', {
+                'userName': user['firstName'],
+                'appletName': name
+            })
+            subject = t('applet_upload_sucess', user.get('lang', 'en'))
 
         except Exception as e:
-            emailMessage = "Hi, {}. <br>" \
-                "Your applet ({}), unfortunately, was not able to be uploaded. <br>" \
-                "Please double check your applet and try again".format(
-                    user['firstName'],
-                    protocolUrl
-                )
-            subject = 'applet upload failed!'
+            html = mail_utils.renderTemplate(f'appletUploadFailed.{user.get("lang", "en")}.mako', {
+                'userName': user['firstName'],
+                'appletName': name
+            })
+            subject = t('applet_upload_failed', user.get('lang', 'en'))
 
         if 'email' in user and not user.get('email_encrypted', True):
-            from girderformindlogger.utility.mail_utils import sendMail
-            sendMail(
-                subject=subject,
-                text=emailMessage,
-                to=[user['email']]
+            mail_utils.sendMail(
+                subject,
+                html,
+                [user['email']]
             )
 
     def createAppletFromProtocolData(
@@ -737,26 +761,26 @@ class Applet(FolderModel):
                 accountId=accountId,
                 encryption=encryption
             )
-            emailMessage = "Hi {}.  <br>" \
-                "Your applet {} was successfully uploaded! <br>" \
-                "It is ready to have invitations sent out and schedule created.".format(
-                    user['firstName'],
-                    name
-                )
+
+            html = mail_utils.renderTemplate(f'appletUploadSuccess.{user.get("lang", "en")}.mako', {
+                'userName': user['firstName'],
+                'appletName': name
+            })
+
+            subject = t('applet_upload_sucess', user.get('lang', 'en'))
 
         except Exception as e:
-            emailMessage = "Hi, {}. <br>" \
-                "Your applet, unfortunately, was not able to be uploaded. <br>" \
-                "Please double check your applet and try again".format(
-                    user['firstName']
-                )
-            subject = 'applet upload failed!'
+            html = mail_utils.renderTemplate(f'appletUploadFailed.{user.get("lang", "en")}.mako', {
+                'userName': user['firstName'],
+                'appletName': name
+            })
+            subject = t('applet_upload_failed', user.get('lang', 'en'))
 
         if 'email' in user and not user.get('email_encrypted', True):
             from girderformindlogger.utility.mail_utils import sendMail
             sendMail(
-                subject=subject,
-                text=emailMessage,
+                subject,
+                html,
                 to=[user['email']]
             )
 
@@ -772,6 +796,7 @@ class Applet(FolderModel):
         from girderformindlogger.utility import jsonld_expander
 
         # get a protocol from single json file
+        now = datetime.datetime.utcnow()
         displayName = protocol['protocol']['data'].get('skos:prefLabel', protocol['protocol']['data'].get('skos:altLabel', '')).strip()
 
         suffix = re.findall('^(.*?)\s*\((\d+)\)$', displayName)
@@ -795,8 +820,9 @@ class Applet(FolderModel):
             accountId,
             currentApplet = applet
         )
+        applet['meta']['applet']['version'] = protocol['schema:schemaVersion'][0].get('@value', '0.0.0') if 'schema:schemaVersion' in protocol else '0.0.0'
 
-        applet['updated'] = datetime.datetime.utcnow()
+        applet['updated'] = now
         applet = self.setMetadata(folder=applet, metadata=applet['meta'])
 
         # update appletProfile according to updated applet
@@ -819,6 +845,7 @@ class Applet(FolderModel):
                 }, {
                     '$set': {
                         'data.title': self.preferredName(formatted['activities'][activity]),
+                        # 'updated': datetime.datetime.utcnow()
                     },
                 })
 
@@ -851,6 +878,13 @@ class Applet(FolderModel):
 
             if activityUpdated:
                 Profile().save(profile, validate=False)
+
+        # thread = threading.Thread(
+        #     target=send_applet_update_notification,
+        #     args=(applet,)
+        # )
+
+        # thread.start()
 
         return formatted
 
@@ -908,6 +942,7 @@ class Applet(FolderModel):
                     }, {
                         '$set': {
                             'data.activity_id': activity['_id'],
+                            'updated': datetime.datetime.utcnow()
                         }
                     })
 
@@ -1022,7 +1057,8 @@ class Applet(FolderModel):
                     'data.activity_id': activity['_id']
                 }, {
                     '$set': {
-                        'data.URI': self.preferredName(activity)
+                        'data.URI': self.preferredName(activity),
+                        'updated': datetime.datetime.utcnow()
                     }
                 })
 
@@ -1137,6 +1173,10 @@ class Applet(FolderModel):
             sort=[("created", DESCENDING)]
         ))
 
+        user=getCurrentUser()
+
+        schedule = EventsModel().getScheduleForUser(applet['_id'], user['_id'])
+
         data = {
             'dataSources': {},
             'subScaleSources': {},
@@ -1169,6 +1209,21 @@ class Applet(FolderModel):
 
             MRN = profile['MRN'] if profile.get('MRN', '') else f"None ({profile.get('userDefined', {}).get('email', '')})"
 
+            times = {
+                'responseStarted': '',
+                'responseCompleted': '',
+                'scheduledTime': ''
+            }
+
+            for key in times:
+                ts = meta.get(key, 0)
+                if not ts:
+                    continue
+
+                secs, millis = divmod(ts, 1000)
+                date_time = dt.utcfromtimestamp(secs).replace(microsecond=millis * 1000)
+                times[key] = date_time.strftime("%Y-%m-%d %H:%M:%S")
+
             data['responses'].append({
                 '_id': response['_id'],
                 'activity': meta.get('activity', {}),
@@ -1177,6 +1232,10 @@ class Applet(FolderModel):
                 'data': meta.get('responses', {}),
                 'subScales': meta.get('subScales', {}),
                 'created': response.get('created', None),
+                'responseStarted':times['responseStarted'],
+                'responseCompleted':times['responseCompleted'],
+                'responseScheduled':times['scheduledTime'],
+                'timeout': meta.get('timeout', 0),
                 'version': meta['applet'].get('version', '0.0.0')
             })
 
@@ -1432,60 +1491,139 @@ class Applet(FolderModel):
         }
         return(userlist)
 
-    def appletFormatted(self, applet, reviewer, role='user', retrieveSchedule=True, retrieveAllEvents=True, eventFilter=None):
+    def appletFormatted(
+        self,
+        applet,
+        reviewer,
+        role='user',
+        retrieveSchedule=True,
+        retrieveAllEvents=True,
+        eventFilter=None,
+        retrieveResponses=False,
+        groupByDateActivity=True,
+        startDate=None,
+        retrieveLastResponseTime=False,
+        localInfo={}
+    ):
         from girderformindlogger.utility import jsonld_expander
-        from girderformindlogger.utility.response import responseDateList
+        from girderformindlogger.utility.response import responseDateList, last7Days
+        from girderformindlogger.models.protocol import Protocol
 
-        formatted = {
-            **jsonld_expander.formatLdObject(
-                applet,
-                'applet',
-                reviewer,
-                refreshCache=False,
-                responseDates=False
-            ),
-            "users": self.getAppletUsers(applet, reviewer),
-            "groups": self.getAppletGroups(
-                applet,
-                arrayOfObjects=True
-            )
-        } if role in ["coordinator", "manager"] else {
-            **jsonld_expander.formatLdObject(
-                applet,
-                'applet',
-                reviewer,
-                refreshCache=False,
-                responseDates=(role == "user")
-            ),
-            "groups": [
-                group for group in self.getAppletGroups(applet).get(
-                    role
-                ) if ObjectId(
-                    group
-                ) in [
-                         *reviewer.get('groups', []),
-                         *reviewer.get('formerGroups', []),
-                         *[invite['groupId'] for invite in [
-                             *reviewer.get('groupInvites', []),
-                             *reviewer.get('declinedInvites', [])
-                         ]]
-                     ]
-            ]
-        }
+        formatted = {}
 
-        try:
-            formatted["applet"]["responseDates"] = responseDateList(
-                applet.get('_id'),
-                reviewer.get('_id'),
-                reviewer
-            )
-        except:
-            formatted["applet"]["responseDates"] = []
+        if not localInfo.get('contentUpdateTime', None) or applet['updated'].isoformat() != localInfo['contentUpdateTime']:
+            localVersion = localInfo.get('appletVersion', None)
+            updates = None
+
+            if localVersion:
+                (isInitialVersion, updates) = Protocol().getProtocolChanges(
+                    applet.get('meta', {}).get('protocol', {}).get('_id', '').split('/')[-1],
+                    localVersion,
+                    localInfo['contentUpdateTime']
+                )
+
+            formatted = {
+                **jsonld_expander.formatLdObject(
+                    applet,
+                    'applet',
+                    reviewer,
+                    refreshCache=False,
+                    responseDates=False
+                ),
+                "users": self.getAppletUsers(applet, reviewer),
+                "groups": self.getAppletGroups(
+                    applet,
+                    arrayOfObjects=True
+                )
+            } if role in ["coordinator", "manager"] else {
+                **jsonld_expander.formatLdObject(
+                    applet,
+                    'applet',
+                    reviewer,
+                    refreshCache=False,
+                    responseDates=(role == "user")
+                ),
+                "groups": [
+                    group for group in self.getAppletGroups(applet).get(
+                        role
+                    ) if ObjectId(
+                        group
+                    ) in [
+                            *reviewer.get('groups', []),
+                            *reviewer.get('formerGroups', []),
+                            *[invite['groupId'] for invite in [
+                                *reviewer.get('groupInvites', []),
+                                *reviewer.get('declinedInvites', [])
+                            ]]
+                        ]
+                ]
+            }
+
+            formatted['removedActivities'] = []
+            formatted['removedItems'] = []
+
+            if localVersion and updates:
+                for itemId in list(formatted['items'].keys()):
+                    if itemId not in updates['screen'] and not isInitialVersion:
+                        formatted['items'].pop(itemId)
+
+                for itemId in updates['screen']:
+                    if itemId not in formatted['items'] and (updates['screen'][itemId] == 'updated' or isInitialVersion):
+                        formatted['removedItems'].append(itemId)
+
+                for activityId in list(formatted['activities'].keys()):
+                    if activityId not in updates['activity'] and not isInitialVersion:
+                        formatted['activities'].pop(activityId)
+
+                for activityId in updates['activity']:
+                    if activityId not in formatted['activities'] and (updates['activity'][activityId] == 'updated' or isInitialVersion):
+                        formatted['removedActivities'].append(activityId)
 
         if retrieveSchedule:
-            formatted["applet"]["schedule"] = self.getSchedule(applet, reviewer, retrieveAllEvents, eventFilter if not retrieveAllEvents else None)
+            schedule = self.getSchedule(
+                applet,
+                reviewer,
+                retrieveAllEvents,
+                eventFilter if not retrieveAllEvents else None,
+                localInfo.get('localEvents', [])
+            )
 
-        formatted["updated"] = applet["updated"]
+            if schedule:
+                formatted["schedule"] = schedule
+
+        if retrieveResponses:
+            formatted["responses"] = last7Days(
+                applet['_id'],
+                applet,
+                reviewer.get('_id'),
+                reviewer,
+                None,
+                localInfo.get('startDate', None),
+                True,
+                groupByDateActivity,
+                localInfo.get('localItems', []),
+                localInfo.get('localActivities', [])
+            )
+
+        if retrieveLastResponseTime:
+            profile = Profile().findOne({'appletId': applet['_id'], 'userId': reviewer['_id']})
+            activities = profile['completed_activities']
+
+            formatted['lastResponses'] = {}
+
+            for activity in activities:
+                completed_time = activity['completed_time']
+                timezone = str(profile.get('timezone', 0))
+                if completed_time:
+                    if isinstance(timezone, str) and timezone in pytz.all_timezones:
+                        completed_time = activity['completed_time'].astimezone(pytz.timezone(timezone)).isoformat()
+                    else:
+                        completed_time = activity['completed_time'].isoformat()
+
+                formatted['lastResponses'][str(activity['activity_id'])] = completed_time
+
+        formatted["updated"] = applet['updated'].isoformat()
+        formatted["id"] = applet['_id']
 
         return formatted
 

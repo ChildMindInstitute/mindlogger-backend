@@ -1,3 +1,6 @@
-<div style="background-color: #3f3b3b; color: white; padding: 10px;\
-            margin-bottom: 15px; font-family: Arial, sans-serif; font-size: 16px;\
-            font-weight: bold;">${brandName}</div>
+<div>
+    <img
+        src="https://raw.githubusercontent.com/ChildMindInstitute/mindlogger-admin/feature/759/src/assets/mail-header.png"
+        style="width: 440px; border-bottom: 2px solid rgb(216,216,216); padding-bottom: 5px;"
+    >
+</div>

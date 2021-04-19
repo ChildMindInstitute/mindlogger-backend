@@ -33,7 +33,13 @@ class PushNotification(Scheduler):
         notifications = self.event.get('data', {}).get('notifications', [])
         event_type = self.event.get('data', {}).get('eventType', '')
 
+        if self.event['data'].get('reminder', {}).get('valid', False):
+            self.set_reminders()
+
         for notification in notifications:
+            if not notification['start']:
+                continue
+
             self.date_format(notification)
 
             if notification['random']:
@@ -51,6 +57,42 @@ class PushNotification(Scheduler):
 
             if event_type == 'Monthly':
                 self.__set_cron(self.prepare_monthly_schedule())
+
+
+    def set_reminders(self):
+        event_type = self.event.get('data', {}).get('eventType', '')
+        reminder = self.event.get('data', {}).get('reminder', {})
+
+        self.date_format({
+            "start": reminder.get('time', '00:00'),
+            "end": None,
+            "random": False
+        })
+
+        def addDays(dateStr, days):
+            date = datetime.strptime(dateStr, '%Y/%m/%d')
+            date = date + timedelta(days=int(days))
+
+            return datetime.strftime(date, '%Y/%m/%d')
+
+        if self.schedule_range['start']:
+            self.schedule_range['start'] = addDays(self.schedule_range['start'], reminder.get('days', 0))
+
+        if self.schedule_range['end']:
+            self.schedule_range['end'] = addDays(self.schedule_range['end'], reminder.get('days', 0))
+
+        self.event['sendTime'].append(self.start_time.strftime('%H:%M'))
+
+        if event_type == '' or event_type == 'Daily':  # Daily or non-recurrent event.
+            launch_time = self.first_launch_time()
+            repeat = self.repeat_time(launch_time)
+            self.__set_job(launch_time, repeat, True)
+
+        if event_type == 'Weekly':
+            self.__set_cron(self.prepare_weekly_schedule(), True)
+
+        if event_type == 'Monthly':
+            self.__set_cron(self.prepare_monthly_schedule(), True)
 
     def first_launch_time(self, start_time=None):
         launch_day = self.schedule_range['start']
@@ -139,7 +181,7 @@ class PushNotification(Scheduler):
         if event_type == 'Monthly':
             self.__set_cron(self.prepare_monthly_schedule())
 
-    def __set_job(self, first_launch=datetime.utcnow(), repeat=None):
+    def __set_job(self, first_launch=datetime.utcnow(), repeat=None, isReminder=False):
         """
         Sets a job to send the notification on the given date.
 
@@ -156,14 +198,15 @@ class PushNotification(Scheduler):
                     "applet_id": self.event.get("applet_id"),
                     "event_id": self.event.get("_id"),
                     "activity_id": self.event["data"].get("activity_id", None),
-                    "send_time": self.start_time.strftime('%H:%M')
+                    "send_time": self.start_time.strftime('%H:%M'),
+                    "reminder": isReminder
                 },
                 interval=900,  # Time before the function is called again (in seconds).
                 repeat=repeat,  # Repeat the event this number of times.
             )
         self.event["schedulers"].append(job.id)
 
-    def __set_cron(self, cron_string, repeat=None):
+    def __set_cron(self, cron_string, repeat=None, isReminder=False):
         """
         Sets a cron job to send notifications periodically.
 
@@ -176,7 +219,8 @@ class PushNotification(Scheduler):
                     "applet_id": self.event.get("applet_id"),
                     "event_id": self.event.get("_id"),
                     "activity_id": self.event["data"].get("activity_id", None),
-                    "send_time": self.start_time.strftime('%H:%M')
+                    "send_time": self.start_time.strftime('%H:%M'),
+                    "reminder": isReminder
                 },
                 repeat=repeat,  # Repeat the event this number of times.
                 use_local_timezone=False

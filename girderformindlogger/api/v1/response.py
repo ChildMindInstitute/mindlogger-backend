@@ -56,7 +56,7 @@ class ResponseItem(Resource):
         self.route('GET', ('last7Days', ':applet'), self.getLast7Days)
         self.route('POST', (':applet', ':activity'), self.createResponseItem)
         self.route('POST', (':applet', 'updateResponseToken'), self.updateResponseToken)
-        self.route('PUT', (':applet',), self.updateReponseItems)
+        self.route('PUT', (':applet',), self.updateReponseHistory)
 
     @access.user(scope=TokenScope.DATA_READ)
     @autoDescribeRoute(
@@ -190,12 +190,12 @@ class ResponseItem(Resource):
                 response['meta']['subject']['userTime'] = response["created"].replace(tzinfo=pytz.timezone("UTC")).astimezone(
                     timezone(
                         timedelta(
-                            hours=profile["timezone"] if 'timezone' not in response['meta']['subject'] else response['meta']['subject']['timezone']
+                            hours=user["timezone"] if 'timezone' not in response['meta']['subject'] else response['meta']['subject']['timezone']
                         )
                     )
                 )
 
-            tokens = ResponseTokens().getResponseTokens(profile, retrieveUserKeys=True)
+            tokens = ResponseTokens().getResponseTokens(user, retrieveUserKeys=True)
 
             add_latest_daily_response(data, responses, tokens)
 
@@ -220,8 +220,8 @@ class ResponseItem(Resource):
             required=False
         )
         .param(
-            'referenceDate',
-            'Final date of 7 day range. (Not plugged in yet).',
+            'startDate',
+            'start date for response data.',
             required=False
         )
         .param(
@@ -238,6 +238,18 @@ class ResponseItem(Resource):
             required=False,
             default=True
         )
+        .jsonParam(
+            'localItems',
+            'item id array which represents historical items that user has on local device.',
+            required=False,
+            default=[]
+        )
+        .jsonParam(
+            'localActivities',
+            'activity id array which represents historical activities that user has on local device.',
+            required=False,
+            default=[]
+        )
         .errorResponse('ID was invalid.')
         .errorResponse(
             'Read access was denied for this applet for this user.',
@@ -248,17 +260,30 @@ class ResponseItem(Resource):
         self,
         applet,
         subject=None,
-        referenceDate=None,
+        startDate=None,
         includeOldItems=True,
         groupByDateActivity=True,
+        localItems=[],
+        localActivities=[]
     ):
         from girderformindlogger.utility.response import last7Days
         from bson.objectid import ObjectId
+
         try:
             appletInfo = AppletModel().findOne({'_id': ObjectId(applet)})
             user = self.getCurrentUser()
 
-            return(last7Days(applet, appletInfo, user.get('_id'), user, referenceDate=referenceDate, includeOldItems=includeOldItems, groupByDateActivity=groupByDateActivity))
+            return(last7Days(
+                applet, 
+                appletInfo, 
+                user.get('_id'), 
+                user, 
+                startDate=startDate, 
+                includeOldItems=includeOldItems, 
+                groupByDateActivity=groupByDateActivity,
+                localItems=localItems,
+                localActivities=localActivities
+            ))
         except:
             import sys, traceback
             print(sys.exc_info())
@@ -482,22 +507,12 @@ class ResponseItem(Resource):
                     alerts = metadata.get('alerts', [])
 
                     for alert in alerts:
-                        item = ItemModel().findOne({
-                            '_id': ObjectId(alert['id'])
-                        })
-
-                        if item:
-                            screen = item.get('meta', {}).get('screen', {})
-
-                            responseOptions = screen.get('reprolib:terms/responseOptions', [])
-
-                            if len(responseOptions) and 'reprolib:terms/responseAlertMessage' in responseOptions[0]:
-                                ResponseAlerts().addResponseAlerts(
-                                    profile,
-                                    alert['id'],
-                                    alert['schema'],
-                                    responseOptions[0]['reprolib:terms/responseAlertMessage'][0]['@value']
-                                )
+                        ResponseAlerts().addResponseAlerts(
+                            profile,
+                            alert['id'],
+                            alert['schema'],
+                            alert['message']
+                        )
 
                 newItem = self._model.setMetadata(newItem, metadata)
 
@@ -558,7 +573,7 @@ class ResponseItem(Resource):
         .errorResponse()
         .errorResponse('Write access was denied on the parent folder.', 403)
     )
-    def updateReponseItems(self, applet, user, responses):
+    def updateReponseHistory(self, applet, user, responses):
         from girderformindlogger.models.profile import Profile
         from girderformindlogger.models.account_profile import AccountProfile
 
@@ -607,6 +622,24 @@ class ResponseItem(Resource):
                 },
                 multi=False
             )
+
+        responseTokenModel = ResponseTokens()
+
+        for tokenUpdateId in responses['tokenUpdates']:
+            query = {
+                'appletId': applet['_id'],
+                '_id': ObjectId(tokenUpdateId),
+                'userId': profile['userId']
+            }
+
+            tokenUpdate = responseTokenModel.findOne(query)
+            tokenUpdate.update({
+                'data': responses['tokenUpdates'][tokenUpdateId],
+                'userPublicKey': responses['userPublicKey'],
+                'updated': now
+            })
+
+            responseTokenModel.save(tokenUpdate)
 
         self._model.reconnectToDb()
 
