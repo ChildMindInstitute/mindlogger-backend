@@ -24,6 +24,8 @@ def send_push_notification(applet_id, event_id, activity_id=None, send_time=None
     eventsModel = Events()
     event = eventsModel.findOne({'_id': event_id})
 
+    print('notification params', applet_id, event_id, activity_id, send_time, reminder)
+
     if event:
         event_time = datetime.datetime.strptime(
             f"{now.year}/{now.month}/{now.day} {send_time}", '%Y/%m/%d %H:%M')
@@ -46,8 +48,6 @@ def send_push_notification(applet_id, event_id, activity_id=None, send_time=None
         }
 
         print('current time - ', now)
-        print('applet id - ', applet_id)
-        print('event id - ', event_id)
         print('query - ', query)
 
         if event['individualized']:
