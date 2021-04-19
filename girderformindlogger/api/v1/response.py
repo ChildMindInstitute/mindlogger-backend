@@ -274,12 +274,12 @@ class ResponseItem(Resource):
             user = self.getCurrentUser()
 
             return(last7Days(
-                applet, 
-                appletInfo, 
-                user.get('_id'), 
-                user, 
-                startDate=startDate, 
-                includeOldItems=includeOldItems, 
+                applet,
+                appletInfo,
+                user.get('_id'),
+                user,
+                startDate=startDate,
+                includeOldItems=includeOldItems,
                 groupByDateActivity=groupByDateActivity,
                 localItems=localItems,
                 localActivities=localActivities
@@ -465,7 +465,7 @@ class ResponseItem(Resource):
                 # upload the value (a blob)
                 um = UploadModel()
                 filename = "{}.{}".format(
-                    key,
+                    'res',
                     metadata['responses'][key]['type'].split('/')[-1]
                 )
                 _file_obj_key=f"{ObjectId(profile['_id'])}/{ObjectId(applet['_id'])}/{ObjectId(activity['_id'])}/{filename}"
@@ -481,9 +481,16 @@ class ResponseItem(Resource):
                 #     informant,
                 #     metadata['responses'][key]['type'],
                 # )
-
+                value={}
+                value['filename']=filename
+                value['fromLibrary']=False
+                value['size']=metadata['responses'][key]['size']
+                value['type']=metadata['responses'][key]['type']
+                value['uri']="s3://{}/{}".format(os.environ['S3_MEDIA_BUCKET'],_file_obj_key)
                 # now, replace the metadata key with a link to this upload
-                metadata['responses'][key] = "https://{}.s3.amazonaws.com/{}".format(os.environ['S3_MEDIA_BUCKET'],_file_obj_key)
+                metadata['responses'][key]['value'] = value
+                del metadata['responses'][key]['size']
+                del metadata['responses'][key]['type']
 
             if metadata:
                 if metadata.get('dataSource', None):
