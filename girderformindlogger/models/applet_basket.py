@@ -97,15 +97,16 @@ class AppletBasket(AccessControlledModel):
         for appletId in selection:
             document = {
                 'userId': userId,
-                'selection': []
+                'appletId': ObjectId(appletId)
             }
             try:
-                document['appletId'] = ObjectId(appletId)
-
                 for activitySelection in selection[appletId]:
                     try:
                         activityId = activitySelection['activityId']
                         items = activitySelection.get('items', None)
+
+                        if not document.get('selection', []):
+                            document['selection'] = []
 
                         document['selection'].append({
                             'activityId': ObjectId(activityId),

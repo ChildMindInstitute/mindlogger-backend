@@ -178,7 +178,10 @@ class AppletLibrary(Resource):
             else:
                 activityIDToIRI = {}
                 itemIDToIRI = {}
-                content = { 'activities': {}, 'items': {} }
+
+                content = formatted.copy()
+                content['activities'] = {}
+                content['items'] = {}
 
                 for activityIRI in formatted['activities']:
                     activity = formatted['activities'][activityIRI]
