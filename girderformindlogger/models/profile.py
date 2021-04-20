@@ -391,8 +391,8 @@ class Profile(AESEncryption, dict):
 
     def updateProfileBadgets(self, profiles):
         self.increment(query={
-            '_id': {
-                '$in': [profile['_id'] for profile in profiles]
+            'userId': {
+                '$in': [profile['userId'] for profile in profiles]
             }
         }, field='badge', amount=1)
 
