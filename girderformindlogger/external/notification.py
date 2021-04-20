@@ -87,7 +87,7 @@ def send_push_notification(applet_id, event_id, activity_id=None, send_time=None
                 }
             }
 
-        profiles = list(Profile().find(query=query, fields=['deviceId', 'badge']))
+        profiles = list(Profile().find(query=query, fields=['deviceId', 'badge', 'userId']))
 
         print('profiles ', profiles)
         # ordered by badge
