@@ -41,6 +41,8 @@ from pymongo import DESCENDING
 from bson import ObjectId
 import boto3
 import os
+import string
+import random
 
 DEFAULT_REGION = 'us-east-1'
 
@@ -465,7 +467,7 @@ class ResponseItem(Resource):
                 # upload the value (a blob)
                 um = UploadModel()
                 filename = "{}.{}".format(
-                    'res',
+                    ''.join(random.choice(string.ascii_uppercase + string.digits) for _ in range(10)),
                     metadata['responses'][key]['type'].split('/')[-1]
                 )
                 _file_obj_key=f"{ObjectId(profile['_id'])}/{ObjectId(applet['_id'])}/{ObjectId(activity['_id'])}/{filename}"
