@@ -1209,24 +1209,20 @@ class Applet(FolderModel):
 
             MRN = profile['MRN'] if profile.get('MRN', '') else f"None ({profile.get('userDefined', {}).get('email', '')})"
 
-            responseStarted=''
-            responseCompleted=''
+            times = {
+                'responseStarted': '',
+                'responseCompleted': '',
+                'scheduledTime': ''
+            }
 
-            if not meta.get('responseStarted'):
-                responseStarted=response.get('created',None)
-            else:
-                ts = meta.get('responseStarted')
+            for key in times:
+                ts = meta.get(key, 0)
+                if not ts:
+                    continue
+
                 secs, millis = divmod(ts, 1000)
                 date_time = dt.utcfromtimestamp(secs).replace(microsecond=millis * 1000)
-                responseStarted = date_time.strftime("%Y-%m-%d %H:%M:%S")
-
-            if not meta.get('responseCompleted'):
-                responseCompleted=response.get('created',None)
-            else:
-                ts = meta.get('responseCompleted')
-                secs, millis = divmod(ts, 1000)
-                date_time= dt.utcfromtimestamp(secs).replace(microsecond=millis * 1000)
-                responseCompleted = date_time.strftime("%Y-%m-%d %H:%M:%S")
+                times[key] = date_time.strftime("%Y-%m-%d %H:%M:%S")
 
             data['responses'].append({
                 '_id': response['_id'],
@@ -1236,8 +1232,10 @@ class Applet(FolderModel):
                 'data': meta.get('responses', {}),
                 'subScales': meta.get('subScales', {}),
                 'created': response.get('created', None),
-                'responseStarted':responseStarted,
-                'responseCompleted':responseCompleted,
+                'responseStarted':times['responseStarted'],
+                'responseCompleted':times['responseCompleted'],
+                'responseScheduled':times['scheduledTime'],
+                'timeout': meta.get('timeout', 0),
                 'version': meta['applet'].get('version', '0.0.0')
             })
 

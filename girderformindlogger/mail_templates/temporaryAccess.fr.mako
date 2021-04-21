@@ -3,15 +3,14 @@
 
 <div style="max-width: 440px;">
     <p>
-        Un jeton d'accès temporaire a été demandé en votre nom. Vous pouvez accéder au système
-        ${brandName} à l'adresse
-        <a href="${url}">${url}</a>
-        Une fois que vous aurez accédé au système, vous aurez la possibilité de mettre à jour votre mot de passe.
+        Une réinitialisation du mot de passe a été demandée.
+        Veuillez utiliser ce <a href="${url}">lien</a> pour réinitialiser votre mot de passe.
+        Sachez que si vous mettez à jour votre mot de passe, les données qui ont été enregistrées jusque-là seront supprimées.
     </p>
 
     <p>
-        Si vous n'avez pas initié cette demande d'accès temporaire, vous pouvez ignorer
-        ce message. L'accès temporaire n'est disponible qu'avec le lien fourni et expire 15 minutes après avoir été demandé.
+        Si vous n'êtes pas à l'origine de cette réinitialisation du mot de passe, vous pouvez ignorer cet e-mail.
+        Le lien fourni expire 15 minutes après avoir été demandé.
     </p>
 </div>
 

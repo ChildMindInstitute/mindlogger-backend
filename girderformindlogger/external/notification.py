@@ -21,21 +21,24 @@ def send_push_notification(applet_id, event_id, activity_id=None, send_time=None
     now = datetime.datetime.utcnow()
     now = datetime.datetime.strptime(now.strftime('%Y/%m/%d %H:%M'), '%Y/%m/%d %H:%M')
 
-    event = Events().findOne({'_id': event_id})
+    eventsModel = Events()
+    event = eventsModel.findOne({'_id': event_id})
+
+    print('notification params', applet_id, event_id, activity_id, send_time, reminder)
 
     if event:
         event_time = datetime.datetime.strptime(
             f"{now.year}/{now.month}/{now.day} {send_time}", '%Y/%m/%d %H:%M')
 
-        timezone = (event_time - now).total_seconds() / 3600
+        diff = (event_time - now).total_seconds() / 3600
 
         # this is temporary fix for timezone issue
-        if timezone >= 12:
-            timezone = timezone - 24
-        elif timezone < -12:
-            timezone = timezone + 24
+        if diff >= 12:
+            diff = diff - 24
+        elif diff < -12:
+            diff = diff + 24
 
-        timezone = round(timezone * 4, 0) / 4
+        timezone = round(diff * 4, 0) / 4
 
         query = {
             'appletId': applet_id,
@@ -45,8 +48,6 @@ def send_push_notification(applet_id, event_id, activity_id=None, send_time=None
         }
 
         print('current time - ', now)
-        print('applet id - ', applet_id)
-        print('event id - ', event_id)
         print('query - ', query)
 
         if event['individualized']:
@@ -86,7 +87,7 @@ def send_push_notification(applet_id, event_id, activity_id=None, send_time=None
                 }
             }
 
-        profiles = list(Profile().find(query=query, fields=['deviceId', 'badge']))
+        profiles = list(Profile().find(query=query, fields=['deviceId', 'badge', 'userId']))
 
         print('profiles ', profiles)
         # ordered by badge
@@ -123,7 +124,11 @@ def send_push_notification(applet_id, event_id, activity_id=None, send_time=None
 
         # if random time we will reschedule it in time between 23:45 and 23:59
         if not reminder and event['data']['notifications'][0]['random'] and now.hour == 23 and 59 >= now.minute >= 45:
-            Events().rescheduleRandomNotifications(event)
+            eventsModel.rescheduleRandomNotifications(event)
+        elif abs(diff-timezone) * 30 >= 1: # reschedule notification if difference is larger than 2 min
+            print('rescheduling event ...')
+            eventsModel.setSchedule(event)
+            eventsModel.save(event)
 
 # this handles other custom notifications
 def send_custom_notification(notification):
