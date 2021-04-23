@@ -845,10 +845,13 @@ class User(Resource):
 
         applets = []
 
+        appletModel = AppletModel()
+
         for appletId in appletRoles:
-            applet = AppletModel().load(appletId, force=True)
+            applet = appletModel.load(appletId, force=True)
 
             applets.append({
+                **appletModel.getAppletMeta(applet),
                 'updated': applet['updated'],
                 'name': applet['meta'].get('applet', {}).get('displayName', applet.get('displayName', 'applet')),
                 'id': appletId,

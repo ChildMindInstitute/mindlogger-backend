@@ -45,6 +45,15 @@ class Protocol(FolderModel):
             ]
         )
 
+    def getImageAndDescription(self, protocol):
+        description = protocol.get('schema:description', [])
+        image = protocol.get('schema:image', '')
+
+        return {
+            'description': description[0]['@value'] if description else '',
+            'image': image
+        }
+
     def getCache(self, id):
         protocol = self.findOne({'_id': ObjectId(id)}, ['cached'])
         cached = protocol.get('cached')
