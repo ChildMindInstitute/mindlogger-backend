@@ -43,6 +43,8 @@ import boto3
 import os
 import string
 import random
+import base64
+import io
 
 DEFAULT_REGION = 'us-east-1'
 
@@ -472,7 +474,9 @@ class ResponseItem(Resource):
                 )
                 _file_obj_key=f"{ObjectId(profile['_id'])}/{ObjectId(applet['_id'])}/{ObjectId(activity['_id'])}/{filename}"
 
-                self.s3_client.upload_fileobj(value.file,os.environ['S3_MEDIA_BUCKET'],_file_obj_key)
+                file_data=base64.b64decode(value)
+
+                self.s3_client.upload_fileobj(io.BytesIO(file_data),os.environ['S3_MEDIA_BUCKET'],_file_obj_key)
 
                 # newUpload = um.uploadFromFile(
                 #     value.file,
@@ -527,7 +531,7 @@ class ResponseItem(Resource):
 
             if not pending:
                 newItem['readOnly'] = True
-            self._model.reconnectToDb()
+            #self._model.reconnectToDb()
 
             # update profile activity
             profile = Profile()
