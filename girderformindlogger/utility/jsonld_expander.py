@@ -534,6 +534,95 @@ def cacheProtocolContent(protocol, document, user, editExisting=False):
 
         ItemModel().save(item)
 
+def updateContributions(protocol, document, user):
+    contributionFolder = None
+    if protocol.get('meta', {}).get('contributionId', None):
+        contributionFolder = FolderModel().load(protocol['meta']['contributionId'], force=True)
+        contributionFolder['name'] = 'contribution of ' + protocol['name']
+
+        FolderModel().validate(contributionFolder, allowRename=True)
+
+    if not contributionFolder:
+        contributionFolder = FolderModel().createFolder(
+            name='contribution of ' + protocol['name'],
+            parent=protocol,
+            parentType='folder',
+            public=False,
+            creator=user,
+            allowRename=True,
+            reuseExisting=True
+        )
+
+        protocol['meta']['contributionId'] = contributionFolder['_id']
+        FolderModel().setMetadata(protocol, protocol['meta'])
+
+    ## log new contributions
+    appletIdToAccountId = {}
+
+    for activity in document['protocol']['activities'].values():
+        if 'items' in activity:
+            for item in activity['items'].values():
+                if item.get('baseItemId', None) and item.get('baseAppletId', None):
+                    ScreenModel().removeWithQuery({
+                        'meta.baseItemId': ObjectId(item['baseItemId']),
+                        'meta.baseAppletId': ObjectId(item['baseAppletId'])
+                    })
+
+                    contribution = ScreenModel().createItem(
+                        name=f'contribution of {item.get("name", "")}',
+                        creator=user,
+                        folder=contributionFolder,
+                        reuseExisting=False
+                    )
+
+                    baseItem = ScreenModel().load(item['baseItemId'], force=True)
+                    contribution['meta'] = {
+                        'baseItemId': baseItem['_id'],
+                        'itemId': item['_id'],
+                        'baseAppletId': ObjectId(item['baseAppletId']),
+                        'created': baseItem['created']
+                    }
+                    appletId = str(contribution['meta']['baseAppletId'])
+
+                    if appletId not in appletIdToAccountId:
+                        applet = FolderModel().findOne({'_id': ObjectId(appletId)})
+                        appletIdToAccountId[appletId] = applet['accountId']
+
+                    contribution['meta']['baseAccountId'] = appletIdToAccountId[appletId]
+
+                    if baseItem.get('cached', None):
+                        cache = loadCache(baseItem['cached'])
+                    else:
+                        cache = _fixUpFormat(formatLdObject(
+                            baseItem,
+                            mesoPrefix='screen',
+                            user=user
+                        ))
+
+                    contribution['content'] = json_util.dumps(cache)
+
+                    ScreenModel().save(contribution)
+
+    removedActivities = document.get('removed', {}).get('activities')
+    removedItems = document.get('removed', {}).get('items')
+
+    # remove contribution info for deleted activities
+    for activityId in removedActivities:
+        FolderModel().removeWithQuery({
+            'meta.activityId': ObjectId(activityId),
+            'parentId': contributionFolder['_id']
+        })
+
+    # remove contribution info for deleted items
+    for itemId in removedItems:
+        item = ScreenModel().findOne({
+            'meta.itemId': ObjectId(item),
+            'folderId': contributionFolder['_id']
+        })
+        if item:
+            clearCache(item, 'screen')
+            ScreenModel().remove(item)
+
 def loadFromSingleFile(document, user, editExisting=False):
     if 'protocol' not in document or 'data' not in document['protocol']:
         raise ValidationException(
@@ -583,6 +672,7 @@ def loadFromSingleFile(document, user, editExisting=False):
     protocol = ProtocolModel().load(protocolId, force=True)
 
     cacheProtocolContent(protocol, document, user, editExisting)
+    updateContributions(protocol, document, user)
 
     return formatLdObject(
         protocol,
@@ -1446,7 +1536,7 @@ def formatLdObject(
 
             if protocolUrl is not None and not protocol:
                 # get protocol from url
-                protocol = ProtocolModel().load(ObjectId(protocolId), user)
+                protocol = ProtocolModel().load(ObjectId(protocolId), user, force=True)
 
                 if 'appletId' not in protocol.get('meta', {}):
                     protocol['meta']['appletId'] = 'None'

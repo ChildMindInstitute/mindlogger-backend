@@ -46,6 +46,7 @@ from girderformindlogger.settings import SettingKey
 from girderformindlogger.models.profile import Profile as ProfileModel
 from girderformindlogger.models.account_profile import AccountProfile
 from girderformindlogger.models.invitation import Invitation as InvitationModel
+from girderformindlogger.models.applet_library import AppletLibrary
 from girderformindlogger.i18n import t
 from girderformindlogger.models.response_alerts import ResponseAlerts
 from dateutil.relativedelta import relativedelta
@@ -98,6 +99,9 @@ class Applet(Resource):
         self.route('PUT', (':id', 'transferOwnerShip', ), self.transferOwnerShip)
         self.route('DELETE', (':id', 'deleteUser', ), self.deleteUserFromApplet)
         self.route('GET', ('validateName',), self.validateAppletName)
+        self.route('PUT', (':id', 'name', ), self.renameApplet)
+        self.route('PUT', (':id', 'status'), self.updateAppletPublishStatus)
+        self.route('PUT', (':id', 'searchTerms'), self.updateAppletSearch)
 
     @access.user(scope=TokenScope.DATA_WRITE)
     @autoDescribeRoute(
@@ -755,6 +759,141 @@ class Applet(Resource):
         )
         thread.start()
         return {"message": t('applet_is_building', lang)}
+
+    @access.user(scope=TokenScope.DATA_OWN)
+    @autoDescribeRoute(
+        Description('Change name of an applet.')
+        .notes(
+            'Use this endpoint to change name of applet. <br>'
+        )
+        .modelParam(
+            'id',
+            model=AppletModel,
+            description='ID of the applet',
+            destName='applet',
+            level=AccessType.WRITE
+        )
+        .param(
+            'name',
+            'name of applet',
+            required=True,
+        )
+        .errorResponse('Write access was denied for this applet.', 403)
+    )
+    def renameApplet(self, applet, name):
+        editor = self.getCurrentUser()
+
+        profile = ProfileModel().findOne({
+            'appletId': applet['_id'],
+            'userId': editor['_id']
+        })
+
+        if 'editor' not in profile.get('roles', []) and 'manager' not in profile.get('roles', []):
+            raise AccessException("You don't have enough permission to update this applet.")
+
+        self._model.renameApplet(applet, name, editor)
+
+        return {
+            'message': 'success'
+        }
+
+    @access.user(scope=TokenScope.DATA_OWN)
+    @autoDescribeRoute(
+        Description('Set Publish Status for an applet.')
+        .notes(
+            'Use this endpoint to publish an applet in the library. <br>'
+        )
+        .modelParam(
+            'id',
+            model=AppletModel,
+            description='ID of the applet',
+            destName='applet',
+            level=AccessType.ADMIN
+        )
+        .param(
+            'publish',
+            'true if publishing applet',
+            default=True,
+            required=True,
+            dataType='boolean'
+        )
+        .errorResponse('Write access was denied for this applet.', 403)
+    )
+    def updateAppletPublishStatus(self, applet, publish=True):
+        thisUser = self.getCurrentUser()
+
+        profile = ProfileModel().findOne({
+            'appletId': applet['_id'],
+            'userId': thisUser['_id']
+        })
+
+        if 'manager' not in profile.get('roles', []):
+            raise AccessException("You don't have enough permission to update this applet.")
+
+        library_url = os.getenv('LIBRARY_URI') or 'localhost:8081'
+
+        applet['meta']['published'] = publish
+        applet = self._model.setMetadata(applet, applet['meta'])
+
+        if publish:
+            libraryApplet = AppletLibrary().addAppletToLibrary(applet)
+            url = f'{library_url}/applets/{str(libraryApplet["_id"])}'
+
+            return {
+                'message': 'success',
+                'url': url
+            }
+        else:
+            AppletLibrary().deleteAppletFromLibrary(applet)
+
+            return {
+                'message': 'success'
+            }
+
+    @access.user(scope=TokenScope.DATA_OWN)
+    @autoDescribeRoute(
+        Description('Set Publish Status for an applet.')
+        .notes(
+            'Use this endpoint to publish an applet in the library. <br>'
+        )
+        .modelParam(
+            'id',
+            model=AppletModel,
+            description='ID of the applet',
+            destName='applet',
+            level=AccessType.ADMIN
+        )
+        .param(
+            'category',
+            'name of category',
+            required=False,
+            default=''
+        )
+        .param(
+            'subCategory',
+            'name of sub category',
+            required=False,
+            default=''
+        )
+        .jsonParam(
+            'keywords',
+            'list of keyword',
+            required=False,
+            dataType='array',
+        )
+        .errorResponse('Write access was denied for this applet.', 403)
+    )
+    def updateAppletSearch(self, applet, category='', subCategory='', keywords=[]):
+        libraryApplet = AppletLibrary().updateAppletSearch(
+            applet['_id'],
+            category,
+            subCategory,
+            keywords
+        )
+
+        return {
+            'message': 'success'
+        }
 
     @access.user(scope=TokenScope.DATA_WRITE)
     @autoDescribeRoute(

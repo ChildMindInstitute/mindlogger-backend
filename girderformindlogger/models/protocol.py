@@ -30,7 +30,9 @@ from girderformindlogger.api.rest import getCurrentUser
 from girderformindlogger.constants import AccessType, SortDir, MODELS
 from girderformindlogger.exceptions import ValidationException, GirderException
 from girderformindlogger.models.folder import Folder as FolderModel
+from girderformindlogger.models.account_profile import AccountProfile
 from girderformindlogger.models.user import User as UserModel
+from bson import json_util
 from girderformindlogger.utility.progress import noProgress, setResponseTimeLimit
 
 class Protocol(FolderModel):
@@ -267,6 +269,20 @@ class Protocol(FolderModel):
             protocol['meta']['contentId'] = contentFolder['_id']
             updated = True
 
+        if not protocol['meta'].get('contributionId'):
+            contributionFolder = FolderModel().createFolder(
+                name='contribution of ' + protocol['name'],
+                parent=protocol,
+                parentType='folder',
+                public=False,
+                creator=user,
+                allowRename=True,
+                reuseExisting=True
+            )
+
+            protocol['meta']['contributionId'] = contributionFolder['_id']
+            updated = True
+
         if updated:
             protocol = self.setMetadata(protocol, protocol['meta'])
 
@@ -454,3 +470,48 @@ class Protocol(FolderModel):
                     changeInfo[modelType][str(reference['meta']['identifier'])] = 'created'
 
         return (hasUrl, changeInfo)
+
+    def getContributions(self, protocolId):
+        from girderformindlogger.utility import jsonld_expander
+        from girderformindlogger.models.item import Item as ItemModel
+
+        protocol = self.load(protocolId, force=True)
+
+        if not protocol.get('meta', {}).get('contributionId', None):
+            return {}
+
+        contributions = list(ItemModel().find({
+            'folderId': protocol['meta']['contributionId']
+        }))
+
+        result = {}
+
+        accountID2Name = {}
+        appletId2Name = {}
+
+        for item in contributions:
+            formattedItem = json_util.loads(item['content'])
+
+            baseAccountId = item['meta']['baseAccountId']
+            baseAppletId = item['meta']['baseAppletId']
+
+            if str(baseAccountId) not in accountID2Name:
+                account = AccountProfile().getOwner(baseAccountId)
+                accountID2Name[str(baseAccountId)] = account['accountName']
+
+            if str(baseAppletId) not in appletId2Name:
+                applet = FolderModel().findOne({
+                    '_id': baseAppletId
+                })
+                appletId2Name[str(baseAppletId)] = applet['meta']['applet'].get('displayName', '')
+
+            result[str(item['meta']['itemId'])] = {
+                'content': formattedItem,
+                'baseItem': {
+                    'account': accountID2Name[str(baseAccountId)],
+                    'applet': appletId2Name[str(baseAppletId)],
+                    'itemDate': item['meta']['created']
+                }
+            }
+
+        return result
