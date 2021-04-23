@@ -809,6 +809,8 @@ class User(Resource):
                 continue
             if folder['meta'].get('contentType', '') == 'templates':
                 continue
+            if 'accountId' in folder and folder['accountId'] != ObjectId(accountId):
+                continue
 
             if folder['meta'].get('applets'):
                 for applet in folder['meta']['applets']:
