@@ -35,16 +35,25 @@ class Note(AESEncryption, dict):
 
         return document
 
-    def addNote(self, appletId, responseId, userProfileId, note, reviewerId):
+    def addNote(self, appletId, responseId, userProfileId, note, reviewer):
         document = {
             'appletId': ObjectId(appletId),
             'responseId': ObjectId(responseId),
             'userProfileId': ObjectId(userProfileId),
             'note': note,
-            'reviewerId': reviewerId
+            'reviewerId': reviewer['_id'],
+            'created': datetime.datetime.utcnow(),
+            'updated': datetime.datetime.utcnow()
         }
 
-        return self.save(document)
+        document = self.save(document)
+        document['reviewer'] = {
+            'firstName': reviewer['firstName'],
+            'lastName': reviewer['lastName']
+        }
+        document['my_note'] = True
+
+        return document
 
     def updateNote(self, noteId, note, reviewer):
         document = self.findOne({
@@ -55,9 +64,20 @@ class Note(AESEncryption, dict):
             if document['reviewerId'] != reviewer['_id']:
                 raise AccessException('permission denied')
 
-            document['note'] = note
+            document.update({
+                'note': note,
+                'updated': datetime.datetime.utcnow()
+            })
 
-            return self.save(document)
+            document = self.save(document)
+
+            document['reviewer'] = {
+                'firstName': reviewer['firstName'],
+                'lastName': reviewer['lastName']
+            }
+            document['my_note'] = True
+
+            return document
 
         return None
 
