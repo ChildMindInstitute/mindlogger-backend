@@ -603,8 +603,8 @@ def updateContributions(protocol, document, user):
 
                     ScreenModel().save(contribution)
 
-    removedActivities = document.get('removed', {}).get('activities')
-    removedItems = document.get('removed', {}).get('items')
+    removedActivities = document.get('removed', {}).get('activities', [])
+    removedItems = document.get('removed', {}).get('items', [])
 
     # remove contribution info for deleted activities
     for activityId in removedActivities:
