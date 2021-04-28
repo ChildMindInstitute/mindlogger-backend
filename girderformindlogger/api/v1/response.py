@@ -25,7 +25,7 @@ from ..describe import Description, autoDescribeRoute
 from ..rest import Resource
 from datetime import datetime
 from girderformindlogger.constants import AccessType, TokenScope
-from girderformindlogger.exceptions import ValidationException
+from girderformindlogger.exceptions import AccessException, ValidationException
 from girderformindlogger.api import access
 from girderformindlogger.models.activity import Activity as ActivityModel
 from girderformindlogger.models.applet import Applet as AppletModel
@@ -36,6 +36,7 @@ from girderformindlogger.models.response_tokens import ResponseTokens
 from girderformindlogger.models.item import Item as ItemModel
 from girderformindlogger.models.response_alerts import ResponseAlerts
 from girderformindlogger.models.upload import Upload as UploadModel
+from girderformindlogger.models.note import Note as NoteModel
 from bson import json_util
 from pymongo import DESCENDING
 from bson import ObjectId
@@ -54,6 +55,194 @@ class ResponseItem(Resource):
         self.route('POST', (':applet', ':activity'), self.createResponseItem)
         self.route('POST', (':applet', 'updateResponseToken'), self.updateResponseToken)
         self.route('PUT', (':applet',), self.updateReponseHistory)
+
+        self.route('POST', (':applet', 'note'), self.addNote)
+        self.route('PUT', (':applet', 'note'), self.updateNote)
+        self.route('GET', (':applet', 'notes'), self.getNotes)
+        self.route('DELETE', (':applet', 'note'), self.deleteNote)
+
+    @access.public(scope=TokenScope.DATA_READ)
+    @autoDescribeRoute(
+        Description(
+            'Add note for user\'s response.'
+        )
+        .modelParam(
+            'applet',
+            model=AppletModel,
+            level=AccessType.READ,
+            destName='applet',
+            description='The ID of applet.'
+        )
+        .param(
+            'noteId',
+            'id of note to delete',
+            required=True
+        )
+    )
+    def deleteNote(self, applet, noteId):
+        from girderformindlogger.models.profile import Profile
+        thisUser = self.getCurrentUser()
+
+        if not thisUser:
+            raise AccessException('permission denied')
+
+        reviewerProfile = Profile().findOne({
+            'appletId': ObjectId(applet['_id']),
+            'userId': thisUser['_id'],
+            'roles': {
+                '$in': ['reviewer', 'manager']
+            },
+            'deactivated': {'$ne': True}
+        })
+
+        if not reviewerProfile:
+            raise AccessException('permission denied')
+
+        NoteModel().deleteNote(noteId)
+
+    @access.public(scope=TokenScope.DATA_READ)
+    @autoDescribeRoute(
+        Description(
+            'Add note for user\'s response.'
+        )
+        .modelParam(
+            'applet',
+            model=AppletModel,
+            level=AccessType.READ,
+            destName='applet',
+            description='The ID of applet.'
+        )
+        .param(
+            'responseId',
+            'Only retrieves responses for the given activities',
+            required=True
+        )
+        .param(
+            'note',
+            'content of note',
+            required=False
+        )
+    )
+    def addNote(self, applet, responseId, note):
+        from girderformindlogger.models.profile import Profile
+
+        thisUser = self.getCurrentUser()
+
+        reviewerProfile = Profile().findOne({
+            'appletId': ObjectId(applet['_id']),
+            'userId': thisUser['_id'],
+            'roles': {
+                '$in': ['reviewer', 'manager']
+            },
+            'deactivated': {'$ne': True}
+        })
+
+        if not reviewerProfile:
+            raise AccessException('permission denied')
+
+        responseItem = self._model.findOne({'_id': ObjectId(responseId)})
+
+        if not responseItem:
+            raise AccessException('unable to find response with specified id')
+
+        return NoteModel().addNote(
+            appletId=applet['_id'],
+            responseId=responseId,
+            userProfileId=responseItem['meta'].get('subject', {}).get('@id'),
+            note=note,
+            reviewer=reviewerProfile
+        )
+
+    @access.public(scope=TokenScope.DATA_READ)
+    @autoDescribeRoute(
+        Description(
+            'Update note for user\'s response.'
+        )
+        .modelParam(
+            'applet',
+            model=AppletModel,
+            level=AccessType.READ,
+            destName='applet',
+            description='The ID of applet.'
+        )
+        .param(
+            'noteId',
+            'id of note that user have written in the past',
+            required=True
+        )
+        .param(
+            'note',
+            'updated content of note',
+            required=True
+        )
+    )
+    def updateNote(self, applet, noteId, note):
+        from girderformindlogger.models.profile import Profile
+        thisUser = self.getCurrentUser()
+
+        reviewerProfile = Profile().findOne({
+            'appletId': ObjectId(applet['_id']),
+            'userId': thisUser['_id'],
+            'roles': {
+                '$in': ['reviewer', 'manager']
+            },
+            'deactivated': {'$ne': True}
+        })
+
+        if not reviewerProfile:
+            raise AccessException('permission denied')
+
+        return NoteModel().updateNote(
+            noteId=noteId,
+            note=note,
+            reviewer=reviewerProfile
+        )
+
+    @access.public(scope=TokenScope.DATA_READ)
+    @autoDescribeRoute(
+        Description(
+            'Update note for user\'s response.'
+        )
+        .modelParam(
+            'applet',
+            model=AppletModel,
+            level=AccessType.READ,
+            destName='applet',
+            description='The ID of applet.'
+        )
+        .param(
+            'responseId',
+            'id of response',
+            required=True
+        )
+    )
+    def getNotes(self, applet, responseId):
+        from girderformindlogger.models.profile import Profile
+
+        thisUser = self.getCurrentUser()
+
+        if not thisUser:
+            raise AccessException('permission denied')
+
+        reviewerProfile = Profile().findOne({
+            'appletId': ObjectId(applet['_id']),
+            'userId': thisUser['_id'],
+            'roles': {
+                '$in': ['reviewer', 'manager']
+            },
+            'deactivated': {'$ne': True}
+        })
+
+        if not reviewerProfile:
+            raise AccessException('permission denied')
+
+        notes = NoteModel().getNotes(
+            responseId=responseId,
+            reviewer=reviewerProfile
+        )
+
+        return notes
+
 
     @access.user(scope=TokenScope.DATA_READ)
     @autoDescribeRoute(
@@ -271,12 +460,12 @@ class ResponseItem(Resource):
             user = self.getCurrentUser()
 
             return(last7Days(
-                applet, 
-                appletInfo, 
-                user.get('_id'), 
-                user, 
-                startDate=startDate, 
-                includeOldItems=includeOldItems, 
+                applet,
+                appletInfo,
+                user.get('_id'),
+                user,
+                startDate=startDate,
+                includeOldItems=includeOldItems,
                 groupByDateActivity=groupByDateActivity,
                 localItems=localItems,
                 localActivities=localActivities
@@ -328,9 +517,9 @@ class ResponseItem(Resource):
 
         if updateInfo.get('cumulative', None):
             ResponseTokens().saveResponseToken(
-                profile, 
-                updateInfo['cumulative'], 
-                True, 
+                profile,
+                updateInfo['cumulative'],
+                True,
                 updateInfo.get('userPublicKey', None)
             )
 
