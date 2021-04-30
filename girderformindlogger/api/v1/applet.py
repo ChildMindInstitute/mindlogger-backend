@@ -102,6 +102,7 @@ class Applet(Resource):
         self.route('PUT', (':id', 'name', ), self.renameApplet)
         self.route('PUT', (':id', 'status'), self.updateAppletPublishStatus)
         self.route('PUT', (':id', 'searchTerms'), self.updateAppletSearch)
+        self.route('GET', (':id', 'searchTerms'), self.getAppletSearch)
 
     @access.user(scope=TokenScope.DATA_WRITE)
     @autoDescribeRoute(
@@ -852,7 +853,7 @@ class Applet(Resource):
 
     @access.user(scope=TokenScope.DATA_OWN)
     @autoDescribeRoute(
-        Description('Set Publish Status for an applet.')
+        Description('Set category and keywords of applet in the library.')
         .notes(
             'Use this endpoint to publish an applet in the library. <br>'
         )
@@ -884,6 +885,16 @@ class Applet(Resource):
         .errorResponse('Write access was denied for this applet.', 403)
     )
     def updateAppletSearch(self, applet, category='', subCategory='', keywords=[]):
+        thisUser = self.getCurrentUser()
+
+        profile = ProfileModel().findOne({
+            'appletId': applet['_id'],
+            'userId': thisUser['_id']
+        })
+
+        if 'manager' not in profile.get('roles', []):
+            raise AccessException("You don't have enough permission to update this applet.")
+
         libraryApplet = AppletLibrary().updateAppletSearch(
             applet['_id'],
             category,
@@ -893,6 +904,44 @@ class Applet(Resource):
 
         return {
             'message': 'success'
+        }
+
+    @access.user(scope=TokenScope.DATA_OWN)
+    @autoDescribeRoute(
+        Description('Get  for an applet.')
+        .notes(
+            'Get category and keywords of applet in the library.'
+        )
+        .modelParam(
+            'id',
+            model=AppletModel,
+            description='ID of the applet',
+            destName='applet',
+            level=AccessType.ADMIN
+        )
+    )
+    def getAppletSearch(self, applet):
+        thisUser = self.getCurrentUser()
+
+        profile = ProfileModel().findOne({
+            'appletId': applet['_id'],
+            'userId': thisUser['_id']
+        })
+
+        if 'manager' not in profile.get('roles', []):
+            raise AccessException("You don't have enough permission to view this resource.")
+
+        libraryApplet = AppletLibrary().findOne({
+            'appletId': applet['_id']
+        })
+
+        if not libraryApplet:
+            raise ValidationException('invalid applet')
+
+        return {
+            'categoryId': libraryApplet['categoryId'],
+            'subCategoryId': libraryApplet['subCategoryId'],
+            'keywords': libraryApplet['keywords']
         }
 
     @access.user(scope=TokenScope.DATA_WRITE)
@@ -1792,9 +1841,9 @@ class Applet(Resource):
         currentUserDate = datetime.datetime.utcnow() + datetime.timedelta(hours=int(user['timezone']))
 
         return self._model.getSchedule(
-            applet, 
-            user, 
-            getAllEvents, 
+            applet,
+            user,
+            getAllEvents,
             (currentUserDate.replace(hour=0, minute=0, second=0, microsecond=0), numberOfDays) if numberOfDays and not getAllEvents else None,
             localEvents or []
         )
