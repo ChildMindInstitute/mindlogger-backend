@@ -38,6 +38,7 @@ from girderformindlogger.models.folder import Folder as FolderModel
 from girderformindlogger.models.group import Group as GroupModel
 from girderformindlogger.models.protoUser import ProtoUser as ProtoUserModel
 from girderformindlogger.models.user import User as UserModel
+from girderformindlogger.models.applet_library import AppletLibrary
 from girderformindlogger.utility.progress import noProgress,                   \
     setResponseTimeLimit
 from girderformindlogger.models.account_profile import AccountProfile
@@ -496,6 +497,8 @@ class Applet(FolderModel):
 
     def deactivateApplet(self, applet):
         applet['meta']['applet']['deleted'] = True
+        applet['meta']['applet']['published'] = False
+
         applet = self.setMetadata(applet, applet.get('meta'))
 
         successed = True
@@ -513,6 +516,8 @@ class Applet(FolderModel):
 
             for accountProfile in accountProfiles:
                 AccountProfile().removeApplet(accountProfile, applet['_id'])
+
+            AppletLibrary().deleteAppletFromLibrary(applet)
         else:
             successed = False
 
