@@ -42,13 +42,20 @@ from pymongo import DESCENDING
 from bson import ObjectId
 import boto3
 import os
+import string
+import random
+import base64
+import io
 
+DEFAULT_REGION = 'us-east-1'
 
 class ResponseItem(Resource):
 
     def __init__(self):
         super(ResponseItem, self).__init__()
         self.resourceName = 'response'
+        self.s3_client = boto3.client('s3', region_name=DEFAULT_REGION, aws_access_key_id=os.environ['ACCESS_KEY_ID'],
+                                 aws_secret_access_key=os.environ['SECRET_ACCESS_KEY'])
         self._model = ResponseItemModel()
         self.route('GET', (':applet',), self.getResponsesForApplet)
         self.route('GET', ('last7Days', ':applet'), self.getLast7Days)
@@ -651,22 +658,34 @@ class ResponseItem(Resource):
                 # upload the value (a blob)
                 um = UploadModel()
                 filename = "{}.{}".format(
-                    key,
+                    ''.join(random.choice(string.ascii_uppercase + string.digits) for _ in range(10)),
                     metadata['responses'][key]['type'].split('/')[-1]
                 )
+                _file_obj_key=f"{ObjectId(profile['_id'])}/{ObjectId(applet['_id'])}/{ObjectId(activity['_id'])}/{filename}"
 
-                newUpload = um.uploadFromFile(
-                    value.file,
-                    metadata['responses'][key]['size'],
-                    filename,
-                    'item',
-                    newItem,
-                    informant,
-                    metadata['responses'][key]['type'],
-                )
+                file_data=base64.b64decode(value)
 
+                self.s3_client.upload_fileobj(io.BytesIO(file_data),os.environ['S3_MEDIA_BUCKET'],_file_obj_key)
+
+                # newUpload = um.uploadFromFile(
+                #     value.file,
+                #     metadata['responses'][key]['size'],
+                #     filename,
+                #     'item',
+                #     newItem,
+                #     informant,
+                #     metadata['responses'][key]['type'],
+                # )
+                value={}
+                value['filename']=filename
+                value['fromLibrary']=False
+                value['size']=metadata['responses'][key]['size']
+                value['type']=metadata['responses'][key]['type']
+                value['uri']="s3://{}/{}".format(os.environ['S3_MEDIA_BUCKET'],_file_obj_key)
                 # now, replace the metadata key with a link to this upload
-                metadata['responses'][key] = "file::{}".format(newUpload['_id'])
+                metadata['responses'][key]['value'] = value
+                del metadata['responses'][key]['size']
+                del metadata['responses'][key]['type']
 
             if metadata:
                 if metadata.get('dataSource', None):
@@ -701,7 +720,7 @@ class ResponseItem(Resource):
 
             if not pending:
                 newItem['readOnly'] = True
-            self._model.reconnectToDb()
+            #self._model.reconnectToDb()
 
             # update profile activity
             profile = Profile()
