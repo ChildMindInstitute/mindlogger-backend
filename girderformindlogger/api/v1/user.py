@@ -1267,11 +1267,16 @@ class User(Resource):
         )
         .param('old', 'Your current password or a temporary access token.')
         .param('new', 'Your new password.')
+        .param(
+            'email',
+            'Your email.',
+            required=False
+        )
         .errorResponse(('You are not logged in.',
                         'Your old password is incorrect.'), 401)
         .errorResponse('Your new password is invalid.')
     )
-    def changePassword(self, old, new):
+    def changePassword(self, old, new, email):
         user = self.getCurrentUser()
         token = None
 
@@ -1309,11 +1314,17 @@ class User(Resource):
 
         self._model.setPassword(user, new)
 
+        if email:
+            keys = self._model.getEncryptions(user, email, new)
+
         if token:
             # Remove the temporary access token if one was used
             Token().remove(token)
 
-        return {'message': 'Password changed.'}
+        return {
+            'message': 'Password changed.',
+            'keys': keys
+        }
 
     @access.public
     @autoDescribeRoute(

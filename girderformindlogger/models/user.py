@@ -13,6 +13,7 @@ from girderformindlogger.constants import AccessType, CoreEventHandler, TokenSco
 from girderformindlogger.exceptions import AccessException, ValidationException
 from girderformindlogger.models.aes_encrypt import AESEncryption, AccessControlledModel
 from girderformindlogger.models.setting import Setting
+from girderformindlogger.models.account_profile import AccountProfile
 from girderformindlogger.settings import SettingKey
 from girderformindlogger.utility import config, mail_utils
 from girderformindlogger.utility._cache import rateLimitBuffer
@@ -368,6 +369,34 @@ class User(AESEncryption):
 
         if save:
             self.save(user)
+
+    def getEncryptions(self, user, email, password):
+        from girderformindlogger.models.applet import Applet as AppletModel
+        accounts = AccountProfile().getAccounts(user['_id'])
+
+        applet_ids = []
+        for account in accounts:
+            for applet in account.get('applets', {}).get('user', []):
+                applet_ids.append(applet)
+
+        applets = [AppletModel().load(ObjectId(applet_id), AccessType.READ) for applet_id in applet_ids]
+
+        privateKey = self.getPrivateKey(user['_id'], email, password)
+
+        keys = {}
+        for applet in applets:
+            encryption = applet['meta'].get('encryption')
+
+            if encryption:
+                publicKey = self.getPublicKey(privateKey, encryption['appletPrime'], encryption['base'])
+                aesKey = self.getAESKey(privateKey, encryption['appletPublicKey'], encryption['appletPrime'], encryption['base'])
+
+                keys[str(applet['_id'])] = {
+                    'publicKey': publicKey,
+                    'aesKey': aesKey
+                }
+
+        return keys
 
     def initializeOtp(self, user):
         """

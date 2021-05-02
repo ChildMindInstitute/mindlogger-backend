@@ -70,7 +70,8 @@ installReqs = [
     'tzlocal>=1.5.1',
 	'pytest==6.2.2',
 	'pytest-cov==2.7.1',
-	'girder_client==3.0.3'
+	'girder_client==3.0.3',
+    'pyDH==0.1.6'
 ]
 
 extrasReqs = {
