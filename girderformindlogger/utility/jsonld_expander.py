@@ -19,6 +19,7 @@ from girderformindlogger.utility.response import responseDateList
 from girderformindlogger.models.cache import Cache as CacheModel
 from bson.objectid import ObjectId
 from pyld import jsonld
+import sys
 from pymongo import ASCENDING, DESCENDING
 
 
@@ -1356,7 +1357,7 @@ def createCache(obj, formatted, modelType, user = None):
 
     if obj.get('cached'):
         cache_id = obj['cached']
-        CacheModel().updateCache(cache_id, MODELS()[modelType]().name, obj['_id'], modelType, formatted)
+        saved = CacheModel().updateCache(cache_id, MODELS()[modelType]().name, obj['_id'], modelType, formatted)
     else:
         obj['updated'] = datetime.utcnow()
 
@@ -1366,14 +1367,15 @@ def createCache(obj, formatted, modelType, user = None):
         saved = CacheModel().insertCache(MODELS()[modelType]().name, obj['_id'], modelType, formatted)
         obj['cached'] = saved['_id']
 
-        MODELS()[modelType]().update({
-            '_id': ObjectId(obj['_id'])
-        }, {
-            '$set': {
-                'cached': obj['cached'],
-                'updated': obj['updated']
-            }
-        }, False)
+    MODELS()[modelType]().update({
+        '_id': ObjectId(obj['_id'])
+    }, {
+        '$set': {
+            'cached': obj['cached'],
+            'updated': obj['updated'],
+            'size': len(saved['cache_data'])
+        }
+    }, False)
 
     return obj
 
@@ -1563,7 +1565,6 @@ def formatLdObject(
 
             applet = {}
             applet['activities'] = protocol.pop('activities', {})
-            applet['items'] = protocol.pop('items', {})
             applet['protocol'] = {
                 key: protocol.get(
                     'protocol',
@@ -1618,38 +1619,22 @@ def formatLdObject(
             protocol = {
                 'protocol': newObj,
                 'activities': {},
-                "items": {}
             }
 
             if obj.get('loadedFromSingleFile', False):
-                activities = list(ActivityModel().find({'meta.protocolId': obj['_id']}))
-                items = list(ScreenModel().find({'meta.protocolId': obj['_id']}))
+                activities = ActivityModel().find({'meta.protocolId': obj['_id']})
+                items = ScreenModel().find({'meta.protocolId': obj['_id']})
 
-                itemIDMapping = {}
                 activityIDMapping = {}
 
-                for item in items:
-                    formatted = formatLdObject(item, 'screen', user)
-                    key = '{}/{}'.format(str(item['meta']['activityId']), str(item['_id']))
-
-                    itemIDMapping['{}/{}'.format(str(item['meta']['activityId']), formatted['@id'])] = key
-                    if item.get('duplicateOf', None):
-                        itemIDMapping['{}/{}'.format(str(item['meta']['activityId']), str(item['duplicateOf']))] = key
-
-                    protocol['items'][key] = formatted
-
                 for activity in activities:
-                    if refreshCache and fixUpOrderList(activity, 'activity', itemIDMapping):
-                        ActivityModel().setMetadata(activity, activity['meta'])
-
-                        formatted = formatLdObject(activity, 'activity', user, refreshCache=True)
+                    formatted = formatLdObject(activity, 'activity', user, refreshCache=refreshCache)
+                    if refreshCache:
                         createCache(activity, formatted, 'activity', user)
-                    else:
-                        formatted = formatLdObject(activity, 'activity', user)
 
-                    protocol['activities'][str(activity['_id'])] = formatted
+                    protocol['activities'][str(activity['_id'])] = activity['_id']
 
-                    activityIDMapping['{}/{}'.format(str(obj['_id']), formatted['@id'])] = str(activity['_id'])
+                    activityIDMapping['{}/{}'.format(str(obj['_id']), formatted.get('activity', formatted).get('@id'))] = str(activity['_id'])
 
                 if refreshCache:
                     if fixUpOrderList(obj, 'protocol', activityIDMapping):
@@ -1664,7 +1649,6 @@ def formatLdObject(
                         meta={'protocolId': ObjectId(obj['_id'])}
                     )
                 except:
-                    print("636")
                     protocol = componentImport(
                         newObj,
                         deepcopy(protocol),
@@ -1672,75 +1656,50 @@ def formatLdObject(
                         refreshCache=True
                     )
 
-                newActivities = protocol.get('activities', {}).keys()
-                newItems = protocol.get('items', {}).keys()
+            createCache(obj, protocol, 'protocol')
 
-                while(any([len(newActivities), len(newItems)])):
-                    activitiesNow = set(
-                        protocol.get('activities', {}).keys()
-                    )
-                    itemsNow = set(protocol.get('items', {}).keys())
-                    for activityURL in newActivities:
-                        activity = protocol['activities'][activityURL]
-                        activity = activity.get(
-                            'meta',
-                            {}
-                        ).get('activity', activity)
-                        try:
-                            protocol = componentImport(
-                                deepcopy(activity),
-                                deepcopy(protocol),
-                                user,
-                                refreshCache=refreshCache,
-                                meta={'protocolId': ObjectId(obj['_id']), 'activityId': ObjectId(protocol['activities'][activityURL]['_id'].split('/')[-1])}
-                            )
-                        except:
-                            print("670")
-                            protocol = componentImport(
-                                deepcopy(activity),
-                                deepcopy(protocol),
-                                user,
-                                refreshCache=True,
-                                meta={'protocolId': obj['_id'], 'activityId': activity['_id']}
-                            )
-                    for itemURL in newItems:
-                        activity = protocol['items'][itemURL]
-                        activity = activity.get(
-                            'meta',
-                            {}
-                        ).get('screen', activity)
-                        try:
-                            protocol = componentImport(
-                                deepcopy(activity),
-                                deepcopy(protocol),
-                                user,
-                                refreshCache=refreshCache
-                            )
-                        except:
-                            print("691")
-                            protocol = componentImport(
-                                deepcopy(activity),
-                                deepcopy(protocol),
-                                user,
-                                refreshCache=True
-                            )
-                    newActivities = list(
-                        set(
-                            protocol.get('activities', {}).keys()
-                        ) - activitiesNow
-                    )
-                    newItems = list(
-                        set(
-                            protocol.get('items', {}).keys()
-                        ) - itemsNow
-                    )
+            return protocol
+        elif mesoPrefix=='activity':
+            itemIDMapping = {}
+            if obj.get('loadedFromSingleFile', False):
+                items = ScreenModel().find({'meta.protocolId': obj['_id']})
 
-            formatted = _fixUpFormat(protocol)
+                activity = {
+                    'items': {}
+                }
 
-            createCache(obj, formatted, 'protocol')
-            return formatted
+                for item in items:
+                    identifier = item['meta']['identifier']
+                    activity['items'][identifier] = formatLdObject(item, 'screen', user)
+
+                    key = '{}/{}'.format(str(item['meta']['activityId']), str(item['_id']))
+
+                    itemIDMapping['{}/{}'.format(str(item['meta']['activityId']), formatted['@id'])] = key
+                    if item.get('duplicateOf', None):
+                        itemIDMapping['{}/{}'.format(str(item['meta']['activityId']), str(item['duplicateOf']))] = key
+
+                if refreshCache and fixUpOrderList(obj, 'activity', itemIDMapping):
+                    ActivityModel().setMetadata(obj, obj['meta'])
+
+                activity['activity'] = _fixUpFormat(obj['meta'].get('activity'))
+
+            else:
+                activity = {
+                    'activity': _fixUpFormat(newObj),
+                    'items': {}
+                }
+
+                activity = componentImport(
+                    newObj,
+                    deepcopy(activity),
+                    user,
+                    refreshCache=refreshCache,
+                    meta={'protocolId': obj['meta']['protocolId'], 'activityId': obj['_id']}
+                )
+
+            return activity
         else:
-            return(_fixUpFormat(newObj))
+            return (_fixUpFormat(newObj))
     except:
         if refreshCache==False:
             return(_fixUpFormat(formatLdObject(
@@ -1808,6 +1767,7 @@ def componentImport(
                     activity["url"] = activity["schema:url"] = canonicalIRI if(
                         canonicalIRI is not None
                     ) else IRI
+
                     activityComponent = pluralize(firstLower(
                         activityContent.get(
                             '@type',
@@ -1817,27 +1777,27 @@ def componentImport(
                         activityContent,
                         dict
                     )) else activityComponent
+
                     if activityComponent is not None:
                         activityComponents = (
                             pluralize(
                                 activityComponent
                             ) if activityComponent != 'screen' else 'items'
                         )
-                        updatedProtocol[activityComponents][
-                            canonicalIRI
-                        ] = deepcopy(formatLdObject(
+
+                        content = formatLdObject(
                             activityContent,
                             activityComponent,
                             user,
                             refreshCache=refreshCache
-                        ))
-        return(updatedProtocol.get(
-            'meta',
-            updatedProtocol
-        ).get(modelType if isinstance(
-            modelType,
-            str
-        ) else modelType[0], updatedProtocol))
+                        )
+
+                        if activityComponent != 'screen':
+                            updatedProtocol[activityComponents][canonicalIRI] = content.get(activityComponent, content)['_id'].split('/')[-1]
+                        else:
+                            updatedProtocol[activityComponents][canonicalIRI] = content
+
+        return updatedProtocol
     except:
         import sys, traceback
         print("error!")

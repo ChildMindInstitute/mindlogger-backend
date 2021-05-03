@@ -658,77 +658,70 @@ class Applet(FolderModel):
         from girderformindlogger.utility import mail_utils
 
         subject = 'applet upload success!'
-        try:
-            # we have cases to show manager's email to users
-            if mail_utils.validateEmailAddress(email) and \
-                'email' in user and (user['email'] == email and not user['email_encrypted'] or user['email'] == UserModel().hash(email) and user['email_encrypted']):
+        # we have cases to show manager's email to users
+        if mail_utils.validateEmailAddress(email) and \
+            'email' in user and (user['email'] == email and not user['email_encrypted'] or user['email'] == UserModel().hash(email) and user['email_encrypted']):
 
-                user['email'] = email
-                user['email_encrypted'] = False
-                UserModel().save(user)
-            else:
-                raise ValidationException('email is not valid')
-            # get a protocol from a URL
-            protocol = Protocol().getFromUrl(
-                protocolUrl,
-                'protocol',
-                user,
-                thread=False,
-                refreshCache=True,
-                meta={ 'appletId': None },
-                isReloading=False
-            )
+            user['email'] = email
+            user['email_encrypted'] = False
+            UserModel().save(user)
+        else:
+            raise ValidationException('email is not valid')
+        # get a protocol from a URL
+        protocol = Protocol().getFromUrl(
+            protocolUrl,
+            'protocol',
+            user,
+            thread=False,
+            refreshCache=True,
+            meta={ 'appletId': None },
+            isReloading=False
+        )
+        print('protocol is', protocol)
 
-            protocol = protocol[0].get('protocol', protocol[0])
+        protocol = protocol[0].get('protocol', protocol[0])
 
-            displayName = ''
-            for candidate in ['prefLabel', 'altLabel']:
-                for key in protocol:
-                    if not len(displayName) and key.endswith(candidate) and isinstance(protocol[key], list):
-                        displayName = protocol[key][0]['@value']
+        displayName = ''
+        for candidate in ['prefLabel', 'altLabel']:
+            for key in protocol:
+                if not len(displayName) and key.endswith(candidate) and isinstance(protocol[key], list):
+                    displayName = protocol[key][0]['@value']
 
-            name = name if name is not None and len(name) else displayName
+        name = name if name is not None and len(name) else displayName
 
-            applet = self.createApplet(
-                name=name,
-                protocol={
-                    '_id': 'protocol/{}'.format(
-                        str(protocol.get('_id')).split('/')[-1]
-                    ),
-                    'url': protocol.get(
-                        'meta',
-                        {}
-                    ).get(
-                        'protocol',
-                        {}
-                    ).get('url', protocolUrl),
-                    'name': displayName.strip()
-                },
-                user=user,
-                roles=roles,
-                constraints={
-                    **(
-                        constraints if constraints else {}
-                    ),
-                    **Protocol().getImageAndDescription(protocol)
-                },
-                appletRole=appletRole,
-                accountId=accountId,
-                encryption=encryption
-            )
+        applet = self.createApplet(
+            name=name,
+            protocol={
+                '_id': 'protocol/{}'.format(
+                    str(protocol.get('_id')).split('/')[-1]
+                ),
+                'url': protocol.get(
+                    'meta',
+                    {}
+                ).get(
+                    'protocol',
+                    {}
+                ).get('url', protocolUrl),
+                'name': displayName.strip()
+            },
+            user=user,
+            roles=roles,
+            constraints={
+                **(
+                    constraints if constraints else {}
+                ),
+                **Protocol().getImageAndDescription(protocol)
+            },
+            appletRole=appletRole,
+            accountId=accountId,
+            encryption=encryption
+        )
 
-            html = mail_utils.renderTemplate(f'appletUploadSuccess.{user.get("lang", "en")}.mako', {
-                'userName': user['firstName'],
-                'appletName': name
-            })
-            subject = t('applet_upload_sucess', user.get('lang', 'en'))
-
-        except Exception as e:
-            html = mail_utils.renderTemplate(f'appletUploadFailed.{user.get("lang", "en")}.mako', {
-                'userName': user['firstName'],
-                'appletName': name
-            })
-            subject = t('applet_upload_failed', user.get('lang', 'en'))
+        html = mail_utils.renderTemplate(f'appletUploadSuccess.{user.get("lang", "en")}.mako', {
+            'userName': user['firstName'],
+            'appletName': name
+        })
+        subject = t('applet_upload_sucess', user.get('lang', 'en'))
 
         if 'email' in user and not user.get('email_encrypted', True):
             mail_utils.sendMail(
@@ -1845,8 +1838,9 @@ class Applet(FolderModel):
                 )
 
     def updateActivities(self, applet, obj):
-        activities = [ObjectId(obj['activities'][activity]['_id'].split('/')[-1])
-                      for activity in obj.get('activities', [])]
+        activities = [
+            ObjectId(obj['activities'][activity]) for activity in obj.get('activities', [])
+        ]
 
         self.update({'_id': ObjectId(applet['_id'])},
                     {'$set': {'meta.protocol.activities': activities}})
