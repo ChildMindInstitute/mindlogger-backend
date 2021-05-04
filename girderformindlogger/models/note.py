@@ -48,8 +48,8 @@ class Note(AESEncryption, dict):
 
         document = self.save(document)
         document['reviewer'] = {
-            'firstName': reviewer['firstName'],
-            'lastName': reviewer['lastName']
+            'firstName': reviewer.get('firstName', ''),
+            'lastName': reviewer.get('lastName', '')
         }
         document['my_note'] = True
 
@@ -72,8 +72,8 @@ class Note(AESEncryption, dict):
             document = self.save(document)
 
             document['reviewer'] = {
-                'firstName': reviewer['firstName'],
-                'lastName': reviewer['lastName']
+                'firstName': reviewer.get('firstName', ''),
+                'lastName': reviewer.get('lastName', '')
             }
             document['my_note'] = True
 
@@ -101,8 +101,8 @@ class Note(AESEncryption, dict):
         names = {}
         for profile in profiles:
             names[str(profile['_id'])] = {
-                'firstName': profile['firstName'],
-                'lastName': profile['lastName']
+                'firstName': profile.get('firstName', ''),
+                'lastName': profile.get('lastName', '')
             }
 
 
