@@ -392,11 +392,11 @@ class User(AESEncryption):
                 aesKey = self.getAESKey(privateKey, encryption['appletPublicKey'], encryption['appletPrime'], encryption['base'])
 
                 keys[str(applet['_id'])] = {
-                    'publicKey': publicKey,
-                    'aesKey': aesKey
+                    'userPublicKey': publicKey,
+                    'AESKey': aesKey
                 }
 
-        return keys
+        return (privateKey, keys)
 
     def initializeOtp(self, user):
         """

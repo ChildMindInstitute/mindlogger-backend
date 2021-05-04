@@ -926,10 +926,16 @@ class User(Resource):
                'the desired language for the response',
                default='en',
                required=True)
+        .param(
+            'returnKeys',
+            'set to true when return keys',
+            default=False,
+            required=False
+        )
         .errorResponse('Missing Authorization header.', 401)
         .errorResponse('Invalid login or password.', 403)
     )
-    def login(self, loginAsEmail, lang):
+    def login(self, loginAsEmail, lang, returnKeys):
         import threading
         from girderformindlogger.utility.mail_utils import validateEmailAddress
 
@@ -940,7 +946,7 @@ class User(Resource):
 
         deviceId = cherrypy.request.headers.get('deviceId', '')
         timezone = float(cherrypy.request.headers.get('timezone', 0))
-
+        privateKey = keys = None
         # Only create and send new cookie if user isn't already sending a valid
         # one.
         if not user:
@@ -1003,6 +1009,9 @@ class User(Resource):
             setCurrentUser(user)
             token = self.sendAuthTokenCookie(user)
 
+            if returnKeys:
+                privateKey, keys = self._model.getEncryptions(user, login, password)
+
         if user and Token().hasScope(token, TokenScope.ONE_TIME_AUTH):
             Token().remove(token)
             token = self.sendAuthTokenCookie(user)
@@ -1011,7 +1020,7 @@ class User(Resource):
 
         fields = ['accountId', 'accountName', 'applets']
 
-        tokenInfo = {
+        userInfo = {
             'user': self._model.filter(user, user),
             'account': {
                 field: account[field] for field in fields
@@ -1023,10 +1032,13 @@ class User(Resource):
             },
             'message': 'Login succeeded.'
         }
+        if returnKeys and privateKey and keys:
+            userInfo['user']['privateKey'] = privateKey
+            userInfo['keys'] = keys
 
-        tokenInfo['account']['isDefaultName'] = False if user['accountName'] else True
+        userInfo['account']['isDefaultName'] = False if user['accountName'] else True
 
-        return tokenInfo
+        return userInfo
 
     @access.public
     @autoDescribeRoute(
@@ -1315,15 +1327,20 @@ class User(Resource):
         self._model.setPassword(user, new)
 
         if email:
-            keys = self._model.getEncryptions(user, email, new)
+            privateKey, keys = self._model.getEncryptions(user, email, new)
 
         if token:
             # Remove the temporary access token if one was used
             Token().remove(token)
 
+        if email:
+            return {
+                'keys': keys,
+                'privateKey': privateKey
+            }
+
         return {
             'message': 'Password changed.',
-            'keys': keys
         }
 
     @access.public
