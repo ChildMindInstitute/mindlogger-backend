@@ -19,6 +19,7 @@ from girderformindlogger.utility.response import responseDateList
 from girderformindlogger.models.cache import Cache as CacheModel
 from bson.objectid import ObjectId
 from pyld import jsonld
+import time
 import sys
 from pymongo import ASCENDING, DESCENDING
 
@@ -1153,7 +1154,12 @@ def expandOneLevel(obj):
                             obj[k]["@context"].append(reprolibCanonize(
                                 invalidContext
                             ))
-            return(expandOneLevel(obj))
+            data = expandOneLevel(obj)
+            if not data:
+                time.sleep(2)
+                data = expandOneLevel(obj)
+
+            return data
         return(obj)
     newObj = newObj[0] if (
         isinstance(newObj, list) and len(newObj)==1
@@ -1227,6 +1233,10 @@ def expand(obj, keepUndefined=False):
         return(obj)
 
     newObj = expandOneLevel(obj)
+
+    if not newObj:
+        time.sleep(2)
+        newObj = expandOneLevel(obj)
 
     if isinstance(newObj, dict):
         for k in KEYS_TO_EXPAND:
