@@ -387,7 +387,8 @@ class Applet(FolderModel):
                     ObjectId(protocol['activities'][activity]['_id'].split('/')[-1]) for activity in protocol['activities']
                 ],
                 'name': prefLabel
-            }
+            },
+            'published': False
         }
         metadata['applet']['displayName'] = appletName
 
