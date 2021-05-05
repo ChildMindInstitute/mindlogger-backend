@@ -14,6 +14,7 @@ from girderformindlogger.utility.model_importer import ModelImporter
 from girderformindlogger.utility.progress import noProgress, setResponseTimeLimit
 from girderformindlogger import events
 from bson import json_util
+import hashlib
 
 from Cryptodome.Cipher import AES
 
@@ -148,3 +149,33 @@ class AESEncryption(AccessControlledModel):
 
         self.decryptFields(document, self.fields)
         return document
+
+    def getPrivateKey(self, userId, email, password):
+        key1 = hashlib.sha512((str(password) + str(email)).encode()).digest()
+        key2 = hashlib.sha512((str(userId) + str(email)).encode()).digest()
+
+        return [x for x in key1] + [x for x in key2]
+
+    def getPublicKey(self, privateKey, appletPrime, base):
+        p = self.convertArrayToHex(appletPrime)
+        g = self.convertArrayToHex(base)
+        a = self.convertArrayToHex(privateKey)
+
+        key = self.convertHexToArray(pow(g, a, p))
+        return [x for x in key]
+
+    def getAESKey(self, privateKey, publicKey, appletPrime, base):
+        p = self.convertArrayToHex(appletPrime)
+        g = self.convertArrayToHex(base)
+        a = self.convertArrayToHex(privateKey)
+
+        shared_key = pow(self.convertArrayToHex(publicKey), a, p)
+
+        key = hashlib.sha256(self.convertHexToArray(shared_key)).digest()
+        return [c for c in key]
+
+    def convertArrayToHex(self, data):
+        return int.from_bytes(bytearray(data), 'big')
+
+    def convertHexToArray(self, data):
+        return data.to_bytes((data.bit_length() + 7) // 8, byteorder='big')
