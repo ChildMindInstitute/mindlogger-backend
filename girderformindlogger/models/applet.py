@@ -677,7 +677,6 @@ class Applet(FolderModel):
             meta={ 'appletId': None },
             isReloading=False
         )
-        print('protocol is', protocol)
 
         protocol = protocol[0].get('protocol', protocol[0])
 

@@ -1357,7 +1357,9 @@ def _createContext(key):
 
 
 def createCache(obj, formatted, modelType, user = None):
-    obj = MODELS()[modelType]().load(obj['_id'], force=True)
+    data = MODELS()[modelType]().load(obj['_id'], force=True)
+    obj = data
+
     if modelType in NONES:
         print("No modelType!")
         print(obj)
