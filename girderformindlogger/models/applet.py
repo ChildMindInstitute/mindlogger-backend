@@ -45,6 +45,7 @@ from girderformindlogger.models.account_profile import AccountProfile
 from girderformindlogger.models.profile import Profile
 from girderformindlogger.models.events import Events as EventsModel
 from girderformindlogger.models.item import Item as ItemModel
+from girderformindlogger.models.activity import Activity as ActivityModel
 from girderformindlogger.external.notification import send_applet_update_notification
 from bson import json_util
 from girderformindlogger.utility import mail_utils
@@ -1564,13 +1565,16 @@ class Applet(FolderModel):
         groupByDateActivity=True,
         startDate=None,
         retrieveLastResponseTime=False,
-        localInfo={}
+        localInfo={},
+        nextActivity=None,
+        bufferSize=None
     ):
         from girderformindlogger.utility import jsonld_expander
         from girderformindlogger.utility.response import responseDateList, last7Days
         from girderformindlogger.models.protocol import Protocol
 
         formatted = {}
+        nextIRI = None
 
         if not localInfo.get('contentUpdateTime', None) or applet['updated'].isoformat() != localInfo['contentUpdateTime']:
             localVersion = localInfo.get('appletVersion', None)
@@ -1623,70 +1627,128 @@ class Applet(FolderModel):
             formatted['removedActivities'] = []
             formatted['removedItems'] = []
 
-            if localVersion and updates:
-                for itemId in list(formatted['items'].keys()):
-                    if itemId not in updates['screen'] and not isInitialVersion:
-                        formatted['items'].pop(itemId)
+            if isInitialVersion:
+                nextIRI, data, remaining = self.getNextAppletData(formatted['activities'], nextActivity, bufferSize)
+                formatted.update(data)
+                formatted['removedActivities'] = list(formatted['activities'].keys())
+            else:
+                data = { 'activities': {}, 'items': {} }
+                itemIRIs = {}
 
-                for itemId in updates['screen']:
-                    if itemId not in formatted['items'] and (updates['screen'][itemId] == 'updated' or isInitialVersion):
-                        formatted['removedItems'].append(itemId)
+                for activityIRI in formatted['activities']:
+                    activityID = ObjectId(formatted['activities']['activityIRI'])
+                    if activityIRI not in updates['activity']:
+                        continue
 
-                for activityId in list(formatted['activities'].keys()):
-                    if activityId not in updates['activity'] and not isInitialVersion:
-                        formatted['activities'].pop(activityId)
+                    activity = ActivityModel().findOne({
+                        '_id': ObjectId(formatted['activities'][activityIRI])
+                    })
+                    formattedActivity = jsonld_expander.formatLdObject(
+                        activity,
+                        'activity'
+                    )
 
-                for activityId in updates['activity']:
-                    if activityId not in formatted['activities'] and (updates['activity'][activityId] == 'updated' or isInitialVersion):
-                        formatted['removedActivities'].append(activityId)
+                    data['activities'][activityIRI] = formattedActivity['activity']
+                    for itemIRI in formattedActivity['items']:
+                        if itemIRI not in updates['screen']:
+                            data['items'][itemIRI] = formattedActivity['items'][itemIRI]
 
-        if retrieveSchedule:
-            schedule = self.getSchedule(
-                applet,
-                reviewer,
-                retrieveAllEvents,
-                eventFilter if not retrieveAllEvents else None,
-                localInfo.get('localEvents', [])
-            )
+                        itemIRIs[itemIRI] = formattedActivity['items'][itemIRI]['_id'].split('/')[-1]
 
-            if schedule:
-                formatted["schedule"] = schedule
+                if localVersion and updates:
+                    for itemIRI in itemIRIs:
+                        if itemIRI not in updates['screen']:
+                            formatted['removedItems'].pop(itemIRI)
 
-        if retrieveResponses:
-            formatted["responses"] = last7Days(
-                applet['_id'],
-                applet,
-                reviewer.get('_id'),
-                reviewer,
-                None,
-                localInfo.get('startDate', None),
-                True,
-                groupByDateActivity,
-                localInfo.get('localItems', []),
-                localInfo.get('localActivities', [])
-            )
+                    for activityIRI in formatted['activities']:
+                        if activityIRI not in updates['activity']:
+                            formatted['removedActivities'].pop(activityIRI)
 
-        if retrieveLastResponseTime:
-            profile = Profile().findOne({'appletId': applet['_id'], 'userId': reviewer['_id']})
-            activities = profile['completed_activities']
+                formatted.update(data)
 
-            formatted['lastResponses'] = {}
+        if not nextActivity:
+            if retrieveSchedule:
+                schedule = self.getSchedule(
+                    applet,
+                    reviewer,
+                    retrieveAllEvents,
+                    eventFilter if not retrieveAllEvents else None,
+                    localInfo.get('localEvents', [])
+                )
 
-            for activity in activities:
-                completed_time = activity['completed_time']
-                timezone = str(profile.get('timezone', 0))
-                if completed_time:
-                    if isinstance(timezone, str) and timezone in pytz.all_timezones:
-                        completed_time = activity['completed_time'].astimezone(pytz.timezone(timezone)).isoformat()
-                    else:
-                        completed_time = activity['completed_time'].isoformat()
+                if schedule:
+                    formatted["schedule"] = schedule
 
-                formatted['lastResponses'][str(activity['activity_id'])] = completed_time
+            if retrieveResponses:
+                formatted["responses"] = last7Days(
+                    applet['_id'],
+                    applet,
+                    reviewer.get('_id'),
+                    reviewer,
+                    None,
+                    localInfo.get('startDate', None),
+                    True,
+                    groupByDateActivity,
+                    localInfo.get('localItems', []),
+                    localInfo.get('localActivities', [])
+                )
+
+            if retrieveLastResponseTime:
+                profile = Profile().findOne({'appletId': applet['_id'], 'userId': reviewer['_id']})
+                activities = profile['completed_activities']
+
+                formatted['lastResponses'] = {}
+
+                for activity in activities:
+                    completed_time = activity['completed_time']
+                    timezone = str(profile.get('timezone', 0))
+                    if completed_time:
+                        if isinstance(timezone, str) and timezone in pytz.all_timezones:
+                            completed_time = activity['completed_time'].astimezone(pytz.timezone(timezone)).isoformat()
+                        else:
+                            completed_time = activity['completed_time'].isoformat()
+
+                    formatted['lastResponses'][str(activity['activity_id'])] = completed_time
 
         formatted["updated"] = applet['updated'].isoformat()
         formatted["id"] = applet['_id']
 
-        return formatted
+        return (nextIRI, formatted, remaining)
+
+    def getNextAppletData(self, activities, nextActivity, bufferSize):
+        collect = not nextActivity
+        buffer = {
+            'activities': {},
+            'items': {}
+        }
+
+        nextIRI = None
+        for activityIRI in activities:
+            if nextActivity == activityIRI:
+                collect = True
+
+            if not collect:
+                continue
+
+            if bufferSize < 0:
+                nextIRI = activityIRI
+                break
+
+            activity = ActivityModel().findOne({
+                '_id': ObjectId(activities[activityIRI])
+            })
+
+            formattedActivity = jsonld_expander.formatLdObject(
+                activity,
+                'activity'
+            )
+
+            buffer['activities'][activityIRI] = formattedActivity['activity']
+            buffer['items'].update(formattedActivity['items'])
+
+            bufferSize = bufferSize - activity.get('size', 0)
+
+        return (nextIRI, buffer, bufferSize)
 
     def getAppletUsers(self, applet, user=None, force=False, retrieveRoles=False, retrieveRequests=False):
         """

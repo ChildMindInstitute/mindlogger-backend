@@ -27,7 +27,7 @@ from ..describe import Description, autoDescribeRoute
 from ..rest import Resource, rawResponse
 from bson.objectid import ObjectId
 from girderformindlogger.constants import AccessType, SortDir, TokenScope,     \
-    DEFINED_INFORMANTS, REPROLIB_CANONICAL, SPECIAL_SUBJECTS, USER_ROLES
+    DEFINED_INFORMANTS, REPROLIB_CANONICAL, SPECIAL_SUBJECTS, USER_ROLES, MAX_PULL_SIZE
 from girderformindlogger.api import access
 from girderformindlogger.exceptions import AccessException, ValidationException
 from girderformindlogger.models.activity import Activity as ActivityModel
@@ -1337,10 +1337,16 @@ class Applet(Resource):
             required=False,
             dataType='boolean'
         )
+        .param(
+            'nextActivity',
+            'id of next activity',
+            default=None,
+            required=False,
+        )
         .errorResponse('Invalid applet ID.')
         .errorResponse('Read access was denied for this applet.', 403)
     )
-    def getApplet(self, applet, retrieveSchedule=False, retrieveAllEvents=False):
+    def getApplet(self, applet, retrieveSchedule=False, retrieveAllEvents=False, nextActivity=None):
         user = self.getCurrentUser()
 
         formatted = jsonld_expander.formatLdObject(
@@ -1350,11 +1356,21 @@ class Applet(Resource):
             refreshCache=False
         )
 
+        (nextIRI, data, remaining) = self._model.getNextAppletData(formatted['activities'], nextActivity, MAX_PULL_SIZE)
+
+        if nextIRI:
+            return {
+                'nextActivity': nextIRI,
+                **data
+            }
+
         if retrieveSchedule:
             formatted['schedule'] = self._model.getSchedule(applet, user, retrieveAllEvents)
 
         formatted['updated'] = applet['updated']
         formatted['accountId'] = applet['accountId']
+        formatted['nextActivity'] = nextIRI
+        formatted.update(data)
 
         return formatted
 

@@ -14,6 +14,8 @@ MAX_LOG_SIZE = 1024 * 1024 * 10  # Size in bytes before logs are rotated.
 LOG_BACKUP_COUNT = 5
 ACCESS_FLAGS = {}
 
+MAX_PULL_SIZE = 1024 * 1024
+
 # Identifier for Girder's entry in the route table
 GIRDER_ROUTE_ID = 'core_girder'
 
