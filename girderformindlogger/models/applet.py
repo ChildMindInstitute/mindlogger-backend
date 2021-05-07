@@ -116,7 +116,8 @@ class Applet(FolderModel):
                 'period': 5,
                 'retention': 'year',
                 'enabled': True
-            }
+            },
+            'schema': '1.0.1'
         }
         metadata['applet']['displayName'] = name
 

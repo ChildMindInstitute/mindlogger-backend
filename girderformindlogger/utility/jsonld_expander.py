@@ -1505,7 +1505,11 @@ def formatLdObject(
                 not refreshCache,
                 oc is not None
             ]):
-                return(loadCache(oc))
+                if mesoPrefix != 'applet' or obj.get('meta', {}).get('schema', '') == '1.0.1':
+                    return(loadCache(oc))
+                else:
+                    refreshCache = True
+
             if 'meta' not in obj.keys():
                 return(_fixUpFormat(obj))
         mesoPrefix = camelCase(mesoPrefix)
@@ -1551,14 +1555,14 @@ def formatLdObject(
                 if cache:
                     protocol = loadCache(cache)
 
-            if protocolUrl is not None and not protocol:
-                # get protocol from url
-                protocol = ProtocolModel().load(ObjectId(protocolId), user, force=True)
+            if protocolUrl is not None and protocolId and not protocol: # handle old schema
+                protocolObj = ProtocolModel().load(ObjectId(protocolId), user, force=True)
 
-                if 'appletId' not in protocol.get('meta', {}):
-                    protocol['meta']['appletId'] = 'None'
-                    ProtocolModel().setMetadata(protocol, protocol['meta'])
+                if 'appletId' not in protocolObj.get('meta', {}):
+                    protocolObj['meta']['appletId'] = 'None'
+                    ProtocolModel().setMetadata(protocolObj, protocolObj['meta'])
 
+            if protocolUrl:
                 protocol = ProtocolModel().getFromUrl(
                             protocolUrl,
                             'protocol',
@@ -1566,17 +1570,19 @@ def formatLdObject(
                             thread=False,
                             refreshCache=refreshCache,
                             meta={
-                                'appletId': protocol['meta']['appletId']
+                                'appletId': obj['_id']
                             }
                         )[0]
+            else:
+                protocolObj = ProtocolModel().load(ObjectId(protocolId), user, force=True)
 
-            # format protocol data
-            protocol = formatLdObject(
-                protocol,
-                'protocol',
-                user,
-                refreshCache=refreshCache
-            )
+                # format protocol data
+                protocol = formatLdObject(
+                    protocolObj,
+                    'protocol',
+                    user,
+                    refreshCache=refreshCache
+                )
 
             applet = {}
             applet['activities'] = protocol.pop('activities', {})
@@ -1619,6 +1625,17 @@ def formatLdObject(
 
                             inserted = True
 
+            # check schema to handle old applets
+            if obj['meta'].get('schema', '') != '1.0.1':
+                obj['meta']['schema'] = '1.0.1'
+                AppletModel().update({
+                    '_id': obj['_id']
+                }, {
+                    '$set': {
+                        'meta.schema': '1.0.1'
+                    }
+                })
+
             createCache(obj, applet, 'applet', user)
             if responseDates:
                 try:
@@ -1638,7 +1655,6 @@ def formatLdObject(
 
             if obj.get('loadedFromSingleFile', False):
                 activities = ActivityModel().find({'meta.protocolId': obj['_id']})
-                items = ScreenModel().find({'meta.protocolId': obj['_id']})
 
                 activityIDMapping = {}
 
