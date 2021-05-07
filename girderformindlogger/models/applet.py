@@ -1627,16 +1627,18 @@ class Applet(FolderModel):
             formatted['removedActivities'] = []
             formatted['removedItems'] = []
 
-            if isInitialVersion:
+            if not localVersion or isInitialVersion:
                 nextIRI, data, remaining = self.getNextAppletData(formatted['activities'], nextActivity, bufferSize)
                 formatted.update(data)
-                formatted['removedActivities'] = list(formatted['activities'].keys())
+
+                if localVersion:
+                    formatted['removedActivities'] = list(formatted['activities'].keys())
             else:
                 data = { 'activities': {}, 'items': {} }
                 itemIRIs = {}
 
                 for activityIRI in formatted['activities']:
-                    activityID = ObjectId(formatted['activities']['activityIRI'])
+                    activityID = ObjectId(formatted['activities'][activityIRI])
                     if activityIRI not in updates['activity']:
                         continue
 
@@ -1649,9 +1651,16 @@ class Applet(FolderModel):
                     )
 
                     data['activities'][activityIRI] = formattedActivity['activity']
+                    bufferSize -= activity.get('size', 0)
+
+                for itemId in list(formatted['items'].keys()):
+                    if itemId not in updates['screen'] and not isInitialVersion:
+                        formatted['items'].pop(itemId)
+
                     for itemIRI in formattedActivity['items']:
                         if itemIRI not in updates['screen']:
-                            data['items'][itemIRI] = formattedActivity['items'][itemIRI]
+                            data['items'].pop(itemIRI)
+                            bufferSize += formattedActivity['items'][itemIRI].get('size', 0)
 
                         itemIRIs[itemIRI] = formattedActivity['items'][itemIRI]['_id'].split('/')[-1]
 
@@ -1716,6 +1725,8 @@ class Applet(FolderModel):
         return (nextIRI, formatted, remaining)
 
     def getNextAppletData(self, activities, nextActivity, bufferSize):
+        from girderformindlogger.utility import jsonld_expander
+
         collect = not nextActivity
         buffer = {
             'activities': {},

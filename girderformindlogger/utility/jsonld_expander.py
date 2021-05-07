@@ -1367,6 +1367,9 @@ def createCache(obj, formatted, modelType, user = None):
         print("formatting failed!")
         print(obj)
 
+    if modelType == 'screen':
+        formatted['size'] = len(json_util.dumps(formatted))
+
     if obj.get('cached'):
         cache_id = obj['cached']
         saved = CacheModel().updateCache(cache_id, MODELS()[modelType]().name, obj['_id'], modelType, formatted)
