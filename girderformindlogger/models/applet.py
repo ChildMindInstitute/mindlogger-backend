@@ -1719,6 +1719,9 @@ class Applet(FolderModel):
                             completed_time = activity['completed_time'].isoformat()
 
                     formatted['lastResponses'][str(activity['activity_id'])] = completed_time
+        else:
+            formatted.pop('applet')
+            formatted.pop('protocol')
 
         formatted["updated"] = applet['updated'].isoformat()
         formatted["id"] = applet['_id']

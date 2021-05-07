@@ -1693,7 +1693,7 @@ def formatLdObject(
         elif mesoPrefix=='activity':
             itemIDMapping = {}
             if obj.get('loadedFromSingleFile', False):
-                items = ScreenModel().find({'meta.protocolId': obj['_id']})
+                items = ScreenModel().find({'meta.activityId': obj['_id']})
 
                 activity = {
                     'items': {}
@@ -1705,7 +1705,7 @@ def formatLdObject(
 
                     key = '{}/{}'.format(str(item['meta']['activityId']), str(item['_id']))
 
-                    itemIDMapping['{}/{}'.format(str(item['meta']['activityId']), formatted['@id'])] = key
+                    itemIDMapping['{}/{}'.format(str(item['meta']['activityId']), activity['items'][identifier]['@id'])] = key
                     if item.get('duplicateOf', None):
                         itemIDMapping['{}/{}'.format(str(item['meta']['activityId']), str(item['duplicateOf']))] = key
 
