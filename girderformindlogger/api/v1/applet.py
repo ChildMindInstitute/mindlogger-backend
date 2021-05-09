@@ -1138,13 +1138,17 @@ class Applet(Resource):
         if 'editor' not in profile.get('roles', []) and 'manager' not in profile.get('roles', []):
             raise AccessException("You don't have enough permission to update this applet.")
 
-        return AppletModel().updateAppletFromProtocolData(
+        AppletModel().updateAppletFromProtocolData(
             applet=applet,
             name=name,
             protocol=protocol,
             user=thisUser,
             accountId=applet['accountId']
         )
+
+        return {
+            'message': 'success'
+        }
 
     @access.user(scope=TokenScope.DATA_WRITE)
     @autoDescribeRoute(
@@ -1158,15 +1162,9 @@ class Applet(Resource):
             level=AccessType.READ,
             destName='applet'
         )
-        .jsonParam(
-            'protocol',
-            'A JSON object containing protocol information for an applet',
-            paramType='form',
-            required=False
-        )
         .errorResponse('Write access was denied for this applet.', 403)
     )
-    def prepareAppletForEdit(self, applet, protocol):
+    def prepareAppletForEdit(self, applet, params):
         thisUser = self.getCurrentUser()
         profile = ProfileModel().findOne({
             'appletId': applet['_id'],
@@ -1176,13 +1174,16 @@ class Applet(Resource):
         if 'editor' not in profile.get('roles', []) and 'manager' not in profile.get('roles', []):
             raise AccessException("You don't have enough permission to update this applet.")
 
-        return AppletModel().prepareAppletForEdit(
+        AppletModel().prepareAppletForEdit(
             applet=applet,
-            protocol=protocol,
+            protocol=params['protocol'].file,
             user=thisUser,
             accountId=applet['accountId']
         )
 
+        return {
+            'messsage': 'success'
+        }
 
     @access.user(scope=TokenScope.DATA_WRITE)
     @autoDescribeRoute(

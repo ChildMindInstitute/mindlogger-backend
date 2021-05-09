@@ -26,6 +26,7 @@ import six
 import threading
 import re
 import pytz
+import ijson
 
 from bson.objectid import ObjectId
 from girderformindlogger import events
@@ -1097,7 +1098,7 @@ class Applet(FolderModel):
                 Protocol().initHistoryData(historyFolder, referencesFolder, protocolId, user)
 
             activities = list(ActivityModel.find({ 'meta.protocolId': ObjectId(protocolId) }))
-            items = list(ItemModel.find({ 'meta.protocolId': ObjectId(protocolId) }))
+            items = ItemModel.find({ 'meta.protocolId': ObjectId(protocolId) })
             activityIdToData = {
                 str(activity['_id']): activity for activity in activities
             }
@@ -1127,9 +1128,14 @@ class Applet(FolderModel):
 
                 jsonld_expander.convertObjectToSingleFileFormat(activity, 'activity', user, str(activity['_id']))
 
+            data = {}
+
+            for key, value in ijson.kvitems(protocol, 'protocol.data'):
+                data[key] = value
+
             for key in ['schema:version', 'schema:schemaVersion']:
                 schemaVersion = protocolFolder['meta']['protocol'][key]
-                schemaVersion[0]['@value'] = protocol['protocol'].get('data', {}).get(key, '0.0.0')
+                schemaVersion[0]['@value'] = data.get(key, '0.0.0')
 
             jsonld_expander.convertObjectToSingleFileFormat(protocolFolder, 'protocol', user)
 

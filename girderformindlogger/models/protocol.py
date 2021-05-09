@@ -181,7 +181,7 @@ class Protocol(FolderModel):
             activityId2Key[activityId] = activityKey
 
         itemId2ActivityId = {}
-        
+
         items = list(Screen().find({'meta.protocolId': protocolId}))
         for item in items:
             itemId2ActivityId[str(item['_id'])] = str(item['meta'].get('activityId', None))
@@ -292,8 +292,8 @@ class Protocol(FolderModel):
         from girderformindlogger.utility import jsonld_expander
         from girderformindlogger.models.item import Item as ItemModel
 
-        activities = list(FolderModel().find({ 'meta.protocolId': ObjectId(protocolId) }))
-        items = list(ItemModel().find({ 'meta.protocolId': ObjectId(protocolId) }))
+        activities = FolderModel().find({ 'meta.protocolId': ObjectId(protocolId) })
+        items = ItemModel().find({ 'meta.protocolId': ObjectId(protocolId) })
 
         protocol = self.load(protocolId, force=True)
         schemaVersion = protocol['meta'].get('protocol', {}).get('schema:version', None)
@@ -436,8 +436,8 @@ class Protocol(FolderModel):
             'meta.lastVersion': localVersion
         }))
 
-        updates = itemModel.find({ 
-            'folderId': referencesFolder['_id'], 
+        updates = itemModel.find({
+            'folderId': referencesFolder['_id'],
             'updated': {
                 '$gt': datetime.datetime.fromisoformat(localUpdateTime)
             }

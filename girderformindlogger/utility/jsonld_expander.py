@@ -21,6 +21,8 @@ from bson.objectid import ObjectId
 from pyld import jsonld
 import time
 import sys
+import ijson, decimal
+
 from pymongo import ASCENDING, DESCENDING
 
 
@@ -143,12 +145,10 @@ def insertHistoryData(obj, identifier, modelType, baseVersion, historyFolder, hi
             )
 
         obj = modelClass.setMetadata(obj, meta)
-        formatted = _fixUpFormat(formatLdObject(
-            obj,
-            mesoPrefix=modelType,
-            user=user,
-            refreshCache=True
-        ))
+        formatted = _fixUpFormat({
+            **obj['meta'].get(modelType, obj['meta']),
+            '_id': "/".join([snake_case(modelType), str(obj['_id'])])
+        })
 
         if modelType == 'screen':
             formatted['original'] = {
@@ -531,7 +531,47 @@ def cacheProtocolContent(protocol, document, user, editExisting=False):
             item['content'] = json_util.dumps(getUpdatedContent(document, latestDocument))
             item['baseVersion'] = document['baseVersion']
         else:
-            item['content'] = json_util.dumps(document)
+            cacheModel = CacheModel()
+            if type(document) == dict:
+                content = {
+                    'contexts': document['contexts'],
+                    'protocol': {
+                        'data': document['protocol']['data'],
+                        'activities': {}
+                    }
+                }
+
+                for key in document['protocol']['activities']:
+                    cached = cacheModel.insertCache('item', item['_id'], 'content', document['protocol']['activities'][key])
+                    content['protocol']['activites'][key] = f'cache/{str(cached["_id"])}'
+            else:
+                content = {
+                    'contexts': {},
+                    'protocol': {
+                        'data': {},
+                        'activities': {}
+                    }
+                }
+                def decimal_default(obj):
+                    if isinstance(obj, decimal.Decimal):
+                        return float(obj)
+                    raise TypeError
+
+                document.seek(0)
+                for key, value in ijson.kvitems(document, 'contexts'):
+                    content['contexts'][key] = value
+
+                document.seek(0)
+                for key, value in ijson.kvitems(document, 'protocol.data'):
+                    content['protocol']['data'][key] = value
+
+                document.seek(0)
+                for key, activity in ijson.kvitems(document, 'protocol.activities'):
+                    cached = cacheModel.insertCache('item', item['_id'], 'content', activity)
+                    content['protocol']['activities'][key] = f'cache/{str(cached["_id"])}'
+
+            item['content'] = json_util.dumps(content, default=decimal_default)
+
         item['version'] = version
 
         ItemModel().save(item)
