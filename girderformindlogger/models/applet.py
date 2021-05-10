@@ -1635,7 +1635,7 @@ class Applet(FolderModel):
             formatted['removedItems'] = []
 
             if not localVersion or isInitialVersion:
-                nextIRI, data, remaining = self.getNextAppletData(formatted['activities'], nextActivity, bufferSize)
+                nextIRI, data, bufferSize = self.getNextAppletData(formatted['activities'], nextActivity, bufferSize)
                 formatted.update(data)
 
                 if localVersion:
@@ -1732,7 +1732,7 @@ class Applet(FolderModel):
         formatted["updated"] = applet['updated'].isoformat()
         formatted["id"] = applet['_id']
 
-        return (nextIRI, formatted, remaining)
+        return (nextIRI, formatted, bufferSize)
 
     def getNextAppletData(self, activities, nextActivity, bufferSize):
         from girderformindlogger.utility import jsonld_expander
