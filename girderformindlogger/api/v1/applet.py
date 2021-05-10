@@ -1359,7 +1359,7 @@ class Applet(Resource):
 
         (nextIRI, data, remaining) = self._model.getNextAppletData(formatted['activities'], nextActivity, MAX_PULL_SIZE)
 
-        if nextIRI:
+        if nextActivity:
             return {
                 'nextActivity': nextIRI,
                 **data
