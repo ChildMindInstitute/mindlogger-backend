@@ -9,6 +9,7 @@ from girderformindlogger.exceptions import ValidationException, AccessException
 from girderformindlogger.models.aes_encrypt import AESEncryption, AccessControlledModel
 from girderformindlogger.utility.progress import noProgress
 from girderformindlogger.models.profile import Profile
+from girderformindlogger.constants import SortDir
 
 class Note(AESEncryption, dict):
     def initialize(self):
@@ -89,7 +90,7 @@ class Note(AESEncryption, dict):
     def getNotes(self, responseId, reviewer):
         notes = list(self.find({
             'responseId': ObjectId(responseId)
-        }))
+        }, sort=[('created', SortDir.DESCENDING)]))
 
         profiles = Profile().find({
             '_id': {
