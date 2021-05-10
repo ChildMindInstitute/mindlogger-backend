@@ -300,7 +300,7 @@ class Protocol(FolderModel):
 
         currentVersion = schemaVersion[0].get('@value', '0.0.0') if schemaVersion else '0.0.0'
 
-        activityIdToHistoryObj = {}
+        activityIdToHistoryId = {}
         for activity in activities:
             identifier = activity['meta'].get('activity', {}).get('url', None)
             if identifier:
@@ -309,7 +309,8 @@ class Protocol(FolderModel):
                     activity['_id'] = activityIDRef[activityId]
                     activityId = str(activityIDRef[activityId])
 
-                activityIdToHistoryObj[activityId] = jsonld_expander.insertHistoryData(activity, identifier, 'activity', currentVersion, historyFolder, referencesFolder, user)
+                history = jsonld_expander.insertHistoryData(activity, identifier, 'activity', currentVersion, historyFolder, referencesFolder, user)
+                activityIdToHistoryId[activityId] = history['_id']
 
         for item in items:
             identifier = item['meta'].get('screen', {}).get('url', None)
@@ -320,11 +321,9 @@ class Protocol(FolderModel):
                 if str(item['meta']['activityId']) in activityIDRef:
                     item['meta']['activityId'] = activityIDRef[str(item['meta']['activityId'])]
 
-                activityHistoryObj = activityIdToHistoryObj[str(item['meta']['activityId'])]
-
                 item['meta'].update({
                     'originalActivityId': item['meta']['activityId'],
-                    'activityId': activityHistoryObj['_id']
+                    'activityId': activityIdToHistoryId[str(item['meta']['activityId'])]
                 })
 
                 jsonld_expander.insertHistoryData(item, identifier, 'screen', currentVersion, historyFolder, referencesFolder, user)
