@@ -1397,7 +1397,13 @@ def _createContext(key):
 
 
 def createCache(obj, formatted, modelType, user = None):
-    data = MODELS()[modelType]().load(obj['_id'], force=True)
+    data = MODELS()[modelType]().findOne({
+        '_id': obj['_id']
+    })
+
+    if not data:
+        print('original obj is', obj)
+
     obj = data
 
     if modelType in NONES:
