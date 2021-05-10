@@ -337,7 +337,16 @@ class AppletLibrary(Resource):
             refreshCache=False
         )
 
+        (nextIRI, data, remaining) = self._model.getNextAppletData(formatted['activities'], nextActivity, MAX_PULL_SIZE)
+
+        if nextActivity:
+            return {
+                'nextActivity': nextIRI,
+                **data
+            }
+
         formatted['accountId'] = libraryApplet['accountId']
+        formatted.update(data)
 
         return formatted
 
