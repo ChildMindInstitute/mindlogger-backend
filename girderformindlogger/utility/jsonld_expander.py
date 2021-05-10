@@ -162,7 +162,7 @@ def insertHistoryData(obj, identifier, modelType, baseVersion, historyFolder, hi
                 'activityId': obj['meta'].get('originalId', None)
             }
 
-        obj = createCache(obj, formatted, modelClass.name, user)
+        obj = createCache(obj, formatted, modelClass.name, user, reuse=True)
 
     itemModel = ItemModel()
 
@@ -1396,15 +1396,16 @@ def _createContext(key):
     return({key.split('://')[-1].replace('.', '_dot_'): key}, k)
 
 
-def createCache(obj, formatted, modelType, user = None):
-    data = MODELS()[modelType]().findOne({
-        '_id': obj['_id']
-    })
+def createCache(obj, formatted, modelType, user = None, reuse=False):
+    if not reuse:
+        data = MODELS()[modelType]().findOne({
+            '_id': obj['_id']
+        })
 
-    if not data:
-        print('original obj is', obj)
+        if not data:
+            print('original obj is', obj)
 
-    obj = data
+        obj = data
 
     if modelType in NONES:
         print("No modelType!")
@@ -1428,6 +1429,7 @@ def createCache(obj, formatted, modelType, user = None):
         saved = CacheModel().insertCache(MODELS()[modelType]().name, obj['_id'], modelType, formatted)
         obj['cached'] = saved['_id']
 
+    obj['size'] = len(saved['cache_data'])
     MODELS()[modelType]().update({
         '_id': ObjectId(obj['_id'])
     }, {
