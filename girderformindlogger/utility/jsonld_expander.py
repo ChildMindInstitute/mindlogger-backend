@@ -1726,7 +1726,8 @@ def formatLdObject(
                         newObj,
                         deepcopy(protocol),
                         user,
-                        refreshCache=True
+                        refreshCache=True,
+                        meta={'protocolId': ObjectId(obj['_id'])}
                     )
 
             createCache(obj, protocol, 'protocol')

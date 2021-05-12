@@ -1162,9 +1162,16 @@ class Applet(Resource):
             level=AccessType.READ,
             destName='applet'
         )
+        .param(
+            'thread',
+            'if true, use thread for editing applet',
+            required=False,
+            default=False,
+            dataType='boolean'
+        )
         .errorResponse('Write access was denied for this applet.', 403)
     )
-    def prepareAppletForEdit(self, applet, params):
+    def prepareAppletForEdit(self, applet, thread, params):
         thisUser = self.getCurrentUser()
         profile = ProfileModel().findOne({
             'appletId': applet['_id'],
@@ -1174,19 +1181,31 @@ class Applet(Resource):
         if 'editor' not in profile.get('roles', []) and 'manager' not in profile.get('roles', []):
             raise AccessException("You don't have enough permission to update this applet.")
 
-        thread = threading.Thread(
-            target=AppletModel().prepareAppletForEdit,
-            kwargs={
-                'applet': applet,
-                'protocol': params['protocol'].file,
-                'user': thisUser,
-                'accountId': applet['accountId']
-            }
+        if thread:
+            task = threading.Thread(
+                target=AppletModel().prepareAppletForEdit,
+                kwargs={
+                    'applet': applet,
+                    'protocol': params['protocol'].file,
+                    'user': thisUser,
+                    'accountId': applet['accountId']
+                }
+            )
+            task.start()
+
+            return({
+                "message": "The applet is building. We will send you an email in 10 min or less when it has been successfully created or failed."
+            })
+
+        AppletModel().prepareAppletForEdit(
+            applet=applet,
+            protocol=params['protocol'].file,
+            user=thisUser,
+            accountId=applet['accountId']
         )
-        thread.start()
 
         return({
-            "message": "The applet is building. We will send you an email in 10 min or less when it has been successfully created or failed."
+            "message": "success"
         })
 
     @access.user(scope=TokenScope.DATA_WRITE)

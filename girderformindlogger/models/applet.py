@@ -105,6 +105,10 @@ class Applet(FolderModel):
 
         name = self.validateAppletName('%s (0)' % (name), appletsCollection, accountId)
 
+        protocolId = protocol.get('_id', '').split('/')[-1]
+        itemCount = ItemModel().find({'meta.protocolId': ObjectId(protocolId)}).count()
+        isLargeApplet = itemCount >= 250
+
         # create new applet
         metadata = {
             'protocol': protocol,
@@ -120,7 +124,11 @@ class Applet(FolderModel):
             },
             'schema': '1.0.1'
         }
-        metadata['applet']['displayName'] = name
+        metadata['applet'].update({
+            'displayName']: name,
+            'largeApplet': isLargeApplet,
+            'editing': False
+        }
 
         applet = self.setMetadata(
             folder=self.createFolder(
@@ -829,6 +837,12 @@ class Applet(FolderModel):
         from girderformindlogger.models.protocol import Protocol
         from girderformindlogger.utility import jsonld_expander
 
+        if applet['meta'].get('editing', False):
+            raise AccessException('applet is being edited')
+
+        applet['meta']['applet']['editing'] = True
+        self.setMetadata(applet, applet['meta'])
+
         # get a protocol from single json file
         now = datetime.datetime.utcnow()
         displayName = protocol['protocol']['data'].get('skos:prefLabel', protocol['protocol']['data'].get('skos:altLabel', '')).strip()
@@ -856,8 +870,9 @@ class Applet(FolderModel):
         )
         applet['meta']['applet']['version'] = protocol['schema:schemaVersion'][0].get('@value', '0.0.0') if 'schema:schemaVersion' in protocol else '0.0.0'
         applet['meta']['applet'].update(Protocol().getImageAndDescription(protocol))
-
+        applet['meta']['applet']['editing'] = False
         applet['updated'] = now
+
         applet = self.setMetadata(folder=applet, metadata=applet['meta'])
 
         # update appletProfile according to updated applet
@@ -969,6 +984,9 @@ class Applet(FolderModel):
 
         metadata = applet.get('meta', {})
         protocolId = metadata.get('protocol', {}).get('_id', '/').split('/')[-1]
+        metadata['applet']['editing'] = True
+
+        self.setMetadata(applet, applet['meta'])
 
         if metadata.get('protocol', {}).get('url', None):
             if not protocolId:
@@ -1042,6 +1060,9 @@ class Applet(FolderModel):
             user,
             refreshCache=False
         )
+
+        applet['meta']['applet']['editing'] = False
+        self.setMetadata(applet, applet['meta'])
 
         return formatted
 
