@@ -985,9 +985,6 @@ class Applet(FolderModel):
 
         metadata = applet.get('meta', {})
         protocolId = metadata.get('protocol', {}).get('_id', '/').split('/')[-1]
-        metadata['applet']['editing'] = True
-
-        self.setMetadata(applet, applet['meta'])
 
         if metadata.get('protocol', {}).get('url', None):
             if not protocolId:

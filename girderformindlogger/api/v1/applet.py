@@ -1181,6 +1181,9 @@ class Applet(Resource):
         if 'editor' not in profile.get('roles', []) and 'manager' not in profile.get('roles', []):
             raise AccessException("You don't have enough permission to update this applet.")
 
+        applet['meta']['applet']['editing'] = True
+        self._model.setMetadata(applet, applet['meta'])
+
         if thread:
             task = threading.Thread(
                 target=AppletModel().prepareAppletForEdit,
