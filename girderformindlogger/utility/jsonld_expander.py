@@ -162,7 +162,7 @@ def insertHistoryData(obj, identifier, modelType, baseVersion, historyFolder, hi
                 'activityId': obj['meta'].get('originalId', None)
             }
 
-        obj = createCache(obj, formatted, 'folder' if modelType == 'folder' else 'screen', user)
+        obj = createCache(obj, formatted, 'folder' if modelType == 'activity' else 'screen', user)
 
     itemModel = ItemModel()
 

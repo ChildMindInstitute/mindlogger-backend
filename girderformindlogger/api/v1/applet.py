@@ -1174,16 +1174,20 @@ class Applet(Resource):
         if 'editor' not in profile.get('roles', []) and 'manager' not in profile.get('roles', []):
             raise AccessException("You don't have enough permission to update this applet.")
 
-        AppletModel().prepareAppletForEdit(
-            applet=applet,
-            protocol=params['protocol'].file,
-            user=thisUser,
-            accountId=applet['accountId']
+        thread = threading.Thread(
+            target=AppletModel().prepareAppletForEdit,
+            kwargs={
+                'applet': applet,
+                'protocol': params['protocol'].file,
+                'user': thisUser,
+                'accountId': applet['accountId']
+            }
         )
+        thread.start()
 
-        return {
-            'messsage': 'success'
-        }
+        return({
+            "message": "The applet is building. We will send you an email in 10 min or less when it has been successfully created or failed."
+        })
 
     @access.user(scope=TokenScope.DATA_WRITE)
     @autoDescribeRoute(

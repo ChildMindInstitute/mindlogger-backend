@@ -164,44 +164,42 @@ class Protocol(FolderModel):
         activityId2Key = {}
 
         for activityKey in formatted['activities']:
-            activity = formatted['activities'][activityKey]
-            activityId = activity.pop('_id').split('/')[-1]
+            activityId = formatted['activities'][activityKey]
+
+            activity = ActivityModel().findOne({
+                '_id': ObjectId(activityId)
+            })
 
             for key in ['url', 'schema:url']:
                 if key in activity:
                     activity.pop(key)
+
+            expandedActivity = jsonld_expander.formatLdObject(activity, 'activity')
             protocol['activity'][activityKey] = {
                 'parentKey': 'protocol',
                 'parentId': formatted['protocol']['@id'],
-                'expanded': activity,
+                'expanded': expandedActivity['activity'],
                 'ref2Document': {
                     'duplicateOf': activityId
                 }
             }
-            activityId2Key[activityId] = activityKey
 
-        itemId2ActivityId = {}
+            for itemKey in expandedActivity['items']:
+                item = expandedActivity['items'][itemKey]
+                itemId = item.pop('_id').split('/')[-1]
 
-        items = list(Screen().find({'meta.protocolId': protocolId}))
-        for item in items:
-            itemId2ActivityId[str(item['_id'])] = str(item['meta'].get('activityId', None))
+                for key in ['url', 'schema:url']:
+                    if key in item:
+                        item.pop(key)
 
-        for itemKey in formatted['items']:
-            item = formatted['items'][itemKey]
-            itemId = item.pop('_id').split('/')[-1]
-
-            for key in ['url', 'schema:url']:
-                if key in item:
-                    item.pop(key)
-
-            protocol['screen'][itemKey] = {
-                'parentKey': 'activity',
-                'parentId': activityId2Key[itemId2ActivityId[itemId]],
-                'expanded': item,
-                'ref2Document': {
-                    'duplicateOf': itemId
+                protocol['screen'][itemKey] = {
+                    'parentKey': 'activity',
+                    'parentId': activityKey,
+                    'expanded': item,
+                    'ref2Document': {
+                        'duplicateOf': itemId
+                    }
                 }
-            }
 
         protocolId = jsonld_expander.createProtocolFromExpandedDocument(protocol, editor)
 
