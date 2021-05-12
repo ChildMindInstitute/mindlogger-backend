@@ -125,10 +125,10 @@ class Applet(FolderModel):
             'schema': '1.0.1'
         }
         metadata['applet'].update({
-            'displayName']: name,
+            'displayName': name,
             'largeApplet': isLargeApplet,
             'editing': False
-        }
+        })
 
         applet = self.setMetadata(
             folder=self.createFolder(
@@ -974,7 +974,8 @@ class Applet(FolderModel):
         applet,
         protocol,
         user,
-        accountId
+        accountId,
+        thread
     ):
         from girderformindlogger.models.protocol import Protocol
         from girderformindlogger.models.screen import Screen
@@ -1063,6 +1064,20 @@ class Applet(FolderModel):
 
         applet['meta']['applet']['editing'] = False
         self.setMetadata(applet, applet['meta'])
+
+        if thread:
+            html = mail_utils.renderTemplate(f'appletEditSuccess.en.mako', {
+                'userName': user['firstName'],
+                'appletName': applet['meta']['applet'].get('displayName', 'applet')
+            })
+            subject = t('applet_edit_success', user.get('lang', 'en'))
+
+            if 'email' in user and not user.get('email_encrypted', True):
+                mail_utils.sendMail(
+                    subject,
+                    html,
+                    [user['email']]
+                )
 
         return formatted
 

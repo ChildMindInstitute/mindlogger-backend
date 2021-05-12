@@ -1166,7 +1166,7 @@ class Applet(Resource):
             'thread',
             'if true, use thread for editing applet',
             required=False,
-            default=False,
+            default=True,
             dataType='boolean'
         )
         .errorResponse('Write access was denied for this applet.', 403)
@@ -1188,7 +1188,8 @@ class Applet(Resource):
                     'applet': applet,
                     'protocol': params['protocol'].file,
                     'user': thisUser,
-                    'accountId': applet['accountId']
+                    'accountId': applet['accountId'],
+                    'thread': True
                 }
             )
             task.start()
@@ -1201,7 +1202,8 @@ class Applet(Resource):
             applet=applet,
             protocol=params['protocol'].file,
             user=thisUser,
-            accountId=applet['accountId']
+            accountId=applet['accountId'],
+            thread=False
         )
 
         return({
