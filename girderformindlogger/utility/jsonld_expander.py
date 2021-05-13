@@ -1426,6 +1426,7 @@ def createCache(data, formatted, modelType, user = None):
 
     if not obj:
         print('data is', data)
+        print('model type is', modelType, MODELS()[modelType]().name)
         print('obj is', obj)
 
         time.sleep(1)
