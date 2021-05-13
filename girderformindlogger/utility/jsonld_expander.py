@@ -1424,6 +1424,13 @@ def createCache(data, formatted, modelType, user = None):
         print("formatting failed!")
         print(obj)
 
+    if not obj:
+        print('data is', data)
+        print('obj is', obj)
+
+        time.sleep(1)
+        return createCache(data, formatted, modelType, user)
+
     if modelType == 'screen':
         formatted['size'] = len(json_util.dumps(formatted))
 
