@@ -492,12 +492,31 @@ class Applet(Resource):
             }
         }, sort=[("created", DESCENDING)]))
 
-        return [
-            {
+        contents = []
+
+        cacheIDToActivity = {}
+        for item in items:
+            content = json_util.loads(item['content'])
+            activities = content['protocol'].get('activities', {})
+
+            for activityIRI in dict.keys(activities):
+                activity = activities[activityIRI]
+
+                if type(activity) == str:
+                    cacheId = activities[activityIRI].split('/')[-1]
+
+                    if cacheId not in cacheIDToActivity:
+                        activity = jsonld_expander.loadCache(cacheId)
+                        cacheIDToActivity[cacheId] = activity
+
+                    activities[activityIRI] = cacheIDToActivity[cacheId]
+
+            contents.append({
                 'version': item['version'],
-                'content': json_util.loads(item['content'])
-            } for item in items
-        ]
+                'content': content
+            })
+
+        return contents
 
     @access.user(scope=TokenScope.DATA_READ)
     @autoDescribeRoute(

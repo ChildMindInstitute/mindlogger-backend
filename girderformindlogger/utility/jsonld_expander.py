@@ -439,13 +439,20 @@ def getUpdatedContent(updates, document):
 
     activities = document['protocol']['activities']
     for key in list(dict.keys(activities)):
-        activityId = str(activities[key]['data']['_id'])
+        if type(activities[key]) == str:
+            activity = loadCache(activities[key].split('/')[-1])
+            activityId = activity['data']['_id']
+        else:
+            activity = activities[key]
+            activityId = str(activities[key]['data']['_id'])
 
         if activityId in removedActivities:
             activities.pop(key)
 
         if activityId in activityID2Key:
-            activity = activities[activityID2Key[activityId]] = activities.pop(key)
+            activities.pop(key)
+            activities[activityID2Key[activityId]] = activity
+
             activityUpdate = activityUpdates[activityID2Key[activityId]]
             itemUpdates = activityUpdate.get('items', {})
 
@@ -519,6 +526,8 @@ def cacheProtocolContent(protocol, document, user, editExisting=False):
             folder=contentFolder
         )
 
+        cacheModel = CacheModel()
+
         if editExisting and 'baseVersion' in document:
             latestItem = ItemModel().findOne({
                 'folderId': contentFolder['_id'],
@@ -526,24 +535,26 @@ def cacheProtocolContent(protocol, document, user, editExisting=False):
             })
 
             latestDocument = json_util.loads(latestItem['content'])
+            newContent = getUpdatedContent(document, latestDocument)
 
-            # item['updates'] = json_util.dumps(document)
-            item['content'] = json_util.dumps(getUpdatedContent(document, latestDocument))
+            item['length'] = len(json_util.dumps(newContent))
+
+            for key in dict.keys(newContent['protocol']['activities']):
+                if type(newContent['protocol']['activities'][key]) == dict:
+                    cached = cacheModel.insertCache(
+                        'item',
+                        item['_id'],
+                        'content',
+                        newContent['protocol']['activities'][key]
+                    )
+
+                    newContent['protocol']['activities'][key] = f'cache/{str(cached["_id"])}'
+
+            item['content'] = json_util.dumps(newContent)
             item['baseVersion'] = document['baseVersion']
         else:
-            cacheModel = CacheModel()
             if type(document) == dict:
-                content = {
-                    'contexts': document['contexts'],
-                    'protocol': {
-                        'data': document['protocol']['data'],
-                        'activities': {}
-                    }
-                }
-
-                for key in document['protocol']['activities']:
-                    cached = cacheModel.insertCache('item', item['_id'], 'content', document['protocol']['activities'][key])
-                    content['protocol']['activites'][key] = f'cache/{str(cached["_id"])}'
+                content = document
             else:
                 content = {
                     'contexts': {},
@@ -552,10 +563,6 @@ def cacheProtocolContent(protocol, document, user, editExisting=False):
                         'activities': {}
                     }
                 }
-                def decimal_default(obj):
-                    if isinstance(obj, decimal.Decimal):
-                        return float(obj)
-                    raise TypeError
 
                 document.seek(0)
                 for key, value in ijson.kvitems(document, 'contexts'):
@@ -567,8 +574,17 @@ def cacheProtocolContent(protocol, document, user, editExisting=False):
 
                 document.seek(0)
                 for key, activity in ijson.kvitems(document, 'protocol.activities'):
-                    cached = cacheModel.insertCache('item', item['_id'], 'content', activity)
-                    content['protocol']['activities'][key] = f'cache/{str(cached["_id"])}'
+                    content['protocol']['activities'][key] = activity
+
+            def decimal_default(obj):
+                if isinstance(obj, decimal.Decimal):
+                    return float(obj)
+                raise TypeError
+
+            item['length'] = len(json_util.dumps(content, default=decimal_default))
+            for key in list(dict.keys(content['protocol']['activities'])):
+                cached = cacheModel.insertCache('item', item['_id'], 'content', content['protocol']['activities'][key])
+                content['protocol']['activities'][key] = f'cache/{str(cached["_id"])}'
 
             item['content'] = json_util.dumps(content, default=decimal_default)
 
