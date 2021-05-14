@@ -1222,6 +1222,8 @@ class Applet(Resource):
             return({
                 "message": "The applet is building. We will send you an email in 10 min or less when it has been successfully created or failed."
             })
+        elif applet['meta']['applet'].get('largeApplet', False):
+            raise ValidationException('unable to edit this applet without thread')
 
         AppletModel().prepareAppletForEdit(
             applet=applet,
