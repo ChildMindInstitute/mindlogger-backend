@@ -345,6 +345,9 @@ def createProtocolFromExpandedDocument(protocol, user, editExisting=False, remov
                 }
                 if 'duplicateOf' in model['ref2Document']:
                     update['duplicateOf'] = ObjectId(model['ref2Document']['duplicateOf'])
+
+                newModel.update(update)
+
                 modelClass.update(
                     {'_id': newModel['_id']},
                     {'$set': update }

@@ -395,7 +395,7 @@ class Applet(FolderModel):
             'protocol': {
                 '_id': protocol['protocol']['_id'],
                 'activities': [
-                    ObjectId(protocol['activities'][activity]['_id'].split('/')[-1]) for activity in protocol['activities']
+                    protocol['activities'][activity] for activity in protocol['activities']
                 ],
                 'name': prefLabel
             },

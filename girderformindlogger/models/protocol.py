@@ -34,6 +34,7 @@ from girderformindlogger.models.account_profile import AccountProfile
 from girderformindlogger.models.user import User as UserModel
 from bson import json_util
 from girderformindlogger.utility.progress import noProgress, setResponseTimeLimit
+from girderformindlogger.models.activity import Activity as ActivityModel
 
 class Protocol(FolderModel):
     def importUrl(self, url, user=None, refreshCache=False):
@@ -162,11 +163,11 @@ class Protocol(FolderModel):
         }
 
         activityId2Key = {}
-
+        activityModel = ActivityModel()
         for activityKey in formatted['activities']:
             activityId = formatted['activities'][activityKey]
 
-            activity = ActivityModel().findOne({
+            activity = activityModel.findOne({
                 '_id': ObjectId(activityId)
             })
 
