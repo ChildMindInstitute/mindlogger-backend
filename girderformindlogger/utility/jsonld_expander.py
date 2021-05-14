@@ -1435,7 +1435,10 @@ def createCache(data, formatted, modelType, user = None, modelClasses={}):
 
         time.sleep(1)
         getModel(modelClasses, modelType).reconnect()
-        return createCache(data, formatted, modelType, user)
+
+        obj = getModel(modelClasses, modelType).findOne({
+            '_id': data['_id']
+        })
 
     if modelType == 'screen':
         formatted['size'] = len(json_util.dumps(formatted))
