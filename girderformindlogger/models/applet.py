@@ -1006,6 +1006,7 @@ class Applet(FolderModel):
             Protocol().initHistoryData(historyFolder, referencesFolder, protocolId, user)
 
             activities = list(ActivityModel.find({ 'meta.protocolId': ObjectId(protocolId) }))
+            modelClasses = {}
 
             for activity in activities:
                 ResponseItem().update({
@@ -1032,9 +1033,9 @@ class Applet(FolderModel):
                 })
 
                 for item in items:
-                    jsonld_expander.convertObjectToSingleFileFormat(item, 'screen', user, '{}/{}'.format(str(activity['_id']), str(item['_id'])), True)
+                    jsonld_expander.convertObjectToSingleFileFormat(item, 'screen', user, '{}/{}'.format(str(activity['_id']), str(item['_id'])), True, modelClasses=modelClasses)
 
-                jsonld_expander.convertObjectToSingleFileFormat(activity, 'activity', user, str(activity['_id']))
+                jsonld_expander.convertObjectToSingleFileFormat(activity, 'activity', user, str(activity['_id']), modelClasses=modelClasses)
 
             data = {}
 
@@ -1045,7 +1046,7 @@ class Applet(FolderModel):
                 schemaVersion = protocolFolder['meta']['protocol'][key]
                 schemaVersion[0]['@value'] = data.get(key, '0.0.0')
 
-            jsonld_expander.convertObjectToSingleFileFormat(protocolFolder, 'protocol', user)
+            jsonld_expander.convertObjectToSingleFileFormat(protocolFolder, 'protocol', user, modelClasses=modelClasses)
 
             if 'url' in metadata['protocol']:
                 metadata['protocol'].pop('url')

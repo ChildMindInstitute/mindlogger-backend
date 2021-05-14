@@ -298,6 +298,7 @@ class Protocol(FolderModel):
         currentVersion = schemaVersion[0].get('@value', '0.0.0') if schemaVersion else '0.0.0'
 
         activityIdToHistoryId = {}
+        modelClasses = {}
 
         itemModel = ItemModel()
         for activity in activities:
@@ -318,7 +319,8 @@ class Protocol(FolderModel):
                     currentVersion,
                     historyFolder,
                     referencesFolder,
-                    user
+                    user,
+                    modelClasses
                 )
 
                 items = itemModel.find({
@@ -347,7 +349,8 @@ class Protocol(FolderModel):
                             currentVersion,
                             historyFolder,
                             referencesFolder,
-                            user
+                            user,
+                            modelClasses
                         )
 
     def compareVersions(self, version1, version2):

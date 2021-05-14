@@ -48,6 +48,10 @@ def getModelCollection(modelType):
         )
     return(collection)
 
+def getModel(modelClasses, modelType):
+    if modelType not in modelClasses:
+        modelClasses[modelType] = MODELS()[modelType]()
+    return modelClasses[modelType]
 
 def expandObj(contextSet, data):
     obj = deepcopy(data)
@@ -69,8 +73,8 @@ def expandObj(contextSet, data):
 
     return expanded
 
-def convertObjectToSingleFileFormat(obj, modelType, user, identifier=None, refreshCache=False):
-    modelClass = MODELS()[modelType]()
+def convertObjectToSingleFileFormat(obj, modelType, user, identifier=None, refreshCache=False, modelClasses={}):
+    modelClass = getModel(modelClasses, modelType)
 
     model = obj.get('meta', {}).get(modelType, None)
     if model:
@@ -98,14 +102,14 @@ def convertObjectToSingleFileFormat(obj, modelType, user, identifier=None, refre
             refreshCache=True
         )
 
-        createCache(obj, formatted, modelType, user)
+        createCache(obj, formatted, modelType, user, modelClasses)
 
 # insert historical data in the database
-def insertHistoryData(obj, identifier, modelType, baseVersion, historyFolder, historyReferenceFolder, user):
+def insertHistoryData(obj, identifier, modelType, baseVersion, historyFolder, historyReferenceFolder, user, modelClasses):
     if modelType not in ['activity', 'screen']:
         return
 
-    modelClass = MODELS()[modelType]()
+    modelClass = getModel(modelClasses, modelType)
 
     # insert historical data
     if obj:
@@ -162,9 +166,9 @@ def insertHistoryData(obj, identifier, modelType, baseVersion, historyFolder, hi
                 'activityId': obj['meta'].get('originalId', None)
             }
 
-        obj = createCache(obj, formatted, 'folder' if modelType == 'activity' else 'screen', user)
+        obj = createCache(obj, formatted, 'folder' if modelType == 'activity' else 'screen', user, modelClasses)
 
-    itemModel = ItemModel()
+    itemModel = getModel(modelClasses, 'item')
 
     # update references
     referenceObj = itemModel.findOne({
@@ -206,8 +210,9 @@ def createProtocolFromExpandedDocument(protocol, user, editExisting=False, remov
     historyFolder = None
     historyReferenceFolder = None
 
+    modelClasses = {}
     for modelType in ['protocol', 'activity', 'screen']:
-        modelClass = MODELS()[modelType]()
+        modelClass = getModel(modelClasses, modelType)
         docCollection = getModelCollection(modelType)
 
         for model in protocol[modelType].values():
@@ -233,7 +238,7 @@ def createProtocolFromExpandedDocument(protocol, user, editExisting=False, remov
                             docFolder = FolderModel().load(model['ref2Document']['_id'], force=True)
 
                             if 'identifier' in docFolder['meta'] and modelType == 'activity':
-                                model['historyObj'] = insertHistoryData(deepcopy(docFolder), docFolder['meta']['identifier'], modelType, baseVersion, historyFolder, historyReferenceFolder, user)
+                                model['historyObj'] = insertHistoryData(deepcopy(docFolder), docFolder['meta']['identifier'], modelType, baseVersion, historyFolder, historyReferenceFolder, user, modelClasses)
 
                             docFolder['name'] = prefName
 
@@ -253,7 +258,7 @@ def createProtocolFromExpandedDocument(protocol, user, editExisting=False, remov
                                         'activityId': protocol[model['parentKey']][model['parentId']]['historyObj']['_id']
                                     })
 
-                                insertHistoryData(clonedItem, item['meta']['identifier'], modelType, baseVersion, historyFolder, historyReferenceFolder, user)
+                                insertHistoryData(clonedItem, item['meta']['identifier'], modelType, baseVersion, historyFolder, historyReferenceFolder, user, modelClasses)
 
                             docFolder = FolderModel().findOne({'_id': item['folderId']})
 
@@ -280,7 +285,7 @@ def createProtocolFromExpandedDocument(protocol, user, editExisting=False, remov
                         metadata['identifier'] = docFolder['_id']
 
                         if editExisting:
-                            insertHistoryData(None, metadata['identifier'], modelType, baseVersion, historyFolder, historyReferenceFolder, user)
+                            insertHistoryData(None, metadata['identifier'], modelType, baseVersion, historyFolder, historyReferenceFolder, user, modelClasses)
 
                 if modelClass.name=='folder':
                     newModel = modelClass.setMetadata(
@@ -324,7 +329,7 @@ def createProtocolFromExpandedDocument(protocol, user, editExisting=False, remov
                         metadata['identifier'] = '{}/{}'.format(metadata['activityId'], str(item['_id']))
 
                         if editExisting:
-                            insertHistoryData(None, '{}/{}'.format(metadata['activityId'], str(item['_id'])), modelType, baseVersion, historyFolder, historyReferenceFolder, user)
+                            insertHistoryData(None, '{}/{}'.format(metadata['activityId'], str(item['_id'])), modelType, baseVersion, historyFolder, historyReferenceFolder, user, modelClasses)
 
                     newModel = modelClass.setMetadata(
                         item,
@@ -381,7 +386,7 @@ def createProtocolFromExpandedDocument(protocol, user, editExisting=False, remov
 
                                 if 'identifier' in activity['meta']:
                                     activityId = str(activity['_id'])
-                                    activityIdToHistoryObj[activityId] = insertHistoryData(activity, activity['meta']['identifier'], 'activity', baseVersion, historyFolder, historyReferenceFolder, user)
+                                    activityIdToHistoryObj[activityId] = insertHistoryData(activity, activity['meta']['identifier'], 'activity', baseVersion, historyFolder, historyReferenceFolder, user, modelClasses)
 
                         # handle deleted items
                         if 'items' in removed:
@@ -406,7 +411,7 @@ def createProtocolFromExpandedDocument(protocol, user, editExisting=False, remov
                                     if not historyObj:
 
                                         activity = FolderModel().load(activityId, force=True)
-                                        historyObj = insertHistoryData(activity, activity['meta']['identifier'], 'activity', baseVersion, historyFolder, historyReferenceFolder, user)
+                                        historyObj = insertHistoryData(activity, activity['meta']['identifier'], 'activity', baseVersion, historyFolder, historyReferenceFolder, user, modelClasses)
 
                                         activityIdToHistoryObj[activityId] = historyObj
 
@@ -415,7 +420,7 @@ def createProtocolFromExpandedDocument(protocol, user, editExisting=False, remov
                                         'activityId': historyObj['_id']
                                     })
 
-                                    insertHistoryData(item, item['meta']['identifier'], 'screen', baseVersion, historyFolder, historyReferenceFolder, user)
+                                    insertHistoryData(item, item['meta']['identifier'], 'screen', baseVersion, historyFolder, historyReferenceFolder, user, modelClasses)
 
                 model['ref2Document']['_id'] = newModel['_id']
 
@@ -1412,8 +1417,8 @@ def _createContext(key):
     return({key.split('://')[-1].replace('.', '_dot_'): key}, k)
 
 
-def createCache(data, formatted, modelType, user = None):
-    obj = MODELS()[modelType]().findOne({
+def createCache(data, formatted, modelType, user = None, modelClasses={}):
+    obj = getModel(modelClasses, modelType).findOne({
         '_id': data['_id']
     })
 
@@ -1426,10 +1431,10 @@ def createCache(data, formatted, modelType, user = None):
 
     if not obj:
         print('data is', data)
-        print('model type is', modelType, MODELS()[modelType]().name)
-        print('obj is', obj)
+        print('model type is', modelType, getModel(modelClasses, modelType).name)
 
         time.sleep(1)
+        getModel(modelClasses, modelType).reconnect()
         return createCache(data, formatted, modelType, user)
 
     if modelType == 'screen':
@@ -1719,6 +1724,8 @@ def formatLdObject(
                 'activities': {},
             }
 
+            modelClasses = {}
+
             if obj.get('loadedFromSingleFile', False):
                 activities = ActivityModel().find({'meta.protocolId': obj['_id']})
 
@@ -1727,7 +1734,7 @@ def formatLdObject(
                 for activity in activities:
                     formatted = formatLdObject(activity, 'activity', user, refreshCache=refreshCache)
                     if refreshCache:
-                        createCache(activity, formatted, 'activity', user)
+                        createCache(activity, formatted, 'activity', user, modelClasses)
 
                     protocol['activities'][str(activity['_id'])] = activity['_id']
 
@@ -1754,7 +1761,7 @@ def formatLdObject(
                         meta={'protocolId': ObjectId(obj['_id'])}
                     )
 
-            createCache(obj, protocol, 'protocol')
+            createCache(obj, protocol, 'protocol', modelClasses)
 
             return protocol
         elif mesoPrefix=='activity':
