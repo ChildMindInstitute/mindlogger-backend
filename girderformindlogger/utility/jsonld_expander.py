@@ -1737,7 +1737,10 @@ def formatLdObject(
                     if refreshCache or updateSchema:
                         createCache(activity, formatted, 'activity', user, modelClasses)
 
-                    protocol['activities'][str(activity['_id'])] = activity['_id']
+                    if activity['meta']['activity'].get('url', None) and updateSchema:
+                        protocol['activities'][activity['meta']['activity']['url']] = activity['_id']
+                    else:
+                        protocol['activities'][str(activity['_id'])] = activity['_id']
 
                     activityIDMapping['{}/{}'.format(str(obj['_id']), formatted.get('activity', formatted).get('@id'))] = str(activity['_id'])
 
