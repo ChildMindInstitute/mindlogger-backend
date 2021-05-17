@@ -27,7 +27,7 @@ from ..describe import Description, autoDescribeRoute
 from ..rest import Resource, rawResponse
 from bson.objectid import ObjectId
 from girderformindlogger.constants import AccessType, SortDir, TokenScope,     \
-    DEFINED_INFORMANTS, REPROLIB_CANONICAL, SPECIAL_SUBJECTS, USER_ROLES
+    DEFINED_INFORMANTS, REPROLIB_CANONICAL, SPECIAL_SUBJECTS, USER_ROLES, MAX_PULL_SIZE
 from girderformindlogger.api import access
 from girderformindlogger.exceptions import AccessException, ValidationException
 from girderformindlogger.models.activity import Activity as ActivityModel
@@ -492,12 +492,31 @@ class Applet(Resource):
             }
         }, sort=[("created", DESCENDING)]))
 
-        return [
-            {
+        contents = []
+
+        cacheIDToActivity = {}
+        for item in items:
+            content = json_util.loads(item['content'])
+            activities = content['protocol'].get('activities', {})
+
+            for activityIRI in dict.keys(activities):
+                activity = activities[activityIRI]
+
+                if type(activity) == str:
+                    cacheId = activities[activityIRI].split('/')[-1]
+
+                    if cacheId not in cacheIDToActivity:
+                        activity = jsonld_expander.loadCache(cacheId)
+                        cacheIDToActivity[cacheId] = activity
+
+                    activities[activityIRI] = cacheIDToActivity[cacheId]
+
+            contents.append({
                 'version': item['version'],
-                'content': json_util.loads(item['content'])
-            } for item in items
-        ]
+                'content': content
+            })
+
+        return contents
 
     @access.user(scope=TokenScope.DATA_READ)
     @autoDescribeRoute(
@@ -1138,13 +1157,17 @@ class Applet(Resource):
         if 'editor' not in profile.get('roles', []) and 'manager' not in profile.get('roles', []):
             raise AccessException("You don't have enough permission to update this applet.")
 
-        return AppletModel().updateAppletFromProtocolData(
+        AppletModel().updateAppletFromProtocolData(
             applet=applet,
             name=name,
             protocol=protocol,
             user=thisUser,
             accountId=applet['accountId']
         )
+
+        return {
+            'message': 'success'
+        }
 
     @access.user(scope=TokenScope.DATA_WRITE)
     @autoDescribeRoute(
@@ -1158,15 +1181,16 @@ class Applet(Resource):
             level=AccessType.READ,
             destName='applet'
         )
-        .jsonParam(
-            'protocol',
-            'A JSON object containing protocol information for an applet',
-            paramType='form',
-            required=False
+        .param(
+            'thread',
+            'if true, use thread for editing applet',
+            required=False,
+            default=True,
+            dataType='boolean'
         )
         .errorResponse('Write access was denied for this applet.', 403)
     )
-    def prepareAppletForEdit(self, applet, protocol):
+    def prepareAppletForEdit(self, applet, thread, params):
         thisUser = self.getCurrentUser()
         profile = ProfileModel().findOne({
             'appletId': applet['_id'],
@@ -1176,13 +1200,42 @@ class Applet(Resource):
         if 'editor' not in profile.get('roles', []) and 'manager' not in profile.get('roles', []):
             raise AccessException("You don't have enough permission to update this applet.")
 
-        return AppletModel().prepareAppletForEdit(
+        if applet['meta']['applet'].get('editing'):
+            raise AccessException("applet is being edited")
+
+        applet['meta']['applet']['editing'] = True
+        self._model.setMetadata(applet, applet['meta'])
+
+        if thread:
+            task = threading.Thread(
+                target=AppletModel().prepareAppletForEdit,
+                kwargs={
+                    'applet': applet,
+                    'protocol': params['protocol'].file,
+                    'user': thisUser,
+                    'accountId': applet['accountId'],
+                    'thread': True
+                }
+            )
+            task.start()
+
+            return({
+                "message": "The applet is building. We will send you an email in 10 min or less when it has been successfully created or failed."
+            })
+        elif applet['meta']['applet'].get('largeApplet', False):
+            raise ValidationException('unable to edit this applet without thread')
+
+        AppletModel().prepareAppletForEdit(
             applet=applet,
-            protocol=protocol,
+            protocol=params['protocol'].file,
             user=thisUser,
-            accountId=applet['accountId']
+            accountId=applet['accountId'],
+            thread=False
         )
 
+        return({
+            "message": "success"
+        })
 
     @access.user(scope=TokenScope.DATA_WRITE)
     @autoDescribeRoute(
@@ -1337,10 +1390,16 @@ class Applet(Resource):
             required=False,
             dataType='boolean'
         )
+        .param(
+            'nextActivity',
+            'id of next activity',
+            default=None,
+            required=False,
+        )
         .errorResponse('Invalid applet ID.')
         .errorResponse('Read access was denied for this applet.', 403)
     )
-    def getApplet(self, applet, retrieveSchedule=False, retrieveAllEvents=False):
+    def getApplet(self, applet, retrieveSchedule=False, retrieveAllEvents=False, nextActivity=None):
         user = self.getCurrentUser()
 
         formatted = jsonld_expander.formatLdObject(
@@ -1350,11 +1409,21 @@ class Applet(Resource):
             refreshCache=False
         )
 
+        (nextIRI, data, remaining) = self._model.getNextAppletData(formatted['activities'], nextActivity, MAX_PULL_SIZE)
+
+        if nextActivity:
+            return {
+                'nextActivity': nextIRI,
+                **data
+            }
+
         if retrieveSchedule:
             formatted['schedule'] = self._model.getSchedule(applet, user, retrieveAllEvents)
 
         formatted['updated'] = applet['updated']
         formatted['accountId'] = applet['accountId']
+        formatted['nextActivity'] = nextIRI
+        formatted.update(data)
 
         return formatted
 

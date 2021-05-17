@@ -71,7 +71,8 @@ installReqs = [
 	'pytest==6.2.2',
 	'pytest-cov==2.7.1',
 	'girder_client==3.0.3',
-    'pyDH==0.1.6'
+    'pyDH==0.1.6',
+    'ijson>=3.1.4'
 ]
 
 extrasReqs = {

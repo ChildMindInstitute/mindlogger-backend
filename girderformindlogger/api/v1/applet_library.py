@@ -4,7 +4,7 @@ from ..describe import Description, autoDescribeRoute
 from girderformindlogger.api import access
 from girderformindlogger.models.applet_library import AppletLibrary as AppletLibraryModel
 from girderformindlogger.constants import AccessType, SortDir, TokenScope,     \
-    DEFINED_INFORMANTS, REPROLIB_CANONICAL, SPECIAL_SUBJECTS, USER_ROLES
+    DEFINED_INFORMANTS, REPROLIB_CANONICAL, SPECIAL_SUBJECTS, USER_ROLES, MAX_PULL_SIZE
 from girderformindlogger.models.profile import Profile as ProfileModel
 from girderformindlogger.models.applet_categories import AppletCategory
 from girderformindlogger.models.applet import Applet as AppletModel
@@ -320,13 +320,20 @@ class AppletLibrary(Resource):
             description='ID of the applet in the library',
             required=True
         )
+        .param(
+            'nextActivity',
+            'id of next activity',
+            default=None,
+            required=False,
+        )
     )
-    def getPublishedApplet(self, libraryId):
+    def getPublishedApplet(self, libraryId, nextActivity):
         libraryApplet = self._model.findOne({
             '_id': ObjectId(libraryId)
         })
 
-        applet = AppletModel().findOne({
+        appletModel = AppletModel()
+        applet = appletModel.findOne({
             '_id': libraryApplet['appletId']
         })
 
@@ -337,7 +344,16 @@ class AppletLibrary(Resource):
             refreshCache=False
         )
 
+        (nextIRI, data, remaining) = appletModel.getNextAppletData(formatted['activities'], nextActivity, MAX_PULL_SIZE)
+
+        if nextActivity:
+            return {
+                'nextActivity': nextIRI,
+                **data
+            }
+
         formatted['accountId'] = libraryApplet['accountId']
+        formatted.update(data)
 
         return formatted
 

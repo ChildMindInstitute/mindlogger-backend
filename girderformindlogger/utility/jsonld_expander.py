@@ -3,7 +3,7 @@ from copy import deepcopy
 from datetime import datetime
 from girderformindlogger.constants import AccessType, PREFERRED_NAMES, DEFINED_RELATIONS,       \
     HIERARCHY, KEYS_TO_DELANGUAGETAG, KEYS_TO_DEREFERENCE, KEYS_TO_EXPAND,     \
-    MODELS, NONES, REPROLIB_CANONICAL, REPROLIB_PREFIXES
+    MODELS, NONES, REPROLIB_CANONICAL, REPROLIB_PREFIXES, APPLET_SCHEMA_VERSION
 from girderformindlogger.exceptions import AccessException,                    \
     ResourcePathNotFound, ValidationException
 from girderformindlogger.models.activity import Activity as ActivityModel
@@ -19,6 +19,10 @@ from girderformindlogger.utility.response import responseDateList
 from girderformindlogger.models.cache import Cache as CacheModel
 from bson.objectid import ObjectId
 from pyld import jsonld
+import time
+import sys
+import ijson, decimal
+
 from pymongo import ASCENDING, DESCENDING
 
 
@@ -44,6 +48,10 @@ def getModelCollection(modelType):
         )
     return(collection)
 
+def getModel(modelClasses, modelType):
+    if modelType not in modelClasses:
+        modelClasses[modelType] = MODELS()[modelType]()
+    return modelClasses[modelType]
 
 def expandObj(contextSet, data):
     obj = deepcopy(data)
@@ -65,8 +73,8 @@ def expandObj(contextSet, data):
 
     return expanded
 
-def convertObjectToSingleFileFormat(obj, modelType, user, identifier=None, refreshCache=False):
-    modelClass = MODELS()[modelType]()
+def convertObjectToSingleFileFormat(obj, modelType, user, identifier=None, refreshCache=False, modelClasses={}):
+    modelClass = getModel(modelClasses, modelType)
 
     model = obj.get('meta', {}).get(modelType, None)
     if model:
@@ -94,14 +102,14 @@ def convertObjectToSingleFileFormat(obj, modelType, user, identifier=None, refre
             refreshCache=True
         )
 
-        createCache(obj, formatted, modelType, user)
+        createCache(obj, formatted, modelType, user, modelClasses)
 
 # insert historical data in the database
-def insertHistoryData(obj, identifier, modelType, baseVersion, historyFolder, historyReferenceFolder, user):
+def insertHistoryData(obj, identifier, modelType, baseVersion, historyFolder, historyReferenceFolder, user, modelClasses):
     if modelType not in ['activity', 'screen']:
         return
 
-    modelClass = MODELS()[modelType]()
+    modelClass = getModel(modelClasses, modelType)
 
     # insert historical data
     if obj:
@@ -141,12 +149,10 @@ def insertHistoryData(obj, identifier, modelType, baseVersion, historyFolder, hi
             )
 
         obj = modelClass.setMetadata(obj, meta)
-        formatted = _fixUpFormat(formatLdObject(
-            obj,
-            mesoPrefix=modelType,
-            user=user,
-            refreshCache=True
-        ))
+        formatted = _fixUpFormat({
+            **obj['meta'].get(modelType, obj['meta']),
+            '_id': "/".join([snake_case(modelType), str(obj['_id'])])
+        })
 
         if modelType == 'screen':
             formatted['original'] = {
@@ -160,9 +166,9 @@ def insertHistoryData(obj, identifier, modelType, baseVersion, historyFolder, hi
                 'activityId': obj['meta'].get('originalId', None)
             }
 
-        obj = createCache(obj, formatted, modelClass.name, user)
+        obj = createCache(obj, formatted, 'folder' if modelType == 'activity' else 'screen', user, modelClasses)
 
-    itemModel = ItemModel()
+    itemModel = getModel(modelClasses, 'item')
 
     # update references
     referenceObj = itemModel.findOne({
@@ -204,8 +210,9 @@ def createProtocolFromExpandedDocument(protocol, user, editExisting=False, remov
     historyFolder = None
     historyReferenceFolder = None
 
+    modelClasses = {}
     for modelType in ['protocol', 'activity', 'screen']:
-        modelClass = MODELS()[modelType]()
+        modelClass = getModel(modelClasses, modelType)
         docCollection = getModelCollection(modelType)
 
         for model in protocol[modelType].values():
@@ -231,7 +238,7 @@ def createProtocolFromExpandedDocument(protocol, user, editExisting=False, remov
                             docFolder = FolderModel().load(model['ref2Document']['_id'], force=True)
 
                             if 'identifier' in docFolder['meta'] and modelType == 'activity':
-                                model['historyObj'] = insertHistoryData(deepcopy(docFolder), docFolder['meta']['identifier'], modelType, baseVersion, historyFolder, historyReferenceFolder, user)
+                                model['historyObj'] = insertHistoryData(deepcopy(docFolder), docFolder['meta']['identifier'], modelType, baseVersion, historyFolder, historyReferenceFolder, user, modelClasses)
 
                             docFolder['name'] = prefName
 
@@ -251,7 +258,7 @@ def createProtocolFromExpandedDocument(protocol, user, editExisting=False, remov
                                         'activityId': protocol[model['parentKey']][model['parentId']]['historyObj']['_id']
                                     })
 
-                                insertHistoryData(clonedItem, item['meta']['identifier'], modelType, baseVersion, historyFolder, historyReferenceFolder, user)
+                                insertHistoryData(clonedItem, item['meta']['identifier'], modelType, baseVersion, historyFolder, historyReferenceFolder, user, modelClasses)
 
                             docFolder = FolderModel().findOne({'_id': item['folderId']})
 
@@ -278,14 +285,15 @@ def createProtocolFromExpandedDocument(protocol, user, editExisting=False, remov
                         metadata['identifier'] = docFolder['_id']
 
                         if editExisting:
-                            insertHistoryData(None, metadata['identifier'], modelType, baseVersion, historyFolder, historyReferenceFolder, user)
+                            insertHistoryData(None, metadata['identifier'], modelType, baseVersion, historyFolder, historyReferenceFolder, user, modelClasses)
 
                 if modelClass.name=='folder':
                     newModel = modelClass.setMetadata(
                         docFolder,
                         {
                             **docFolder.get('meta', {}),
-                            **metadata
+                            **metadata,
+                            'schema': APPLET_SCHEMA_VERSION
                         }
                     )
 
@@ -322,13 +330,14 @@ def createProtocolFromExpandedDocument(protocol, user, editExisting=False, remov
                         metadata['identifier'] = '{}/{}'.format(metadata['activityId'], str(item['_id']))
 
                         if editExisting:
-                            insertHistoryData(None, '{}/{}'.format(metadata['activityId'], str(item['_id'])), modelType, baseVersion, historyFolder, historyReferenceFolder, user)
+                            insertHistoryData(None, '{}/{}'.format(metadata['activityId'], str(item['_id'])), modelType, baseVersion, historyFolder, historyReferenceFolder, user, modelClasses)
 
                     newModel = modelClass.setMetadata(
                         item,
                         {
                             **item.get('meta', {}),
-                            **metadata
+                            **metadata,
+                            'schema': APPLET_SCHEMA_VERSION
                         }
                     )
 
@@ -338,6 +347,9 @@ def createProtocolFromExpandedDocument(protocol, user, editExisting=False, remov
                 }
                 if 'duplicateOf' in model['ref2Document']:
                     update['duplicateOf'] = ObjectId(model['ref2Document']['duplicateOf'])
+
+                newModel.update(update)
+
                 modelClass.update(
                     {'_id': newModel['_id']},
                     {'$set': update }
@@ -379,7 +391,7 @@ def createProtocolFromExpandedDocument(protocol, user, editExisting=False, remov
 
                                 if 'identifier' in activity['meta']:
                                     activityId = str(activity['_id'])
-                                    activityIdToHistoryObj[activityId] = insertHistoryData(activity, activity['meta']['identifier'], 'activity', baseVersion, historyFolder, historyReferenceFolder, user)
+                                    activityIdToHistoryObj[activityId] = insertHistoryData(activity, activity['meta']['identifier'], 'activity', baseVersion, historyFolder, historyReferenceFolder, user, modelClasses)
 
                         # handle deleted items
                         if 'items' in removed:
@@ -404,7 +416,7 @@ def createProtocolFromExpandedDocument(protocol, user, editExisting=False, remov
                                     if not historyObj:
 
                                         activity = FolderModel().load(activityId, force=True)
-                                        historyObj = insertHistoryData(activity, activity['meta']['identifier'], 'activity', baseVersion, historyFolder, historyReferenceFolder, user)
+                                        historyObj = insertHistoryData(activity, activity['meta']['identifier'], 'activity', baseVersion, historyFolder, historyReferenceFolder, user, modelClasses)
 
                                         activityIdToHistoryObj[activityId] = historyObj
 
@@ -413,7 +425,7 @@ def createProtocolFromExpandedDocument(protocol, user, editExisting=False, remov
                                         'activityId': historyObj['_id']
                                     })
 
-                                    insertHistoryData(item, item['meta']['identifier'], 'screen', baseVersion, historyFolder, historyReferenceFolder, user)
+                                    insertHistoryData(item, item['meta']['identifier'], 'screen', baseVersion, historyFolder, historyReferenceFolder, user, modelClasses)
 
                 model['ref2Document']['_id'] = newModel['_id']
 
@@ -437,13 +449,20 @@ def getUpdatedContent(updates, document):
 
     activities = document['protocol']['activities']
     for key in list(dict.keys(activities)):
-        activityId = str(activities[key]['data']['_id'])
+        if type(activities[key]) == str:
+            activity = loadCache(activities[key].split('/')[-1])
+            activityId = activity['data']['_id']
+        else:
+            activity = activities[key]
+            activityId = str(activities[key]['data']['_id'])
 
         if activityId in removedActivities:
             activities.pop(key)
 
         if activityId in activityID2Key:
-            activity = activities[activityID2Key[activityId]] = activities.pop(key)
+            activities.pop(key)
+            activities[activityID2Key[activityId]] = activity
+
             activityUpdate = activityUpdates[activityID2Key[activityId]]
             itemUpdates = activityUpdate.get('items', {})
 
@@ -517,6 +536,8 @@ def cacheProtocolContent(protocol, document, user, editExisting=False):
             folder=contentFolder
         )
 
+        cacheModel = CacheModel()
+
         if editExisting and 'baseVersion' in document:
             latestItem = ItemModel().findOne({
                 'folderId': contentFolder['_id'],
@@ -524,12 +545,59 @@ def cacheProtocolContent(protocol, document, user, editExisting=False):
             })
 
             latestDocument = json_util.loads(latestItem['content'])
+            newContent = getUpdatedContent(document, latestDocument)
 
-            # item['updates'] = json_util.dumps(document)
-            item['content'] = json_util.dumps(getUpdatedContent(document, latestDocument))
+            item['length'] = len(json_util.dumps(newContent))
+
+            for key in dict.keys(newContent['protocol']['activities']):
+                if type(newContent['protocol']['activities'][key]) == dict:
+                    cached = cacheModel.insertCache(
+                        'item',
+                        item['_id'],
+                        'content',
+                        newContent['protocol']['activities'][key]
+                    )
+
+                    newContent['protocol']['activities'][key] = f'cache/{str(cached["_id"])}'
+
+            item['content'] = json_util.dumps(newContent)
             item['baseVersion'] = document['baseVersion']
         else:
-            item['content'] = json_util.dumps(document)
+            if type(document) == dict:
+                content = document
+            else:
+                content = {
+                    'contexts': {},
+                    'protocol': {
+                        'data': {},
+                        'activities': {}
+                    }
+                }
+
+                document.seek(0)
+                for key, value in ijson.kvitems(document, 'contexts'):
+                    content['contexts'][key] = value
+
+                document.seek(0)
+                for key, value in ijson.kvitems(document, 'protocol.data'):
+                    content['protocol']['data'][key] = value
+
+                document.seek(0)
+                for key, activity in ijson.kvitems(document, 'protocol.activities'):
+                    content['protocol']['activities'][key] = activity
+
+            def decimal_default(obj):
+                if isinstance(obj, decimal.Decimal):
+                    return float(obj)
+                raise TypeError
+
+            item['length'] = len(json_util.dumps(content, default=decimal_default))
+            for key in list(dict.keys(content['protocol']['activities'])):
+                cached = cacheModel.insertCache('item', item['_id'], 'content', content['protocol']['activities'][key])
+                content['protocol']['activities'][key] = f'cache/{str(cached["_id"])}'
+
+            item['content'] = json_util.dumps(content, default=decimal_default)
+
         item['version'] = version
 
         ItemModel().save(item)
@@ -743,7 +811,8 @@ def importAndCompareModelType(model, url, user, modelType, meta={}, existing=Non
                         'schema:url': url,
                         'url': url
                     },
-                    **meta
+                    **meta,
+                    'schema': APPLET_SCHEMA_VERSION
                 }
             )
         elif modelClass.name=='item':
@@ -781,7 +850,8 @@ def importAndCompareModelType(model, url, user, modelType, meta={}, existing=Non
                         'schema:url': url,
                         'url': url
                     },
-                    **meta
+                    **meta,
+                    'schema': APPLET_SCHEMA_VERSION
                 }
             )
 
@@ -1152,7 +1222,12 @@ def expandOneLevel(obj):
                             obj[k]["@context"].append(reprolibCanonize(
                                 invalidContext
                             ))
-            return(expandOneLevel(obj))
+            data = expandOneLevel(obj)
+            if not data:
+                time.sleep(2)
+                data = expandOneLevel(obj)
+
+            return data
         return(obj)
     newObj = newObj[0] if (
         isinstance(newObj, list) and len(newObj)==1
@@ -1226,6 +1301,10 @@ def expand(obj, keepUndefined=False):
         return(obj)
 
     newObj = expandOneLevel(obj)
+
+    if not newObj:
+        time.sleep(2)
+        newObj = expandOneLevel(obj)
 
     if isinstance(newObj, dict):
         for k in KEYS_TO_EXPAND:
@@ -1345,8 +1424,11 @@ def _createContext(key):
     return({key.split('://')[-1].replace('.', '_dot_'): key}, k)
 
 
-def createCache(obj, formatted, modelType, user = None):
-    obj = MODELS()[modelType]().load(obj['_id'], force=True)
+def createCache(data, formatted, modelType, user = None, modelClasses={}):
+    obj = getModel(modelClasses, modelType).findOne({
+        '_id': data['_id']
+    })
+
     if modelType in NONES:
         print("No modelType!")
         print(obj)
@@ -1354,9 +1436,23 @@ def createCache(obj, formatted, modelType, user = None):
         print("formatting failed!")
         print(obj)
 
+    if not obj:
+        print('data is', data)
+        print('model type is', modelType, getModel(modelClasses, modelType).name)
+
+        time.sleep(1)
+        getModel(modelClasses, modelType).reconnect()
+
+        obj = getModel(modelClasses, modelType).findOne({
+            '_id': data['_id']
+        })
+
+    if modelType == 'screen':
+        formatted['size'] = len(json_util.dumps(formatted))
+
     if obj.get('cached'):
         cache_id = obj['cached']
-        CacheModel().updateCache(cache_id, MODELS()[modelType]().name, obj['_id'], modelType, formatted)
+        saved = CacheModel().updateCache(cache_id, MODELS()[modelType]().name, obj['_id'], modelType, formatted)
     else:
         obj['updated'] = datetime.utcnow()
 
@@ -1366,14 +1462,16 @@ def createCache(obj, formatted, modelType, user = None):
         saved = CacheModel().insertCache(MODELS()[modelType]().name, obj['_id'], modelType, formatted)
         obj['cached'] = saved['_id']
 
-        MODELS()[modelType]().update({
-            '_id': ObjectId(obj['_id'])
-        }, {
-            '$set': {
-                'cached': obj['cached'],
-                'updated': obj['updated']
-            }
-        }, False)
+    obj['size'] = len(saved['cache_data'])
+    MODELS()[modelType]().update({
+        '_id': ObjectId(obj['_id'])
+    }, {
+        '$set': {
+            'cached': obj['cached'],
+            'updated': obj['updated'],
+            'size': len(saved['cache_data'])
+        }
+    }, False)
 
     return obj
 
@@ -1488,7 +1586,11 @@ def formatLdObject(
                 not refreshCache,
                 oc is not None
             ]):
-                return(loadCache(oc))
+                if mesoPrefix == 'item' or mesoPrefix == 'screen' or obj.get('meta', {}).get('schema', '') == APPLET_SCHEMA_VERSION:
+                    return(loadCache(oc))
+                else:
+                    return {}
+
             if 'meta' not in obj.keys():
                 return(_fixUpFormat(obj))
         mesoPrefix = camelCase(mesoPrefix)
@@ -1534,14 +1636,14 @@ def formatLdObject(
                 if cache:
                     protocol = loadCache(cache)
 
-            if protocolUrl is not None and not protocol:
-                # get protocol from url
-                protocol = ProtocolModel().load(ObjectId(protocolId), user, force=True)
+            if protocolUrl is not None and protocolId and not protocol: # handle old schema
+                protocolObj = ProtocolModel().load(ObjectId(protocolId), user, force=True)
 
-                if 'appletId' not in protocol.get('meta', {}):
-                    protocol['meta']['appletId'] = 'None'
-                    ProtocolModel().setMetadata(protocol, protocol['meta'])
+                if 'appletId' not in protocolObj.get('meta', {}):
+                    protocolObj['meta']['appletId'] = 'None'
+                    ProtocolModel().setMetadata(protocolObj, protocolObj['meta'])
 
+            if protocolUrl:
                 protocol = ProtocolModel().getFromUrl(
                             protocolUrl,
                             'protocol',
@@ -1549,21 +1651,22 @@ def formatLdObject(
                             thread=False,
                             refreshCache=refreshCache,
                             meta={
-                                'appletId': protocol['meta']['appletId']
+                                'appletId': obj['_id']
                             }
                         )[0]
+            else:
+                protocolObj = ProtocolModel().load(ObjectId(protocolId), user, force=True)
 
-            # format protocol data
-            protocol = formatLdObject(
-                protocol,
-                'protocol',
-                user,
-                refreshCache=refreshCache
-            )
+                # format protocol data
+                protocol = formatLdObject(
+                    protocolObj,
+                    'protocol',
+                    user,
+                    refreshCache=refreshCache
+                )
 
             applet = {}
             applet['activities'] = protocol.pop('activities', {})
-            applet['items'] = protocol.pop('items', {})
             applet['protocol'] = {
                 key: protocol.get(
                     'protocol',
@@ -1618,38 +1721,23 @@ def formatLdObject(
             protocol = {
                 'protocol': newObj,
                 'activities': {},
-                "items": {}
             }
 
-            if obj.get('loadedFromSingleFile', False):
-                activities = list(ActivityModel().find({'meta.protocolId': obj['_id']}))
-                items = list(ScreenModel().find({'meta.protocolId': obj['_id']}))
+            modelClasses = {}
 
-                itemIDMapping = {}
+            if obj.get('loadedFromSingleFile', False):
+                activities = ActivityModel().find({'meta.protocolId': obj['_id']})
+
                 activityIDMapping = {}
 
-                for item in items:
-                    formatted = formatLdObject(item, 'screen', user)
-                    key = '{}/{}'.format(str(item['meta']['activityId']), str(item['_id']))
-
-                    itemIDMapping['{}/{}'.format(str(item['meta']['activityId']), formatted['@id'])] = key
-                    if item.get('duplicateOf', None):
-                        itemIDMapping['{}/{}'.format(str(item['meta']['activityId']), str(item['duplicateOf']))] = key
-
-                    protocol['items'][key] = formatted
-
                 for activity in activities:
-                    if refreshCache and fixUpOrderList(activity, 'activity', itemIDMapping):
-                        ActivityModel().setMetadata(activity, activity['meta'])
+                    formatted = formatLdObject(activity, 'activity', user, refreshCache=refreshCache)
+                    if refreshCache:
+                        createCache(activity, formatted, 'activity', user, modelClasses)
 
-                        formatted = formatLdObject(activity, 'activity', user, refreshCache=True)
-                        createCache(activity, formatted, 'activity', user)
-                    else:
-                        formatted = formatLdObject(activity, 'activity', user)
+                    protocol['activities'][str(activity['_id'])] = activity['_id']
 
-                    protocol['activities'][str(activity['_id'])] = formatted
-
-                    activityIDMapping['{}/{}'.format(str(obj['_id']), formatted['@id'])] = str(activity['_id'])
+                    activityIDMapping['{}/{}'.format(str(obj['_id']), formatted.get('activity', formatted).get('@id'))] = str(activity['_id'])
 
                 if refreshCache:
                     if fixUpOrderList(obj, 'protocol', activityIDMapping):
@@ -1664,83 +1752,58 @@ def formatLdObject(
                         meta={'protocolId': ObjectId(obj['_id'])}
                     )
                 except:
-                    print("636")
                     protocol = componentImport(
                         newObj,
                         deepcopy(protocol),
                         user,
-                        refreshCache=True
+                        refreshCache=True,
+                        meta={'protocolId': ObjectId(obj['_id'])}
                     )
 
-                newActivities = protocol.get('activities', {}).keys()
-                newItems = protocol.get('items', {}).keys()
+            createCache(obj, protocol, 'protocol', modelClasses)
 
-                while(any([len(newActivities), len(newItems)])):
-                    activitiesNow = set(
-                        protocol.get('activities', {}).keys()
-                    )
-                    itemsNow = set(protocol.get('items', {}).keys())
-                    for activityURL in newActivities:
-                        activity = protocol['activities'][activityURL]
-                        activity = activity.get(
-                            'meta',
-                            {}
-                        ).get('activity', activity)
-                        try:
-                            protocol = componentImport(
-                                deepcopy(activity),
-                                deepcopy(protocol),
-                                user,
-                                refreshCache=refreshCache,
-                                meta={'protocolId': ObjectId(obj['_id']), 'activityId': ObjectId(protocol['activities'][activityURL]['_id'].split('/')[-1])}
-                            )
-                        except:
-                            print("670")
-                            protocol = componentImport(
-                                deepcopy(activity),
-                                deepcopy(protocol),
-                                user,
-                                refreshCache=True,
-                                meta={'protocolId': obj['_id'], 'activityId': activity['_id']}
-                            )
-                    for itemURL in newItems:
-                        activity = protocol['items'][itemURL]
-                        activity = activity.get(
-                            'meta',
-                            {}
-                        ).get('screen', activity)
-                        try:
-                            protocol = componentImport(
-                                deepcopy(activity),
-                                deepcopy(protocol),
-                                user,
-                                refreshCache=refreshCache
-                            )
-                        except:
-                            print("691")
-                            protocol = componentImport(
-                                deepcopy(activity),
-                                deepcopy(protocol),
-                                user,
-                                refreshCache=True
-                            )
-                    newActivities = list(
-                        set(
-                            protocol.get('activities', {}).keys()
-                        ) - activitiesNow
-                    )
-                    newItems = list(
-                        set(
-                            protocol.get('items', {}).keys()
-                        ) - itemsNow
-                    )
+            return protocol
+        elif mesoPrefix=='activity':
+            itemIDMapping = {}
+            if obj.get('loadedFromSingleFile', False):
+                items = ScreenModel().find({'meta.activityId': obj['_id']})
 
-            formatted = _fixUpFormat(protocol)
+                activity = {
+                    'items': {}
+                }
 
-            createCache(obj, formatted, 'protocol')
-            return formatted
+                for item in items:
+                    identifier = item['meta']['identifier']
+                    activity['items'][identifier] = formatLdObject(item, 'screen', user)
+
+                    key = '{}/{}'.format(str(item['meta']['activityId']), str(item['_id']))
+
+                    itemIDMapping['{}/{}'.format(str(item['meta']['activityId']), activity['items'][identifier]['@id'])] = key
+                    if item.get('duplicateOf', None):
+                        itemIDMapping['{}/{}'.format(str(item['meta']['activityId']), str(item['duplicateOf']))] = key
+
+                if refreshCache and fixUpOrderList(obj, 'activity', itemIDMapping):
+                    ActivityModel().setMetadata(obj, obj['meta'])
+
+                activity['activity'] = _fixUpFormat(obj['meta'].get('activity'))
+
+            else:
+                activity = {
+                    'activity': _fixUpFormat(newObj),
+                    'items': {}
+                }
+
+                activity = componentImport(
+                    newObj,
+                    deepcopy(activity),
+                    user,
+                    refreshCache=refreshCache,
+                    meta={'protocolId': obj['meta']['protocolId'], 'activityId': obj['_id']}
+                )
+
+            return activity
         else:
-            return(_fixUpFormat(newObj))
+            return (_fixUpFormat(newObj))
     except:
         if refreshCache==False:
             return(_fixUpFormat(formatLdObject(
@@ -1808,6 +1871,7 @@ def componentImport(
                     activity["url"] = activity["schema:url"] = canonicalIRI if(
                         canonicalIRI is not None
                     ) else IRI
+
                     activityComponent = pluralize(firstLower(
                         activityContent.get(
                             '@type',
@@ -1817,27 +1881,27 @@ def componentImport(
                         activityContent,
                         dict
                     )) else activityComponent
+
                     if activityComponent is not None:
                         activityComponents = (
                             pluralize(
                                 activityComponent
                             ) if activityComponent != 'screen' else 'items'
                         )
-                        updatedProtocol[activityComponents][
-                            canonicalIRI
-                        ] = deepcopy(formatLdObject(
+
+                        content = formatLdObject(
                             activityContent,
                             activityComponent,
                             user,
                             refreshCache=refreshCache
-                        ))
-        return(updatedProtocol.get(
-            'meta',
-            updatedProtocol
-        ).get(modelType if isinstance(
-            modelType,
-            str
-        ) else modelType[0], updatedProtocol))
+                        )
+
+                        if activityComponent != 'screen':
+                            updatedProtocol[activityComponents][canonicalIRI] = content.get(activityComponent, content)['_id'].split('/')[-1]
+                        else:
+                            updatedProtocol[activityComponents][canonicalIRI] = content
+
+        return updatedProtocol
     except:
         import sys, traceback
         print("error!")

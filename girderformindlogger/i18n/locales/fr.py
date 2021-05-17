@@ -15,5 +15,6 @@ locale = {
     'invitationAccepted': 'Invitation acceptée',
     'invitationRemoved': 'Invitation supprimée',
     'applet_upload_sucess': 'téléchargement de l\'applet réussi!',
-    'applet_upload_failed': 'le téléchargement de l\'applet a échoué !'
+    'applet_upload_failed': 'le téléchargement de l\'applet a échoué !',
+    'applet_edit_success': 'Modification de l\'applet réussie!'
 }

@@ -8,7 +8,7 @@ from bson import ObjectId
 from ..describe import Description, autoDescribeRoute
 from girderformindlogger.api import access
 from girderformindlogger.api.rest import Resource, filtermodel, setCurrentUser
-from girderformindlogger.constants import AccessType, SortDir, TokenScope, USER_ROLES
+from girderformindlogger.constants import AccessType, SortDir, TokenScope, USER_ROLES, MAX_PULL_SIZE
 from girderformindlogger.exceptions import RestException, AccessException, ValidationException
 from girderformindlogger.models.applet import Applet as AppletModel
 from girderformindlogger.models.group import Group as GroupModel
@@ -639,6 +639,18 @@ class User(Resource):
             required=False,
             dataType='boolean'
         )
+        .param(
+            'currentApplet',
+            'id of current applet',
+            default=None,
+            required=False
+        )
+        .param(
+            'nextActivity',
+            'id of next activity',
+            default=None,
+            required=False,
+        )
         .errorResponse('ID was invalid.')
         .errorResponse(
             'You do not have permission to see any of this user\'s applets.',
@@ -656,6 +668,8 @@ class User(Resource):
         retrieveResponses=False,
         groupByDateActivity=True,
         retrieveLastResponseTime=False,
+        currentApplet=None,
+        nextActivity=None
     ):
         from bson.objectid import ObjectId
         from girderformindlogger.utility.jsonld_expander import loadCache
@@ -691,22 +705,43 @@ class User(Resource):
         applets = [AppletModel().load(ObjectId(applet_id), AccessType.READ) for applet_id in applet_ids]
 
         result = []
-        for applet in applets:
-            if applet.get('cached'):
-                formatted = AppletModel().appletFormatted(applet=applet,
-                                                            reviewer=reviewer,
-                                                            role=role,
-                                                            retrieveSchedule=retrieveSchedule,
-                                                            retrieveAllEvents=retrieveAllEvents,
-                                                                eventFilter=(currentUserDate, numberOfDays) if numberOfDays else None,
-                                                            retrieveResponses=retrieveResponses,
-                                                            groupByDateActivity=groupByDateActivity,
-                                                            retrieveLastResponseTime=retrieveLastResponseTime,
-                                                            localInfo=localInfo.get(str(applet['_id']), {}) if localInfo else {},
-                                                            )
-                result.append(formatted)
+        bufferSize = MAX_PULL_SIZE
 
-        return(result)
+        collect = not currentApplet
+
+        for applet in applets:
+            if str(applet['_id']) == currentApplet:
+                collect = True
+
+            if applet.get('cached') and collect:
+                nextIRI, data, remaining = AppletModel().appletFormatted(
+                    applet=applet,
+                    reviewer=reviewer,
+                    role=role,
+                    retrieveSchedule=retrieveSchedule,
+                    retrieveAllEvents=retrieveAllEvents,
+                    eventFilter=(currentUserDate, numberOfDays) if numberOfDays else None,
+                    retrieveResponses=retrieveResponses,
+                    groupByDateActivity=groupByDateActivity,
+                    retrieveLastResponseTime=retrieveLastResponseTime,
+                    localInfo=localInfo.get(str(applet['_id']), {}) if localInfo else {},
+                    nextActivity=nextActivity,
+                    bufferSize=bufferSize,
+                )
+
+                bufferSize = remaining
+
+                result.append(data)
+
+                nextActivity = nextIRI
+                if nextIRI:
+                    break
+
+        return {
+            'data': result,
+            'currentApplet': applet['_id'],
+            'nextActivity': nextActivity
+        }
 
     @access.public(scope=TokenScope.DATA_READ)
     @autoDescribeRoute(
@@ -735,19 +770,33 @@ class User(Resource):
             default=False,
             required=False
         )
+        .param(
+            'nextActivity',
+            'id of next activity',
+            default=None,
+            required=False,
+        )
     )
-    def getOwnAppletById(self, applet, role, retrieveSchedule, retrieveAllEvents):
+    def getOwnAppletById(self, applet, role, retrieveSchedule, retrieveAllEvents, nextActivity=None):
         reviewer = self.getCurrentUser()
         if reviewer is None:
             raise AccessException("You must be logged in to get user applets.")
 
-        if applet.get('cached'):
-            return AppletModel().appletFormatted(applet=applet,
-                                                 reviewer=reviewer,
-                                                 role=role,
-                                                 retrieveSchedule=retrieveSchedule,
-                                                 retrieveAllEvents=retrieveAllEvents)
-        return applet
+        (nextIRI, data, remaining) = AppletModel().appletFormatted(
+                applet=applet,
+                reviewer=reviewer,
+                role=role,
+                retrieveSchedule=retrieveSchedule,
+                retrieveAllEvents=retrieveAllEvents,
+                nextActivity=nextActivity,
+                bufferSize=MAX_PULL_SIZE
+            )
+
+        return {
+            'nextActivity': nextIRI,
+            **data
+        }
+
 
     @access.public(scope=TokenScope.DATA_READ)
     @autoDescribeRoute(
