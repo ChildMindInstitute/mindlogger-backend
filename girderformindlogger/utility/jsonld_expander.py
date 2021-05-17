@@ -1545,7 +1545,8 @@ def formatLdObject(
     keepUndefined=False,
     dropErrors=False,
     refreshCache=False,
-    responseDates=False
+    responseDates=False,
+    updateSchema=False
 ):
     """
     Function to take a compacted JSON-LD Object within a Girder for Mindlogger
@@ -1576,7 +1577,7 @@ def formatLdObject(
     try:
         if obj is None:
             return(None)
-        if isinstance(obj, dict):
+        if isinstance(obj, dict) and not updateSchema:
             oc = obj.get("cached")
             if all([
                 not refreshCache,
@@ -1585,7 +1586,7 @@ def formatLdObject(
                 if mesoPrefix == 'item' or mesoPrefix == 'screen' or obj.get('meta', {}).get('schema', '') == '1.0.1':
                     return(loadCache(oc))
                 else:
-                    return {}
+                    updateSchema = True
 
             if 'meta' not in obj.keys():
                 return(_fixUpFormat(obj))
@@ -1604,8 +1605,8 @@ def formatLdObject(
         newObj = obj.get('meta', obj)
         newObj = newObj.get(mesoPrefix, newObj)
 
-        if not obj.get('loadedFromSingleFile', False):
-            newObj = expand(newObj, keepUndefined=keepUndefined)
+        # if not obj.get('loadedFromSingleFile', False):
+        #     newObj = expand(newObj, keepUndefined=keepUndefined)
 
         if type(newObj)==list and len(newObj)==1:
             try:
@@ -1639,7 +1640,7 @@ def formatLdObject(
                     protocolObj['meta']['appletId'] = 'None'
                     ProtocolModel().setMetadata(protocolObj, protocolObj['meta'])
 
-            if protocolUrl:
+            if protocolUrl and not updateSchema:
                 protocol = ProtocolModel().getFromUrl(
                             protocolUrl,
                             'protocol',
@@ -1658,7 +1659,8 @@ def formatLdObject(
                     protocolObj,
                     'protocol',
                     user,
-                    refreshCache=refreshCache
+                    refreshCache=refreshCache,
+                    updateSchema=updateSchema
                 )
 
             applet = {}
@@ -1703,6 +1705,10 @@ def formatLdObject(
                             inserted = True
 
             createCache(obj, applet, 'applet', user)
+
+            obj['meta']['schema'] = '1.0.1'
+            AppletModel().setMetadata(obj, obj['meta'])
+
             if responseDates:
                 try:
                     applet["applet"]["responseDates"] = responseDateList(
@@ -1721,23 +1727,27 @@ def formatLdObject(
 
             modelClasses = {}
 
-            if obj.get('loadedFromSingleFile', False):
+            if obj.get('loadedFromSingleFile', False) or updateSchema:
                 activities = ActivityModel().find({'meta.protocolId': obj['_id']})
 
                 activityIDMapping = {}
 
                 for activity in activities:
-                    formatted = formatLdObject(activity, 'activity', user, refreshCache=refreshCache)
-                    if refreshCache:
+                    formatted = formatLdObject(activity, 'activity', user, refreshCache=refreshCache, updateSchema=updateSchema)
+                    if refreshCache or updateSchema:
                         createCache(activity, formatted, 'activity', user, modelClasses)
 
                     protocol['activities'][str(activity['_id'])] = activity['_id']
 
                     activityIDMapping['{}/{}'.format(str(obj['_id']), formatted.get('activity', formatted).get('@id'))] = str(activity['_id'])
 
-                if refreshCache:
+                if refreshCache and not updateSchema:
                     if fixUpOrderList(obj, 'protocol', activityIDMapping):
                         ProtocolModel().setMetadata(obj, obj['meta'])
+
+                if updateSchema:
+                    obj['meta']['schema'] = '1.0.1'
+                    ProtocolModel().setMetadata(obj, obj['meta'])
             else:
                 try:
                     protocol = componentImport(
@@ -1761,15 +1771,15 @@ def formatLdObject(
             return protocol
         elif mesoPrefix=='activity':
             itemIDMapping = {}
-            if obj.get('loadedFromSingleFile', False):
-                items = ScreenModel().find({'meta.activityId': obj['_id']})
+            if obj.get('loadedFromSingleFile', False) or updateSchema:
+                items = list(ScreenModel().find({'meta.activityId': obj['_id']}))
 
                 activity = {
                     'items': {}
                 }
 
                 for item in items:
-                    identifier = item['meta']['identifier']
+                    identifier = item['meta'].get('identifier', item['meta']['screen']['url'])
                     activity['items'][identifier] = formatLdObject(item, 'screen', user)
 
                     key = '{}/{}'.format(str(item['meta']['activityId']), str(item['_id']))
@@ -1778,10 +1788,15 @@ def formatLdObject(
                     if item.get('duplicateOf', None):
                         itemIDMapping['{}/{}'.format(str(item['meta']['activityId']), str(item['duplicateOf']))] = key
 
-                if refreshCache and fixUpOrderList(obj, 'activity', itemIDMapping):
-                    ActivityModel().setMetadata(obj, obj['meta'])
+                if not updateSchema:
+                    if refreshCache and fixUpOrderList(obj, 'activity', itemIDMapping):
+                        ActivityModel().setMetadata(obj, obj['meta'])
 
                 activity['activity'] = _fixUpFormat(obj['meta'].get('activity'))
+
+                if updateSchema:
+                    obj['meta']['schema'] = '1.0.1'
+                    ActivityModel().setMetadata(obj, obj['meta'])
 
             else:
                 activity = {
@@ -1801,16 +1816,16 @@ def formatLdObject(
         else:
             return (_fixUpFormat(newObj))
     except:
-        if refreshCache==False:
-            return(_fixUpFormat(formatLdObject(
-                obj,
-                mesoPrefix,
-                user,
-                keepUndefined,
-                dropErrors,
-                refreshCache=True,
-                responseDates=responseDates
-            )))
+        # if refreshCache==False:
+        #     return(_fixUpFormat(formatLdObject(
+        #         obj,
+        #         mesoPrefix,
+        #         user,
+        #         keepUndefined,
+        #         dropErrors,
+        #         refreshCache=True,
+        #         responseDates=responseDates
+        #     )))
         import sys, traceback
         print(sys.exc_info())
         print(traceback.print_tb(sys.exc_info()[2]))
