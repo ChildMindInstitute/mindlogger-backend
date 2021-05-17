@@ -15,6 +15,7 @@ LOG_BACKUP_COUNT = 5
 ACCESS_FLAGS = {}
 
 MAX_PULL_SIZE = 1024 * 1024 * 2
+APPLET_SCHEMA_VERSION = '1.0.1'
 
 # Identifier for Girder's entry in the route table
 GIRDER_ROUTE_ID = 'core_girder'

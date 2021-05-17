@@ -3,7 +3,7 @@ from copy import deepcopy
 from datetime import datetime
 from girderformindlogger.constants import AccessType, PREFERRED_NAMES, DEFINED_RELATIONS,       \
     HIERARCHY, KEYS_TO_DELANGUAGETAG, KEYS_TO_DEREFERENCE, KEYS_TO_EXPAND,     \
-    MODELS, NONES, REPROLIB_CANONICAL, REPROLIB_PREFIXES
+    MODELS, NONES, REPROLIB_CANONICAL, REPROLIB_PREFIXES, APPLET_SCHEMA_VERSION
 from girderformindlogger.exceptions import AccessException,                    \
     ResourcePathNotFound, ValidationException
 from girderformindlogger.models.activity import Activity as ActivityModel
@@ -292,7 +292,8 @@ def createProtocolFromExpandedDocument(protocol, user, editExisting=False, remov
                         docFolder,
                         {
                             **docFolder.get('meta', {}),
-                            **metadata
+                            **metadata,
+                            'schema': APPLET_SCHEMA_VERSION
                         }
                     )
 
@@ -335,7 +336,8 @@ def createProtocolFromExpandedDocument(protocol, user, editExisting=False, remov
                         item,
                         {
                             **item.get('meta', {}),
-                            **metadata
+                            **metadata,
+                            'schema': APPLET_SCHEMA_VERSION
                         }
                     )
 
@@ -809,7 +811,8 @@ def importAndCompareModelType(model, url, user, modelType, meta={}, existing=Non
                         'schema:url': url,
                         'url': url
                     },
-                    **meta
+                    **meta,
+                    'schema': APPLET_SCHEMA_VERSION
                 }
             )
         elif modelClass.name=='item':
@@ -847,7 +850,8 @@ def importAndCompareModelType(model, url, user, modelType, meta={}, existing=Non
                         'schema:url': url,
                         'url': url
                     },
-                    **meta
+                    **meta,
+                    'schema': APPLET_SCHEMA_VERSION
                 }
             )
 
@@ -1582,7 +1586,7 @@ def formatLdObject(
                 not refreshCache,
                 oc is not None
             ]):
-                if mesoPrefix == 'item' or mesoPrefix == 'screen' or obj.get('meta', {}).get('schema', '') == '1.0.1':
+                if mesoPrefix == 'item' or mesoPrefix == 'screen' or obj.get('meta', {}).get('schema', '') == APPLET_SCHEMA_VERSION:
                     return(loadCache(oc))
                 else:
                     return {}
