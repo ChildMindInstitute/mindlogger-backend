@@ -389,8 +389,12 @@ class AppletLibrary(Resource):
         .errorResponse('Write access was denied for this applet.', 403)
     )
     def checkAppletName(self, applet, name):
+        appletName = name.strip().replace("(", "\\(").replace(")", "\\)")
         existing = self._model.findOne({
-            'name': name,
+            'name': {
+                '$regex': f'^{appletName}$',
+                '$options': 'i'
+            },
             'appletId': {
                 '$ne': applet['_id']
             }
