@@ -195,6 +195,9 @@ class AppletLibrary(Resource):
                     activityId = activitySelection['activityId']
                     items = activitySelection.get('items', None)
 
+                    activityIRI = activityIDToIRI[str(activityId)]
+                    activity = content['activities'][activityIRI] = formatted['activities'][activityIRI]
+
                     if items: # select specific items
                         for itemId in items:
                             itemIRI = itemIDToIRI.get(str(itemId), None)
@@ -204,9 +207,6 @@ class AppletLibrary(Resource):
 
                             content['items'][itemIRI] = formatted['items'][itemIRI]
                     else: # select whole activity
-                        activityIRI = activityIDToIRI[str(activityId)]
-                        activity = content['activities'][activityIRI] = formatted['activities'][activityIRI]
-
                         if len(activity.get('reprolib:terms/order', [])):
                             for itemIRI in activity['reprolib:terms/order'][0]['@list']:
                                 content['items'][itemIRI['@id']] = formatted['items'][itemIRI['@id']]
