@@ -25,7 +25,7 @@ for appletId in appletIds:
         '_id': appletId
     })
 
-    if applet.get('meta', {}).get('schema', '') != '1.0.1' and not applet.get('meta', {}).get('applet', {}).get('deleted', False):
+    if not applet.get('meta', {}).get('applet', {}).get('deleted', False):
         print('appletId', appletId)
 
         jsonld_expander.formatLdObject(
