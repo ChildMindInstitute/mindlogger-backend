@@ -1779,7 +1779,7 @@ def formatLdObject(
                 }
 
                 for item in items:
-                    identifier = item['meta'].get('identifier', item['meta']['screen']['url'])
+                    identifier = item['meta'].get('identifier', item['meta']['screen'].get('url', None))
                     activity['items'][identifier] = formatLdObject(item, 'screen', user)
 
                     key = '{}/{}'.format(str(item['meta']['activityId']), str(item['_id']))
@@ -1797,6 +1797,13 @@ def formatLdObject(
                 if updateSchema:
                     obj['meta']['schema'] = '1.0.1'
                     ActivityModel().setMetadata(obj, obj['meta'])
+                    ScreenModel().update({
+                        'meta.activityId': obj['_id']
+                    }, {
+                        '$set': {
+                            'meta.schema': '1.0.1'
+                        }
+                    })
 
             else:
                 activity = {

@@ -18,12 +18,16 @@ for profile in profiles:
 
 
 appletModel = Applet()
+print('total', len(appletIds))
+
 for appletId in appletIds:
     applet = appletModel.findOne({
         '_id': appletId
     })
 
     if applet.get('meta', {}).get('schema', '') != '1.0.1' and not applet.get('meta', {}).get('applet', {}).get('deleted', False):
+        print('appletId', appletId)
+
         jsonld_expander.formatLdObject(
             applet,
             'applet',
