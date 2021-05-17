@@ -1582,10 +1582,10 @@ def formatLdObject(
                 not refreshCache,
                 oc is not None
             ]):
-                if mesoPrefix != 'applet' or obj.get('meta', {}).get('schema', '') == '1.0.1':
+                if mesoPrefix == 'item' or mesoPrefix == 'screen' or obj.get('meta', {}).get('schema', '') == '1.0.1':
                     return(loadCache(oc))
                 else:
-                    refreshCache = True
+                    return {}
 
             if 'meta' not in obj.keys():
                 return(_fixUpFormat(obj))
@@ -1701,17 +1701,6 @@ def formatLdObject(
                             applet['applet'][key][0]['@value'] = obj['meta']['applet']['displayName']
 
                             inserted = True
-
-            # check schema to handle old applets
-            if obj['meta'].get('schema', '') != '1.0.1':
-                obj['meta']['schema'] = '1.0.1'
-                AppletModel().update({
-                    '_id': obj['_id']
-                }, {
-                    '$set': {
-                        'meta.schema': '1.0.1'
-                    }
-                })
 
             createCache(obj, applet, 'applet', user)
             if responseDates:
