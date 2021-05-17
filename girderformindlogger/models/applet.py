@@ -1634,8 +1634,8 @@ class Applet(FolderModel):
                     localInfo.get('startDate', None),
                     True,
                     groupByDateActivity,
-                    localInfo.get('localItems', []),
-                    localInfo.get('localActivities', [])
+                    localInfo.get('localItems', []) or [],
+                    localInfo.get('localActivities', []) or []
                 )
 
             if retrieveLastResponseTime:
