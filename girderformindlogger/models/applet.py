@@ -1589,9 +1589,9 @@ class Applet(FolderModel):
                     data['activities'][activityIRI] = formattedActivity['activity']
                     bufferSize -= activity.get('size', 0)
 
-                for itemId in list(formatted['items'].keys()):
+                for itemId in list(formattedActivity['items'].keys()):
                     if itemId not in updates['screen'] and not isInitialVersion:
-                        formatted['items'].pop(itemId)
+                        formattedActivity['items'].pop(itemId)
 
                     for itemIRI in formattedActivity['items']:
                         if itemIRI not in updates['screen']:
