@@ -1589,25 +1589,25 @@ class Applet(FolderModel):
                     data['activities'][activityIRI] = formattedActivity['activity']
                     bufferSize -= activity.get('size', 0)
 
-                for itemId in list(formattedActivity['items'].keys()):
-                    if itemId not in updates['screen'] and not isInitialVersion:
-                        formattedActivity['items'].pop(itemId)
+                    for itemId in list(formattedActivity['items'].keys()):
+                        if itemId not in updates['screen'] and not isInitialVersion:
+                            formattedActivity['items'].pop(itemId)
 
-                    for itemIRI in formattedActivity['items']:
-                        if itemIRI not in updates['screen']:
-                            data['items'].pop(itemIRI)
-                            bufferSize += formattedActivity['items'][itemIRI].get('size', 0)
+                        for itemIRI in formattedActivity['items']:
+                            if itemIRI not in updates['screen']:
+                                data['items'].pop(itemIRI)
+                                bufferSize += formattedActivity['items'][itemIRI].get('size', 0)
 
-                        itemIRIs[itemIRI] = formattedActivity['items'][itemIRI]['_id'].split('/')[-1]
+                            itemIRIs[itemIRI] = formattedActivity['items'][itemIRI]['_id'].split('/')[-1]
 
                 if localVersion and updates:
                     for itemIRI in itemIRIs:
                         if itemIRI not in updates['screen']:
-                            formatted['removedItems'].pop(itemIRI)
+                            formatted['removedItems'].append(itemIRI)
 
                     for activityIRI in formatted['activities']:
                         if activityIRI not in updates['activity']:
-                            formatted['removedActivities'].pop(activityIRI)
+                            formatted['removedActivities'].append(activityIRI)
 
                 formatted.update(data)
 
@@ -1634,8 +1634,8 @@ class Applet(FolderModel):
                     localInfo.get('startDate', None),
                     True,
                     groupByDateActivity,
-                    localInfo.get('localItems', []),
-                    localInfo.get('localActivities', [])
+                    localInfo.get('localItems', []) or [],
+                    localInfo.get('localActivities', []) or []
                 )
 
             if retrieveLastResponseTime:
