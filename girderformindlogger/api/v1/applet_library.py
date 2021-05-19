@@ -178,7 +178,7 @@ class AppletLibrary(Resource):
             formatted['accountId'] = applet['accountId']
 
             if selection is None: # select whole applet
-                result[appletId] = appletModel.getNextAppletData(formatted['activities'], nextActivity, MAX_PULL_SIZE)
+                result[appletId] = appletModel.getNextAppletData(formatted['activities'], None, MAX_PULL_SIZE)
             else:
                 activityIDToIRI = {}
                 itemIDToIRI = {}

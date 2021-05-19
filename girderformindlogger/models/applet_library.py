@@ -62,7 +62,13 @@ class AppletLibrary(AccessControlledModel):
         return libraryApplet
 
     def deleteAppletFromLibrary(self, applet):
+        from girderformindlogger.models.applet_basket import AppletBasket
+
         self.removeWithQuery({
+            'appletId': applet['_id']
+        })
+
+        AppletBasket().removeWithQuery({
             'appletId': applet['_id']
         })
 
