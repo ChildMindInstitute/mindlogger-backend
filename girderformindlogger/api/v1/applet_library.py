@@ -9,6 +9,7 @@ from girderformindlogger.models.profile import Profile as ProfileModel
 from girderformindlogger.models.applet_categories import AppletCategory
 from girderformindlogger.models.applet import Applet as AppletModel
 from girderformindlogger.models.user import User as UserModel
+from girderformindlogger.models.activity import Activity as ActivityModel
 from girderformindlogger.models.applet_basket import AppletBasket
 from girderformindlogger.utility import jsonld_expander
 from pymongo import DESCENDING, ASCENDING
@@ -157,10 +158,13 @@ class AppletLibrary(Resource):
         user = self.getCurrentUser()
         basket = AppletBasket().getBasket(user['_id'])
 
+        appletModel = AppletModel()
+        activityModel = ActivityModel()
+
         for appletId in basket:
             selection = basket[appletId]
 
-            applet = AppletModel().findOne({
+            applet = appletModel.findOne({
                 '_id': ObjectId(appletId)
             })
 
@@ -174,7 +178,7 @@ class AppletLibrary(Resource):
             formatted['accountId'] = applet['accountId']
 
             if selection is None: # select whole applet
-                result[appletId] = formatted
+                result[appletId] = appletModel.getNextAppletData(formatted['activities'], None, MAX_PULL_SIZE)
             else:
                 activityIDToIRI = {}
                 itemIDToIRI = {}
@@ -184,32 +188,41 @@ class AppletLibrary(Resource):
                 content['items'] = {}
 
                 for activityIRI in formatted['activities']:
-                    activity = formatted['activities'][activityIRI]
-                    activityIDToIRI[activity['_id'].split('/')[-1]] = activityIRI
-
-                for itemIRI in formatted['items']:
-                    item = formatted['items'][itemIRI]
-                    itemIDToIRI[item['_id'].split('/')[-1]] = itemIRI
+                    activityIDToIRI[str(formatted['activities'][activityIRI])] = activityIRI
 
                 for activitySelection in selection:
                     activityId = activitySelection['activityId']
                     items = activitySelection.get('items', None)
 
                     activityIRI = activityIDToIRI[str(activityId)]
-                    activity = content['activities'][activityIRI] = formatted['activities'][activityIRI]
+
+                    activity = activityModel.findOne({
+                        '_id': ObjectId(activityId)
+                    })
+
+                    formattedActivity = jsonld_expander.formatLdObject(
+                        activity,
+                        'activity'
+                    )
+
+                    content['activities'][activityIRI] = formattedActivity['activity']
 
                     if items: # select specific items
+                        itemIDToIRI = {}
+                        for itemIRI in formattedActivity['items']:
+                            itemID = formattedActivity['items'][itemIRI]['_id'].split('/')[-1]
+                            itemIDToIRI[itemID] = itemIRI
+
                         for itemId in items:
                             itemIRI = itemIDToIRI.get(str(itemId), None)
 
                             if not itemIRI:
                                 continue
 
-                            content['items'][itemIRI] = formatted['items'][itemIRI]
+                            content['items'][itemIRI] = formattedActivity['items'][itemIRI]
                     else: # select whole activity
-                        if len(activity.get('reprolib:terms/order', [])):
-                            for itemIRI in activity['reprolib:terms/order'][0]['@list']:
-                                content['items'][itemIRI['@id']] = formatted['items'][itemIRI['@id']]
+                        for itemIRI in formattedActivity['items']:
+                            content['items'][itemIRI] = formattedActivity['items'][itemIRI]
 
                 result[appletId] = content
 
