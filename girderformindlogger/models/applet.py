@@ -1577,7 +1577,8 @@ class Applet(FolderModel):
                 formatted.update(data)
 
                 if localVersion:
-                    formatted['removedActivities'] = list(formatted['activities'].keys())
+                    formatted['removedActivities'] = list(updates['activity'].keys())
+                    formatted['removedItems'] = list(updates['screen'].keys())
             else:
                 data = { 'activities': {}, 'items': {} }
                 itemIRIs = {}
