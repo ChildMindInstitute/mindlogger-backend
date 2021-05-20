@@ -631,9 +631,13 @@ class Applet(FolderModel):
         if not n:
             name = appletName
 
+        name = name.replace("(", "\\(").replace(")", "\\)")
         query = {
             'parentId': appletsCollection['_id'],
-            'meta.applet.displayName': name,
+            'meta.applet.displayName': {
+                '$regex': f'^{name}$',
+                '$options': 'i'
+            },
             'parentCollection': 'collection'
         }
 
@@ -648,11 +652,16 @@ class Applet(FolderModel):
         while existing:
             n = n + 1
             name = '%s (%d)' % (appletName, n)
-            query['meta.applet.displayName'] = name
+            name = name.replace("(", "\\(").replace(")", "\\)")
+
+            query['meta.applet.displayName'] = {
+                '$regex': f'^{name}$',
+                '$options': 'i'
+            }
 
             existing = self.findOne(query)
 
-        return name
+        return appletName if not n else '%s (%d)' % (appletName, n)
 
     def createAppletFromUrl(
         self,
