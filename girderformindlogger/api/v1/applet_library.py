@@ -42,7 +42,7 @@ class AppletLibrary(Resource):
         self.route('GET', ('contribution', 'origin'), self.getProtocolContributions)
         self.route('GET', ('contribution', 'updates'), self.getProtocolUpdates)
 
-    @access.user(scope=TokenScope.DATA_READ)
+    @access.public
     @autoDescribeRoute(
         Description('Get content of protocol by applet id.')
         .param(
@@ -66,7 +66,7 @@ class AppletLibrary(Resource):
 
         return ProtocolModel().getContributions(protocolId)
 
-    @access.user(scope=TokenScope.DATA_READ)
+    @access.public
     @autoDescribeRoute(
         Description('Get content of protocol by applet id.')
         .param(
