@@ -1573,11 +1573,16 @@ class Applet(FolderModel):
             formatted['removedItems'] = []
 
             if not localVersion or isInitialVersion:
-                nextIRI, data, bufferSize = self.getNextAppletData(formatted['activities'], nextActivity, bufferSize)
-                formatted.update(data)
+                currentVersion = formatted['applet'].get('schema:schemaVersion', [])
 
-                if localVersion:
-                    formatted['removedActivities'] = list(formatted['activities'].keys())
+                if len(currentVersion):
+                    currentVersion = currentVersion[0].get('@value', '')
+
+                if localVersion and localVersion != currentVersion:
+                    nextIRI, data, bufferSize = self.getNextAppletData(formatted['activities'], nextActivity, bufferSize)
+                    formatted.update(data)
+
+                    formatted['removedActivities'] = list(updates['activity'].keys())
             else:
                 data = { 'activities': {}, 'items': {} }
                 itemIRIs = {}
@@ -1614,8 +1619,8 @@ class Applet(FolderModel):
                         if itemIRI not in updates['screen']:
                             formatted['removedItems'].append(itemIRI)
 
-                    for activityIRI in formatted['activities']:
-                        if activityIRI not in updates['activity']:
+                    for activityIRI in updates['activity']:
+                        if activityIRI not in formatted['activities']:
                             formatted['removedActivities'].append(activityIRI)
 
                 formatted.update(data)
