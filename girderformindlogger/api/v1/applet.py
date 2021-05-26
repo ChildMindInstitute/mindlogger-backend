@@ -103,6 +103,7 @@ class Applet(Resource):
         self.route('PUT', (':id', 'status'), self.updateAppletPublishStatus)
         self.route('PUT', (':id', 'searchTerms'), self.updateAppletSearch)
         self.route('GET', (':id', 'searchTerms'), self.getAppletSearch)
+        self.route('GET', (':id', 'libraryUrl'), self.getAppletLibraryUrl)
 
     @access.user(scope=TokenScope.DATA_WRITE)
     @autoDescribeRoute(
@@ -850,25 +851,15 @@ class Applet(Resource):
         if 'manager' not in profile.get('roles', []):
             raise AccessException("You don't have enough permission to update this applet.")
 
-        library_url = os.getenv('LIBRARY_URI') or 'localhost:8081'
-
         applet['meta']['published'] = publish
         applet = self._model.setMetadata(applet, applet['meta'])
 
         if publish:
-            libraryApplet = AppletLibrary().addAppletToLibrary(applet)
-            url = f'{library_url}/applets/{str(libraryApplet["_id"])}'
-
-            return {
-                'message': 'success',
-                'url': url
-            }
+            AppletLibrary().addAppletToLibrary(applet)
         else:
             AppletLibrary().deleteAppletFromLibrary(applet)
 
-            return {
-                'message': 'success'
-            }
+        return { 'message': 'success' }
 
     @access.user(scope=TokenScope.DATA_OWN)
     @autoDescribeRoute(
@@ -924,6 +915,42 @@ class Applet(Resource):
         return {
             'message': 'success'
         }
+
+    @access.user(scope=TokenScope.DATA_OWN)
+    @autoDescribeRoute(
+        Description('Get category and keywords for an applet.')
+        .notes(
+            'Get category and keywords of applet in the library.'
+        )
+        .modelParam(
+            'id',
+            model=AppletModel,
+            description='ID of the applet',
+            destName='applet',
+            level=AccessType.ADMIN
+        )
+    )
+    def getAppletLibraryUrl(self, applet):
+        thisUser = self.getCurrentUser()
+
+        profile = ProfileModel().findOne({
+            'appletId': applet['_id'],
+            'userId': thisUser['_id']
+        })
+
+        if 'manager' not in profile.get('roles', []):
+            raise AccessException("You don't have enough permission to view this resource.")
+
+        libraryApplet = AppletLibrary().findOne({
+            'appletId': applet['_id']
+        })
+
+        if not libraryApplet:
+            raise ValidationException('invalid applet')
+
+        library_url = os.getenv('LIBRARY_URI') or 'localhost:8081'
+        url = f'{library_url}/applets/{str(libraryApplet["_id"])}'
+        return url
 
     @access.user(scope=TokenScope.DATA_OWN)
     @autoDescribeRoute(
