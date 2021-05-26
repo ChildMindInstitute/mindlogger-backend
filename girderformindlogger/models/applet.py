@@ -1578,11 +1578,12 @@ class Applet(FolderModel):
                 if len(currentVersion):
                     currentVersion = currentVersion[0].get('@value', '')
 
-                if localVersion and localVersion != currentVersion:
+                if not localVersion or localVersion != currentVersion:
                     nextIRI, data, bufferSize = self.getNextAppletData(formatted['activities'], nextActivity, bufferSize)
                     formatted.update(data)
 
-                    formatted['removedActivities'] = list(updates['activity'].keys())
+                    if updates:
+                        formatted['removedActivities'] = list(updates['activity'].keys())
             else:
                 data = { 'activities': {}, 'items': {} }
                 itemIRIs = {}
