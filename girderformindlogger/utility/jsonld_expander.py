@@ -330,7 +330,16 @@ def createProtocolFromExpandedDocument(protocol, user, editExisting=False, remov
                         metadata['identifier'] = '{}/{}'.format(metadata['activityId'], str(item['_id']))
 
                         if editExisting:
-                            insertHistoryData(None, '{}/{}'.format(metadata['activityId'], str(item['_id'])), modelType, baseVersion, historyFolder, historyReferenceFolder, user, modelClasses)
+                            insertHistoryData(
+                                None,
+                                '{}/{}'.format(metadata['activityId'], str(item['_id'])),
+                                modelType,
+                                baseVersion,
+                                historyFolder,
+                                historyReferenceFolder,
+                                user,
+                                modelClasses
+                            )
 
                     newModel = modelClass.setMetadata(
                         item,
