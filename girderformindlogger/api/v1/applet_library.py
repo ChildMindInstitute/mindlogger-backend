@@ -56,7 +56,7 @@ class AppletLibrary(Resource):
     def getProtocolContributions(self, libraryId):
         libraryApplet = self._model.findOne({
             '_id': ObjectId(libraryId)
-        })
+        }, fields=self._model.metaFields)
 
         applet = AppletModel().findOne({
             '_id': libraryApplet['appletId']
@@ -80,7 +80,7 @@ class AppletLibrary(Resource):
     def getProtocolUpdates(self, libraryId):
         libraryApplet = self._model.findOne({
             '_id': ObjectId(libraryId)
-        })
+        }, fields=self._model.metaFields)
 
         applet = AppletModel().findOne({
             '_id': libraryApplet['appletId']
@@ -377,7 +377,7 @@ class AppletLibrary(Resource):
     def getPublishedApplet(self, libraryId, nextActivity):
         libraryApplet = self._model.findOne({
             '_id': ObjectId(libraryId)
-        })
+        }, fields=self._model.metaFields)
 
         appletModel = AppletModel()
         applet = appletModel.findOne({
@@ -445,7 +445,7 @@ class AppletLibrary(Resource):
             'appletId': {
                 '$ne': applet['_id']
             }
-        })
+        }, fields=self._model.metaFields)
 
         if existing:
             return False

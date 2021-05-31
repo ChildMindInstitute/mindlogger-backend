@@ -36,7 +36,7 @@ class AppletBasket(AccessControlledModel):
         return document
 
     def updateSelection(self, userId, appletId, selection):
-        libraryApplet = AppletLibrary().findOne({'appletId': appletId})
+        libraryApplet = AppletLibrary().findOne({'appletId': appletId}, fields=['_id'])
 
         if not libraryApplet:
             raise AccessException("Unable to find published applet with specified id.")

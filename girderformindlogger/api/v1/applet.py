@@ -943,7 +943,7 @@ class Applet(Resource):
 
         libraryApplet = AppletLibrary().findOne({
             'appletId': applet['_id']
-        })
+        }, fields=["_id"])
 
         if not libraryApplet:
             raise ValidationException('invalid applet')
@@ -979,7 +979,7 @@ class Applet(Resource):
 
         libraryApplet = AppletLibrary().findOne({
             'appletId': applet['_id']
-        })
+        }, fields=['categoryId', 'subCategoryId', 'keywords'])
 
         if not libraryApplet:
             raise ValidationException('invalid applet')
