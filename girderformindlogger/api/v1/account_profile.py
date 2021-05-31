@@ -97,7 +97,7 @@ class AccountProfile(Resource):
             if 'coordinator' in viewerRoles or 'manager' in viewerRoles or 'reviewer' in viewerRoles and viewerProfile['_id'] in profile.get('reviewers', []):
                 if 'pinnedBy' not in profile:
                     profile['pinnedBy'] = []
-    
+
                 if newState and viewerProfile['_id'] not in profile['pinnedBy']:
                     profile['pinnedBy'].append(viewerProfile['_id'])
 

@@ -905,7 +905,7 @@ class Applet(Resource):
         if 'manager' not in profile.get('roles', []):
             raise AccessException("You don't have enough permission to update this applet.")
 
-        libraryApplet = AppletLibrary().updateAppletSearch(
+        AppletLibrary().updateAppletSearch(
             applet['_id'],
             category,
             subCategory,
@@ -1187,7 +1187,7 @@ class Applet(Resource):
         AppletModel().updateAppletFromProtocolData(
             applet=applet,
             name=name,
-            protocol=protocol,
+            content=protocol,
             user=thisUser,
             accountId=applet['accountId']
         )
