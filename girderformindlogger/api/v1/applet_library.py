@@ -323,7 +323,7 @@ class AppletLibrary(Resource):
         )
 
         totalCount = len(libraryApplets)
-        libraryApplets = libraryApplets[recordsPerPage * pageIndex: recordsPerPage]
+        libraryApplets = libraryApplets[recordsPerPage * pageIndex: recordsPerPage * pageIndex + recordsPerPage]
 
         appletIds = []
         for libraryApplet in libraryApplets:
