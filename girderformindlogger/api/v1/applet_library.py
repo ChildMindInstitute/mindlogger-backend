@@ -56,7 +56,7 @@ class AppletLibrary(Resource):
     def getProtocolContributions(self, libraryId):
         libraryApplet = self._model.findOne({
             '_id': ObjectId(libraryId)
-        })
+        }, fields=self._model.metaFields)
 
         applet = AppletModel().findOne({
             '_id': libraryApplet['appletId']
@@ -80,7 +80,7 @@ class AppletLibrary(Resource):
     def getProtocolUpdates(self, libraryId):
         libraryApplet = self._model.findOne({
             '_id': ObjectId(libraryId)
-        })
+        }, fields=self._model.metaFields)
 
         applet = AppletModel().findOne({
             '_id': libraryApplet['appletId']
@@ -286,9 +286,44 @@ class AppletLibrary(Resource):
         .notes(
             'Get applets published in the library.'
         )
+        .param(
+            'recordsPerPage',
+            'records per page',
+            required=False,
+            dataType='integer',
+            default=5
+        )
+        .param(
+            'pageIndex',
+            'page index',
+            dataType='integer',
+            required=False,
+            default=0
+        )
+        .param(
+            'searchText',
+            'search text',
+            required=False,
+            default=''
+        )
     )
-    def getApplets(self):
-        libraryApplets = list(self._model.find({}, sort=[("name", ASCENDING)]))
+    def getApplets(self, recordsPerPage, pageIndex, searchText):
+        keys = ['name', 'keywords', 'description', 'activities.name', 'activities.items.name']
+        libraryApplets = list(
+            self._model.find({
+                '$or': [
+                    {
+                        key: {
+                            '$regex': f'{searchText}',
+                            '$options' :'i'
+                        }
+                    } for key in keys
+                ]
+            }, fields=self._model.metaFields, sort=[("name", ASCENDING)])
+        )
+
+        totalCount = len(libraryApplets)
+        libraryApplets = libraryApplets[recordsPerPage * pageIndex: recordsPerPage * pageIndex + recordsPerPage]
 
         appletIds = []
         for libraryApplet in libraryApplets:
@@ -302,13 +337,9 @@ class AppletLibrary(Resource):
             }
         }))
 
-        appletMetaInfoById = {}
-        for applet in applets:
-            appletMetaInfoById[str(applet['_id'])] = appletModel.getAppletMeta(applet)
-
-        result = []
+        data = []
         for libraryApplet in libraryApplets:
-            result.append({
+            data.append({
                 'id': libraryApplet['_id'],
                 'appletId': libraryApplet['appletId'],
                 'name': libraryApplet['name'],
@@ -316,11 +347,14 @@ class AppletLibrary(Resource):
                 'categoryId': libraryApplet['categoryId'],
                 'subCategoryId': libraryApplet['subCategoryId'],
                 'keywords': libraryApplet['keywords'],
-                'description': appletMetaInfoById[str(libraryApplet['appletId'])].get('description', ''),
-                'image': appletMetaInfoById[str(libraryApplet['appletId'])].get('image', '')
+                'description': libraryApplet.get('description'),
+                'image': libraryApplet.get('image')
             })
 
-        return result
+        return {
+            'totalCount': totalCount,
+            'data': data
+        }
 
     @access.public
     @autoDescribeRoute(
@@ -343,7 +377,7 @@ class AppletLibrary(Resource):
     def getPublishedApplet(self, libraryId, nextActivity):
         libraryApplet = self._model.findOne({
             '_id': ObjectId(libraryId)
-        })
+        }, fields=self._model.metaFields)
 
         appletModel = AppletModel()
         applet = appletModel.findOne({
@@ -411,7 +445,7 @@ class AppletLibrary(Resource):
             'appletId': {
                 '$ne': applet['_id']
             }
-        })
+        }, fields=self._model.metaFields)
 
         if existing:
             return False

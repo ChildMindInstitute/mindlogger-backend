@@ -839,7 +839,7 @@ class Applet(FolderModel):
         self,
         name,
         applet,
-        protocol,
+        content,
         user,
         accountId
     ):
@@ -854,17 +854,17 @@ class Applet(FolderModel):
 
         # get a protocol from single json file
         now = datetime.datetime.utcnow()
-        displayName = protocol['protocol']['data'].get('skos:prefLabel', protocol['protocol']['data'].get('skos:altLabel', '')).strip()
+        displayName = content['protocol']['data'].get('skos:prefLabel', content['protocol']['data'].get('skos:altLabel', '')).strip()
 
         suffix = re.findall('^(.*?)\s*\((\d+)\)$', displayName)
         if len(suffix) and applet.get('meta', {}).get('protocol', {}).get('name', '') == suffix[0][0]:
-            protocol['protocol']['data']['skos:prefLabel'] = suffix[0][0]
+            content['protocol']['data']['skos:prefLabel'] = suffix[0][0]
         else:
             applet['meta']['protocol']['name'] = displayName
             displayName = '%s (0)' % (displayName)
 
         protocol = Protocol().createProtocol(
-            protocol,
+            content,
             user,
             True
         )
@@ -951,6 +951,9 @@ class Applet(FolderModel):
         # )
 
         # thread.start()
+
+        if applet['meta'].get('published', False):
+            AppletLibrary().appletContentUpdate(applet)
 
         return formatted
 
