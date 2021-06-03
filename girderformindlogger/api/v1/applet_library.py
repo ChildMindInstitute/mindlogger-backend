@@ -35,7 +35,7 @@ class AppletLibrary(Resource):
         self.route('POST', ('categories',), self.addCategory)
         self.route('POST', ('basket', ), self.setBasket)
         self.route('GET', ('basket', ), self.getBasket)
-        self.route('GET', ('basket', 'applets',), self.getAppletsForBasket)
+        self.route('PUT', ('basket', 'applets',), self.getAppletsForBasket)
         self.route('GET', ('basket', 'content',), self.getBasketContent)
         self.route('PUT', ('basket', 'selection'), self.updateBasket)
         self.route('DELETE', ('basket', 'applet'), self.deleteAppletFromBasket)
@@ -237,10 +237,18 @@ class AppletLibrary(Resource):
         .notes(
             'This endpoint is used for getting all all applets used in basket'
         )
+        .jsonParam(
+            'basket',
+            'json data containing basket selection',
+            required=False,
+            default=None
+        )
     )
-    def getAppletsForBasket(self):
+    def getAppletsForBasket(self, basket):
         user = self.getCurrentUser()
-        basket = AppletBasket().getBasket(user['_id'])
+
+        if not basket:
+            basket = AppletBasket().getBasket(user['_id'])
 
         appletIds = []
         for appletId in basket:
