@@ -1745,7 +1745,7 @@ class Applet(Resource):
         )
 
         web_url = os.getenv('WEB_URI') or 'localhost:8081'
-        url = f'https://{web_url}/#/invitation/{str(invitation["_id"])}?lang={lang}'
+        url = f'https://{web_url}/invitation/{str(invitation["_id"])}?lang={lang}'
 
         managers = mail_utils.htmlUserList(
             AppletModel().listUsers(applet, 'manager', force=True)
