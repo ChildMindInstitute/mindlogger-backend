@@ -209,6 +209,8 @@ class AppletLibrary(Resource):
 
                     if items: # select specific items
                         itemIDToIRI = {}
+                        content['activities'][activityIRI] = activityModel.disableConditionals(formattedActivity['activity'])
+
                         for itemIRI in formattedActivity['items']:
                             itemID = formattedActivity['items'][itemIRI]['_id'].split('/')[-1]
                             itemIDToIRI[itemID] = itemIRI
