@@ -35,8 +35,9 @@ class AppletLibrary(Resource):
         self.route('POST', ('categories',), self.addCategory)
         self.route('POST', ('basket', ), self.setBasket)
         self.route('GET', ('basket', ), self.getBasket)
-        self.route('GET', ('basket', 'content',), self.getBasketContent)
         self.route('PUT', ('basket', 'selection'), self.updateBasket)
+        self.route('GET', ('basket', 'builder', 'content',), self.getContentForBuilder)
+        self.route('PUT', ('basket', 'builder', 'selection', ), self.setSelectionForBuilder)
         self.route('DELETE', ('basket', 'applet'), self.deleteAppletFromBasket)
 
         self.route('GET', ('contribution', 'origin'), self.getProtocolContributions)
@@ -131,7 +132,7 @@ class AppletLibrary(Resource):
     def setBasket(self, basket):
         user = self.getCurrentUser()
 
-        AppletBasket().setSelection(user['_id'], basket)
+        AppletBasket().setSelection(user['_id'], basket, False)
 
     @access.user(scope=TokenScope.DATA_OWN)
     @autoDescribeRoute(
@@ -147,16 +148,34 @@ class AppletLibrary(Resource):
 
     @access.user(scope=TokenScope.DATA_OWN)
     @autoDescribeRoute(
-        Description('Get Content applets in Basket.')
+        Description('Update selection inside basket.')
         .notes(
-            'This endpoint is used for getting content of basket for user'
+            'This endpoint is used for saving data user have selected in the basket'
+        )
+        .jsonParam(
+            'selection',
+            'a json object specifying initial basket data',
+            paramType='form',
+            required=True
         )
     )
-    def getBasketContent(self):
+    def setSelectionForBuilder(self, selection):
+        user = self.getCurrentUser()
+
+        AppletBasket().setSelection(user['_id'], selection, True)
+
+    @access.user(scope=TokenScope.DATA_OWN)
+    @autoDescribeRoute(
+        Description('Get Content of applets user selected inside basket.')
+        .notes(
+            'This endpoint is used for getting content of selected data'
+        )
+    )
+    def getContentForBuilder(self):
         result = {}
 
         user = self.getCurrentUser()
-        basket = AppletBasket().getBasket(user['_id'])
+        basket = AppletBasket().getBasket(user['_id'], True)
 
         appletModel = AppletModel()
         activityModel = ActivityModel()
@@ -208,6 +227,8 @@ class AppletLibrary(Resource):
                     content['activities'][activityIRI] = formattedActivity['activity']
 
                     if items: # select specific items
+                        content['activities'][activityIRI] = activityModel.disableConditionals(formattedActivity['activity'])
+
                         itemIDToIRI = {}
                         for itemIRI in formattedActivity['items']:
                             itemID = formattedActivity['items'][itemIRI]['_id'].split('/')[-1]
@@ -219,7 +240,6 @@ class AppletLibrary(Resource):
                             if not itemIRI:
                                 continue
 
-                            content['items'][itemIRI] = formattedActivity['items'][itemIRI]
                     else: # select whole activity
                         for itemIRI in formattedActivity['items']:
                             content['items'][itemIRI] = formattedActivity['items'][itemIRI]

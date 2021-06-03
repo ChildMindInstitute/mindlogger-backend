@@ -128,6 +128,15 @@ class Activity(Folder):
                     "Invalid Activity ID."
                 )
 
+    def disableConditionals(self, activity):
+        properties = activity.get('reprolib:terms/addProperties', [])
+
+        for itemProperty in properties:
+            itemProperty['reprolib:terms/isVis'] = [{
+                '@value': True
+            }]
+
+        return activity
 
     def load(self, id, level=AccessType.ADMIN, user=None, objectId=True,
              force=False, fields=None, exc=False, refreshCache=False):

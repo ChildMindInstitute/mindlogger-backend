@@ -79,15 +79,24 @@ class AppletBasket(AccessControlledModel):
             'appletId': ObjectId(appletId)
         })
 
-    def setSelection(self, userId, selection):
-        self.removeWithQuery({
-            'userId': ObjectId(userId)
-        })
+    def setSelection(self, userId, selection, toBuilder=False):
+        query = {
+            'userId': ObjectId(userId),
+            'toBuilder': toBuilder
+        }
+
+        if not toBuilder:
+            query['toBuilder'] = {
+                '$ne': True
+            }
+
+        self.removeWithQuery(query)
 
         for appletId in selection:
             document = {
                 'userId': userId,
-                'appletId': ObjectId(appletId)
+                'appletId': ObjectId(appletId),
+                'toBuilder': toBuilder
             }
             try:
                 for activitySelection in selection[appletId]:
@@ -111,10 +120,18 @@ class AppletBasket(AccessControlledModel):
             except:
                 pass
 
-    def getBasket(self, userId):
-        applets = list(self.find({
-            'userId': userId
-        }))
+    def getBasket(self, userId, toBuilder=False):
+        query = {
+            'userId': ObjectId(userId),
+            'toBuilder': toBuilder
+        }
+
+        if not toBuilder:
+            query['toBuilder'] = {
+                '$ne': True
+            }
+
+        applets = list(self.find(query))
 
         basket = {}
         for applet in applets:
