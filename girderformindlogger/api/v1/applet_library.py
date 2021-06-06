@@ -235,7 +235,7 @@ class AppletLibrary(Resource):
     @autoDescribeRoute(
         Description('Get applets used in basket.')
         .notes(
-            'This endpoint is used for getting all all applets used in basket'
+            'This endpoint is used for getting all applets used in basket'
         )
         .jsonParam(
             'basket',
