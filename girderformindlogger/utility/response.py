@@ -11,6 +11,7 @@ from datetime import date, datetime, timedelta
 from girderformindlogger.models.applet import Applet as AppletModel
 from girderformindlogger.models.user import User as UserModel
 from girderformindlogger.models.response_folder import ResponseItem
+from girderformindlogger.models.response_tokens import ResponseTokens
 from girderformindlogger.models.account_profile import AccountProfile
 from girderformindlogger.utility import clean_empty
 from pandas.api.types import is_numeric_dtype
@@ -113,17 +114,6 @@ def aggregate(metadata, informant, startDate=None, endDate=None):
     """
     Function to calculate aggregates
     """
-    thisResponseTime = datetime.now(
-        tzlocal.get_localzone()
-    )
-
-    startDate = datetime.fromisoformat(startDate.isoformat(
-    )).astimezone(pytz.utc).replace(tzinfo=None) if startDate is not None else None
-
-    endDate = datetime.fromisoformat((
-        thisResponseTime if endDate is None else endDate
-    ).isoformat()).astimezone(pytz.utc).replace(tzinfo=None)
-
     query = {
             "baseParentType": 'user',
             "baseParentId": informant.get("_id") if isinstance(
@@ -131,14 +121,11 @@ def aggregate(metadata, informant, startDate=None, endDate=None):
                 dict
             ) else informant,
             "created": {
-                "$gte": startDate,
-                # "$lt": endDate
+                "$gt": startDate,
             } if startDate else {
-                # "$lt": endDate
             },
             "meta.applet.@id": metadata["applet_id"],
-            "meta.subject.@id": metadata["subject_id"],
-            "isCumulative": {"$ne": True}
+            "meta.subject.@id": metadata["subject_id"]
         }
 
     definedRange = list(ResponseItem().find(
@@ -153,8 +140,11 @@ def aggregate(metadata, informant, startDate=None, endDate=None):
 
     startDate = min([response.get(
         'created',
-        endDate
-    ) for response in definedRange]) if startDate is None else startDate
+    ) for response in definedRange])
+
+    endDate = max([response.get(
+        'created'
+    ) for response in definedRange])
 
     duration = isodate.duration_isoformat(
         delocalize(endDate) - delocalize(startDate)
@@ -305,57 +295,35 @@ def delocalize(dt):
     print("Here's the problem: {}".format(dt))
     raise TypeError
 
-def getCumulatives(
-    metadata,
-    informant
-):
-    query = {
-        "baseParentType": 'user',
-        "baseParentId": informant.get("_id") if isinstance(
-            informant,
-            dict
-        ) else informant,
-        "meta.applet.@id": metadata["applet_id"],
-        "meta.subject.@id": metadata["subject_id"],
-        "isCumulative": True
-    }
-
-    cumulative = ResponseItem().findOne(
-        query=query,
-        force=True,
-        sort=[("created", ASCENDING)]
-    )
-
-    result = {}
-    dataSources = {}
-
-    if cumulative:
-        result = cumulative.get('meta', {}).get('responses', {})
-        dataSources[str(cumulative['_id'])] = cumulative.get('meta', {}).get('dataSource', {})
-
-    return {
-        'dataSources': dataSources,
-        'cumulatives': result,
-    }
-
 def last7Days(
     appletId,
     appletInfo,
     informantId,
     reviewer,
     subject=None,
-    referenceDate=None,
+    startDate=None,
     includeOldItems=True,
-    groupByDateActivity=True
+    groupByDateActivity=True,
+    localItems=[],
+    localActivities=[]
 ):
     from girderformindlogger.models.profile import Profile
-    if referenceDate is None:
-        referenceDate = datetime.combine(
-            datetime.utcnow().date() + timedelta(days=1), datetime.min.time()
-        )
 
-    startDate = delocalize(referenceDate - timedelta(days=7))
-    referenceDate = delocalize(referenceDate)
+    referenceDate = datetime.combine(
+        datetime.utcnow().date() + timedelta(days=1), datetime.min.time()
+    )
+
+    try:
+        startDate = datetime.fromisoformat(startDate)
+    except:
+        startDate = None
+
+    if startDate:
+        startDate = delocalize(startDate)
+
+    weekBefore = delocalize(referenceDate - timedelta(days=8))
+
+    startDate = weekBefore if not startDate or startDate < weekBefore else startDate
 
     profile = Profile().findOne({'userId': ObjectId(informantId), 'appletId': ObjectId(appletId)})
 
@@ -378,15 +346,14 @@ def last7Days(
                 resp['date'] = determine_date(resp['date'] + timedelta(hours=profile['timezone']))
 
     l7d = {}
+    l7d['tokens'] = ResponseTokens().getResponseTokens(profile, startDate, False)
     l7d["responses"] = _oneResponsePerDatePerVersion(outputResponses, profile['timezone']) if groupByDateActivity else outputResponses
 
-    endDate = referenceDate.date()
-    l7d["schema:endDate"] = endDate.isoformat()
-    startDate = endDate - timedelta(days=7)
+    l7d["schema:endDate"] = responses.get("schema:endDate", datetime.utcnow()).isoformat()
     l7d["schema:startDate"] = startDate.isoformat()
-    l7d["schema:duration"] = isodate.duration_isoformat(
-        endDate - startDate
-    )
+    l7d["schema:duration"] = responses.get("schema:duration", isodate.duration_isoformat(
+        referenceDate - startDate
+    ))
 
     l7d['dataSources'] = {}
     for itemResponses in dict.values(l7d["responses"]):
@@ -397,13 +364,13 @@ def last7Days(
 
     l7d.update(getOldVersions(l7d['responses'], appletInfo))
 
-    cumulatives = getCumulatives({
-        'applet_id': profile['appletId'],
-        'subject_id': profile['_id']
-    }, informantId)
+    for itemId in list(l7d.get('items', {}).keys()):
+        if itemId in localItems:
+            l7d['items'].pop(itemId)
 
-    l7d['dataSources'].update(cumulatives['dataSources'])
-    l7d['cumulatives'] = cumulatives['cumulatives']
+    for activityId in list(l7d.get('activities', {}).keys()):
+        if activityId in localActivities:
+            l7d['activities'].pop(activityId)
 
     return l7d
 
@@ -477,7 +444,7 @@ def responseDateList(appletId, userId, reviewer):
     rdl.sort(reverse=True)
     return(rdl)
 
-def add_latest_daily_response(data, responses):
+def add_latest_daily_response(data, responses, tokens):
     user_keys = {}
 
     for response in responses:
@@ -534,6 +501,26 @@ def add_latest_daily_response(data, responses):
                     'key': user_keys[key_dump],
                     'data': response['meta']['subScaleSource']
                 }
+
+    for tokenField in ['cumulativeToken', 'tokenUpdates']:
+        if isinstance(tokens[tokenField], dict):
+            tokens[tokenField] = [tokens[tokenField]]
+
+        if not tokens[tokenField]:
+            continue
+
+        for value in tokens[tokenField]:
+            key_dump = json_util.dumps(value['userPublicKey'])
+
+            if key_dump not in user_keys:
+                user_keys[key_dump] = len(data['keys'])
+                data['keys'].append(value['userPublicKey'])
+
+            value['key'] = user_keys[key_dump]
+            value.pop('userPublicKey')
+
+            data['tokens'][tokenField].append(value)
+
 
 def _oneResponsePerDatePerVersion(responses, offset):
     newResponses = {}

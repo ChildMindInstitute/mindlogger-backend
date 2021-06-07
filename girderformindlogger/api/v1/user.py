@@ -20,6 +20,7 @@ from girderformindlogger.models.setting import Setting
 from girderformindlogger.models.token import Token
 from girderformindlogger.models.user import User as UserModel
 from girderformindlogger.models.account_profile import AccountProfile
+from girderformindlogger.models.response_alerts import ResponseAlerts
 from girderformindlogger.models.notification import Notification
 from girderformindlogger.settings import SettingKey
 from girderformindlogger.utility import jsonld_expander, mail_utils
@@ -53,7 +54,7 @@ class User(Resource):
         self.route('GET', (':id', 'applets'), self.getUserApplets)
         self.route('PUT', (':id', 'code'), self.updateIDCode)
         self.route('DELETE', (':id', 'code'), self.removeIDCode)
-        self.route('GET', ('applets',), self.getOwnApplets)
+        self.route('PUT', ('applets',), self.getOwnApplets)
         self.route('GET', ('applet', ':id'), self.getOwnAppletById)
         self.route('GET', ('accounts',), self.getAccounts)
         self.route('PUT', ('switchAccount', ), self.switchAccount)
@@ -78,9 +79,6 @@ class User(Resource):
         self.route('POST', ('verification',), self.sendVerificationEmail)
         self.route('POST', ('responseUpdateRequest', ), self.requestResponseReUpload)
         self.route('GET', ('updates',), self.getUserUpdates)
-        self.route('GET', ('getTokenBalance',), self.getTokenBalance)
-        self.route('POST', ('setTokenBalance',), self.setTokenBalance)
-        self.route('PUT', ('updateTokenBalance',), self.updateTokenBalance)
 
     @access.user
     @autoDescribeRoute(
@@ -566,14 +564,11 @@ class User(Resource):
             required=False,
             default='user'
         )
-        .param(
-            'ids_only',
-            'If true, only returns an Array of the IDs of assigned applets. '
-            'Otherwise, returns an Array of Objects keyed with "applet" '
-            '"protocol", "activities" and "items" with expanded JSON-LD as values.',
-            required=False,
-            default=False,
-            dataType='boolean'
+        .jsonParam(
+            'localInfo',
+            'parameter specifying applets metadata in local device',
+            paramType='form',
+            required=True,
         )
         .param(
             'getAllApplets',
@@ -584,7 +579,7 @@ class User(Resource):
         )
         .param(
             'retrieveSchedule',
-            'true if retrieve schedule info in applet metadata',
+            'if true, retrieve schedule info in applet metadata',
             default=False,
             required=False,
             dataType='boolean'
@@ -603,6 +598,27 @@ class User(Resource):
             default=0,
             dataType='integer'
         )
+        .param(
+            'retrieveResponses',
+            'if true, responses are returned',
+            default=False,
+            required=False,
+            dataType='boolean'
+        )
+        .param(
+            'groupByDateActivity',
+            'if true, group responses by date and activity',
+            default=True,
+            required=False,
+            dataType='boolean'
+        )
+        .param(
+            'retrieveLastResponseTime',
+            'if true, retrieve last response time',
+            default=False,
+            required=False,
+            dataType='boolean'
+        )
         .errorResponse('ID was invalid.')
         .errorResponse(
             'You do not have permission to see any of this user\'s applets.',
@@ -612,11 +628,14 @@ class User(Resource):
     def getOwnApplets(
         self,
         role,
-        ids_only=False,
+        localInfo,
         getAllApplets=False,
         retrieveSchedule=False,
         retrieveAllEvents=False,
-        numberOfDays=0
+        numberOfDays=0,
+        retrieveResponses=False,
+        groupByDateActivity=True,
+        retrieveLastResponseTime=False,
     ):
         from bson.objectid import ObjectId
         from girderformindlogger.utility.jsonld_expander import loadCache
@@ -649,28 +668,25 @@ class User(Resource):
                 for applet in account.get('applets', {}).get(role, []):
                     applet_ids.append(applet)
 
-        if ids_only:
-            return applet_ids
-
         applets = [AppletModel().load(ObjectId(applet_id), AccessType.READ) for applet_id in applet_ids]
 
-        try:
-            result = []
-            for applet in applets:
-                if applet.get('cached'):
-                    formatted = AppletModel().appletFormatted(applet=applet,
-                                                              reviewer=reviewer,
-                                                              role=role,
-                                                              retrieveSchedule=retrieveSchedule,
-                                                              retrieveAllEvents=retrieveAllEvents,
-                                                              eventFilter=(currentUserDate, numberOfDays) if numberOfDays else None)
-                    result.append(formatted)
+        result = []
+        for applet in applets:
+            if applet.get('cached'):
+                formatted = AppletModel().appletFormatted(applet=applet,
+                                                            reviewer=reviewer,
+                                                            role=role,
+                                                            retrieveSchedule=retrieveSchedule,
+                                                            retrieveAllEvents=retrieveAllEvents,
+                                                                eventFilter=(currentUserDate, numberOfDays) if numberOfDays else None,
+                                                            retrieveResponses=retrieveResponses,
+                                                            groupByDateActivity=groupByDateActivity,
+                                                            retrieveLastResponseTime=retrieveLastResponseTime,
+                                                            localInfo=localInfo.get(str(applet['_id']), {}) if localInfo else {},
+                                                            )
+                result.append(formatted)
 
-            return(result)
-        except:
-            import sys, traceback
-            print(sys.exc_info())
-            return([])
+        return(result)
 
     @access.public(scope=TokenScope.DATA_READ)
     @autoDescribeRoute(
@@ -789,6 +805,11 @@ class User(Resource):
         account['folders']=[]
 
         for folder in folders:
+            if folder['meta'].get('responseFolder', False):
+                continue
+            if folder['meta'].get('contentType', '') == 'templates':
+                continue
+
             if folder['meta'].get('applets'):
                 for applet in folder['meta']['applets']:
                     _id=applet['_id']
@@ -836,6 +857,8 @@ class User(Resource):
                 'hasUrl': (applet['meta'].get('protocol', {}).get('url', None) != None),
                 'roles': appletRoles[appletId]
             })
+
+        tokenInfo['account']['alerts'] = ResponseAlerts().getResponseAlerts(user['_id'], account['accountId'])
 
         tokenInfo['account']['applets'] = applets
 
@@ -940,12 +963,16 @@ class User(Resource):
             if deviceId:
                 user['deviceId'] = deviceId
                 user['timezone'] = float(timezone)
+                user['lang'] = lang
                 self._model.save(user)
                 ProfileModel().updateProfiles(user, {
                     'deviceId': deviceId,
                     'timezone': float(timezone),
                     'badge': 0
                 })
+            elif (user.get('lang') and user['lang'] != lang) or (not user.get('lang')):
+                user['lang'] = lang
+                self._model.save(user)
 
             setCurrentUser(user)
             token = self.sendAuthTokenCookie(user)
@@ -1614,63 +1641,3 @@ class User(Resource):
             send_custom_notification(notifications[0])
 
         Notification().deleteNotificationByType(user, 'response-data-alert')
-
-    @access.user
-    @autoDescribeRoute(
-        Description('Get user token balance.')
-        .notes('This endpoint is used to get token balance for auth user')
-        .errorResponse(('You are not logged in.',), 401)
-    )
-    def getTokenBalance(self):
-        accountProfile = self.getAccountProfile()
-        return accountProfile.get('tokenBalance', 0)
-
-    @access.user(scope=TokenScope.DATA_OWN)
-    @autoDescribeRoute(
-        Description('Set token balance.')
-        .param('balance', 'TokenBalance Value', required=True, paramType='path')
-        .errorResponse('Missing token balance.')
-    )
-    def setTokenBalance(self, balance):
-        accountProfile = self.getAccountProfile()
-        try:
-            balance_int = int(balance)
-            if balance_int < 0:
-                raise ValidationException(
-                    "Token balance can not be less than zero."
-                )
-        except ValueError:
-            raise ValidationException(
-                "Token balance must be integer"
-            )
-
-        AccountProfile().updateTokenBalance(accountProfile, balance_int)
-        accountProfile['tokenBalance'] = balance_int
-
-        return accountProfile
-
-    @access.user(scope=TokenScope.DATA_OWN)
-    @autoDescribeRoute(
-        Description('Update token balance.')
-        .param('offset', 'TokenBalance Value', required=True, paramType='path')
-        .errorResponse('Missing token balance offset.')
-    )
-    def updateTokenBalance(self, offset):
-        accountProfile = self.getAccountProfile()
-        balance = accountProfile.get('tokenBalance', 0)
-        try:
-            offset_int = int(offset)
-            balance += offset_int
-            if balance < 0:
-                raise ValidationException(
-                    "Token balance can not be less than zero."
-                )
-        except ValueError:
-            raise ValidationException(
-                "Token balance must be integer"
-            )
-
-        AccountProfile().updateTokenBalance(accountProfile, balance)
-        accountProfile['tokenBalance'] = balance
-
-        return accountProfile

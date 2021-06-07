@@ -97,10 +97,14 @@ class Events(Model):
         if 'schedule' in event:
             newEvent['schedule'] = event['schedule']
 
+        newEvent['updated'] = datetime.datetime.utcnow()
+
         newEvent = self.save(newEvent)
         self.setSchedule(newEvent)
 
-        return self.save(newEvent)
+        newEvent = self.save(newEvent)
+
+        return newEvent
 
     def updateIndividualSchedulesParameter(self, newEvent, oldEvent):
         new = newEvent['data']['users'] if 'users' in newEvent['data'] else []
@@ -139,13 +143,15 @@ class Events(Model):
 
     def getEvents(self, applet_id, individualized, profile_id = None):
         if not individualized or not profile_id:
-            events = list(self.find({'applet_id': ObjectId(applet_id), 'individualized': individualized}, fields=['data', 'schedule']))
+            events = list(self.find({'applet_id': ObjectId(applet_id), 'individualized': individualized}, fields=['data', 'schedule', 'updated']))
         else:
-            events = list(self.find({'applet_id': ObjectId(applet_id), 'individualized': individualized, 'data.users': profile_id}, fields=['data', 'schedule']))
+            events = list(self.find({'applet_id': ObjectId(applet_id), 'individualized': individualized, 'data.users': profile_id}, fields=['data', 'schedule', 'updated']))
 
         for event in events:
             if 'data' in event and 'users' in event['data']:
                 event['data'].pop('users')
+            if 'updated' in event:
+                event['updated'] = event['updated'].isoformat()
 
         return events
 
@@ -156,11 +162,11 @@ class Events(Model):
         notifications = event.get('data', {}).get('notifications', [])
         hasNotifications = len(notifications) > 0
 
-        if hasNotifications and useNotifications and notifications[0]['start']:
+        if useNotifications and hasNotifications and (event['data'].get('reminder', {}).get('valid', False) or notifications[0]['start']):
             push_notification.set_schedules()
 
     def getSchedule(self, applet_id):
-        events = list(self.find({'applet_id': ObjectId(applet_id)}, fields=['data', 'schedule']))
+        events = list(self.find({'applet_id': ObjectId(applet_id)}, fields=['data', 'schedule', 'updated']))
 
         for event in events:
             event['id'] = event['_id']
@@ -190,14 +196,14 @@ class Events(Model):
 
         timeout = datetime.timedelta(days=0)
 
-        if eventTimeout and eventTimeout.get('allow', False) and event['data'].get('completion', False) and not event['data'].get('onlyScheduledDay', False):
+        if eventTimeout and eventTimeout.get('allow', False) and event['data'].get('completion', False):
             timeout = datetime.timedelta(
                 days=eventTimeout.get('day', 0),
                 hours=eventTimeout.get('hour', 0),
                 minutes=eventTimeout.get('minute', 0)
             )
 
-        if event['data'].get('extendedTime', {}).get('allow', False) and not event['data'].get('onlyScheduledDay', False):
+        if event['data'].get('extendedTime', {}).get('allow', False):
             timeout = timeout + datetime.timedelta(
                 days=event['data']['extendedTime'].get('days', 0)
             )
@@ -299,7 +305,7 @@ class Events(Model):
 
             for i in range(0, eventFilter[1]):
                 lastEvent = {}
-                onlyScheduledDay = {}
+                activityEvents = {}
 
                 for event in events:
                     event['valid'], lastAvailableTime = self.dateMatch(event, dayFilter)
@@ -317,8 +323,7 @@ class Events(Model):
                     else:
                         lastEvent[activityId] = None
 
-                    if event['data'].get('onlyScheduledDay', False):
-                        onlyScheduledDay[activityId] = event
+                    activityEvents[activityId] = event
 
                 data = []
                 for event in events:
@@ -326,15 +331,21 @@ class Events(Model):
                         data.append(event)
 
                 for value in lastEvent.values():
-                    if value and (value[1]['data'].get('completion', False) or value[1]['data'].get('activity_id', None) in onlyScheduledDay):
+                    if value and (value[1]['data'].get('completion', False) or not value[1]['data'].get('availability', False)):
                         data.append(value[1])
 
-                for event in data:
-                    if event['data'].get('activity_id', None) in onlyScheduledDay:
-                        onlyScheduledDay.pop(event['data']['activity_id'])
+                    activityId = event.get('data', {}).get('activity_id', None)
+                    if activityId in activityEvents:
+                        activityEvents.pop(activityId)
 
-                for activityId in onlyScheduledDay:
-                    data.append(onlyScheduledDay[activityId])
+                for card in data:
+                    activityId = event.get('data', {}).get('activity_id', None)
+                    if activityId in activityEvents:
+                        activityEvents.pop(activityId)
+
+                for event in activityEvents.values():
+                    event['valid'] = False
+                    data.append(event)
 
                 for card in data:
                     usedEventCards[str(card['id'])] = True

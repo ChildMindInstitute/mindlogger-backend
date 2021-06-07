@@ -32,7 +32,11 @@ from girderformindlogger.models.applet import Applet as AppletModel
 from girderformindlogger.models.folder import Folder
 from girderformindlogger.models.response_folder import ResponseFolder as \
     ResponseFolderModel, ResponseItem as ResponseItemModel
+from girderformindlogger.models.response_tokens import ResponseTokens
+from girderformindlogger.models.item import Item as ItemModel
+from girderformindlogger.models.response_alerts import ResponseAlerts
 from girderformindlogger.models.upload import Upload as UploadModel
+from bson import json_util
 from pymongo import DESCENDING
 from bson import ObjectId
 import boto3
@@ -48,7 +52,8 @@ class ResponseItem(Resource):
         self.route('GET', (':applet',), self.getResponsesForApplet)
         self.route('GET', ('last7Days', ':applet'), self.getLast7Days)
         self.route('POST', (':applet', ':activity'), self.createResponseItem)
-        self.route('PUT', (':applet',), self.updateReponseItems)
+        self.route('POST', (':applet', 'updateResponseToken'), self.updateResponseToken)
+        self.route('PUT', (':applet',), self.updateReponseHistory)
 
     @access.user(scope=TokenScope.DATA_READ)
     @autoDescribeRoute(
@@ -155,6 +160,10 @@ class ResponseItem(Resource):
             'items': {},
             'subScaleSources': {},
             'subScales': {},
+            'tokens': {
+                'cumulativeToken': [],
+                'tokenUpdates': [],
+            },
         }
 
         # Get the responses for each users and generate the group responses data.
@@ -169,8 +178,7 @@ class ResponseItem(Resource):
                 query={"created": { "$lte": toDate, "$gt": fromDate },
                        "meta.applet.@id": ObjectId(applet['_id']),
                        "meta.activity.@id": { "$in": activities },
-                       "meta.subject.@id": user['_id'],
-                       "isCumulative": {"$ne": True}},
+                       "meta.subject.@id": user['_id']},
                 force=True,
                 sort=[("created", DESCENDING)])
 
@@ -179,12 +187,14 @@ class ResponseItem(Resource):
                 response['meta']['subject']['userTime'] = response["created"].replace(tzinfo=pytz.timezone("UTC")).astimezone(
                     timezone(
                         timedelta(
-                            hours=profile["timezone"] if 'timezone' not in response['meta']['subject'] else response['meta']['subject']['timezone']
+                            hours=user["timezone"] if 'timezone' not in response['meta']['subject'] else response['meta']['subject']['timezone']
                         )
                     )
                 )
 
-            add_latest_daily_response(data, responses)
+            tokens = ResponseTokens().getResponseTokens(user, retrieveUserKeys=True)
+
+            add_latest_daily_response(data, responses, tokens)
 
         self._model.reconnectToDb()
 
@@ -207,8 +217,8 @@ class ResponseItem(Resource):
             required=False
         )
         .param(
-            'referenceDate',
-            'Final date of 7 day range. (Not plugged in yet).',
+            'startDate',
+            'start date for response data.',
             required=False
         )
         .param(
@@ -225,6 +235,18 @@ class ResponseItem(Resource):
             required=False,
             default=True
         )
+        .jsonParam(
+            'localItems',
+            'item id array which represents historical items that user has on local device.',
+            required=False,
+            default=[]
+        )
+        .jsonParam(
+            'localActivities',
+            'activity id array which represents historical activities that user has on local device.',
+            required=False,
+            default=[]
+        )
         .errorResponse('ID was invalid.')
         .errorResponse(
             'Read access was denied for this applet for this user.',
@@ -235,24 +257,82 @@ class ResponseItem(Resource):
         self,
         applet,
         subject=None,
-        referenceDate=None,
+        startDate=None,
         includeOldItems=True,
         groupByDateActivity=True,
+        localItems=[],
+        localActivities=[]
     ):
         from girderformindlogger.utility.response import last7Days
         from bson.objectid import ObjectId
+
         try:
             appletInfo = AppletModel().findOne({'_id': ObjectId(applet)})
             user = self.getCurrentUser()
 
-            return(last7Days(applet, appletInfo, user.get('_id'), user, referenceDate=referenceDate, includeOldItems=includeOldItems, groupByDateActivity=groupByDateActivity))
+            return(last7Days(
+                applet, 
+                appletInfo, 
+                user.get('_id'), 
+                user, 
+                startDate=startDate, 
+                includeOldItems=includeOldItems, 
+                groupByDateActivity=groupByDateActivity,
+                localItems=localItems,
+                localActivities=localActivities
+            ))
         except:
             import sys, traceback
             print(sys.exc_info())
             print(traceback.print_tb(sys.exc_info()[2]))
             return({})
 
+    @access.public(scope=TokenScope.DATA_WRITE)
+    @autoDescribeRoute(
+        Description('Use Response token.')
+        .notes(
+            'This endpoint is used when a user selects token-prize on mobile app.'
+        )
+        .modelParam(
+            'applet',
+            model=AppletModel,
+            level=AccessType.READ,
+            destName='applet',
+            description='The ID of the Applet this response is to.'
+        )
+        .jsonParam('updateInfo',
+                   'A JSON object containing the token update and cumulative.',
+                   paramType='form', requireObject=True, required=True)
+    )
+    def updateResponseToken(
+        self,
+        applet,
+        updateInfo
+    ):
+        from girderformindlogger.models.profile import Profile
+        user = self.getCurrentUser()
 
+        profile = Profile().findOne({
+            'appletId': applet['_id'],
+            'userId': user['_id']
+        })
+
+        if updateInfo.get('tokenUpdate', None):
+            ResponseTokens().saveResponseToken(
+                profile,
+                updateInfo['tokenUpdate'],
+                False,
+                updateInfo.get('userPublicKey', None),
+                updateInfo.get('version', None)
+            )
+
+        if updateInfo.get('cumulative', None):
+            ResponseTokens().saveResponseToken(
+                profile, 
+                updateInfo['cumulative'], 
+                True, 
+                updateInfo.get('userPublicKey', None)
+            )
 
     @access.user(scope=TokenScope.DATA_WRITE)
     @autoDescribeRoute(
@@ -414,38 +494,19 @@ class ResponseItem(Resource):
                             'ptr': metadata['subScales'][subScale]
                         }
 
-                if metadata.get('tokenCumulations', None):
-                    cumulative = self._model.createResponseItem(
-                        folder=AppletSubjectResponsesFolder,
-                        name=f'cumulation of {str(metadata["applet"]["@id"])} for {str(subject_id)}',
-                        creator=informant,
-                        description="{} response on {} at {}".format(
-                            Folder().preferredName(activity),
-                            now.strftime("%Y-%m-%d"),
-                            now.strftime("%H:%M:%S %Z")
-                        ), reuseExisting=True,
-                        isCumulative=True,
-                    )
+                if metadata.get('tokenCumulation', None):
+                    ResponseTokens().saveResponseToken(profile, metadata['tokenCumulation'], True, metadata.get('userPublicKey', None))
 
-                    for itemIRI in metadata['tokenCumulations']:
-                        metadata['tokenCumulations'][itemIRI]['src'] = cumulative['_id']
+                if metadata.get('alerts', []):
+                    alerts = metadata.get('alerts', [])
 
-                    cumulativeMeta = {
-                        'userPublicKey': metadata['userPublicKey'],
-                        'subject': metadata['subject'],
-                        'applet': metadata['applet'],
-                        'responses': metadata['tokenCumulations']
-                    }
-                    metadata.pop('tokenCumulations')
-
-                    if metadata.get('tokenCumulationSource', None):
-                        cumulativeMeta.update({
-                            'dataSource': metadata['tokenCumulationSource'],
-                        })
-                        metadata.pop('tokenCumulationSource')
-
-                    self._model.setMetadata(cumulative, cumulativeMeta)
-
+                    for alert in alerts:
+                        ResponseAlerts().addResponseAlerts(
+                            profile,
+                            alert['id'],
+                            alert['schema'],
+                            alert['message']
+                        )
 
                 newItem = self._model.setMetadata(newItem, metadata)
 
@@ -506,7 +567,7 @@ class ResponseItem(Resource):
         .errorResponse()
         .errorResponse('Write access was denied on the parent folder.', 403)
     )
-    def updateReponseItems(self, applet, user, responses):
+    def updateReponseHistory(self, applet, user, responses):
         from girderformindlogger.models.profile import Profile
         from girderformindlogger.models.account_profile import AccountProfile
 
@@ -555,6 +616,24 @@ class ResponseItem(Resource):
                 },
                 multi=False
             )
+
+        responseTokenModel = ResponseTokens()
+
+        for tokenUpdateId in responses['tokenUpdates']:
+            query = {
+                'appletId': applet['_id'],
+                '_id': ObjectId(tokenUpdateId),
+                'userId': profile['userId']
+            }
+
+            tokenUpdate = responseTokenModel.findOne(query)
+            tokenUpdate.update({
+                'data': responses['tokenUpdates'][tokenUpdateId],
+                'userPublicKey': responses['userPublicKey'],
+                'updated': now
+            })
+
+            responseTokenModel.save(tokenUpdate)
 
         self._model.reconnectToDb()
 

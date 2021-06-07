@@ -6,6 +6,7 @@ from girderformindlogger.models.account_profile import AccountProfile as Account
 from girderformindlogger.constants import AccessType, SortDir, TokenScope,     \
     DEFINED_INFORMANTS, REPROLIB_CANONICAL, SPECIAL_SUBJECTS, USER_ROLES
 from girderformindlogger.models.profile import Profile as ProfileModel
+from girderformindlogger.models.response_alerts import ResponseAlerts
 from pymongo import DESCENDING, ASCENDING
 from bson.objectid import ObjectId
 
@@ -21,6 +22,32 @@ class AccountProfile(Resource):
 
         self.route('GET', ('users',), self.getUsers)
         self.route('PUT', ('manage', 'pin', ), self.updatePin)
+        self.route('PUT', ('updateAlertStatus', ':id', ), self.updateAlertStatus)
+
+    @access.user(scope=TokenScope.DATA_OWN)
+    @autoDescribeRoute(
+        Description('Update view status for alerts.')
+        .notes(
+            'This endpoint is used for reviewer/manager to update view status for notifications. <br>'
+        )
+        .param(
+            'id',
+            'id of alert to update status',
+            required=True
+        )
+    )
+    def updateAlertStatus(self, id):
+        accountProfile = self.getAccountProfile()
+
+        ResponseAlerts().update({
+            'reviewerId': accountProfile['userId'],
+            'accountId': accountProfile['accountId'],
+            '_id': ObjectId(id)
+        }, {
+            '$set': {
+                'viewed': True
+            }
+        })
 
     @access.user(scope=TokenScope.DATA_OWN)
     @autoDescribeRoute(
@@ -190,60 +217,22 @@ class AccountProfile(Resource):
         userIndex = {}
         users = []
 
-        fields = ['_id', 'updated', 'roles', 'firstName', 'lastName', 'email'] if role != 'user' else ['_id', 'updated', 'roles', 'MRN']
-
         # format and group profiles
         for profile in userProfiles:
             userId = str(profile['userId'])
             appletId = str(profile['appletId'])
             viewer = viewerProfileByApplet[appletId]
 
-            data = {
-                field: profile.get(field, '') for field in fields
-            }
-
-            data['pinned'] = viewer['_id'] in profile.get('pinnedBy', [])
-            if profile.get('deactivated', False):
-                continue
-
-            # these are temporary
-            if 'email' in fields and not data['email']:
-                data['email'] = profile.get('userDefined', {}).get('email', '')
-
-            if 'firstName' in fields and not data['firstName']:
-                data['firstName'] = profile.get('userDefined', {}).get('displayName', '')
-
             if role == 'user' and len(profile.get('roles', [])) > 1:
                 continue
 
-            # reviewers don't need to view user's roles
-            if 'coordinator' not in viewer['roles'] and 'manager' not in viewer['roles']:
-                if viewer['_id'] not in profile.get('reviewers', []):
-                    continue
+            if 'manager' in profile['roles'] and role != 'manager':
+                continue
 
-                data.pop('roles')
+            data = ProfileModel().getProfileData(profile, viewer)
 
-            if 'coordinator' in viewer['roles']:
-                data['hasIndividualEvent'] = (profile.get('individual_events', 0) > 0)
-
-            data['viewable'] = False
-            if viewer['_id'] in profile.get('reviewers', []) or viewer['_id'] == profile['_id']:
-                data['refreshRequest'] = profile.get('refreshRequest', None)
-                data['viewable'] = True
-
-            data['updated'] = None
-            for userActivityUpdate in profile.get('completed_activities', []):
-                if userActivityUpdate['completed_time'] and (not data['updated'] or data['updated'] < userActivityUpdate['completed_time']):
-                    data['updated'] = userActivityUpdate['completed_time']
-
-            if 'roles' in data and 'manager' in data['roles']:
-                if role != 'manager':
-                    continue
-
-                if 'owner' in data['roles']:
-                    data['roles'] = ['owner']
-                elif 'manager' in data['roles']:
-                    data['roles'] = ['manager']
+            if not data:
+                continue
 
             # user might use several applets in one account
             if userId not in userIndex:

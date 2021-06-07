@@ -45,7 +45,9 @@ from girderformindlogger.models.setting import Setting
 from girderformindlogger.settings import SettingKey
 from girderformindlogger.models.profile import Profile as ProfileModel
 from girderformindlogger.models.account_profile import AccountProfile
+from girderformindlogger.models.invitation import Invitation as InvitationModel
 from girderformindlogger.i18n import t
+from girderformindlogger.models.response_alerts import ResponseAlerts
 from dateutil.relativedelta import relativedelta
 from pymongo import ASCENDING, DESCENDING
 from bson import json_util
@@ -70,9 +72,9 @@ class Applet(Resource):
         self.route('PUT', (':id', 'informant'), self.updateInformant)
         self.route('PUT', (':id', 'assign'), self.assignGroup)
         self.route('PUT', (':id', 'constraints'), self.setConstraints)
-        self.route('PUT', (':id', 'schedule'), self.setSchedule)
+        self.route('PUT', (':id', 'setSchedule'), self.setSchedule)
+        self.route('PUT', (':id', 'getSchedule'), self.getSchedule)
         self.route('PUT', (':id', 'refresh'), self.refresh)
-        self.route('GET', (':id', 'schedule'), self.getSchedule)
         self.route('POST', (':id', 'invite'), self.invite)
         self.route('POST', (':id', 'inviteUser'), self.inviteUser)
 
@@ -579,6 +581,8 @@ class Applet(Resource):
                 profile = self._model.revokeRole(applet, profile, role)
 
         profile = self._model.revokeRole(applet, profile, 'user')
+
+        ResponseAlerts().deleteResponseAlerts(profile['_id'])
 
         if deleteResponse:
             ProfileModel().remove(profile)
@@ -1159,7 +1163,7 @@ class Applet(Resource):
         )
 
         if retrieveSchedule:
-            formatted['applet']['schedule'] = self._model.getSchedule(applet, user, retrieveAllEvents)
+            formatted['schedule'] = self._model.getSchedule(applet, user, retrieveAllEvents)
 
         formatted['updated'] = applet['updated']
         formatted['accountId'] = applet['accountId']
@@ -1404,7 +1408,7 @@ class Applet(Resource):
 
         appletProfile = ProfileModel().findOne({'appletId': applet['_id'], 'userId': thisUser['_id']})
 
-        if not appletProfile or 'coordinator' not in appletProfile.get('roles', []) or \
+        if not appletProfile or ('coordinator' not in appletProfile.get('roles', []) and 'manager' not in appletProfile.get('roles', [])) or \
                 (role != 'user' and role !='reviewer' and 'manager' not in appletProfile.get('roles', [])):
             raise AccessException('You don\'t have enough permission to invite other user to specified role')
 
@@ -1425,6 +1429,23 @@ class Applet(Resource):
                 'Invalid role.',
                 'role'
             )
+
+        if role == 'user':
+            invitation = InvitationModel().findOne({
+                'appletId': applet['_id'],
+                'MRN': MRN
+            })
+            if invitation:
+                raise ValidationException(t('mrn_is_duplicated', lang))
+
+            invitedAccount = ProfileModel().findOne({
+                'accountId': thisUser['accountId'],
+                'appletId': applet['_id'],
+                'roles': role,
+                'MRN': MRN
+            })
+            if invitedAccount:
+                raise ValidationException(t('mrn_is_duplicated', lang))
 
         invitation = Invitation().createInvitationForSpecifiedUser(
             applet=applet,
@@ -1616,15 +1637,28 @@ class Applet(Resource):
             default=0,
             dataType='integer'
         )
+        .jsonParam(
+            'localEvents',
+            'events that user cached on local device',
+            paramType='form',
+            required=False,
+            default=None
+        )
         .errorResponse('Invalid applet ID.')
         .errorResponse('Read access was denied for this applet.', 403)
     )
-    def getSchedule(self, applet, getAllEvents = False, numberOfDays = 0):
+    def getSchedule(self, applet, getAllEvents = False, numberOfDays = 0, localEvents=None):
         user = self.getCurrentUser()
 
         currentUserDate = datetime.datetime.utcnow() + datetime.timedelta(hours=int(user['timezone']))
 
-        return self._model.getSchedule(applet, user, getAllEvents, (currentUserDate.replace(hour=0, minute=0, second=0, microsecond=0), numberOfDays) if numberOfDays and not getAllEvents else None)
+        return self._model.getSchedule(
+            applet, 
+            user, 
+            getAllEvents, 
+            (currentUserDate.replace(hour=0, minute=0, second=0, microsecond=0), numberOfDays) if numberOfDays and not getAllEvents else None,
+            localEvents or []
+        )
 
     @access.user(scope=TokenScope.DATA_WRITE)
     @autoDescribeRoute(

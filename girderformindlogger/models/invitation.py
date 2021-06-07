@@ -12,6 +12,7 @@ from girderformindlogger.exceptions import ValidationException, GirderException
 from girderformindlogger.models.aes_encrypt import AESEncryption, AccessControlledModel
 from girderformindlogger.models.account_profile import AccountProfile
 from girderformindlogger.utility.model_importer import ModelImporter
+from girderformindlogger.exceptions import AccessException
 from girderformindlogger.utility.progress import noProgress, \
     setResponseTimeLimit
 from girderformindlogger.i18n import t
@@ -250,6 +251,9 @@ class Invitation(AESEncryption):
 
             UserModel().save(user)
 
+        if invitation.get('lang', '') != user.get('lang', ''):
+            user['lang'] = invitation['lang']
+            UserModel().save(user)
 
         applet = Applet().load(invitation['appletId'], force=True)
         if not applet:
@@ -305,7 +309,7 @@ class Invitation(AESEncryption):
         profile['firstName'] = invitation.get('firstName', '')
         profile['lastName'] = invitation.get('lastName', '')
         profile['MRN'] = invitation.get('MRN', '')
-
+        profile['invitationId'] = invitation['_id']
         if 'invited_role' != 'user':
             profile['email'] = userEmail
 
@@ -348,7 +352,7 @@ class Invitation(AESEncryption):
 
     def htmlInvitation(
         self,
-        invitation,
+        invitationId,
         invitee=None,
         fullDoc=False,
         includeLink=True
@@ -373,6 +377,13 @@ class Invitation(AESEncryption):
         from girderformindlogger.utility import context as contextUtil,        \
             mail_utils
 
+        invitation = self.findOne({
+            '_id': ObjectId(invitationId)
+        })
+
+        if not invitation:
+            return self.getMessageForAlreadyAcceptedInvitation(invitationId, invitee)
+
         web_url = os.getenv('WEB_URI') or 'localhost:8082'
 
         accept = (
@@ -388,9 +399,9 @@ class Invitation(AESEncryption):
             skin = {}
         instanceName = skin.get("name", "MindLogger")
         role = invitation.get("role", "user")
-
+		
         existingProfile=None
-
+		
         if invitation.get('userId'):
             existingProfile = Profile().findOne({
                 'userId': invitation['userId'],
@@ -403,14 +414,15 @@ class Invitation(AESEncryption):
         if existingProfile and (role == 'user' or len(existingProfile.get('roles', [])) > 1):
             return {
                 'body': t('invitation_already_accepted', invitation.get("lang", "en"), {'appletName': appletName}),
-                'acceptable': False
+                'acceptable': False,
+                'lang': invitation.get("lang", "en")
             }
 
         try:
-            coordinator = Profile().coordinatorProfile(
-                applet['_id'],
-                invitation["invitedBy"]
-            )
+            coordinator = Profile().findOne({
+                'userId': invitation['inviterId'],
+                'appletId': invitation['appletId']
+            })
         except:
             coordinator = None
         displayProfile = Profile().displayProfileFields(invitation, invitee)
@@ -441,7 +453,7 @@ class Invitation(AESEncryption):
             'accept': accept,
             'appletName': appletName,
             'byCoordinator': "by {} ({}) ".format(
-                coordinator.get("displayName", "an anonymous entity"),
+                coordinator.get("firstName", "an anonymous entity"),
                 "<a href=\"mailto:{email}\">{email}</a>".format(
                     email=coordinator["email"]
                 ) if "email" in coordinator and coordinator["email"] is not None else "email not available"
@@ -476,8 +488,34 @@ class Invitation(AESEncryption):
                 instanceName=instanceName,
                 body=body
             ).strip()),
-            'acceptable': True
+            'acceptable': True,
+            'lang': invitation.get("lang", "en")
         }
+
+    def getMessageForAlreadyAcceptedInvitation(
+        self,
+        invitationId,
+        invitee
+    ):
+        from girderformindlogger.models.applet import Applet
+        from girderformindlogger.models.profile import Profile
+
+        existingProfile = Profile().findOne({
+            'userId': invitee['_id'],
+            'invitationId': ObjectId(invitationId)
+        })
+
+        if existingProfile:
+            applet = Applet().load(ObjectId(existingProfile['appletId']), force=True)
+            appletName = applet['meta']['applet'].get('displayName', applet.get('displayName', 'new applet'))
+
+            return {
+                'body': t('invitation_already_accepted', invitee.get("lang", "en"), {'appletName': appletName}),
+                'acceptable': False,
+                'lang': invitee.get("lang", "en")
+            }
+
+        raise AccessException('invalid invitation')
 
     def countFolders(self, folder, user=None, level=None):
         """
