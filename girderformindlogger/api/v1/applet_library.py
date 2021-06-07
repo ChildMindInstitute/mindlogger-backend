@@ -319,8 +319,12 @@ class AppletLibrary(Resource):
                         }
                     } for key in keys
                 ]
-            }, fields=self._model.metaFields, sort=[("name", ASCENDING)])
+            }, fields=self._model.metaFields)
         )
+
+        def getSortKey(applet):
+            return applet['name'].lower()
+        libraryApplets.sort(key=getSortKey)
 
         totalCount = len(libraryApplets)
         libraryApplets = libraryApplets[recordsPerPage * pageIndex: recordsPerPage * pageIndex + recordsPerPage]
