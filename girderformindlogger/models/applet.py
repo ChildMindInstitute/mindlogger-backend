@@ -335,6 +335,9 @@ class Applet(FolderModel):
 
             self.setMetadata(applet, metadata=applet['meta'])
 
+        if '_id' in meta:
+            meta.pop('_id')
+
         return meta
 
     # users won't use this function, so all emails are plain text (this endpoint is used for owners/managers to get access to new applet automatically)
