@@ -1085,19 +1085,24 @@ class Applet(FolderModel):
         applet['meta']['applet']['editing'] = False
         self.setMetadata(applet, applet['meta'])
 
-        if thread:
+        if thread and 'email' in user and not user.get('email_encrypted', True):
+            admin_url = os.getenv('ADMIN_URI') or 'localhost:8082'
+
+            lang = user.get("lang", "en")
+            url = f'https://{admin_url}/#/build?lang={lang}_{"US" if lang == "en" else "FR"}&appletId={str(applet["_id"])}&accountId={str(applet["accountId"])}'
+
             html = mail_utils.renderTemplate(f'appletEditSuccess.en.mako', {
                 'userName': user['firstName'],
-                'appletName': applet['meta']['applet'].get('displayName', 'applet')
+                'appletName': applet['meta']['applet'].get('displayName', 'applet'),
+                'url': url
             })
             subject = t('applet_edit_success', user.get('lang', 'en'))
 
-            if 'email' in user and not user.get('email_encrypted', True):
-                mail_utils.sendMail(
-                    subject,
-                    html,
-                    [user['email']]
-                )
+            mail_utils.sendMail(
+                subject,
+                html,
+                [user['email']]
+            )
 
         return formatted
 
