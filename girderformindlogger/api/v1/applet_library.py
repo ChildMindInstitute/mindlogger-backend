@@ -35,6 +35,7 @@ class AppletLibrary(Resource):
         self.route('POST', ('categories',), self.addCategory)
         self.route('POST', ('basket', ), self.setBasket)
         self.route('GET', ('basket', ), self.getBasket)
+        self.route('PUT', ('basket', 'applets',), self.getAppletsForBasket)
         self.route('GET', ('basket', 'content',), self.getBasketContent)
         self.route('PUT', ('basket', 'selection'), self.updateBasket)
         self.route('DELETE', ('basket', 'applet'), self.deleteAppletFromBasket)
@@ -209,6 +210,8 @@ class AppletLibrary(Resource):
 
                     if items: # select specific items
                         itemIDToIRI = {}
+                        content['activities'][activityIRI] = activityModel.disableConditionals(formattedActivity['activity'])
+
                         for itemIRI in formattedActivity['items']:
                             itemID = formattedActivity['items'][itemIRI]['_id'].split('/')[-1]
                             itemIDToIRI[itemID] = itemIRI
@@ -227,6 +230,57 @@ class AppletLibrary(Resource):
                 result[appletId] = content
 
         return result
+
+    @access.user(scope=TokenScope.DATA_OWN)
+    @autoDescribeRoute(
+        Description('Get applets used in basket.')
+        .notes(
+            'This endpoint is used for getting all applets used in basket'
+        )
+        .jsonParam(
+            'basket',
+            'json data containing basket selection',
+            required=False,
+            default=None
+        )
+    )
+    def getAppletsForBasket(self, basket):
+        user = self.getCurrentUser()
+
+        if not basket:
+            basket = AppletBasket().getBasket(user['_id'])
+
+        appletIds = []
+        for appletId in basket:
+            appletIds.append(ObjectId(appletId))
+
+        libraryApplets = list(
+            self._model.find({
+                'appletId': {
+                    '$in': appletIds
+                }
+            }, fields=self._model.metaFields)
+        )
+
+        def getSortKey(applet):
+            return applet['name'].lower()
+        libraryApplets.sort(key=getSortKey)
+
+        data = []
+        for libraryApplet in libraryApplets:
+            data.append({
+                'id': libraryApplet['_id'],
+                'appletId': libraryApplet['appletId'],
+                'name': libraryApplet['name'],
+                'accountId': libraryApplet['accountId'],
+                'categoryId': libraryApplet['categoryId'],
+                'subCategoryId': libraryApplet['subCategoryId'],
+                'keywords': libraryApplet['keywords'],
+                'description': libraryApplet.get('description'),
+                'image': libraryApplet.get('image')
+            })
+
+        return data
 
     @access.user(scope=TokenScope.DATA_OWN)
     @autoDescribeRoute(
