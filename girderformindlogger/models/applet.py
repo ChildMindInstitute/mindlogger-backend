@@ -27,6 +27,7 @@ import threading
 import re
 import pytz
 import ijson
+from uuid import uuid4
 
 from bson.objectid import ObjectId
 from girderformindlogger import events
@@ -1793,6 +1794,166 @@ class Applet(FolderModel):
                 })
 
         return invitations
+
+
+    def createInviteLink(self, appletId, coordinator):
+        """"
+        coordinator: person creating the link
+        """
+        now = datetime.datetime.utcnow()
+
+        inviteLink = {
+            'id': str(uuid4())[:18],
+            'created': now,
+            'updated': now,
+            'createdBy': Profile().coordinatorProfile(
+                appletId,
+                coordinator
+            )}
+
+        self.update({'_id': ObjectId(appletId)},
+                    {'$set': {'inviteLink':inviteLink}})
+        
+        return inviteLink
+    
+
+    def replaceInviteLink(self, appletId, coordinator):
+        """"
+        coordinator: person creating the link
+        """
+        now = datetime.datetime.utcnow()
+
+        newId = str(uuid4())[:18]
+        profile = Profile().coordinatorProfile(
+                appletId,
+                coordinator)
+        updates = {
+            'inviteLink.id' : newId,
+            'inviteLink.updated':now,
+            'inviteLink.createdBy': profile
+            }
+        self.update({'_id': ObjectId(appletId)},
+                    {'$set': updates})
+
+        applet = self.findOne({'_id': ObjectId(appletId)})
+
+        print("applet['inviteLink']: ",applet['inviteLink']) 
+        
+        return applet['inviteLink']
+
+    def deleteInviteLink(self, appletId, coordinator, keep_record=False):
+        """"
+        coordinator: person creating the link
+        """
+        if keep_record:
+            now = datetime.datetime.utcnow()
+            profile = Profile().coordinatorProfile(
+                    appletId,
+                    coordinator)
+            updates = {
+                'inviteLink.updated':now,
+                'inviteLink.createdBy': profile
+                }
+            self.update({'_id': ObjectId(appletId)},
+                        {'$set': updates})
+            response = self.update({'_id': ObjectId(appletId)},
+                        {'$unset': {'inviteLink.id':1}})
+
+        else:
+            response = self.update({'_id': ObjectId(appletId)},
+                        {'$unset': {'inviteLink':1}})
+            print('response: ', response)
+
+        return response
+
+    def acceptOpenInvitation(self, openInvitationID, user, userEmail = ''): # we need to save coordinator/manager's email as plain text
+        from girderformindlogger.models.applet import Applet
+        from girderformindlogger.models.ID_code import IDCode
+        from girderformindlogger.models.profile import Profile
+        from girderformindlogger.utility import mail_utils
+        from girderformindlogger.models.user import User as UserModel
+
+        # why does the function require the user and the userEmail? 
+        if not mail_utils.validateEmailAddress(userEmail):
+            raise ValidationException(
+                'Invalid email address.',
+                'email'
+            )
+
+        invited_role = 'user'
+
+        ### don't need this as the invited role will always be 'user'
+        # if invited_role != 'user' and user.get('email_encrypted', False):
+        #     if UserModel().hash(userEmail) != user['email']:
+        #         raise ValidationException(
+        #             'Invalid email address.',
+        #             'email'
+        #         )
+        #     #why does the email provided to the function overwrite the user's email in the DB?
+        #     user['email'] = userEmail
+        #     user['email_encrypted'] = False
+
+        #     UserModel().save(user)
+
+        ### query to get the applet ID
+        appletID = openInvitationID
+
+        applet = Applet().load(appletID, force=True)
+        if not applet:
+            raise ValidationException('invalid invitation')
+
+        profiles = None
+        if profile==None or not len(profile):
+            profile = Profile().createProfile(
+                applet,
+                user,
+                role=invitation.get('role', 'user')
+            )
+            IDCode().createIdCode(profile, invitation.get('idCode'))
+        if 'schema:knows' in invitation:
+            if 'schema:knows' not in profile:
+                profile['schema:knows'] = invitation['schema:knows']
+            else:
+                for k in invitation['schema:knows']:
+                    if k in profile['schema:knows']:
+                        profile['schema:knows'][k].extend([
+                            r for r in invitation['schema:knows'][
+                                k
+                            ] if r not in profile['schema:knows'][k]
+                        ])
+                    else:
+                        profile['schema:knows'][k] = invitation['schema:knows'][
+                            k
+                        ]
+
+        # append role value
+        profile = Profile().load(profile['_id'], force=True)
+        profile['roles'] = profile.get('roles', [])
+
+        # manager has get all roles by default
+        for role in USER_ROLES.keys():
+            if role not in profile['roles']:
+                if invited_role == 'manager' or invited_role == role or role == 'user':
+                    profile['roles'].append(role)
+
+        profile['firstName'] = invitation.get('firstName', '')
+        profile['lastName'] = invitation.get('lastName', '')
+        profile['MRN'] = invitation.get('MRN', '')
+
+        Profile().save(profile, validate=False)
+
+        if invited_role == 'reviewer':
+            Profile().updateReviewerList(profile, invitation.get('accessibleUsers'))
+        elif invited_role == 'manager':
+            Profile().updateReviewerList(profile)
+
+        AccountProfile().appendApplet(AccountProfile().createAccountProfile(applet['accountId'], user['_id']), applet['_id'], profile['roles'])
+
+        return(Profile().displayProfileFields(
+            Profile().load(profile['_id'], force=True),
+            user
+        ))
+
 
     def load(self, id, level=AccessType.ADMIN, user=None, objectId=True,
              force=False, fields=None, exc=False):

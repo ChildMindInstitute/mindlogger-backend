@@ -78,7 +78,12 @@ class Applet(Resource):
         self.route('PUT', (':id', 'refresh'), self.refresh)
         self.route('POST', (':id', 'invite'), self.invite)
         self.route('POST', (':id', 'inviteUser'), self.inviteUser)
-
+        self.route('POST', (':id', 'inviteLink'), self.createInviteLink)
+        self.route('GET', (':id', 'inviteLink'), self.getInviteLink)
+        self.route('PUT', (':id', 'inviteLink'), self.replaceInviteLink)
+        self.route('DELETE', (':id', 'inviteLink'), self.deleteInviteLink)
+        self.route('GET', ('invitelink',':inviteLinkId','info'), self.viewInviteLinkInfo)
+        self.route('POST', ('invitelink',':inviteLinkId','accept'), self.acceptOpenInviteLink)
         self.route('PUT', (':id', 'updateRoles'), self.updateRoles)
 
         self.route('PUT', (':id', 'reviewer', 'userList'), self.updateUserListForReviewer)
@@ -1758,6 +1763,251 @@ class Applet(Resource):
 
         return 'sent invitation mail to {}'.format(email)
 
+
+    @access.user(scope=TokenScope.DATA_WRITE)
+    @autoDescribeRoute(
+        Description('creates a url that users can use to add themselves directly to an applet')
+        .notes(
+            'creates an invite url that users can open in the browser to add themselves (i.e. create a profile) to an applet'
+        )
+        .modelParam(
+            'id',
+            model=AppletModel,
+            level=AccessType.ADMIN,
+            destName='applet'
+        )
+        .errorResponse('invite link already exists for this applet', 403)
+    )
+    def createInviteLink(self, applet):
+        self.shield("inviteUser")
+
+        thisUser = self.getCurrentUser()
+        appletProfile = ProfileModel().findOne({'appletId': applet['_id'], 'userId': thisUser['_id']})
+
+        if not appletProfile or ('coordinator' not in appletProfile.get('roles', []) and 'manager' not in appletProfile.get('roles', [])):
+            raise AccessException('You don\'t have enough permission to create an open invitation to this applet')
+        
+        #check if a link already exists
+        
+        if 'inviteLink' in applet:
+            if 'id' in applet['inviteLink']:
+                raise ValidationException('invite link already exists for this applet')
+
+        inviteLink = self._model.createInviteLink(applet['_id'], thisUser)
+
+        return { 
+                'inviteId':inviteLink['id']
+                }
+
+
+    @access.user(scope=TokenScope.DATA_READ)
+    @autoDescribeRoute(
+        Description('get an existing url that users can use to add themselves to an applet')
+        .notes(
+            'get the open invite url that users can open in the browser to add themselves (i.e. create a profile) to an applet'
+        )
+        .modelParam(
+            'id',
+            model=AppletModel,
+            level=AccessType.ADMIN,
+            destName='applet'
+        )
+    )
+    def getInviteLink(
+        self, 
+        applet,
+        ):
+        self.shield("inviteUser")
+        
+        thisUser = self.getCurrentUser()
+        appletProfile = ProfileModel().findOne({'appletId': applet['_id'], 'userId': thisUser['_id']})
+
+        if not appletProfile or ('coordinator' not in appletProfile.get('roles', []) and 'manager' not in appletProfile.get('roles', [])):
+            raise AccessException('You don\'t have enough permission to view the open invitation for this applet')
+
+        if "inviteLink" in applet:
+
+            inviteLinkId = applet['inviteLink']["id"]
+            return {
+                'inviteId':inviteLinkId,
+            }
+
+        else:
+            return {}
+
+    @access.user(scope=TokenScope.DATA_WRITE)
+    @autoDescribeRoute(
+        Description('replace an invite url with a new id')
+        .modelParam(
+            'id',
+            model=AppletModel,
+            level=AccessType.ADMIN,
+            destName='applet'
+        )
+        .errorResponse('invite link already exists for this applet', 403)
+    )
+    def replaceInviteLink(self, applet):
+
+        self.shield("inviteUser")
+
+        thisUser = self.getCurrentUser()
+        appletProfile = ProfileModel().findOne({'appletId': applet['_id'], 'userId': thisUser['_id']})
+
+        if not appletProfile or ('coordinator' not in appletProfile.get('roles', []) and 'manager' not in appletProfile.get('roles', [])):
+            raise AccessException('You don\'t have enough permission to replace the open invitation url for this applet')
+        
+        #check if a link already exists
+        if 'inviteLink' not in applet:
+            raise ValidationException('invite link does not exist for this applet')
+
+        inviteLink = self._model.replaceInviteLink(applet['_id'], thisUser)
+
+        return {
+            'inviteId':inviteLink['id'],
+        }
+
+    @access.user(scope=TokenScope.DATA_WRITE)
+    @autoDescribeRoute(
+        Description('delete the open invite url for an applet')
+        .modelParam(
+            'id',
+            model=AppletModel,
+            level=AccessType.ADMIN,
+            destName='applet'
+        )
+    )
+    def deleteInviteLink(self, applet):
+
+        self.shield("inviteUser")
+
+        thisUser = self.getCurrentUser()
+        appletProfile = ProfileModel().findOne({'appletId': applet['_id'], 'userId': thisUser['_id']})
+
+        if not appletProfile or ('coordinator' not in appletProfile.get('roles', []) and 'manager' not in appletProfile.get('roles', [])):
+            raise AccessException('You don\'t have enough permission to delete the open invitation url for this applet')
+        
+        #check if a link already exists
+        if 'inviteLink' not in applet:
+            raise ValidationException('invite link does not exist for this applet')
+
+        response = self._model.deleteInviteLink(applet['_id'], thisUser)
+
+        return 'open invite url deleted for this applet'
+
+
+    ### ADD LOG IN PROTECTION ###   
+    @access.user(scope=TokenScope.DATA_READ)
+    @autoDescribeRoute(
+        Description('allow a logged in user to add themselves to an applet via this link id')
+    )
+    def acceptOpenInviteLink(self, inviteLinkId):
+
+        user = self.getCurrentUser()
+        userEmail = user.get('email')
+
+        # if userEmail.lower().strip() != current_user_email.lower().strip()
+        #     raise ValidationException(
+        #         'Invalid email address.',
+        #         'email'
+        #     )
+
+        # if not mail_utils.validateEmailAddress(userEmail):
+        #     raise ValidationException(
+        #         'Invalid email address.',
+        #         'email'
+        #     )
+
+        # find applet from invite id
+        applet = AppletModel().findOne({'inviteLink.id':inviteLinkId})
+
+        if not applet:
+            raise ValidationException('invalid invite link')
+
+        # profiles = None
+        # if 'idCode' in invitation:
+        #     profiles = IDCode().findProfile(invitation['idCode'])
+        # if profiles and len(profiles):
+        #     profile = [
+        #         pro for pro in profiles if str(
+        #             pro.get('userId')
+        #         )==str(user['_id'])
+        #     ]
+        #     profile = profile[0] if len(profile) else None
+        # else:
+        #     profile = None
+        #     ProfileModel().removeWithQuery({ '_id': ObjectId(invitation['_id']) })
+
+        # if profile==None or not len(profile):
+        profile = ProfileModel().createProfile(
+            applet,
+            user,
+            role='user')
+            
+            # IDCode().createIdCode(profile, invitation.get('idCode'))
+        # if 'schema:knows' in invitation:
+        #     if 'schema:knows' not in profile:
+        #         profile['schema:knows'] = invitation['schema:knows']
+        #     else:
+        #         for k in invitation['schema:knows']:
+        #             if k in profile['schema:knows']:
+        #                 profile['schema:knows'][k].extend([
+        #                     r for r in invitation['schema:knows'][
+        #                         k
+        #                     ] if r not in profile['schema:knows'][k]
+        #                 ])
+        #             else:
+        #                 profile['schema:knows'][k] = invitation['schema:knows'][
+        #                     k
+        #                 ]
+
+        # append role value
+        profile = ProfileModel().load(profile['_id'], force=True)
+        if profile.get('roles', False): 
+            profile['roles'].append('user')
+        else:
+            profile['roles'] = ['user',]
+
+        # # manager has get all roles by default
+        # for role in USER_ROLES.keys():
+        #     if role not in profile['roles']:
+        #         if invited_role == 'manager' or invited_role == role or role == 'user':
+        #             profile['roles'].append(role)
+
+        # profile['firstName'] = invitation.get('firstName', '')
+        # profile['lastName'] = invitation.get('lastName', '')
+        profile['MRN'] = uuid.uuid4()
+
+        ProfileModel().save(profile, validate=False)
+
+        # if invited_role == 'reviewer':
+        #     ProfileModel().updateReviewerList(profile, invitation.get('accessibleUsers'))
+        # elif invited_role == 'manager':
+        #     ProfileModel().updateReviewerList(profile)
+
+        AccountProfile().appendApplet(AccountProfile().createAccountProfile(applet['accountId'], user['_id']), applet['_id'], profile['roles'])
+
+        return(ProfileModel().displayProfileFields(
+            ProfileModel().load(profile['_id'], force=True),
+            user
+        ))
+
+    @access.public(scope=TokenScope.DATA_READ)
+    @autoDescribeRoute(
+        Description('use an inviteLinkId to look up and return an applets metadata')
+    )
+    def viewInviteLinkInfo(self, inviteLinkId):
+
+        # find applet from invite id
+        applet = AppletModel().findOne({'inviteLink.id':inviteLinkId})
+
+        if applet:
+            resp = applet['meta']['applet']
+        else:
+            resp = {}
+            ValidationException('invalid inviteLink id')
+
+        return resp
+    
 
     @access.user(scope=TokenScope.DATA_WRITE)
     @autoDescribeRoute(
