@@ -501,22 +501,12 @@ class ResponseItem(Resource):
                     alerts = metadata.get('alerts', [])
 
                     for alert in alerts:
-                        item = ItemModel().findOne({
-                            '_id': ObjectId(alert['id'])
-                        })
-
-                        if item:
-                            screen = item.get('meta', {}).get('screen', {})
-
-                            responseOptions = screen.get('reprolib:terms/responseOptions', [])
-
-                            if len(responseOptions) and 'reprolib:terms/responseAlertMessage' in responseOptions[0]:
-                                ResponseAlerts().addResponseAlerts(
-                                    profile,
-                                    alert['id'],
-                                    alert['schema'],
-                                    responseOptions[0]['reprolib:terms/responseAlertMessage'][0]['@value']
-                                )
+                        ResponseAlerts().addResponseAlerts(
+                            profile,
+                            alert['id'],
+                            alert['schema'],
+                            alert['message']
+                        )
 
                 newItem = self._model.setMetadata(newItem, metadata)
 
