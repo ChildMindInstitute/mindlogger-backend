@@ -1089,7 +1089,7 @@ class Applet(FolderModel):
             admin_url = os.getenv('ADMIN_URI') or 'localhost:8082'
 
             lang = user.get("lang", "en")
-            url = f'https://{admin_url}/#/build?lang={lang}_{"US" if lang == "en" else "FR"}&appletId={str(applet["_id"])}&accountId={str(applet["accountId"])}'
+            url = f'https://{admin_url}/#/build?lang={lang}_{"US" if lang == "en" else "FR"}&appletId={str(applet["_id"])}&accountId={str(applet["accountId"])}&token={user["authToken"].get("token")}'
 
             html = mail_utils.renderTemplate(f'appletEditSuccess.en.mako', {
                 'userName': user['firstName'],
