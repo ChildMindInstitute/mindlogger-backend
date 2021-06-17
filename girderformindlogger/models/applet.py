@@ -1811,6 +1811,8 @@ class Applet(FolderModel):
                 coordinator
             )}
 
+        inviteLink['createdBy']['creatorId'] = coordinator['_id']
+        
         self.update({'_id': ObjectId(appletId)},
                     {'$set': {'inviteLink':inviteLink}})
         
@@ -1840,6 +1842,7 @@ class Applet(FolderModel):
         print("applet['inviteLink']: ",applet['inviteLink']) 
         
         return applet['inviteLink']
+
 
     def deleteInviteLink(self, appletId, coordinator, keep_record=False):
         """"
