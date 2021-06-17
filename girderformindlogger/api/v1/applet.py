@@ -1927,10 +1927,11 @@ class Applet(Resource):
 
         AccountProfile().appendApplet(AccountProfile().createAccountProfile(applet['accountId'], user['_id']), applet['_id'], profile['roles'])
 
-        return(ProfileModel().displayProfileFields(
+        profile = ProfileModel().displayProfileFields(
             ProfileModel().load(profile['_id'], force=True),
-            user
-        ))
+            user)
+
+        return profile
 
     @access.public(scope=TokenScope.DATA_READ)
     @autoDescribeRoute(
@@ -1945,7 +1946,23 @@ class Applet(Resource):
             resp = applet['meta']['applet']
         else:
             resp = {}
-            ValidationException('invalid inviteLink id')
+            raise ValidationException('invalid inviteLink id')
+        
+        # look up who created invitelink
+        inviter = ProfileModel().findOne({
+                'userId': applet['inviteLink']['createdBy']['creatorId'],
+                'appletId': applet['_id']
+            })
+        resp['inviter'] = ProfileModel().display(inviter, 'coordinator')
+        
+        # look up who has data and applet settings access
+        managers = AppletModel().listUsers(applet, 'manager', force=True)
+        coordinators = AppletModel().listUsers(applet, 'coordinator', force=True)
+        reviewers = AppletModel().listUsers(applet, 'reviewer', force=True)
+
+        resp['managers'] = [v for k,v in managers.items()]
+        resp['coordinators'] = [v for k,v in coordinators.items()]
+        resp['reviewers'] = [v for k,v in reviewers.items()]
 
         return resp
     
