@@ -1955,14 +1955,11 @@ class Applet(Resource):
             })
         resp['inviter'] = ProfileModel().display(inviter, 'coordinator')
         
-        # look up who has data and applet settings access
-        managers = AppletModel().listUsers(applet, 'manager', force=True)
-        coordinators = AppletModel().listUsers(applet, 'coordinator', force=True)
-        reviewers = AppletModel().listUsers(applet, 'reviewer', force=True)
+        # look up who has access to applet data and settings
+        for admin_role in ['manager', 'coordinator', 'reviewer']:
 
-        resp['managers'] = [v for k,v in managers.items()]
-        resp['coordinators'] = [v for k,v in coordinators.items()]
-        resp['reviewers'] = [v for k,v in reviewers.items()]
+            admin_role_dict = AppletModel().listUsers(applet, admin_role, force=True)            
+            resp[admin_role] = list(admin_role_dict.values())
 
         return resp
     
