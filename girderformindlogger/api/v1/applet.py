@@ -1908,6 +1908,18 @@ class Applet(Resource):
 
         if not applet:
             raise ValidationException('invalid invite link')
+        
+        # check for existing profile
+        existing = ProfileModel().findOne(
+            {
+                'appletId': applet['_id'],
+                'userId': user['_id'],
+                'profile': True
+            },)
+
+        if existing:
+            
+            return {}
 
         profile = ProfileModel().createProfile(
             applet,
@@ -1924,14 +1936,9 @@ class Applet(Resource):
         #randomly assign an MRN
         profile['MRN'] = uuid.uuid4()
         ProfileModel().save(profile, validate=False)
-
         AccountProfile().appendApplet(AccountProfile().createAccountProfile(applet['accountId'], user['_id']), applet['_id'], profile['roles'])
 
-        profile = ProfileModel().displayProfileFields(
-            ProfileModel().load(profile['_id'], force=True),
-            user)
-
-        return profile
+        return {}
 
     @access.public(scope=TokenScope.DATA_READ)
     @autoDescribeRoute(
@@ -1941,7 +1948,6 @@ class Applet(Resource):
 
         # find applet from invite id
         applet = AppletModel().findOne({'inviteLink.id':inviteLinkId})
-
         if applet:
             resp = applet['meta']['applet']
         else:
@@ -1949,17 +1955,27 @@ class Applet(Resource):
             raise ValidationException('invalid inviteLink id')
         
         # look up who created invitelink
-        inviter = ProfileModel().findOne({
-                'userId': applet['inviteLink']['createdBy']['creatorId'],
-                'appletId': applet['_id']
-            })
-        resp['inviter'] = ProfileModel().display(inviter, 'coordinator')
-        
-        # look up who has access to applet data and settings
-        for admin_role in ['manager', 'coordinator', 'reviewer']:
+        try:
+            creator_id = applet['inviteLink']['createdBy']['creatorId']
+        except:
+            creator_id = None
 
-            admin_role_dict = AppletModel().listUsers(applet, admin_role, force=True)            
-            resp[admin_role] = list(admin_role_dict.values())
+        if creator_id:
+            inviter = ProfileModel().findOne({
+                    'userId': applet['inviteLink']['createdBy']['creatorId'],
+                    'appletId': applet['_id']
+                })
+            resp['inviter'] = ProfileModel().display(inviter, 'coordinator')
+
+        else:
+            resp['inviter'] = ''
+
+        # look up who has access to applet data and settings'
+        admin_roles = ['manager', 'coordinator', 'reviewer']
+        for role in admin_roles:
+
+            admin_role_dict = AppletModel().listUsers(applet, role, force=True)            
+            resp[role] = list(admin_role_dict.values())
 
         return resp
     
