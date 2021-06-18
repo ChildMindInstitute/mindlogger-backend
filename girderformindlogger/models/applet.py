@@ -1095,7 +1095,7 @@ class Applet(FolderModel):
                 TokenScope.ONE_TIME_AUTH,
                 TokenScope.USER_AUTH
             ])
-            url = f'https://{admin_url}/#/build?lang={lang}_{"US" if lang == "en" else "FR"}&appletId={str(applet["_id"])}&accountId={str(applet["accountId"])}&token={token['_id']}'
+            url = f'https://{admin_url}/#/build?lang={lang}_{"US" if lang == "en" else "FR"}&appletId={str(applet["_id"])}&accountId={str(applet["accountId"])}&token={token["_id"]}'
 
             html = mail_utils.renderTemplate(f'appletEditSuccess.en.mako', {
                 'userName': user['firstName'],
