@@ -1837,7 +1837,7 @@ class Applet(Resource):
         )
 
         web_url = os.getenv('WEB_URI') or 'localhost:8082'
-        url = f'https://{web_url}/#/invitation/{str(invitation["_id"])}'
+        url = f'https://{web_url}/invitation/{str(invitation["_id"])}'
 
         if invitedUser:
             html = mail_utils.renderTemplate('transferOwnerShip.mako', {
