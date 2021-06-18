@@ -656,9 +656,9 @@ class Profile(AESEncryption, dict):
             return None
 
         if not isUser:
-            fields = ['_id', 'updated', 'roles', 'firstName', 'lastName', 'email']
+            fields = ['_id', 'updated', 'roles', 'firstName', 'lastName', 'email', 'identifiers']
         else:
-            fields = ['_id', 'updated', 'roles', 'MRN']
+            fields = ['_id', 'updated', 'roles', 'MRN', 'identifiers']
 
         data = {
             field: profile.get(field, '') for field in fields
