@@ -822,11 +822,16 @@ class User(Resource):
         for account in accounts:
             applets = account.get('applets', {})
             if len(applets.get('reviewer', [])) or len(applets.get('coordinator', [])) or len(applets.get('editor', [])) or len(applets.get('manager', [])):
-                response.append({
+                accountInfo = {
                     'accountName': account['accountName'],
                     'accountId': account['accountId'],
                     'owned': (account['_id'] == account['accountId'])
-                })
+                }
+
+                if accountInfo['owned']:
+                    accountInfo['isDefaultName'] = False if user['accountName'] else True
+
+                response.append(accountInfo)
 
         return response
 
