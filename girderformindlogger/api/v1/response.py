@@ -615,6 +615,9 @@ class ResponseItem(Resource):
 
             metadata['subject']['timezone'] = profile.get('timezone', 0)
 
+            if 'identifier' in metadata:
+                metadata['subject']['identifier'] = metadata.pop('identifier')
+
             now = datetime.now(tz=pytz.timezone("UTC"))
 
             appletName=AppletModel().preferredName(applet)
@@ -739,6 +742,13 @@ class ResponseItem(Resource):
                     "activity_id": metadata['activity']['@id'],
                     "completed_time": now
                 })
+
+            if 'identifier' in metadata['subject']:
+                if 'identifiers' not in data:
+                    data['identifiers'] = []
+
+                if metadata['subject']['identifier'] not in data['identifiers']:
+                    data['identifiers'].append(metadata['subject']['identifier'])
 
             data['updated'] = now
             profile.save(data, validate=False)
