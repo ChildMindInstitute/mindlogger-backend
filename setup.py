@@ -19,7 +19,7 @@ def prerelease_local_scheme(version):
         return get_local_node_and_date(version)
 
 
-with open('README.rst') as f:
+with open('README.rst', 'r', encoding='utf8') as f:
     readme = f.read()
 
 installReqs = [
