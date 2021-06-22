@@ -748,8 +748,8 @@ def loadFromSingleFile(document, user, editExisting=False):
     protocolId = createProtocolFromExpandedDocument(protocol, user, editExisting, document.get('removed', {}), document.get('baseVersion', None))
     protocol = ProtocolModel().load(protocolId, force=True)
 
-    cacheProtocolContent(protocol, document, user, editExisting)
     updateContributions(protocol, document, user)
+    cacheProtocolContent(protocol, document, user, editExisting)
 
     return formatLdObject(
         protocol,
