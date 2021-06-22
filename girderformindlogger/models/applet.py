@@ -31,7 +31,7 @@ import ijson
 from bson.objectid import ObjectId
 from girderformindlogger import events
 from girderformindlogger.api.rest import getCurrentUser
-from girderformindlogger.constants import AccessType, SortDir, USER_ROLES
+from girderformindlogger.constants import AccessType, SortDir, USER_ROLES, TokenScope
 from girderformindlogger.exceptions import AccessException, GirderException, \
     ValidationException
 from girderformindlogger.models.collection import Collection as CollectionModel
@@ -47,6 +47,7 @@ from girderformindlogger.models.profile import Profile
 from girderformindlogger.models.events import Events as EventsModel
 from girderformindlogger.models.item import Item as ItemModel
 from girderformindlogger.models.activity import Activity as ActivityModel
+from girderformindlogger.models.token import Token
 from girderformindlogger.external.notification import send_applet_update_notification
 from bson import json_util
 from girderformindlogger.utility import mail_utils
@@ -1089,7 +1090,12 @@ class Applet(FolderModel):
             admin_url = os.getenv('ADMIN_URI') or 'localhost:8082'
 
             lang = user.get("lang", "en")
-            url = f'https://{admin_url}/#/build?lang={lang}_{"US" if lang == "en" else "FR"}&appletId={str(applet["_id"])}&accountId={str(applet["accountId"])}&token={user["authToken"].get("token")}'
+
+            token = Token().createToken(user, days=(10/1440.0), scope=[
+                TokenScope.ONE_TIME_AUTH,
+                TokenScope.USER_AUTH
+            ])
+            url = f'https://{admin_url}/#/build?lang={lang}_{"US" if lang == "en" else "FR"}&appletId={str(applet["_id"])}&accountId={str(applet["accountId"])}&token={token["_id"]}'
 
             html = mail_utils.renderTemplate(f'appletEditSuccess.en.mako', {
                 'userName': user['firstName'],
