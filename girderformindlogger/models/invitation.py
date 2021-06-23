@@ -399,9 +399,9 @@ class Invitation(AESEncryption):
             skin = {}
         instanceName = skin.get("name", "MindLogger")
         role = invitation.get("role", "user")
-		
+
         existingProfile=None
-		
+
         if invitation.get('userId'):
             existingProfile = Profile().findOne({
                 'userId': invitation['userId'],
@@ -495,13 +495,12 @@ class Invitation(AESEncryption):
     def getMessageForAlreadyAcceptedInvitation(
         self,
         invitationId,
-        invitee
+        lang
     ):
         from girderformindlogger.models.applet import Applet
         from girderformindlogger.models.profile import Profile
 
         existingProfile = Profile().findOne({
-            'userId': invitee['_id'],
             'invitationId': ObjectId(invitationId)
         })
 
@@ -510,9 +509,9 @@ class Invitation(AESEncryption):
             appletName = applet['meta']['applet'].get('displayName', applet.get('displayName', 'new applet'))
 
             return {
-                'body': t('invitation_already_accepted', invitee.get("lang", "en"), {'appletName': appletName}),
+                'body': t('invitation_already_accepted', lang, {'appletName': appletName}),
                 'acceptable': False,
-                'lang': invitee.get("lang", "en")
+                'lang': lang
             }
 
         raise AccessException('invalid invitation')
