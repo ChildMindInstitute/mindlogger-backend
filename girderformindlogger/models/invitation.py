@@ -382,7 +382,10 @@ class Invitation(AESEncryption):
         })
 
         if not invitation:
-            return self.getMessageForAlreadyAcceptedInvitation(invitationId, invitee)
+            return self.getMessageForAlreadyAcceptedInvitation(
+                invitationId,
+                invitee.get("lang", "en")
+            )
 
         web_url = os.getenv('WEB_URI') or 'localhost:8082'
 
