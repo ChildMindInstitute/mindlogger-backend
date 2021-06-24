@@ -167,7 +167,10 @@ class Invitation(Resource):
         invitation = InvitationModel().findOne({ '_id': ObjectId(id) })
 
         if not invitation:
-            return InvitationModel().getMessageForAlreadyAcceptedInvitation(id, currentUser)
+            return InvitationModel().getMessageForAlreadyAcceptedInvitation(
+                id,
+                currentUser.get("lang", "en")
+            )
 
         if invitation.get('role', 'user') == 'owner':
             profile = AppletModel().receiveOwnerShip(AppletModel().load(invitation['appletId'], force=True), currentUser, email)
@@ -226,7 +229,10 @@ class Invitation(Resource):
         invitation = InvitationModel().findOne({ '_id': ObjectId(id) })
 
         if not invitation:
-            return InvitationModel().getMessageForAlreadyAcceptedInvitation(id, currentUser)
+            return InvitationModel().getMessageForAlreadyAcceptedInvitation(
+                id,
+                currentUser.get("lang", "en")
+            )
 
         if invitation.get('role', 'user') == 'owner':
             AppletModel().receiveOwnerShip(AppletModel().load(invitation['appletId'], force=True), currentUser, email)
@@ -259,7 +265,10 @@ class Invitation(Resource):
         invitation = InvitationModel().findOne({ '_id': ObjectId(id) })
 
         if not invitation:
-            return InvitationModel().getMessageForAlreadyAcceptedInvitation(id, currentUser)
+            return InvitationModel().getMessageForAlreadyAcceptedInvitation(
+                id,
+                currentUser.get("lang", "en")
+            )
 
         InvitationModel().remove(invitation)
         return {
