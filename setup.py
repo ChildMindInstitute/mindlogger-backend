@@ -58,6 +58,7 @@ installReqs = [
     'psutil==5.6.6',
     'pyld>=2.0.2',
     'pyOpenSSL',
+    'moment==0.12.1',
     'python-dateutil==2.6.1',
     'pytz',
     'qrcode[pil]',
