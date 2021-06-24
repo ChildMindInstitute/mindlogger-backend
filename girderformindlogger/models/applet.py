@@ -1136,7 +1136,8 @@ class Applet(FolderModel):
         from girderformindlogger.models.user import User
         from girderformindlogger.models.protocol import Protocol
         from pymongo import DESCENDING
-
+        import moment
+        
         if not any([
             self.isReviewer(appletId, reviewer),
             self.isManager(appletId, reviewer)]):
@@ -1243,10 +1244,7 @@ class Applet(FolderModel):
                 ts = meta.get(key, 0)
                 if not ts:
                     continue
-
-                secs, millis = divmod(ts, 1000)
-                date_time = dt.utcfromtimestamp(secs).replace(microsecond=millis * 1000)
-                times[key] = date_time.strftime("%Y-%m-%d %H:%M:%S")
+                times[key] = moment.unix(ts).strftime("%Y-%m-%d %H:%M:%S")
 
             data['responses'].append({
                 '_id': response['_id'],
