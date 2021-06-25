@@ -547,7 +547,7 @@ class Applet(FolderModel):
 
         return successed
 
-    def receiveOwnerShip(self, applet, thisUser, email):
+    def receiveOwnerShip(self, applet, thisUser, email, invitationId):
         from girderformindlogger.utility import mail_utils, jsonld_expander
         from girderformindlogger.models.group import Group
         from girderformindlogger.models.response_folder import ResponseItem
@@ -618,7 +618,7 @@ class Applet(FolderModel):
 
         jsonld_expander.clearCache(applet, 'applet')
 
-        return Profile().displayProfileFields(Profile().updateOwnerProfile(applet), thisUser, forceManager=True)
+        return Profile().displayProfileFields(Profile().updateOwnerProfile(applet, invitationId), thisUser, forceManager=True)
 
     def validateAppletName(self, appletName, appletsCollection, accountId = None, currentApplet = None):
         appletName = appletName.strip()
@@ -1137,7 +1137,7 @@ class Applet(FolderModel):
         from girderformindlogger.models.protocol import Protocol
         from pymongo import DESCENDING
         import moment
-        
+
         if not any([
             self.isReviewer(appletId, reviewer),
             self.isManager(appletId, reviewer)]):

@@ -771,7 +771,7 @@ class Profile(AESEncryption, dict):
         }
         return(userList)
 
-    def updateOwnerProfile(self, applet):
+    def updateOwnerProfile(self, applet, invitationId=None):
         from girderformindlogger.models.account_profile import AccountProfile
 
         accountId = applet.get('accountId', None)
@@ -782,6 +782,9 @@ class Profile(AESEncryption, dict):
         appletProfile = self.findOne({'userId': owner['userId'], 'appletId': applet['_id']})
         appletProfile['roles'] = list(USER_ROLES.keys())
         appletProfile['roles'].append('owner')
+
+        if invitationId:
+            appletProfile['invitationId'] = invitationId
 
         return self.save(appletProfile, validate=False)
 
