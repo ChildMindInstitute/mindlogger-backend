@@ -616,7 +616,14 @@ class Applet(FolderModel):
         self.save(applet)
         self.grantAccessToApplet(thisUser, applet, 'manager', thisUser)
 
-        jsonld_expander.clearCache(applet, 'applet')
+        applet = jsonld_expander.clearCache(applet, 'applet')
+
+        jsonld_expander.formatLdObject(
+            applet,
+            'applet',
+            thisUser,
+            refreshCache=False
+        )
 
         return Profile().displayProfileFields(Profile().updateOwnerProfile(applet, invitationId), thisUser, forceManager=True)
 
