@@ -21,7 +21,7 @@ services:
       context: .
       dockerfile: Dockerfile.local.dev
     volumes: 
-      - "./girderformindlogger:/girderformindlogger"
+      - "./girderformindlogger:/mindlogger-backend/girderformindlogger"
     ports:
       - "8081:8081"
     environment:
@@ -32,7 +32,7 @@ services:
       LC_ALL: C.UTF-8
       LANG: C.UTF-8
     command: >
-      sh -c "echo 'wait for db to start' &&
+      sh -c "echo 'wait 10s for db to start' &&
              sleep 10 &&
              girderformindlogger serve --host 0.0.0.0 --database mongodb://mongouser:mongopass@db:27017/girderformindlogger
       "
