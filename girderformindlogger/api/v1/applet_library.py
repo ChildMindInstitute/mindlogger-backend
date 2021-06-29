@@ -2,6 +2,7 @@
 from ..rest import Resource
 from ..describe import Description, autoDescribeRoute
 from girderformindlogger.api import access
+from girderformindlogger.exceptions import AccessException, ValidationException
 from girderformindlogger.models.applet_library import AppletLibrary as AppletLibraryModel
 from girderformindlogger.constants import AccessType, SortDir, TokenScope,     \
     DEFINED_INFORMANTS, REPROLIB_CANONICAL, SPECIAL_SUBJECTS, USER_ROLES, MAX_PULL_SIZE
@@ -436,6 +437,9 @@ class AppletLibrary(Resource):
         libraryApplet = self._model.findOne({
             '_id': ObjectId(libraryId)
         }, fields=self._model.metaFields)
+
+        if not libraryApplet:
+            raise ValidationException('invalid applet')
 
         appletModel = AppletModel()
         applet = appletModel.findOne({
