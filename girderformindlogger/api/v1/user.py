@@ -738,7 +738,7 @@ class User(Resource):
                     if nextIRI:
                         break
                 except:
-                    pass
+                    nextActivity = None
 
         return {
             'data': result,
