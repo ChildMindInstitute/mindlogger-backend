@@ -949,7 +949,7 @@ class Applet(Resource):
             raise ValidationException('invalid applet')
 
         library_url = os.getenv('LIBRARY_URI') or 'localhost:8081'
-        url = f'{library_url}/applets/{str(libraryApplet["_id"])}'
+        url = f'{library_url}/#/applets/{str(libraryApplet["_id"])}'
         return url
 
     @access.user(scope=TokenScope.DATA_OWN)
