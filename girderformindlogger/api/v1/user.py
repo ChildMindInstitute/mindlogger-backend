@@ -714,28 +714,31 @@ class User(Resource):
                 collect = True
 
             if applet.get('cached') and collect:
-                nextIRI, data, remaining = AppletModel().appletFormatted(
-                    applet=applet,
-                    reviewer=reviewer,
-                    role=role,
-                    retrieveSchedule=retrieveSchedule,
-                    retrieveAllEvents=retrieveAllEvents,
-                    eventFilter=(currentUserDate, numberOfDays) if numberOfDays else None,
-                    retrieveResponses=retrieveResponses,
-                    groupByDateActivity=groupByDateActivity,
-                    retrieveLastResponseTime=retrieveLastResponseTime,
-                    localInfo=localInfo.get(str(applet['_id']), {}) if localInfo else {},
-                    nextActivity=nextActivity,
-                    bufferSize=bufferSize,
-                )
+                try:
+                    nextIRI, data, remaining = AppletModel().appletFormatted(
+                        applet=applet,
+                        reviewer=reviewer,
+                        role=role,
+                        retrieveSchedule=retrieveSchedule,
+                        retrieveAllEvents=retrieveAllEvents,
+                        eventFilter=(currentUserDate, numberOfDays) if numberOfDays else None,
+                        retrieveResponses=retrieveResponses,
+                        groupByDateActivity=groupByDateActivity,
+                        retrieveLastResponseTime=retrieveLastResponseTime,
+                        localInfo=localInfo.get(str(applet['_id']), {}) if localInfo else {},
+                        nextActivity=nextActivity,
+                        bufferSize=bufferSize,
+                    )
 
-                bufferSize = remaining
+                    bufferSize = remaining
 
-                result.append(data)
+                    result.append(data)
 
-                nextActivity = nextIRI
-                if nextIRI:
-                    break
+                    nextActivity = nextIRI
+                    if nextIRI:
+                        break
+                except:
+                    nextActivity = None
 
         return {
             'data': result,
