@@ -29,9 +29,10 @@ class AppletLibrary(Resource):
         self._model = AppletLibraryModel()
 
         self.route('GET', ('applets',), self.getApplets)
+        self.route('GET', ('applet',), self.getApplet)
         self.route('GET', ('categories',), self.getCategories)
         self.route('GET', (':id', 'checkName',), self.checkAppletName)
-        self.route('GET', ('applet', 'content'), self.getPublishedApplet)
+        self.route('GET', ('applet', 'content'), self.getPublishedContent)
 
         self.route('POST', ('categories',), self.addCategory)
         self.route('POST', ('basket', ), self.setBasket)
@@ -417,6 +418,38 @@ class AppletLibrary(Resource):
 
     @access.public
     @autoDescribeRoute(
+        Description('Get Published Applet.')
+        .notes(
+            'Get an applet published in the library.'
+        )
+        .param(
+            'libraryId',
+            description='ID of the applet in the library',
+            required=True
+        )
+    )
+    def getApplet(self, libraryId):
+        libraryApplet = self._model.findOne({
+            '_id': ObjectId(libraryId)
+        }, fields=self._model.metaFields)
+
+        if not libraryApplet:
+            raise ValidationException('invalid applet')
+
+        return {
+            'id': libraryApplet['_id'],
+            'appletId': libraryApplet['appletId'],
+            'name': libraryApplet['name'],
+            'accountId': libraryApplet['accountId'],
+            'categoryId': libraryApplet['categoryId'],
+            'subCategoryId': libraryApplet['subCategoryId'],
+            'keywords': libraryApplet['keywords'],
+            'description': libraryApplet.get('description'),
+            'image': libraryApplet.get('image')
+        }
+
+    @access.public
+    @autoDescribeRoute(
         Description('Get Content of an applet.')
         .notes(
             'Get Content of published applet.'
@@ -433,7 +466,7 @@ class AppletLibrary(Resource):
             required=False,
         )
     )
-    def getPublishedApplet(self, libraryId, nextActivity):
+    def getPublishedContent(self, libraryId, nextActivity):
         libraryApplet = self._model.findOne({
             '_id': ObjectId(libraryId)
         }, fields=self._model.metaFields)
