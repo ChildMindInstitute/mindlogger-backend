@@ -89,7 +89,7 @@ class Theme(Resource):
 
         return theme
 
-    
+
     # @access.public(scope=TokenScope.USER_INFO_READ)
     @autoDescribeRoute(
         Description('Create a new theme.')
@@ -216,7 +216,14 @@ class Theme(Resource):
             parentId = str(themeCollection["_id"])
             query = {"parentId" : ObjectId(parentId)}
             themes = FolderModel().find(query)
-            response = [theme['meta'] for theme in themes]
+
+            # get the paramaters for the theme and insert the theme id number
+            response = []
+            for theme in themes:
+                themeSettings = theme["meta"]
+                if themeSettings != {}:
+                    themeSettings["themeId"] = theme["_id"]
+                    response.append(themeSettings)
             
             return response
 
