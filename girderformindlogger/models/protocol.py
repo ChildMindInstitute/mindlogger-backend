@@ -35,6 +35,8 @@ from girderformindlogger.models.user import User as UserModel
 from bson import json_util
 from girderformindlogger.utility.progress import noProgress, setResponseTimeLimit
 from girderformindlogger.models.activity import Activity as ActivityModel
+from pymongo import DESCENDING, ASCENDING
+
 
 class Protocol(FolderModel):
     def importUrl(self, url, user=None, refreshCache=False):
@@ -601,7 +603,7 @@ class Protocol(FolderModel):
                     'created': item['created'],
                     'updated': item['updated'],
                     'lastUpdatedBy': editors[editorId],
-                    'version': itemVersion[identifier] if identifier in itemVersion else currentVersion
+                    'version': itemVersion[identifier] if identifier in itemVersion else versions[-1]['version']
                 }
 
         return updates
