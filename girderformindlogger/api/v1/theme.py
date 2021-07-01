@@ -32,6 +32,21 @@ from girderformindlogger.models.collection import Collection
 from bson.objectid import ObjectId
 
 
+def findThemeById(themeId=None):
+    """use the theme id to look up the logo, colors etc. for a theme.
+    if themeId or a theme is not found, returns None""" 
+    if themeId==None:
+        return None
+
+    theme = FolderModel().findOne({"_id":ObjectId(str(themeId))})
+    
+    if theme==None:
+        return None
+    
+    else:
+        return theme.get('meta')
+
+
 class Theme(Resource):
     """API Endpoint for themes."""
 
