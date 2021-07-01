@@ -25,6 +25,7 @@ from girderformindlogger.models.notification import Notification
 from girderformindlogger.settings import SettingKey
 from girderformindlogger.utility import jsonld_expander, mail_utils
 from girderformindlogger.i18n import t
+from girderformindlogger.api.v1.theme import findThemeById
 import os
 
 from dateutil.relativedelta import relativedelta
@@ -557,7 +558,8 @@ class User(Resource):
                                     *user.get('declinedInvites', [])
                                 ]]
                             ]
-                        ]
+                        ],
+                        "theme": findThemeById(themeId=applet['meta']['applet'].get('themeId'))
                     } for applet in applets if (
                         applet is not None and not applet.get(
                             'meta',
