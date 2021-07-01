@@ -91,32 +91,7 @@ class AppletLibrary(Resource):
 
         protocolId = applet.get('meta', {}).get('protocol', {}).get('_id', '').split('/')[-1]
 
-        items = list(ItemModel().find({
-            'meta.protocolId': ObjectId(protocolId)
-        }))
-
-        updates = {}
-        editors = {}
-
-        userModel = UserModel()
-        for item in items:
-            if 'identifier' in item['meta'] and 'lastUpdatedBy' in item:
-                editorId = str(item['lastUpdatedBy'])
-
-                if editorId not in editors:
-                    user = userModel.findOne({
-                        '_id': item['lastUpdatedBy']
-                    })
-
-                    editors[editorId] = user['firstName']
-
-                updates[item['meta']['identifier']] = {
-                    'updated': item['updated'],
-                    'lastUpdatedBy': editors[editorId]
-                }
-
-        return updates
-
+        return ProtocolModel().getProtocolUpdates(protocolId)
 
     @access.user(scope=TokenScope.DATA_OWN)
     @autoDescribeRoute(
