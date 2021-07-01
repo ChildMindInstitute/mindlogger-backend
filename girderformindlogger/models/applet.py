@@ -75,7 +75,8 @@ class Applet(FolderModel):
         constraints=None,
         appletRole='editor',
         accountId=None,
-        encryption={}
+        encryption={},
+        themeId=None
     ):
         """
         Method to create an Applet.
@@ -91,6 +92,8 @@ class Applet(FolderModel):
         :type roles: dict or None
         :param constraints: Constraints to set to this Applet
         :type constraints: dict or None
+        :param themeId:ObjectId for the theme to for styling the applet
+        :type themeId: string or None
         """
         from girderformindlogger.utility import jsonld_expander
         from girderformindlogger.models.protocol import Protocol
@@ -128,7 +131,8 @@ class Applet(FolderModel):
         metadata['applet'].update({
             'displayName': name,
             'largeApplet': isLargeApplet,
-            'editing': False
+            'editing': False,
+            'themeId':themeId
         })
 
         applet = self.setMetadata(
@@ -766,7 +770,8 @@ class Applet(FolderModel):
         sendEmail=True,
         appletRole='editor',
         accountId=None,
-        encryption={}
+        encryption={},
+        themeId=None
     ):
         from girderformindlogger.models.protocol import Protocol
         from girderformindlogger.utility import mail_utils
@@ -814,7 +819,8 @@ class Applet(FolderModel):
                 },
                 appletRole=appletRole,
                 accountId=accountId,
-                encryption=encryption
+                encryption=encryption,
+                themeId=themeId
             )
 
             html = mail_utils.renderTemplate(f'appletUploadSuccess.{user.get("lang", "en")}.mako', {

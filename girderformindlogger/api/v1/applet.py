@@ -1081,9 +1081,16 @@ class Applet(Resource):
             paramType='form',
             required=False
         )
+        .param(
+            'themeId',
+            'id of the theme to apply to this applet. Sets a logo, background image and main colors',
+            paramType='string',
+            default=None,
+            required=False
+        )
         .errorResponse('Write access was denied for this applet.', 403)
     )
-    def createAppletFromProtocolData(self, protocol, email='', name=None, informant=None, encryption={}):
+    def createAppletFromProtocolData(self, protocol, email='', name=None, informant=None, encryption={}, themeId=None):
         accountProfile = AccountProfile()
 
         thisUser = self.getCurrentUser()
@@ -1110,7 +1117,8 @@ class Applet(Resource):
                 } if informant is not None else None,
                 'appletRole': appletRole,
                 'accountId': profile['accountId'],
-                'encryption': encryption
+                'encryption': encryption,
+                'themeId':str(themeId)
             }
         )
         thread.start()
