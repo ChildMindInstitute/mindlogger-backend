@@ -710,6 +710,7 @@ class User(Resource):
         bufferSize = MAX_PULL_SIZE
 
         collect = not currentApplet
+        currentAppletId = currentApplet
 
         for applet in applets:
             if str(applet['_id']) == currentApplet:
@@ -739,9 +740,11 @@ class User(Resource):
                 if nextIRI:
                     break
 
+            currentAppletId = applet['_id']
+        
         return {
             'data': result,
-            'currentApplet': applet['_id'],
+            'currentApplet': currentAppletId,
             'nextActivity': nextActivity
         }
 
