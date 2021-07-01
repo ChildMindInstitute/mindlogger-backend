@@ -537,7 +537,8 @@ class Protocol(FolderModel):
                 'baseItem': {
                     'account': accountID2Name[str(baseAccountId)],
                     'applet': appletId2Name[str(baseAppletId)],
-                    'itemDate': item['meta']['created'],
+                    'created': item['meta']['created'],
+                    'updated': item['meta'].get('updated'),
                     'version': item['meta'].get('version', '0.0.0')
                 }
             }
