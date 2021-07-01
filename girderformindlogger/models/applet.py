@@ -1562,7 +1562,8 @@ class Applet(FolderModel):
                 "groups": self.getAppletGroups(
                     applet,
                     arrayOfObjects=True
-                )
+                ),
+                "theme": findThemeById(themeId=applet['meta']['applet'].get('themeId'))
             } if role in ["coordinator", "manager"] else {
                 **jsonld_expander.formatLdObject(
                     applet,
@@ -1584,7 +1585,8 @@ class Applet(FolderModel):
                                 *reviewer.get('declinedInvites', [])
                             ]]
                         ]
-                ]
+                ],
+                "theme": findThemeById(themeId=applet['meta']['applet'].get('themeId'))
             }
 
             formatted['removedActivities'] = []
