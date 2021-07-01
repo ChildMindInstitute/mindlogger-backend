@@ -104,6 +104,7 @@ class Applet(Resource):
         self.route('PUT', (':id', 'searchTerms'), self.updateAppletSearch)
         self.route('GET', (':id', 'searchTerms'), self.getAppletSearch)
         self.route('GET', (':id', 'libraryUrl'), self.getAppletLibraryUrl)
+        self.route('POST', (':id', 'setTheme', ), self.setAppletTheme)
 
     @access.user(scope=TokenScope.DATA_WRITE)
     @autoDescribeRoute(
@@ -2015,6 +2016,40 @@ class Applet(Resource):
                 event['id'] = savedEvent['_id']
 
         return schedule if rewrite else EventsModel().getSchedule(applet['_id'])
+
+
+    # @access.user(scope=TokenScope.DATA_WRITE)
+    @autoDescribeRoute(
+        Description('Set or update the id of the theme to style the applet with')
+        .notes(
+            'this endpoint is used for setting a theme for styling an applet, usually an institutions logo and color pallete <br>'
+            'only coordinator/managers are able to make request to this endpoint. <br>'
+        )
+        .modelParam(
+            'id',
+            model=AppletModel,
+            level=AccessType.READ,
+            destName='applet'
+        )
+        .param(
+            'themeId',
+            'objectId for the theme to assign',
+            dataType='string',
+            required=True
+        )
+        .errorResponse('Invalid applet ID.')
+        .errorResponse('Read access was denied for this applet.', 403)
+    )
+    def setAppletTheme(self, applet, themeId):
+        thisUser = self.getCurrentUser()
+        #### TO DO -> if not AppletModel().isCoordinator(applet['_id'], thisUser):
+        #     raise AccessException(
+        #         "Only coordinators and managers can update applet themes."
+        #     )
+
+        AppletModel().setAppletTheme(applet, themeId)
+        
+        return
 
 
 def authorizeReviewer(applet, reviewer, user):

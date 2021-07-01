@@ -52,6 +52,7 @@ from bson import json_util
 from girderformindlogger.utility import mail_utils
 from girderformindlogger.i18n import t
 from datetime import datetime as dt
+from girderformindlogger.api.v1.theme import findThemeById
 
 RETENTION_SET = {
     'day': 1,
@@ -1881,3 +1882,12 @@ class Applet(FolderModel):
                     {'$set': {'meta.protocol.activities': activities}})
 
         return activities
+
+
+    def setAppletTheme(self, applet, themeId):
+        """set object Id for a particular theme"""
+
+        applet['meta']['applet'].update({"themeId": str(themeId)})
+        self.save(applet)
+
+        return 
