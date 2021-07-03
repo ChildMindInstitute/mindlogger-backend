@@ -1544,7 +1544,7 @@ class Applet(FolderModel):
             updates = None
 
             if localVersion:
-                (isInitialVersion, updates) = Protocol().getProtocolChanges(
+                (isInitialVersion, updates) = Protocol().compareProtocols(
                     applet.get('meta', {}).get('protocol', {}).get('_id', '').split('/')[-1],
                     localVersion,
                     localInfo['contentUpdateTime']

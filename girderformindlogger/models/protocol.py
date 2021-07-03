@@ -35,6 +35,8 @@ from girderformindlogger.models.user import User as UserModel
 from bson import json_util
 from girderformindlogger.utility.progress import noProgress, setResponseTimeLimit
 from girderformindlogger.models.activity import Activity as ActivityModel
+from pymongo import DESCENDING, ASCENDING
+
 
 class Protocol(FolderModel):
     def importUrl(self, url, user=None, refreshCache=False):
@@ -432,7 +434,7 @@ class Protocol(FolderModel):
 
         return result
 
-    def getProtocolChanges(self, protocolId, localVersion, localUpdateTime):
+    def compareProtocols(self, protocolId, localVersion, localUpdateTime):
         from girderformindlogger.models.item import Item as ItemModel
 
         changeInfo = { 'screen': {}, 'activity': {} }
@@ -535,8 +537,74 @@ class Protocol(FolderModel):
                 'baseItem': {
                     'account': accountID2Name[str(baseAccountId)],
                     'applet': appletId2Name[str(baseAppletId)],
-                    'itemDate': item['meta']['created']
+                    'created': item['meta']['created'],
+                    'updated': item['meta'].get('updated'),
+                    'version': item['meta'].get('version', '0.0.0')
                 }
             }
 
         return result
+
+    def getProtocolUpdates(self, protocolId):
+        from girderformindlogger.utility import jsonld_expander
+        from girderformindlogger.models.item import Item as ItemModel
+
+        itemModel = ItemModel()
+
+        items = list(itemModel.find({
+            'meta.protocolId': ObjectId(protocolId)
+        }))
+
+        updates = {}
+        editors = {}
+
+        protocol = self.load(protocolId, force=True)
+
+        versions = list(itemModel.find({
+            'folderId': protocol['meta']['contentId'],
+        }, fields=['version'], sort=[("created", DESCENDING)])) if 'contentId' in protocol['meta'] else []
+
+        nextVersion = {}
+        for i in range(0, len(versions)-1):
+            nextVersion[versions[i+1]['version']] = versions[i]['version']
+
+        currentVersion = protocol['meta']['protocol'].get(
+            'schema:version', [{}]
+        )[0].get('@value', '0.0.0')
+
+
+        userModel = UserModel()
+
+        itemVersion = {}
+        if 'historyId' in protocol['meta']:
+            historyFolder = FolderModel().load(protocol['meta']['historyId'], force=True)
+
+            if 'referenceId' in historyFolder.get('meta', {}):
+                referencesFolder = FolderModel().load(historyFolder['meta']['referenceId'], force=True)
+                references = itemModel.find({'folderId': referencesFolder['_id']}, fields=['meta.identifier', 'meta.lastVersion'])
+                for reference in references:
+                    version = reference['meta']['lastVersion']
+                    version = nextVersion[version] if version in nextVersion else currentVersion
+
+                    itemVersion[reference['meta']['identifier']] = version
+
+        for item in items:
+            if 'identifier' in item['meta'] and 'lastUpdatedBy' in item:
+                editorId = str(item['lastUpdatedBy'])
+
+                if editorId not in editors:
+                    user = userModel.findOne({
+                        '_id': item['lastUpdatedBy']
+                    })
+
+                    editors[editorId] = user['firstName']
+
+                identifier = item['meta']['identifier']
+                updates[identifier] = {
+                    'created': item['created'],
+                    'updated': item['updated'],
+                    'lastUpdatedBy': editors[editorId],
+                    'version': itemVersion[identifier] if identifier in itemVersion else versions[-1]['version']
+                }
+
+        return updates
