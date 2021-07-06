@@ -683,11 +683,12 @@ class User(Resource):
 
         reviewer = self.getCurrentUser()
 
+        if reviewer is None:
+            raise AccessException("You must be logged in to get user applets.")
+
         currentUserDate = datetime.datetime.utcnow() + datetime.timedelta(hours=int(reviewer['timezone']))
         currentUserDate = currentUserDate.replace(hour=0, minute=0, second=0, microsecond=0)
 
-        if reviewer is None:
-            raise AccessException("You must be logged in to get user applets.")
         role = role.lower()
         if role not in USER_ROLES.keys():
             raise RestException(
