@@ -1158,7 +1158,7 @@ class Applet(Resource):
 
     @access.user(scope=TokenScope.DATA_WRITE)
     @autoDescribeRoute(
-        Description('Create an applet.')
+        Description('Update an applet')
         .notes(
             'This endpoint is used to update existing applet. <br>'
             '(updating applet will take few seconds.)'
