@@ -1181,25 +1181,41 @@ class Applet(Resource):
             paramType='form',
             required=False
         )
+        .param(
+            'themeId',
+            'id of the theme to apply to this applet. Sets a logo, background image and main colors',
+            paramType='string',
+            default=None,
+            required=False
+        )
         .errorResponse('Write access was denied for this applet.', 403)
     )
-    def updateAppletFromProtocolData(self, applet, name, protocol):
+    def updateAppletFromProtocolData(self, applet, name, protocol, themeId=None):
         thisUser = self.getCurrentUser()
         profile = ProfileModel().findOne({
             'appletId': applet['_id'],
             'userId': thisUser['_id']
         })
 
+        if profile == None:
+            raise ValidationException("no applet found for this combination of user and applet id")
+
         if 'editor' not in profile.get('roles', []) and 'manager' not in profile.get('roles', []):
             raise AccessException("You don't have enough permission to update this applet.")
+        
+        if protocol:
+            AppletModel().updateAppletFromProtocolData(
+                applet=applet,
+                name=name,
+                content=protocol,
+                user=thisUser,
+                accountId=applet['accountId']
+            )
 
-        AppletModel().updateAppletFromProtocolData(
-            applet=applet,
-            name=name,
-            content=protocol,
-            user=thisUser,
-            accountId=applet['accountId']
-        )
+        # update theme
+        if themeId:
+            applet = AppletModel().findOne({"_id":applet['_id']})
+            AppletModel().setAppletTheme(applet, themeId)
 
         return {
             'message': 'success'
