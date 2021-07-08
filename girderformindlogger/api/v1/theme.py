@@ -91,7 +91,8 @@ class Theme(Resource):
         return theme
 
 
-    # @access.public(scope=TokenScope.USER_INFO_READ)
+    # @access.admin(scope=TokenScope.DATA_WRITE)
+    @access.public
     @autoDescribeRoute(
         Description('Create a new theme.')
         .notes(
@@ -184,7 +185,7 @@ class Theme(Resource):
         return newTheme
 
 
-    # @access.public(scope=TokenScope.USER_INFO_READ)
+    @access.public(scope=TokenScope.USER_INFO_READ)
     @autoDescribeRoute(
         Description('Get a theme by ID, name or return all.')
         .notes(
@@ -206,20 +207,22 @@ class Theme(Resource):
         """
         Get a theme as a json document.
         """
-        # currentUser = self.getCurrentUser()
-
-        # if not currentUser:
-        #     raise AccessException(
-        #         "You must be logged in to get invitation."
-        #     )
 
         if name: 
             theme = FolderModel().findOne({"name":str(name)})
-            return theme['meta']
+            if theme==None:
+                raise ValidationException(f"theme not found for id: {id}")
+            response = theme['meta']
+            response['_id'] = theme['_id']
+            return response
 
         if id:
             theme = FolderModel().findOne({"_id":ObjectId(str(id))})
-            return theme['meta']
+            if theme==None:
+                raise ValidationException(f"theme not found for id: {id}")
+            response = theme['meta']
+            response['_id'] = theme['_id']
+            return response
 
         else:
             themeCollection = self.findThemeCollection()
@@ -232,13 +235,14 @@ class Theme(Resource):
             for theme in themes:
                 themeSettings = theme["meta"]
                 if themeSettings != {}:
-                    themeSettings["themeId"] = theme["_id"]
+                    themeSettings["_id"] = theme["_id"]
                     response.append(themeSettings)
             
             return response
 
 
-    # @access.public(scope=TokenScope.DATA_OWN)
+    # @access.admin(scope=TokenScope.DATA_WRITE)
+    @access.public
     @autoDescribeRoute(
         Description('Update an existing theme.')
         .notes(
@@ -298,12 +302,7 @@ class Theme(Resource):
         ):
         """
         endpoint for updating a theme
-        """
-        user = self.getCurrentUser()
-        #### TO DO -> require admin permission to update a Theme
-        # if user==None:
-        #     raise AccessException("You must be an administrator to update a Theme.")
-        
+        """        
         #get existing theme document
         theme = FolderModel().findOne({"_id":ObjectId(str(id))})
 
@@ -316,7 +315,7 @@ class Theme(Resource):
             theme['meta']['name'] = name
             FolderModel().save(theme)
 
-        themeSettings =  {
+        newThemeSettings =  {
             "name":name,
             "logo":logo,
             "backgroundImage": backgroundImage,
@@ -326,13 +325,14 @@ class Theme(Resource):
         }
 
         #filter out parameters that were not passed and update metadata
-        themeSettings = {k:v for k,v in themeSettings.items() if v != None}
-        newTheme = self.updateThemeFolder(newTheme, themeSettings)
+        newThemeSettings = {k:v for k,v in newThemeSettings.items() if v != None}
+        updatedTheme = self.updateThemeFolder(theme, newThemeSettings)
 
-        return newTheme
+        return updatedTheme
 
 
-    # @access.public(scope=TokenScope.DATA_OWN)
+    # @access.admin
+    @access.public
     @autoDescribeRoute(
         Description('delete a theme by ID.')
         .notes(
