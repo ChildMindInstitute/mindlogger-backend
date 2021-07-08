@@ -1475,6 +1475,7 @@ class Applet(Resource):
         formatted['updated'] = applet['updated']
         formatted['accountId'] = applet['accountId']
         formatted['nextActivity'] = nextIRI
+        formatted['applet']['themeId'] = applet['meta']['applet']['themeId']
         formatted.update(data)
 
         return formatted
