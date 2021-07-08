@@ -21,6 +21,7 @@
 
 from ..describe import Description, autoDescribeRoute
 from ..rest import Resource
+from girderformindlogger.utility.validate import isValidImageUrl
 from girderformindlogger.api import access
 from girderformindlogger.constants import TokenScope
 from girderformindlogger.exceptions import AccessException, ValidationException
@@ -159,6 +160,15 @@ class Theme(Resource):
                         public=True,
                         creator=user,
                         allowRename=False)
+
+        urlsAreValid=True
+        if logo:
+            if not isValidImageUrl(logo):
+                raise ValidationException("logo url is not a valid url. example valid url: https://sitename.com/image.png")
+
+        if backgroundImage:
+            if not isValidImageUrl(backgroundImage):
+                raise ValidationException("backgroundImage url is not a valid url. example valid url: https://sitename.com/image.png")
 
         themeSettings =  {
             "name":newTheme['name'],
