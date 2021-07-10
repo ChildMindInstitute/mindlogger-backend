@@ -62,6 +62,7 @@ class ResponseItem(Resource):
         self.route('POST', (':applet', ':activity'), self.createResponseItem)
         self.route('POST', (':applet', 'updateResponseToken'), self.updateResponseToken)
         self.route('PUT', (':applet',), self.updateReponseHistory)
+        self.route('GET', (':applet', 'reviews'), self.getReviewerResponses)
 
         self.route('POST', (':applet', 'note'), self.addNote)
         self.route('PUT', (':applet', 'note'), self.updateNote)
@@ -254,7 +255,7 @@ class ResponseItem(Resource):
     @access.user(scope=TokenScope.DATA_READ)
     @autoDescribeRoute(
         Description(
-            'Get all responses for a given applet.'
+            'Get all user responses for a given applet.'
         )
         .modelParam(
             'applet',
@@ -368,17 +369,17 @@ class ResponseItem(Resource):
             self._model.reconnectToDb(db_uri=owner_account.get('db', None))
 
         for user in users:
-            query = {
-                "created": { "$lte": toDate, "$gt": fromDate },
-                "meta.applet.@id": ObjectId(applet['_id']),
-                "meta.subject.@id": user['_id']
-            }
-
             if activities:
                 query["meta.activity.@id"] = { "$in": activities },
 
             responses = self._model.find(
-                query=query,
+                query={
+                    "created": { "$lte": toDate, "$gt": fromDate },
+                    "meta.applet.@id": ObjectId(applet['_id']),
+                    "meta.activity.@id": { "$in": activities },
+                    "meta.subject.@id": user['_id'],
+                    "reviewing": {'$exists': False}
+                },
                 force=True,
                 sort=[("created", DESCENDING)]
             )
@@ -400,6 +401,83 @@ class ResponseItem(Resource):
         self._model.reconnectToDb()
 
         data.update(getOldVersions(data['responses'], applet))
+
+        return data
+
+    @access.user(scope=TokenScope.DATA_READ)
+    @autoDescribeRoute(
+        Description(
+            'Get all user responses for a given applet.'
+        )
+        .modelParam(
+            'applet',
+            model=AppletModel,
+            level=AccessType.READ,
+            destName='applet',
+            description='The ID of the applet'
+        )
+        .param(
+            'responseId',
+            'id of response for user',
+            required=False,
+        )
+    )
+    def getReviewerResponses(
+        self,
+        applet,
+        responseId
+    ):
+        from girderformindlogger.models.profile import Profile
+        from girderformindlogger.utility.response import (
+            delocalize, add_latest_daily_response, getOldVersions)
+
+        user = self.getCurrentUser()
+        profileModel = Profile()
+
+        reviewerProfile = profileModel.findOne({'appletId': applet['_id'],
+                                     'userId': user['_id']})
+
+        if 'reviewer' not in reviewerProfile.get('roles'):
+            raise AccessException('permission denied')
+
+        responses = self._model.find(
+            query={
+                "meta.applet.@id": ObjectId(applet['_id']),
+                "meta.subject.@id": reviewerProfile['_id'],
+                "reviewing.responseId": ObjectId(responseId)
+            },
+            force=True,
+            sort=[("created", DESCENDING)]
+        )
+
+        for response in responses:
+            response['meta']['subject']['userTime'] = response["created"].replace(tzinfo=pytz.timezone("UTC")).astimezone(
+                timezone(
+                    timedelta(
+                        hours=response['meta']['subject']['timezone']
+                    )
+                )
+            )
+
+        data = {
+            'responses': {},
+            'dataSources': {},
+            'keys': [],
+            'items': {},
+            'users': {}
+        }
+
+        add_latest_daily_response(data, responses)
+        data.update(getOldVersions(data['responses'], applet))
+
+        for response in responses:
+            subjectId = response['subject']['@id']
+            reviewer = profileModel.findOne({ '_id': subjectId })
+
+            data['users'][str(response['_id'])] = {
+                'firstName': reviewer.get('firstName', ''),
+                'lastName': reviewer.get('lastName', '')
+            }
 
         return data
 
@@ -740,6 +818,16 @@ class ResponseItem(Resource):
                             alert['message']
                         )
 
+                if 'reviewing' in metadata:
+                    responseId = metadata['reviewing'].get('responseId')
+
+                    if responseId:
+                        responseItem = self._model.findOne({'_id': ObjectId(responseId)})
+                        metadata['reviewing'] = {
+                            'userProfileId': responseItem['meta'].get('subject', {}).get('@id'),
+                            'responseId': ObjectId(responseId)
+                        }
+
                 newItem = self._model.setMetadata(newItem, metadata)
 
             if not pending:
@@ -810,12 +898,15 @@ class ResponseItem(Resource):
         from girderformindlogger.models.profile import Profile
         from girderformindlogger.models.account_profile import AccountProfile
 
+        my_response = False
+
         if not user:
             user = self.getCurrentUser()
             profile = Profile().findOne({
                 'appletId': applet['_id'],
                 'userId': user['_id']
             })
+            my_response = True
         else:
             profile = Profile().findOne({
                 '_id': ObjectId(user),
@@ -824,8 +915,6 @@ class ResponseItem(Resource):
 
         if not profile:
             raise ValidationException('unable to find user with specified id')
-
-        is_manager = 'manager' in profile.get('roles', [])
 
         now = datetime.utcnow()
 
@@ -841,7 +930,7 @@ class ResponseItem(Resource):
                 "meta.applet.@id": applet['_id'],
                 "_id": ObjectId(responseId)
             }
-            if not is_manager:
+            if my_response:
                 query["meta.subject.@id"] = profile['_id']
 
             self._model.update(

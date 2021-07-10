@@ -1277,7 +1277,8 @@ class Applet(FolderModel):
                 'responseCompleted':times['responseCompleted'],
                 'responseScheduled':times['scheduledTime'],
                 'timeout': meta.get('timeout', 0),
-                'version': meta['applet'].get('version', '0.0.0')
+                'version': meta['applet'].get('version', '0.0.0'),
+                'reviewing': meta.get('reviewing', {}).get('responseId', None)
             })
 
             for IRI in meta.get('responses', {}):

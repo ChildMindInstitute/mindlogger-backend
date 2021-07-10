@@ -60,8 +60,10 @@ class Item(acl_mixin.AccessControlMixin, Model):
                 ], {}),
                 ([
                     ('meta.applet.@id', 1),
-                    ('meta.subject.@id', 1)
-                ], {})
+                    ('meta.subject.@id', 1),
+                    ('reviewing.responseId', 1)
+                ], {}),
+                'reviewing.userProfileId'
             )
         )
         self.ensureTextIndex({
