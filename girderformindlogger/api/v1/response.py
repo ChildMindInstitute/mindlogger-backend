@@ -443,8 +443,7 @@ class ResponseItem(Resource):
         responses = self._model.find(
             query={
                 "meta.applet.@id": ObjectId(applet['_id']),
-                "meta.subject.@id": reviewerProfile['_id'],
-                "reviewing.responseId": ObjectId(responseId)
+                "meta.reviewing.responseId": ObjectId(responseId)
             },
             force=True,
             sort=[("created", DESCENDING)]
@@ -464,19 +463,21 @@ class ResponseItem(Resource):
             'dataSources': {},
             'keys': [],
             'items': {},
-            'users': {}
+            'users': {},
+            'reviewer': reviewerProfile['_id']
         }
 
         add_latest_daily_response(data, responses)
         data.update(getOldVersions(data['responses'], applet))
 
         for response in responses:
-            subjectId = response['subject']['@id']
+            subjectId = response['meta']['subject']['@id']
             reviewer = profileModel.findOne({ '_id': subjectId })
 
             data['users'][str(response['_id'])] = {
                 'firstName': reviewer.get('firstName', ''),
-                'lastName': reviewer.get('lastName', '')
+                'lastName': reviewer.get('lastName', ''),
+                'reviewerId': reviewer['_id']
             }
 
         return data
