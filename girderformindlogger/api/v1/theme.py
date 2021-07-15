@@ -309,10 +309,19 @@ class Theme(Resource):
         if theme==None:
             raise ValidationException(f"theme not found for id: {id}")
 
-        #update name
+        if logo:
+            if not isValidImageUrl(logo):
+                raise ValidationException("logo url is not a valid url. example valid url: https://sitename.com/image.png")
+
+
+        if backgroundImage:
+            if not isValidImageUrl(backgroundImage):
+                raise ValidationException("backgroundImage url is not a valid url. example valid url: https://sitename.com/image.png")
+
+
+        #  update the folder's name field (outside of the metadata object)
         if name:
             theme['name'] = name
-            theme['meta']['name'] = name
             FolderModel().save(theme)
 
         newThemeSettings =  {
