@@ -711,10 +711,13 @@ class User(Resource):
         bufferSize = MAX_PULL_SIZE
 
         collect = not currentApplet
-        currentAppletId = currentApplet
+        currentAppletId = None
 
         for applet in applets:
-            if str(applet['_id']) == currentApplet:
+            
+            currentAppletId = applet['_id'] 
+
+            if str(currentAppletId) == currentApplet:
                 collect = True
 
             if applet.get('cached') and collect:
@@ -728,7 +731,7 @@ class User(Resource):
                     retrieveResponses=retrieveResponses,
                     groupByDateActivity=groupByDateActivity,
                     retrieveLastResponseTime=retrieveLastResponseTime,
-                    localInfo=localInfo.get(str(applet['_id']), {}) if localInfo else {},
+                    localInfo=localInfo.get(str(currentAppletId), {}) if localInfo else {},
                     nextActivity=nextActivity,
                     bufferSize=bufferSize,
                 )
@@ -741,7 +744,6 @@ class User(Resource):
                 if nextIRI:
                     break
 
-            currentAppletId = applet['_id']
         
         return {
             'data': result,
