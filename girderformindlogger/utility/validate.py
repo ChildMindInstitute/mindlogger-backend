@@ -3,7 +3,7 @@ import json
 from functools import wraps
 from cerberus import Validator
 from girderformindlogger.exceptions import ValidationException
-
+import mimetypes
 
 def email_validator(field, value, error):
     if re.match(r'^[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+$', value):
