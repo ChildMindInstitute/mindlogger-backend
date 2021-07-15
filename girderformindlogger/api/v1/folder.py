@@ -185,6 +185,8 @@ class Folder(Resource):
 
                 formatted['updated'] = applet['updated']
                 formatted['accountId'] = applet['accountId']
+                formatted['hasUrl'] = (applet['meta'].get('protocol', {}).get('url', None) != None)
+                formatted['published'] = applet['meta'].get('published', False)
 
                 if _applet.get('_pin_order'):
                     formatted['pinOrder']=_applet['_pin_order']
@@ -432,13 +434,15 @@ class Folder(Resource):
     )
     def createFolder(self, public, parentType, parentId, name, description,
                      reuseExisting, metadata):
+        account = self.getAccountProfile()
+
         user = self.getCurrentUser()
         parent = ModelImporter.model(parentType).load(
             id=parentId, user=user, level=AccessType.WRITE, exc=True)
 
         newFolder = self._model.createFolder(
             parent=parent, name=name, parentType=parentType, creator=user,
-            description=description, public=public, reuseExisting=reuseExisting)
+            description=description, public=public, reuseExisting=reuseExisting, accountId=account['accountId'])
         if metadata:
             newFolder = self._model.setMetadata(newFolder, metadata)
         return newFolder

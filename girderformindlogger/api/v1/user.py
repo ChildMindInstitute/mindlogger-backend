@@ -8,7 +8,7 @@ from bson import ObjectId
 from ..describe import Description, autoDescribeRoute
 from girderformindlogger.api import access
 from girderformindlogger.api.rest import Resource, filtermodel, setCurrentUser
-from girderformindlogger.constants import AccessType, SortDir, TokenScope, USER_ROLES
+from girderformindlogger.constants import AccessType, SortDir, TokenScope, USER_ROLES, MAX_PULL_SIZE
 from girderformindlogger.exceptions import RestException, AccessException, ValidationException
 from girderformindlogger.models.applet import Applet as AppletModel
 from girderformindlogger.models.group import Group as GroupModel
@@ -71,6 +71,7 @@ class User(Resource):
                    self.checkTemporaryPassword)
         self.route('PUT', ('password', 'temporary'),
                    self.generateTemporaryPassword)
+        self.route('POST', ('token',), self.generateOneTimeToken)
         self.route('POST', (':id', 'otp'), self.initializeOtp)
         self.route('PUT', (':id', 'otp'), self.finalizeOtp)
         self.route('DELETE', (':id', 'otp'), self.removeOtp)
@@ -183,6 +184,25 @@ class User(Resource):
         from bson.objectid import ObjectId
         user = self.getCurrentUser()
         return(ProfileModel().getProfile(id, user))
+
+    @access.user(scope=TokenScope.DATA_OWN)
+    @autoDescribeRoute(
+        Description('Set or update your own custom schedule information for an applet.')
+        .notes(
+            'This endpoint is used for generating one-time token. <br>'
+        )
+    )
+    def generateOneTimeToken(self):
+        user = self.getCurrentUser()
+
+        token = Token().createToken(user, days=(10/1440.0), scope=[
+            TokenScope.ONE_TIME_AUTH,
+            TokenScope.USER_AUTH
+        ])
+
+        return {
+            'token': token['_id']
+        }
 
     @access.user(scope=TokenScope.DATA_WRITE)
     @autoDescribeRoute(
@@ -619,6 +639,18 @@ class User(Resource):
             required=False,
             dataType='boolean'
         )
+        .param(
+            'currentApplet',
+            'id of current applet',
+            default=None,
+            required=False
+        )
+        .param(
+            'nextActivity',
+            'id of next activity',
+            default=None,
+            required=False,
+        )
         .errorResponse('ID was invalid.')
         .errorResponse(
             'You do not have permission to see any of this user\'s applets.',
@@ -636,6 +668,8 @@ class User(Resource):
         retrieveResponses=False,
         groupByDateActivity=True,
         retrieveLastResponseTime=False,
+        currentApplet=None,
+        nextActivity=None
     ):
         from bson.objectid import ObjectId
         from girderformindlogger.utility.jsonld_expander import loadCache
@@ -671,22 +705,46 @@ class User(Resource):
         applets = [AppletModel().load(ObjectId(applet_id), AccessType.READ) for applet_id in applet_ids]
 
         result = []
-        for applet in applets:
-            if applet.get('cached'):
-                formatted = AppletModel().appletFormatted(applet=applet,
-                                                            reviewer=reviewer,
-                                                            role=role,
-                                                            retrieveSchedule=retrieveSchedule,
-                                                            retrieveAllEvents=retrieveAllEvents,
-                                                                eventFilter=(currentUserDate, numberOfDays) if numberOfDays else None,
-                                                            retrieveResponses=retrieveResponses,
-                                                            groupByDateActivity=groupByDateActivity,
-                                                            retrieveLastResponseTime=retrieveLastResponseTime,
-                                                            localInfo=localInfo.get(str(applet['_id']), {}) if localInfo else {},
-                                                            )
-                result.append(formatted)
+        bufferSize = MAX_PULL_SIZE
 
-        return(result)
+        collect = not currentApplet
+
+        for applet in applets:
+            if str(applet['_id']) == currentApplet:
+                collect = True
+
+            if applet.get('cached') and collect:
+                try:
+                    nextIRI, data, remaining = AppletModel().appletFormatted(
+                        applet=applet,
+                        reviewer=reviewer,
+                        role=role,
+                        retrieveSchedule=retrieveSchedule,
+                        retrieveAllEvents=retrieveAllEvents,
+                        eventFilter=(currentUserDate, numberOfDays) if numberOfDays else None,
+                        retrieveResponses=retrieveResponses,
+                        groupByDateActivity=groupByDateActivity,
+                        retrieveLastResponseTime=retrieveLastResponseTime,
+                        localInfo=localInfo.get(str(applet['_id']), {}) if localInfo else {},
+                        nextActivity=nextActivity,
+                        bufferSize=bufferSize,
+                    )
+
+                    bufferSize = remaining
+
+                    result.append(data)
+
+                    nextActivity = nextIRI
+                    if nextIRI:
+                        break
+                except:
+                    nextActivity = None
+
+        return {
+            'data': result,
+            'currentApplet': applet['_id'],
+            'nextActivity': nextActivity
+        }
 
     @access.public(scope=TokenScope.DATA_READ)
     @autoDescribeRoute(
@@ -715,19 +773,33 @@ class User(Resource):
             default=False,
             required=False
         )
+        .param(
+            'nextActivity',
+            'id of next activity',
+            default=None,
+            required=False,
+        )
     )
-    def getOwnAppletById(self, applet, role, retrieveSchedule, retrieveAllEvents):
+    def getOwnAppletById(self, applet, role, retrieveSchedule, retrieveAllEvents, nextActivity=None):
         reviewer = self.getCurrentUser()
         if reviewer is None:
             raise AccessException("You must be logged in to get user applets.")
 
-        if applet.get('cached'):
-            return AppletModel().appletFormatted(applet=applet,
-                                                 reviewer=reviewer,
-                                                 role=role,
-                                                 retrieveSchedule=retrieveSchedule,
-                                                 retrieveAllEvents=retrieveAllEvents)
-        return applet
+        (nextIRI, data, remaining) = AppletModel().appletFormatted(
+                applet=applet,
+                reviewer=reviewer,
+                role=role,
+                retrieveSchedule=retrieveSchedule,
+                retrieveAllEvents=retrieveAllEvents,
+                nextActivity=nextActivity,
+                bufferSize=MAX_PULL_SIZE
+            )
+
+        return {
+            'nextActivity': nextIRI,
+            **data
+        }
+
 
     @access.public(scope=TokenScope.DATA_READ)
     @autoDescribeRoute(
@@ -753,11 +825,16 @@ class User(Resource):
         for account in accounts:
             applets = account.get('applets', {})
             if len(applets.get('reviewer', [])) or len(applets.get('coordinator', [])) or len(applets.get('editor', [])) or len(applets.get('manager', [])):
-                response.append({
+                accountInfo = {
                     'accountName': account['accountName'],
                     'accountId': account['accountId'],
                     'owned': (account['_id'] == account['accountId'])
-                })
+                }
+
+                if accountInfo['owned']:
+                    accountInfo['isDefaultName'] = False if user['accountName'] else True
+
+                response.append(accountInfo)
 
         return response
 
@@ -809,6 +886,8 @@ class User(Resource):
                 continue
             if folder['meta'].get('contentType', '') == 'templates':
                 continue
+            if 'accountId' in folder and folder['accountId'] != ObjectId(accountId):
+                continue
 
             if folder['meta'].get('applets'):
                 for applet in folder['meta']['applets']:
@@ -845,17 +924,21 @@ class User(Resource):
 
         applets = []
 
+        appletModel = AppletModel()
+
         for appletId in appletRoles:
-            applet = AppletModel().load(appletId, force=True)
+            applet = appletModel.load(appletId, force=True)
 
             applets.append({
+                **appletModel.getAppletMeta(applet),
                 'updated': applet['updated'],
                 'name': applet['meta'].get('applet', {}).get('displayName', applet.get('displayName', 'applet')),
                 'id': appletId,
                 'encryption': applet['meta']['encryption'] if applet['meta'].get('encryption', {}).get(
                     'appletPublicKey', None) else None,
                 'hasUrl': (applet['meta'].get('protocol', {}).get('url', None) != None),
-                'roles': appletRoles[appletId]
+                'roles': appletRoles[appletId],
+                'published': applet['meta'].get('published', False)
             })
 
         tokenInfo['account']['alerts'] = ResponseAlerts().getResponseAlerts(user['_id'], account['accountId'])
@@ -900,10 +983,16 @@ class User(Resource):
                'the desired language for the response',
                default='en',
                required=True)
+        .param(
+            'returnKeys',
+            'set to true when return keys',
+            default=False,
+            required=False
+        )
         .errorResponse('Missing Authorization header.', 401)
         .errorResponse('Invalid login or password.', 403)
     )
-    def login(self, loginAsEmail, lang):
+    def login(self, loginAsEmail, lang, returnKeys):
         import threading
         from girderformindlogger.utility.mail_utils import validateEmailAddress
 
@@ -914,7 +1003,7 @@ class User(Resource):
 
         deviceId = cherrypy.request.headers.get('deviceId', '')
         timezone = float(cherrypy.request.headers.get('timezone', 0))
-
+        privateKey = keys = None
         # Only create and send new cookie if user isn't already sending a valid
         # one.
         if not user:
@@ -977,11 +1066,18 @@ class User(Resource):
             setCurrentUser(user)
             token = self.sendAuthTokenCookie(user)
 
+            if returnKeys:
+                privateKey, keys = self._model.getEncryptions(user, login, password)
+
+        if user and Token().hasScope(token, TokenScope.ONE_TIME_AUTH):
+            Token().remove(token)
+            token = self.sendAuthTokenCookie(user)
+
         account = AccountProfile().findOne({'_id': user['accountId']})
 
         fields = ['accountId', 'accountName', 'applets']
 
-        tokenInfo = {
+        userInfo = {
             'user': self._model.filter(user, user),
             'account': {
                 field: account[field] for field in fields
@@ -993,10 +1089,13 @@ class User(Resource):
             },
             'message': 'Login succeeded.'
         }
+        if returnKeys and privateKey and keys:
+            userInfo['user']['privateKey'] = privateKey
+            userInfo['keys'] = keys
 
-        tokenInfo['account']['isDefaultName'] = False if user['accountName'] else True
+        userInfo['account']['isDefaultName'] = False if user['accountName'] else True
 
-        return tokenInfo
+        return userInfo
 
     @access.public
     @autoDescribeRoute(
@@ -1237,11 +1336,16 @@ class User(Resource):
         )
         .param('old', 'Your current password or a temporary access token.')
         .param('new', 'Your new password.')
+        .param(
+            'email',
+            'Your email.',
+            required=False
+        )
         .errorResponse(('You are not logged in.',
                         'Your old password is incorrect.'), 401)
         .errorResponse('Your new password is invalid.')
     )
-    def changePassword(self, old, new):
+    def changePassword(self, old, new, email):
         user = self.getCurrentUser()
         token = None
 
@@ -1279,11 +1383,22 @@ class User(Resource):
 
         self._model.setPassword(user, new)
 
+        if email:
+            privateKey, keys = self._model.getEncryptions(user, email, new)
+
         if token:
             # Remove the temporary access token if one was used
             Token().remove(token)
 
-        return {'message': 'Password changed.'}
+        if email:
+            return {
+                'keys': keys,
+                'privateKey': privateKey
+            }
+
+        return {
+            'message': 'Password changed.',
+        }
 
     @access.public
     @autoDescribeRoute(
@@ -1315,7 +1430,7 @@ class User(Resource):
 
         web_url = os.getenv('WEB_URI') or 'localhost:8081'
 
-        url = 'https://%s/#/useraccount/%s/token/%s?lang=%s' % (
+        url = 'https://%s/useraccount/%s/token/%s?lang=%s' % (
             web_url, str(user['_id']), str(token['_id']), lang)
 
         html = mail_utils.renderTemplate(f'temporaryAccess.{lang}.mako', {

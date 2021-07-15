@@ -39,13 +39,15 @@ class Folder(AccessControlledModel):
                 'meta.activity.url',
                 'meta.contentType',
                 ([
-                    ('parentId', 1),
-                    ('name', 1),
-                    ('meta.protocol.@type', 1),
                     ('meta.activity.@type', 1),
+                    ('meta.activity.url', 1),
+                    ('meta.protocolId', 1)
+                ], {}),
+                ([
+                    ('meta.protocol.@type', 1),
                     ('meta.protocol.url', 1),
-                    ('meta.activity.url', 1)
-                ], {})
+                    ('meta.appletId', 1)
+                ], {}),
             )
         )
         self.ensureTextIndex({

@@ -26,11 +26,12 @@ import six
 import threading
 import re
 import pytz
+import ijson
 
 from bson.objectid import ObjectId
 from girderformindlogger import events
 from girderformindlogger.api.rest import getCurrentUser
-from girderformindlogger.constants import AccessType, SortDir, USER_ROLES
+from girderformindlogger.constants import AccessType, SortDir, USER_ROLES, TokenScope
 from girderformindlogger.exceptions import AccessException, GirderException, \
     ValidationException
 from girderformindlogger.models.collection import Collection as CollectionModel
@@ -38,12 +39,15 @@ from girderformindlogger.models.folder import Folder as FolderModel
 from girderformindlogger.models.group import Group as GroupModel
 from girderformindlogger.models.protoUser import ProtoUser as ProtoUserModel
 from girderformindlogger.models.user import User as UserModel
+from girderformindlogger.models.applet_library import AppletLibrary
 from girderformindlogger.utility.progress import noProgress,                   \
     setResponseTimeLimit
 from girderformindlogger.models.account_profile import AccountProfile
 from girderformindlogger.models.profile import Profile
 from girderformindlogger.models.events import Events as EventsModel
 from girderformindlogger.models.item import Item as ItemModel
+from girderformindlogger.models.activity import Activity as ActivityModel
+from girderformindlogger.models.token import Token
 from girderformindlogger.external.notification import send_applet_update_notification
 from bson import json_util
 from girderformindlogger.utility import mail_utils
@@ -102,6 +106,10 @@ class Applet(FolderModel):
 
         name = self.validateAppletName('%s (0)' % (name), appletsCollection, accountId)
 
+        protocolId = protocol.get('_id', '').split('/')[-1]
+        itemCount = ItemModel().find({'meta.protocolId': ObjectId(protocolId)}).count()
+        isLargeApplet = itemCount >= 250
+
         # create new applet
         metadata = {
             'protocol': protocol,
@@ -114,9 +122,14 @@ class Applet(FolderModel):
                 'period': 5,
                 'retention': 'year',
                 'enabled': True
-            }
+            },
+            'schema': '1.0.1'
         }
-        metadata['applet']['displayName'] = name
+        metadata['applet'].update({
+            'displayName': name,
+            'largeApplet': isLargeApplet,
+            'editing': False
+        })
 
         applet = self.setMetadata(
             folder=self.createFolder(
@@ -304,6 +317,30 @@ class Applet(FolderModel):
 
         return userProfile
 
+    def getAppletMeta(self, applet):
+        meta = applet.get('meta', {}).get('applet', {})
+
+        ## handle old applets
+        if 'description' not in meta or 'image' not in meta:
+            from girderformindlogger.utility import jsonld_expander
+            formatted = jsonld_expander.formatLdObject(applet)
+            description = formatted['applet'].get('schema:description', [])
+            image = formatted['applet'].get('schema:image', '')
+
+            meta.update({
+                'description': description[0]['@value'] if description else '',
+                'image': image
+            })
+
+            applet['meta']['applet'] = meta
+
+            self.setMetadata(applet, metadata=applet['meta'])
+
+        if '_id' in meta:
+            meta.pop('_id')
+
+        return meta
+
     # users won't use this function, so all emails are plain text (this endpoint is used for owners/managers to get access to new applet automatically)
     def grantAccessToApplet(self, user, applet, role, inviter):
         from girderformindlogger.models.invitation import Invitation
@@ -362,10 +399,11 @@ class Applet(FolderModel):
             'protocol': {
                 '_id': protocol['protocol']['_id'],
                 'activities': [
-                    ObjectId(protocol['activities'][activity]['_id'].split('/')[-1]) for activity in protocol['activities']
+                    protocol['activities'][activity] for activity in protocol['activities']
                 ],
                 'name': prefLabel
-            }
+            },
+            'published': False
         }
         metadata['applet']['displayName'] = appletName
 
@@ -471,10 +509,14 @@ class Applet(FolderModel):
                 to=[editor['email']]
             )
 
-        return formatted
+        return {
+            'message': 'success'
+        }
 
     def deactivateApplet(self, applet):
         applet['meta']['applet']['deleted'] = True
+        applet['meta']['applet']['published'] = False
+
         applet = self.setMetadata(applet, applet.get('meta'))
 
         successed = True
@@ -492,6 +534,8 @@ class Applet(FolderModel):
 
             for accountProfile in accountProfiles:
                 AccountProfile().removeApplet(accountProfile, applet['_id'])
+
+            AppletLibrary().deleteAppletFromLibrary(applet)
         else:
             successed = False
 
@@ -503,7 +547,7 @@ class Applet(FolderModel):
 
         return successed
 
-    def receiveOwnerShip(self, applet, thisUser, email):
+    def receiveOwnerShip(self, applet, thisUser, email, invitationId):
         from girderformindlogger.utility import mail_utils, jsonld_expander
         from girderformindlogger.models.group import Group
         from girderformindlogger.models.response_folder import ResponseItem
@@ -572,9 +616,16 @@ class Applet(FolderModel):
         self.save(applet)
         self.grantAccessToApplet(thisUser, applet, 'manager', thisUser)
 
-        jsonld_expander.clearCache(applet, 'applet')
+        applet = jsonld_expander.clearCache(applet, 'applet')
 
-        return Profile().displayProfileFields(Profile().updateOwnerProfile(applet), thisUser, forceManager=True)
+        jsonld_expander.formatLdObject(
+            applet,
+            'applet',
+            thisUser,
+            refreshCache=False
+        )
+
+        return Profile().displayProfileFields(Profile().updateOwnerProfile(applet, invitationId), thisUser, forceManager=True)
 
     def validateAppletName(self, appletName, appletsCollection, accountId = None, currentApplet = None):
         appletName = appletName.strip()
@@ -591,9 +642,13 @@ class Applet(FolderModel):
         if not n:
             name = appletName
 
+        name = name.replace("(", "\\(").replace(")", "\\)")
         query = {
             'parentId': appletsCollection['_id'],
-            'meta.applet.displayName': name,
+            'meta.applet.displayName': {
+                '$regex': f'^{name}$',
+                '$options': 'i'
+            },
             'parentCollection': 'collection'
         }
 
@@ -608,11 +663,16 @@ class Applet(FolderModel):
         while existing:
             n = n + 1
             name = '%s (%d)' % (appletName, n)
-            query['meta.applet.displayName'] = name
+            name = name.replace("(", "\\(").replace(")", "\\)")
+
+            query['meta.applet.displayName'] = {
+                '$regex': f'^{name}$',
+                '$options': 'i'
+            }
 
             existing = self.findOne(query)
 
-        return name
+        return appletName if not n else '%s (%d)' % (appletName, n)
 
     def createAppletFromUrl(
         self,
@@ -631,72 +691,69 @@ class Applet(FolderModel):
         from girderformindlogger.utility import mail_utils
 
         subject = 'applet upload success!'
-        try:
-            # we have cases to show manager's email to users
-            if mail_utils.validateEmailAddress(email) and \
-                'email' in user and (user['email'] == email and not user['email_encrypted'] or user['email'] == UserModel().hash(email) and user['email_encrypted']):
+        # we have cases to show manager's email to users
+        if mail_utils.validateEmailAddress(email) and \
+            'email' in user and (user['email'] == email and not user['email_encrypted'] or user['email'] == UserModel().hash(email) and user['email_encrypted']):
 
-                user['email'] = email
-                user['email_encrypted'] = False
-                UserModel().save(user)
-            else:
-                raise ValidationException('email is not valid')
-            # get a protocol from a URL
-            protocol = Protocol().getFromUrl(
-                protocolUrl,
-                'protocol',
-                user,
-                thread=False,
-                refreshCache=True,
-                meta={ 'appletId': None },
-                isReloading=False
-            )
+            user['email'] = email
+            user['email_encrypted'] = False
+            UserModel().save(user)
+        else:
+            raise ValidationException('email is not valid')
+        # get a protocol from a URL
+        protocol = Protocol().getFromUrl(
+            protocolUrl,
+            'protocol',
+            user,
+            thread=False,
+            refreshCache=True,
+            meta={ 'appletId': None },
+            isReloading=False
+        )
 
-            protocol = protocol[0].get('protocol', protocol[0])
+        protocol = protocol[0].get('protocol', protocol[0])
 
-            displayName = ''
-            for candidate in ['prefLabel', 'altLabel']:
-                for key in protocol:
-                    if not len(displayName) and key.endswith(candidate) and isinstance(protocol[key], list):
-                        displayName = protocol[key][0]['@value']
+        displayName = ''
+        for candidate in ['prefLabel', 'altLabel']:
+            for key in protocol:
+                if not len(displayName) and key.endswith(candidate) and isinstance(protocol[key], list):
+                    displayName = protocol[key][0]['@value']
 
-            name = name if name is not None and len(name) else displayName
+        name = name if name is not None and len(name) else displayName
 
-            applet = self.createApplet(
-                name=name,
-                protocol={
-                    '_id': 'protocol/{}'.format(
-                        str(protocol.get('_id')).split('/')[-1]
-                    ),
-                    'url': protocol.get(
-                        'meta',
-                        {}
-                    ).get(
-                        'protocol',
-                        {}
-                    ).get('url', protocolUrl),
-                    'name': displayName.strip()
-                },
-                user=user,
-                roles=roles,
-                constraints=constraints,
-                appletRole=appletRole,
-                accountId=accountId,
-                encryption=encryption
-            )
+        applet = self.createApplet(
+            name=name,
+            protocol={
+                '_id': 'protocol/{}'.format(
+                    str(protocol.get('_id')).split('/')[-1]
+                ),
+                'url': protocol.get(
+                    'meta',
+                    {}
+                ).get(
+                    'protocol',
+                    {}
+                ).get('url', protocolUrl),
+                'name': displayName.strip()
+            },
+            user=user,
+            roles=roles,
+            constraints={
+                **(
+                    constraints if constraints else {}
+                ),
+                **Protocol().getImageAndDescription(protocol)
+            },
+            appletRole=appletRole,
+            accountId=accountId,
+            encryption=encryption
+        )
 
-            html = mail_utils.renderTemplate(f'appletUploadSuccess.{user.get("lang", "en")}.mako', {
-                'userName': user['firstName'],
-                'appletName': name
-            })
-            subject = t('applet_upload_sucess', user.get('lang', 'en'))
-
-        except Exception as e:
-            html = mail_utils.renderTemplate(f'appletUploadFailed.{user.get("lang", "en")}.mako', {
-                'userName': user['firstName'],
-                'appletName': name
-            })
-            subject = t('applet_upload_failed', user.get('lang', 'en'))
+        html = mail_utils.renderTemplate(f'appletUploadSuccess.{user.get("lang", "en")}.mako', {
+            'userName': user['firstName'],
+            'appletName': name
+        })
+        subject = t('applet_upload_sucess', user.get('lang', 'en'))
 
         if 'email' in user and not user.get('email_encrypted', True):
             mail_utils.sendMail(
@@ -756,7 +813,12 @@ class Applet(FolderModel):
                 },
                 user=user,
                 roles=roles,
-                constraints=constraints,
+                constraints={
+                    **(
+                        constraints if constraints else {}
+                    ),
+                    **Protocol().getImageAndDescription(protocol)
+                },
                 appletRole=appletRole,
                 accountId=accountId,
                 encryption=encryption
@@ -788,26 +850,32 @@ class Applet(FolderModel):
         self,
         name,
         applet,
-        protocol,
+        content,
         user,
         accountId
     ):
         from girderformindlogger.models.protocol import Protocol
         from girderformindlogger.utility import jsonld_expander
 
+        if applet['meta'].get('editing', False):
+            raise AccessException('applet is being edited')
+
+        applet['meta']['applet']['editing'] = True
+        self.setMetadata(applet, applet['meta'])
+
         # get a protocol from single json file
         now = datetime.datetime.utcnow()
-        displayName = protocol['protocol']['data'].get('skos:prefLabel', protocol['protocol']['data'].get('skos:altLabel', '')).strip()
+        displayName = content['protocol']['data'].get('skos:prefLabel', content['protocol']['data'].get('skos:altLabel', '')).strip()
 
         suffix = re.findall('^(.*?)\s*\((\d+)\)$', displayName)
         if len(suffix) and applet.get('meta', {}).get('protocol', {}).get('name', '') == suffix[0][0]:
-            protocol['protocol']['data']['skos:prefLabel'] = suffix[0][0]
+            content['protocol']['data']['skos:prefLabel'] = suffix[0][0]
         else:
             applet['meta']['protocol']['name'] = displayName
             displayName = '%s (0)' % (displayName)
 
         protocol = Protocol().createProtocol(
-            protocol,
+            content,
             user,
             True
         )
@@ -821,8 +889,10 @@ class Applet(FolderModel):
             currentApplet = applet
         )
         applet['meta']['applet']['version'] = protocol['schema:schemaVersion'][0].get('@value', '0.0.0') if 'schema:schemaVersion' in protocol else '0.0.0'
-
+        applet['meta']['applet'].update(Protocol().getImageAndDescription(protocol))
+        applet['meta']['applet']['editing'] = False
         applet['updated'] = now
+
         applet = self.setMetadata(folder=applet, metadata=applet['meta'])
 
         # update appletProfile according to updated applet
@@ -836,20 +906,27 @@ class Applet(FolderModel):
 
         activities = []
         if 'activities' in formatted:
-            for activity in formatted['activities']:
-                activityId = ObjectId(formatted['activities'][activity]['_id'].split('/')[-1])
+            for activityIRI in formatted['activities']:
+                activityId = ObjectId(formatted['activities'][activityIRI])
                 activities.append(activityId)
+
+                activity = FolderModel().findOne(activityId)
 
                 EventsModel().update({
                     'data.activity_id': activityId
                 }, {
                     '$set': {
-                        'data.title': self.preferredName(formatted['activities'][activity]),
-                        # 'updated': datetime.datetime.utcnow()
+                        'data.title': self.preferredName(activity['meta'].get('activity', {})),
                     },
                 })
 
-            self.update({'_id': ObjectId(applet['_id'])}, {'$set': {'meta.protocol.activities': activities}})
+            self.update({
+                '_id': ObjectId(applet['_id'])
+            }, {
+                '$set': {
+                    'meta.protocol.activities': activities
+                }
+            })
 
         removedActivities = protocol.get('removed', {}).get('activities', [])
 
@@ -886,14 +963,49 @@ class Applet(FolderModel):
 
         # thread.start()
 
+        if applet['meta'].get('published', False):
+            AppletLibrary().appletContentUpdate(applet)
+
         return formatted
+
+    def renameApplet(
+        self,
+        applet,
+        displayName,
+        user
+    ):
+        from girderformindlogger.utility import jsonld_expander
+
+        suffix = re.findall('^(.*?)\s*\((\d+)\)$', displayName)
+        if not len(suffix) or applet.get('meta', {}).get('protocol', {}).get('name', '') != suffix[0][0]:
+            applet['meta']['protocol']['name'] = displayName
+            displayName = '%s (0)' % (displayName)
+
+        applet['meta']['applet']['displayName'] = self.validateAppletName(
+            displayName,
+            CollectionModel().findOne({"name": "Applets"}),
+            applet['accountId'],
+            currentApplet = applet
+        )
+
+        applet['updated'] = datetime.datetime.utcnow()
+        applet = self.setMetadata(folder=applet, metadata=applet['meta'])
+
+        jsonld_expander.clearCache(applet, 'applet')
+
+        return jsonld_expander.formatLdObject(
+            applet,
+            'applet',
+            user
+        )
 
     def prepareAppletForEdit(
         self,
         applet,
         protocol,
         user,
-        accountId
+        accountId,
+        thread
     ):
         from girderformindlogger.models.protocol import Protocol
         from girderformindlogger.models.screen import Screen
@@ -913,135 +1025,11 @@ class Applet(FolderModel):
 
             protocolFolder = FolderModel().load(protocolId, force=True)
 
-            if not protocolFolder.get('meta', {}).get('appletId', None): # old schema ( we'll not need this in the future )
-                duplicated = Protocol().duplicateProtocol(ObjectId(protocolId), user)
-                protocolId = duplicated['protocol']['_id'].split('/')[-1]
-
-                (historyFolder, referencesFolder) = Protocol().createHistoryFolders(protocolId, user)
-
-                # replace with duplicated content
-                activities = list(ActivityModel.find({ 'meta.protocolId': ObjectId(protocolId) }))
-                items = list(ItemModel.find({ 'meta.protocolId': ObjectId(protocolId) }))
-
-                activityIDRef = {}
-                itemIDRef = {}
-                for activity in activities:
-                    activityIDRef[str(activity['duplicateOf'])] = activity['_id']
-
-                    ResponseItem().update({
-                        'meta.activity.@id': activity['duplicateOf'],
-                        'meta.applet.@id': applet['_id']
-                    }, {
-                        '$set': {
-                            'meta.activity.@id': activity['_id'],
-                        }
-                    })
-
-                    EventsModel().update({
-                        'data.activity_id': activity['duplicateOf']
-                    }, {
-                        '$set': {
-                            'data.activity_id': activity['_id'],
-                            'updated': datetime.datetime.utcnow()
-                        }
-                    })
-
-                    ActivityModel.update({
-                        'duplicateOf': activity['duplicateOf']
-                    }, {
-                        '$set': {
-                            'duplicateOf': activity['_id']
-                        }
-                    })
-
-                    ActivityModel.update({
-                        'meta.historyId': historyFolder['_id'],
-                        'meta.originalId': activity['duplicateOf']
-                    }, {
-                        '$set': {
-                            'meta.originalId': activity['_id']
-                        }
-                    })
-
-                    ItemModel.update({
-                        'meta.historyId': historyFolder['_id'],
-                        'meta.activityId': activity['duplicateOf']
-                    }, {
-                        '$set': {
-                            'meta.activityId': activity['_id']
-                        }
-                    })
-
-                    activity.pop('duplicateOf')
-
-                    ActivityModel.update({
-                        '_id': activity['_id']
-                    }, {
-                        '$unset': {
-                            'duplicateOf': ''
-                        }
-                    })
-
-                for item in items:
-                    itemIDRef[str(item['duplicateOf'])] = item['_id']
-                    ItemModel.update({
-                        'duplicateOf': item['duplicateOf']
-                    }, {
-                        '$set': {
-                            'duplicateOf': item['_id']
-                        }
-                    })
-
-                    ItemModel.update({
-                        'meta.historyId': historyFolder['_id'],
-                        'meta.originalId': item['duplicateOf']
-                    }, {
-                        '$set': {
-                            'meta.originalId': item['_id']
-                        }
-                    })
-
-                    item.pop('duplicateOf')
-
-                    ItemModel.update({
-                        '_id': item['_id']
-                    }, {
-                        '$unset': {
-                            'duplicateOf': ''
-                        }
-                    })
-
-                Protocol().initHistoryData(historyFolder, referencesFolder, metadata['protocol']['_id'].split('/')[-1], user, activityIDRef, itemIDRef)
-
-                # update profiles
-                appletProfiles = Profile().get_profiles_by_applet_id(applet['_id'])
-
-                for profile in appletProfiles:
-                    for activity in profile.get('completed_activities', []):
-                        activity['activity_id'] = activityIDRef[str(activity['activity_id'])]
-
-                    Profile().save(profile, validate=False)
-
-                metadata['protocol'] = {
-                    '_id': duplicated['protocol']['_id'],
-                    'activities': [activity['activity_id'] for activity in profile.get('completed_activities', [])]
-                }
-                self.setMetadata(applet, metadata)
-
-                protocolFolder = FolderModel().load(protocolId, force=True)
-            else:
-                (historyFolder, referencesFolder) = Protocol().createHistoryFolders(protocolId, user)
-                Protocol().initHistoryData(historyFolder, referencesFolder, protocolId, user)
+            (historyFolder, referencesFolder) = Protocol().createHistoryFolders(protocolId, user)
+            Protocol().initHistoryData(historyFolder, referencesFolder, protocolId, user)
 
             activities = list(ActivityModel.find({ 'meta.protocolId': ObjectId(protocolId) }))
-            items = list(ItemModel.find({ 'meta.protocolId': ObjectId(protocolId) }))
-            activityIdToData = {
-                str(activity['_id']): activity for activity in activities
-            }
-
-            for item in items:
-                activity = activityIdToData[str(item['meta']['activityId'])]
-                jsonld_expander.convertObjectToSingleFileFormat(item, 'screen', user, '{}/{}'.format(str(activity['_id']), str(item['_id'])), True)
+            modelClasses = {}
 
             for activity in activities:
                 ResponseItem().update({
@@ -1062,13 +1050,26 @@ class Applet(FolderModel):
                     }
                 })
 
-                jsonld_expander.convertObjectToSingleFileFormat(activity, 'activity', user, str(activity['_id']))
+                items = ItemModel.find({
+                    'meta.protocolId': ObjectId(protocolId),
+                    'meta.activityId': activity['_id']
+                })
+
+                for item in items:
+                    jsonld_expander.convertObjectToSingleFileFormat(item, 'screen', user, '{}/{}'.format(str(activity['_id']), str(item['_id'])), True, modelClasses=modelClasses)
+
+                jsonld_expander.convertObjectToSingleFileFormat(activity, 'activity', user, str(activity['_id']), modelClasses=modelClasses)
+
+            data = {}
+
+            for key, value in ijson.kvitems(protocol, 'protocol.data'):
+                data[key] = value
 
             for key in ['schema:version', 'schema:schemaVersion']:
                 schemaVersion = protocolFolder['meta']['protocol'][key]
-                schemaVersion[0]['@value'] = protocol['protocol'].get('data', {}).get(key, '0.0.0')
+                schemaVersion[0]['@value'] = data.get(key, '0.0.0')
 
-            jsonld_expander.convertObjectToSingleFileFormat(protocolFolder, 'protocol', user)
+            jsonld_expander.convertObjectToSingleFileFormat(protocolFolder, 'protocol', user, modelClasses=modelClasses)
 
             if 'url' in metadata['protocol']:
                 metadata['protocol'].pop('url')
@@ -1081,12 +1082,38 @@ class Applet(FolderModel):
         jsonld_expander.cacheProtocolContent(Protocol().load(protocolId, force=True), protocol, user)
 
         jsonld_expander.clearCache(applet, 'applet')
-        return jsonld_expander.formatLdObject(
+
+        formatted = jsonld_expander.formatLdObject(
             applet,
             'applet',
             user,
             refreshCache=False
         )
+
+        applet['meta']['applet']['editing'] = False
+        self.setMetadata(applet, applet['meta'])
+
+        if thread and 'email' in user and not user.get('email_encrypted', True):
+            admin_url = os.getenv('ADMIN_URI') or 'localhost:8082'
+
+            lang = user.get("lang", "en")
+
+            url = f'https://{admin_url}/#/build?lang={lang}_{"US" if lang == "en" else "FR"}&appletId={str(applet["_id"])}&accountId={str(applet["accountId"])}'
+
+            html = mail_utils.renderTemplate(f'appletEditSuccess.en.mako', {
+                'userName': user['firstName'],
+                'appletName': applet['meta']['applet'].get('displayName', 'applet'),
+                'url': url
+            })
+            subject = t('applet_edit_success', user.get('lang', 'en'))
+
+            mail_utils.sendMail(
+                subject,
+                html,
+                [user['email']]
+            )
+
+        return formatted
 
     def formatThenUpdate(self, applet, user):
         from girderformindlogger.utility import jsonld_expander
@@ -1112,6 +1139,7 @@ class Applet(FolderModel):
         from girderformindlogger.models.user import User
         from girderformindlogger.models.protocol import Protocol
         from pymongo import DESCENDING
+        import moment
 
         if not any([
             self.isReviewer(appletId, reviewer),
@@ -1219,10 +1247,7 @@ class Applet(FolderModel):
                 ts = meta.get(key, 0)
                 if not ts:
                     continue
-
-                secs, millis = divmod(ts, 1000)
-                date_time = dt.utcfromtimestamp(secs).replace(microsecond=millis * 1000)
-                times[key] = date_time.strftime("%Y-%m-%d %H:%M:%S")
+                times[key] = moment.unix(ts).strftime("%Y-%m-%d %H:%M:%S")
 
             data['responses'].append({
                 '_id': response['_id'],
@@ -1503,20 +1528,23 @@ class Applet(FolderModel):
         groupByDateActivity=True,
         startDate=None,
         retrieveLastResponseTime=False,
-        localInfo={}
+        localInfo={},
+        nextActivity=None,
+        bufferSize=None
     ):
         from girderformindlogger.utility import jsonld_expander
         from girderformindlogger.utility.response import responseDateList, last7Days
         from girderformindlogger.models.protocol import Protocol
 
         formatted = {}
+        nextIRI = None
 
         if not localInfo.get('contentUpdateTime', None) or applet['updated'].isoformat() != localInfo['contentUpdateTime']:
             localVersion = localInfo.get('appletVersion', None)
             updates = None
 
             if localVersion:
-                (isInitialVersion, updates) = Protocol().getProtocolChanges(
+                (isInitialVersion, updates) = Protocol().compareProtocols(
                     applet.get('meta', {}).get('protocol', {}).get('_id', '').split('/')[-1],
                     localVersion,
                     localInfo['contentUpdateTime']
@@ -1562,70 +1590,146 @@ class Applet(FolderModel):
             formatted['removedActivities'] = []
             formatted['removedItems'] = []
 
-            if localVersion and updates:
-                for itemId in list(formatted['items'].keys()):
-                    if itemId not in updates['screen'] and not isInitialVersion:
-                        formatted['items'].pop(itemId)
+            if not localVersion or isInitialVersion:
+                currentVersion = formatted['applet'].get('schema:schemaVersion', [])
 
-                for itemId in updates['screen']:
-                    if itemId not in formatted['items'] and (updates['screen'][itemId] == 'updated' or isInitialVersion):
-                        formatted['removedItems'].append(itemId)
+                if len(currentVersion):
+                    currentVersion = currentVersion[0].get('@value', '')
 
-                for activityId in list(formatted['activities'].keys()):
-                    if activityId not in updates['activity'] and not isInitialVersion:
-                        formatted['activities'].pop(activityId)
+                if not localVersion or localVersion != currentVersion:
+                    nextIRI, data, bufferSize = self.getNextAppletData(formatted['activities'], nextActivity, bufferSize)
+                    formatted.update(data)
 
-                for activityId in updates['activity']:
-                    if activityId not in formatted['activities'] and (updates['activity'][activityId] == 'updated' or isInitialVersion):
-                        formatted['removedActivities'].append(activityId)
+                    if updates:
+                        formatted['removedActivities'] = list(updates['activity'].keys())
+            else:
+                data = { 'activities': {}, 'items': {} }
+                itemIRIs = {}
 
-        if retrieveSchedule:
-            schedule = self.getSchedule(
-                applet,
-                reviewer,
-                retrieveAllEvents,
-                eventFilter if not retrieveAllEvents else None,
-                localInfo.get('localEvents', [])
-            )
+                for activityIRI in formatted['activities']:
+                    activityID = ObjectId(formatted['activities'][activityIRI])
+                    if activityIRI not in updates['activity']:
+                        continue
 
-            if schedule:
-                formatted["schedule"] = schedule
+                    activity = ActivityModel().findOne({
+                        '_id': ObjectId(formatted['activities'][activityIRI])
+                    })
+                    formattedActivity = jsonld_expander.formatLdObject(
+                        activity,
+                        'activity'
+                    )
 
-        if retrieveResponses:
-            formatted["responses"] = last7Days(
-                applet['_id'],
-                applet,
-                reviewer.get('_id'),
-                reviewer,
-                None,
-                localInfo.get('startDate', None),
-                True,
-                groupByDateActivity,
-                localInfo.get('localItems', []),
-                localInfo.get('localActivities', [])
-            )
+                    data['activities'][activityIRI] = formattedActivity['activity']
+                    bufferSize -= activity.get('size', 0)
 
-        if retrieveLastResponseTime:
-            profile = Profile().findOne({'appletId': applet['_id'], 'userId': reviewer['_id']})
-            activities = profile['completed_activities']
+                    data['items'].update(formattedActivity['items'])
 
-            formatted['lastResponses'] = {}
+                    for itemIRI in formattedActivity['items']:
+                        if itemIRI not in updates['screen']:
+                            data['items'].pop(itemIRI)
+                            bufferSize += formattedActivity['items'][itemIRI].get('size', 0)
 
-            for activity in activities:
-                completed_time = activity['completed_time']
-                timezone = str(profile.get('timezone', 0))
-                if completed_time:
-                    if isinstance(timezone, str) and timezone in pytz.all_timezones:
-                        completed_time = activity['completed_time'].astimezone(pytz.timezone(timezone)).isoformat()
-                    else:
-                        completed_time = activity['completed_time'].isoformat()
+                        itemIRIs[itemIRI] = formattedActivity['items'][itemIRI]['_id'].split('/')[-1]
 
-                formatted['lastResponses'][str(activity['activity_id'])] = completed_time
+                if localVersion and updates:
+                    for itemIRI in updates['screen']:
+                        if itemIRI not in itemIRIs and updates['screen'][itemIRI] != 'created':
+                            formatted['removedItems'].append(itemIRI)
+
+                    for activityIRI in updates['activity']:
+                        if activityIRI not in formatted['activities'] and updates['activity'][activityIRI] != 'created':
+                            formatted['removedActivities'].append(activityIRI)
+
+                formatted.update(data)
+
+        if not nextActivity:
+            if retrieveSchedule:
+                schedule = self.getSchedule(
+                    applet,
+                    reviewer,
+                    retrieveAllEvents,
+                    eventFilter if not retrieveAllEvents else None,
+                    localInfo.get('localEvents', [])
+                )
+
+                if schedule:
+                    formatted["schedule"] = schedule
+
+            if retrieveResponses:
+                formatted["responses"] = last7Days(
+                    applet['_id'],
+                    applet,
+                    reviewer.get('_id'),
+                    reviewer,
+                    None,
+                    localInfo.get('startDate', None),
+                    True,
+                    groupByDateActivity,
+                    localInfo.get('localItems', []) or [],
+                    localInfo.get('localActivities', []) or []
+                )
+
+            if retrieveLastResponseTime:
+                profile = Profile().findOne({'appletId': applet['_id'], 'userId': reviewer['_id']})
+                activities = profile['completed_activities']
+
+                formatted['lastResponses'] = {}
+
+                for activity in activities:
+                    completed_time = activity['completed_time']
+                    timezone = str(profile.get('timezone', 0))
+                    if completed_time:
+                        if isinstance(timezone, str) and timezone in pytz.all_timezones:
+                            completed_time = activity['completed_time'].astimezone(pytz.timezone(timezone)).isoformat()
+                        else:
+                            completed_time = activity['completed_time'].isoformat()
+
+                    formatted['lastResponses'][str(activity['activity_id'])] = completed_time
+        else:
+            formatted.pop('applet')
+            formatted.pop('protocol')
 
         formatted["updated"] = applet['updated'].isoformat()
         formatted["id"] = applet['_id']
 
-        return formatted
+        return (nextIRI, formatted, bufferSize)
+
+    def getNextAppletData(self, activities, nextActivity, bufferSize):
+        from girderformindlogger.utility import jsonld_expander
+
+        collect = not nextActivity
+        buffer = {
+            'activities': {},
+            'items': {}
+        }
+
+        nextIRI = None
+        for activityIRI in activities:
+            if nextActivity == activityIRI:
+                collect = True
+
+            if not collect:
+                continue
+
+            if bufferSize < 0:
+                nextIRI = activityIRI
+                break
+
+            activity = ActivityModel().findOne({
+                '_id': ObjectId(activities[activityIRI])
+            })
+
+            formattedActivity = jsonld_expander.formatLdObject(
+                activity,
+                'activity'
+            )
+
+            buffer['activities'][activityIRI] = formattedActivity['activity']
+            buffer['items'].update(formattedActivity['items'])
+
+            bufferSize = bufferSize - activity.get('size', 0)
+
+        return (nextIRI, buffer, bufferSize)
 
     def getAppletUsers(self, applet, user=None, force=False, retrieveRoles=False, retrieveRequests=False):
         """
@@ -1776,8 +1880,9 @@ class Applet(FolderModel):
                 )
 
     def updateActivities(self, applet, obj):
-        activities = [ObjectId(obj['activities'][activity]['_id'].split('/')[-1])
-                      for activity in obj.get('activities', [])]
+        activities = [
+            ObjectId(obj['activities'][activity]) for activity in obj.get('activities', [])
+        ]
 
         self.update({'_id': ObjectId(applet['_id'])},
                     {'$set': {'meta.protocol.activities': activities}})

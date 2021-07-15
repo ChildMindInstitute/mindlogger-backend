@@ -58,6 +58,7 @@ installReqs = [
     'psutil==5.6.6',
     'pyld>=2.0.2',
     'pyOpenSSL',
+    'moment==0.12.1',
     'python-dateutil==2.6.1',
     'pytz',
     'qrcode[pil]',
@@ -70,7 +71,9 @@ installReqs = [
     'tzlocal>=1.5.1',
 	'pytest==6.2.2',
 	'pytest-cov==2.7.1',
-	'girder_client==3.0.3'
+	'girder_client==3.0.3',
+    'pyDH==0.1.6',
+    'ijson>=3.1.4'
 ]
 
 extrasReqs = {

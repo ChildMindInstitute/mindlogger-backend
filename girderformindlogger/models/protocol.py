@@ -30,8 +30,13 @@ from girderformindlogger.api.rest import getCurrentUser
 from girderformindlogger.constants import AccessType, SortDir, MODELS
 from girderformindlogger.exceptions import ValidationException, GirderException
 from girderformindlogger.models.folder import Folder as FolderModel
+from girderformindlogger.models.account_profile import AccountProfile
 from girderformindlogger.models.user import User as UserModel
+from bson import json_util
 from girderformindlogger.utility.progress import noProgress, setResponseTimeLimit
+from girderformindlogger.models.activity import Activity as ActivityModel
+from pymongo import DESCENDING, ASCENDING
+
 
 class Protocol(FolderModel):
     def importUrl(self, url, user=None, refreshCache=False):
@@ -44,6 +49,15 @@ class Protocol(FolderModel):
                 0
             ]
         )
+
+    def getImageAndDescription(self, protocol):
+        description = protocol.get('schema:description', [])
+        image = protocol.get('schema:image', '')
+
+        return {
+            'description': description[0]['@value'] if description else '',
+            'image': image
+        }
 
     def getCache(self, id):
         protocol = self.findOne({'_id': ObjectId(id)}, ['cached'])
@@ -151,46 +165,44 @@ class Protocol(FolderModel):
         }
 
         activityId2Key = {}
-
+        activityModel = ActivityModel()
         for activityKey in formatted['activities']:
-            activity = formatted['activities'][activityKey]
-            activityId = activity.pop('_id').split('/')[-1]
+            activityId = formatted['activities'][activityKey]
+
+            activity = activityModel.findOne({
+                '_id': ObjectId(activityId)
+            })
 
             for key in ['url', 'schema:url']:
                 if key in activity:
                     activity.pop(key)
+
+            expandedActivity = jsonld_expander.formatLdObject(activity, 'activity')
             protocol['activity'][activityKey] = {
                 'parentKey': 'protocol',
                 'parentId': formatted['protocol']['@id'],
-                'expanded': activity,
+                'expanded': expandedActivity['activity'],
                 'ref2Document': {
                     'duplicateOf': activityId
                 }
             }
-            activityId2Key[activityId] = activityKey
 
-        itemId2ActivityId = {}
-        
-        items = list(Screen().find({'meta.protocolId': protocolId}))
-        for item in items:
-            itemId2ActivityId[str(item['_id'])] = str(item['meta'].get('activityId', None))
+            for itemKey in expandedActivity['items']:
+                item = expandedActivity['items'][itemKey]
+                itemId = item.pop('_id').split('/')[-1]
 
-        for itemKey in formatted['items']:
-            item = formatted['items'][itemKey]
-            itemId = item.pop('_id').split('/')[-1]
+                for key in ['url', 'schema:url']:
+                    if key in item:
+                        item.pop(key)
 
-            for key in ['url', 'schema:url']:
-                if key in item:
-                    item.pop(key)
-
-            protocol['screen'][itemKey] = {
-                'parentKey': 'activity',
-                'parentId': activityId2Key[itemId2ActivityId[itemId]],
-                'expanded': item,
-                'ref2Document': {
-                    'duplicateOf': itemId
+                protocol['screen'][itemKey] = {
+                    'parentKey': 'activity',
+                    'parentId': activityKey,
+                    'expanded': item,
+                    'ref2Document': {
+                        'duplicateOf': itemId
+                    }
                 }
-            }
 
         protocolId = jsonld_expander.createProtocolFromExpandedDocument(protocol, editor)
 
@@ -258,6 +270,20 @@ class Protocol(FolderModel):
             protocol['meta']['contentId'] = contentFolder['_id']
             updated = True
 
+        if not protocol['meta'].get('contributionId'):
+            contributionFolder = FolderModel().createFolder(
+                name='contribution of ' + protocol['name'],
+                parent=protocol,
+                parentType='folder',
+                public=False,
+                creator=user,
+                allowRename=True,
+                reuseExisting=True
+            )
+
+            protocol['meta']['contributionId'] = contributionFolder['_id']
+            updated = True
+
         if updated:
             protocol = self.setMetadata(protocol, protocol['meta'])
 
@@ -267,42 +293,68 @@ class Protocol(FolderModel):
         from girderformindlogger.utility import jsonld_expander
         from girderformindlogger.models.item import Item as ItemModel
 
-        activities = list(FolderModel().find({ 'meta.protocolId': ObjectId(protocolId) }))
-        items = list(ItemModel().find({ 'meta.protocolId': ObjectId(protocolId) }))
+        activities = FolderModel().find({ 'meta.protocolId': ObjectId(protocolId) })
 
         protocol = self.load(protocolId, force=True)
         schemaVersion = protocol['meta'].get('protocol', {}).get('schema:version', None)
 
         currentVersion = schemaVersion[0].get('@value', '0.0.0') if schemaVersion else '0.0.0'
 
-        activityIdToHistoryObj = {}
+        activityIdToHistoryId = {}
+        modelClasses = {}
+
+        itemModel = ItemModel()
         for activity in activities:
             identifier = activity['meta'].get('activity', {}).get('url', None)
+
+            copiedActivity = copy.deepcopy(activity)
+
             if identifier:
-                activityId = str(activity['_id'])
+                activityId = str(copiedActivity['_id'])
                 if activityId in activityIDRef:
-                    activity['_id'] = activityIDRef[activityId]
-                    activityId = str(activityIDRef[activityId])
+                    copiedActivity['_id'] = activityIDRef[activityId]
+                    activityId = copiedActivity['_id']
 
-                activityIdToHistoryObj[activityId] = jsonld_expander.insertHistoryData(activity, identifier, 'activity', currentVersion, historyFolder, referencesFolder, user)
+                history = jsonld_expander.insertHistoryData(
+                    copiedActivity,
+                    identifier,
+                    'activity',
+                    currentVersion,
+                    historyFolder,
+                    referencesFolder,
+                    user,
+                    modelClasses
+                )
 
-        for item in items:
-            identifier = item['meta'].get('screen', {}).get('url', None)
-            if identifier:
-                if str(item['_id']) in itemIDRef:
-                    item['_id'] = itemIDRef[str(item['_id'])]
-
-                if str(item['meta']['activityId']) in activityIDRef:
-                    item['meta']['activityId'] = activityIDRef[str(item['meta']['activityId'])]
-
-                activityHistoryObj = activityIdToHistoryObj[str(item['meta']['activityId'])]
-
-                item['meta'].update({
-                    'originalActivityId': item['meta']['activityId'],
-                    'activityId': activityHistoryObj['_id']
+                items = itemModel.find({
+                    'meta.activityId': activity['_id'],
+                    'meta.protocolId': ObjectId(protocolId)
                 })
 
-                jsonld_expander.insertHistoryData(item, identifier, 'screen', currentVersion, historyFolder, referencesFolder, user)
+                for item in items:
+                    identifier = item['meta'].get('screen', {}).get('url', None)
+                    copiedItem = copy.deepcopy(item)
+                    if identifier:
+                        if str(copiedItem['_id']) in itemIDRef:
+                            copiedItem['_id'] = itemIDRef[str(copiedItem['_id'])]
+
+                        copiedItem['meta']['activityId'] = ObjectId(activityId)
+
+                        copiedItem['meta'].update({
+                            'originalActivityId': copiedItem['meta']['activityId'],
+                            'activityId': history['_id']
+                        })
+
+                        jsonld_expander.insertHistoryData(
+                            copiedItem,
+                            identifier,
+                            'screen',
+                            currentVersion,
+                            historyFolder,
+                            referencesFolder,
+                            user,
+                            modelClasses
+                        )
 
     def compareVersions(self, version1, version2):
         vs1 = version1.split('.')
@@ -382,7 +434,7 @@ class Protocol(FolderModel):
 
         return result
 
-    def getProtocolChanges(self, protocolId, localVersion, localUpdateTime):
+    def compareProtocols(self, protocolId, localVersion, localUpdateTime):
         from girderformindlogger.models.item import Item as ItemModel
 
         changeInfo = { 'screen': {}, 'activity': {} }
@@ -411,8 +463,8 @@ class Protocol(FolderModel):
             'meta.lastVersion': localVersion
         }))
 
-        updates = itemModel.find({ 
-            'folderId': referencesFolder['_id'], 
+        updates = itemModel.find({
+            'folderId': referencesFolder['_id'],
             'updated': {
                 '$gt': datetime.datetime.fromisoformat(localUpdateTime)
             }
@@ -445,3 +497,114 @@ class Protocol(FolderModel):
                     changeInfo[modelType][str(reference['meta']['identifier'])] = 'created'
 
         return (hasUrl, changeInfo)
+
+    def getContributions(self, protocolId):
+        from girderformindlogger.utility import jsonld_expander
+        from girderformindlogger.models.item import Item as ItemModel
+
+        protocol = self.load(protocolId, force=True)
+
+        if not protocol.get('meta', {}).get('contributionId', None):
+            return {}
+
+        contributions = list(ItemModel().find({
+            'folderId': protocol['meta']['contributionId']
+        }))
+
+        result = {}
+
+        accountID2Name = {}
+        appletId2Name = {}
+
+        for item in contributions:
+            formattedItem = json_util.loads(item['content'])
+
+            baseAccountId = item['meta']['baseAccountId']
+            baseAppletId = item['meta']['baseAppletId']
+
+            if str(baseAccountId) not in accountID2Name:
+                account = AccountProfile().getOwner(baseAccountId)
+                accountID2Name[str(baseAccountId)] = account['accountName']
+
+            if str(baseAppletId) not in appletId2Name:
+                applet = FolderModel().findOne({
+                    '_id': baseAppletId
+                })
+                appletId2Name[str(baseAppletId)] = applet['meta']['applet'].get('displayName', '')
+
+            result[str(item['meta']['itemId'])] = {
+                'content': formattedItem,
+                'baseItem': {
+                    'account': accountID2Name[str(baseAccountId)],
+                    'applet': appletId2Name[str(baseAppletId)],
+                    'created': item['meta']['created'],
+                    'updated': item['meta'].get('updated'),
+                    'version': item['meta'].get('version', '0.0.0')
+                }
+            }
+
+        return result
+
+    def getProtocolUpdates(self, protocolId):
+        from girderformindlogger.utility import jsonld_expander
+        from girderformindlogger.models.item import Item as ItemModel
+
+        itemModel = ItemModel()
+
+        items = list(itemModel.find({
+            'meta.protocolId': ObjectId(protocolId)
+        }))
+
+        updates = {}
+        editors = {}
+
+        protocol = self.load(protocolId, force=True)
+
+        versions = list(itemModel.find({
+            'folderId': protocol['meta']['contentId'],
+        }, fields=['version'], sort=[("created", DESCENDING)])) if 'contentId' in protocol['meta'] else []
+
+        nextVersion = {}
+        for i in range(0, len(versions)-1):
+            nextVersion[versions[i+1]['version']] = versions[i]['version']
+
+        currentVersion = protocol['meta']['protocol'].get(
+            'schema:version', [{}]
+        )[0].get('@value', '0.0.0')
+
+
+        userModel = UserModel()
+
+        itemVersion = {}
+        if 'historyId' in protocol['meta']:
+            historyFolder = FolderModel().load(protocol['meta']['historyId'], force=True)
+
+            if 'referenceId' in historyFolder.get('meta', {}):
+                referencesFolder = FolderModel().load(historyFolder['meta']['referenceId'], force=True)
+                references = itemModel.find({'folderId': referencesFolder['_id']}, fields=['meta.identifier', 'meta.lastVersion'])
+                for reference in references:
+                    version = reference['meta']['lastVersion']
+                    version = nextVersion[version] if version in nextVersion else currentVersion
+
+                    itemVersion[reference['meta']['identifier']] = version
+
+        for item in items:
+            if 'identifier' in item['meta'] and 'lastUpdatedBy' in item:
+                editorId = str(item['lastUpdatedBy'])
+
+                if editorId not in editors:
+                    user = userModel.findOne({
+                        '_id': item['lastUpdatedBy']
+                    })
+
+                    editors[editorId] = user['firstName']
+
+                identifier = item['meta']['identifier']
+                updates[identifier] = {
+                    'created': item['created'],
+                    'updated': item['updated'],
+                    'lastUpdatedBy': editors[editorId],
+                    'version': itemVersion[identifier] if identifier in itemVersion else versions[-1]['version']
+                }
+
+        return updates

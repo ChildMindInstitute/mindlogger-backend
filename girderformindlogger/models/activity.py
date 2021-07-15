@@ -27,7 +27,6 @@ from bson.objectid import ObjectId
 from girderformindlogger import events
 from girderformindlogger.constants import AccessType, SortDir
 from girderformindlogger.exceptions import ValidationException, GirderException
-from girderformindlogger.models.applet import Applet as AppletModel
 from girderformindlogger.models.collection import Collection as CollectionModel
 from girderformindlogger.models.folder import Folder
 from girderformindlogger.utility.progress import noProgress, setResponseTimeLimit
@@ -129,6 +128,15 @@ class Activity(Folder):
                     "Invalid Activity ID."
                 )
 
+    def disableConditionals(self, activity):
+        properties = activity.get('reprolib:terms/addProperties', [])
+
+        for itemProperty in properties:
+            itemProperty['reprolib:terms/isVis'] = [{
+                '@value': True
+            }]
+
+        return activity
 
     def load(self, id, level=AccessType.ADMIN, user=None, objectId=True,
              force=False, fields=None, exc=False, refreshCache=False):
