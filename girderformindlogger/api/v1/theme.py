@@ -21,7 +21,7 @@
 
 from ..describe import Description, autoDescribeRoute
 from ..rest import Resource
-from girderformindlogger.utility.validate import isValidImageUrl
+from girderformindlogger.utility.validate import isValidImageUrl, isValidHexColor
 from girderformindlogger.api import access
 from girderformindlogger.constants import TokenScope
 from girderformindlogger.exceptions import AccessException, ValidationException
@@ -43,9 +43,53 @@ def findThemeById(themeId=None):
     
     if theme==None:
         return None
-    
+
     else:
         return theme.get('meta')
+
+
+def validateThemeColor(color, fieldName=None):
+    """"
+    check that the theme color matches a 6 charater hex code.
+    returns True or raises a ValidationException
+    """
+    if not isValidHexColor(color):
+        raise ValidationException(
+            f"{fieldName} is not a valid hex color. Provided colors must be valid hexadecimal, start with '#' and contain 6 characters e.g.: #09AFaf")
+
+    return True
+
+
+def validateTheme(name=None,
+                logo=None,
+                backgroundImage=None,
+                primaryColor=None,
+                secondaryColor=None,
+                tertiaryColor=None):
+    """"
+    check that provided inputs to a theme definition pass validation checks or are None
+    returns True or raises ValidationException
+    """
+    
+    if logo:
+        if not isValidImageUrl(logo):
+            raise ValidationException("logo url is not a valid url. example valid url: https://sitename.com/image.png")
+
+    if backgroundImage:
+        if not isValidImageUrl(backgroundImage):
+            raise ValidationException("backgroundImage url is not a valid url. example valid url: https://sitename.com/image.png")
+
+    if primaryColor:
+        validateThemeColor(color=primaryColor, fieldName="primaryColor")
+
+    if secondaryColor:
+        validateThemeColor(color=secondaryColor, fieldName="secondaryColor")
+
+    if tertiaryColor:
+        validateThemeColor(color=tertiaryColor, fieldName="tertiaryColor")
+
+    return True
+
 
 
 class Theme(Resource):
@@ -154,6 +198,13 @@ class Theme(Resource):
 
         themeCollection = self.findThemeCollection()
 
+        validateTheme(name=name,
+                logo=logo,
+                backgroundImage=backgroundImage,
+                primaryColor=primaryColor,
+                secondaryColor=secondaryColor,
+                tertiaryColor=tertiaryColor)
+
         newTheme = FolderModel().createFolder(
                         parent=themeCollection,
                         name=name,
@@ -161,15 +212,6 @@ class Theme(Resource):
                         public=True,
                         creator=user,
                         allowRename=False)
-
-        urlsAreValid=True
-        if logo:
-            if not isValidImageUrl(logo):
-                raise ValidationException("logo url is not a valid url. example valid url: https://sitename.com/image.png")
-
-        if backgroundImage:
-            if not isValidImageUrl(backgroundImage):
-                raise ValidationException("backgroundImage url is not a valid url. example valid url: https://sitename.com/image.png")
 
         themeSettings =  {
             "name":newTheme['name'],
@@ -308,16 +350,13 @@ class Theme(Resource):
 
         if theme==None:
             raise ValidationException(f"theme not found for id: {id}")
-
-        if logo:
-            if not isValidImageUrl(logo):
-                raise ValidationException("logo url is not a valid url. example valid url: https://sitename.com/image.png")
-
-
-        if backgroundImage:
-            if not isValidImageUrl(backgroundImage):
-                raise ValidationException("backgroundImage url is not a valid url. example valid url: https://sitename.com/image.png")
-
+        
+        validateTheme(name=name,
+                      logo=logo,
+                      backgroundImage=backgroundImage,
+                      primaryColor=primaryColor,
+                      secondaryColor=secondaryColor,
+                      tertiaryColor=tertiaryColor)
 
         #  update the folder's name field (outside of the metadata object)
         if name:

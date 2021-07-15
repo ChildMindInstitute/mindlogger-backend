@@ -95,3 +95,17 @@ def isValidImageUrl(url):
         result = isUrlValid(url)
         
     return result
+
+def isValidHexColor(input_str):
+ 
+    # Regex to check valid
+    # hexadecimal color code.
+    if input_str == None:
+        return False
+
+    pattern = "^#([A-Fa-f0-9]{6})$"
+    res = re.fullmatch(pattern,input_str)
+    if res:
+        return True
+    else:
+        return False
