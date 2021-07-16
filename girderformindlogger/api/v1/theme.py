@@ -135,8 +135,7 @@ class Theme(Resource):
         return theme
 
 
-    # @access.admin(scope=TokenScope.DATA_WRITE)
-    @access.public
+    @access.admin(scope=TokenScope.DATA_WRITE)
     @autoDescribeRoute(
         Description('Create a new theme.')
         .notes(
@@ -191,10 +190,10 @@ class Theme(Resource):
         """
         Create a theme
         """
-        user = self.getCurrentUser()
-        #### TO DO -> require admin permission to create Theme
-        # if user is not an admin :
-        #     raise AccessException("You must be an administrator to create a Theme.")
+        currentUser = self.getCurrentUser()
+        
+        if not currentUser or not currentUser['admin']:
+            raise AccessException("You must be an administrator to create a Theme.")
 
         themeCollection = self.findThemeCollection()
 
@@ -283,8 +282,7 @@ class Theme(Resource):
             return response
 
 
-    # @access.admin(scope=TokenScope.DATA_WRITE)
-    @access.public
+    @access.admin(scope=TokenScope.DATA_WRITE)
     @autoDescribeRoute(
         Description('Update an existing theme.')
         .notes(
@@ -379,8 +377,7 @@ class Theme(Resource):
         return updatedTheme
 
 
-    # @access.admin
-    @access.public
+    @access.admin
     @autoDescribeRoute(
         Description('delete a theme by ID.')
         .notes(
@@ -397,6 +394,10 @@ class Theme(Resource):
         """
         delete a theme by ID.
         """
+        currentUser = self.getCurrentUser()
+
+        if not currentUser or not currentUser['admin']:
+            raise AccessException("You must be an administrator to delete a Theme.")
 
         theme = FolderModel().findOne({"_id":ObjectId(str(id))})
         if theme==None:
