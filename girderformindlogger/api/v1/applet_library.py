@@ -2,6 +2,7 @@
 from ..rest import Resource
 from ..describe import Description, autoDescribeRoute
 from girderformindlogger.api import access
+from girderformindlogger.exceptions import AccessException, ValidationException
 from girderformindlogger.models.applet_library import AppletLibrary as AppletLibraryModel
 from girderformindlogger.constants import AccessType, SortDir, TokenScope,     \
     DEFINED_INFORMANTS, REPROLIB_CANONICAL, SPECIAL_SUBJECTS, USER_ROLES, MAX_PULL_SIZE
@@ -28,9 +29,10 @@ class AppletLibrary(Resource):
         self._model = AppletLibraryModel()
 
         self.route('GET', ('applets',), self.getApplets)
+        self.route('GET', ('applet',), self.getApplet)
         self.route('GET', ('categories',), self.getCategories)
         self.route('GET', (':id', 'checkName',), self.checkAppletName)
-        self.route('GET', ('applet', 'content'), self.getPublishedApplet)
+        self.route('GET', ('applet', 'content'), self.getPublishedContent)
 
         self.route('POST', ('categories',), self.addCategory)
         self.route('POST', ('basket', ), self.setBasket)
@@ -89,32 +91,7 @@ class AppletLibrary(Resource):
 
         protocolId = applet.get('meta', {}).get('protocol', {}).get('_id', '').split('/')[-1]
 
-        items = list(ItemModel().find({
-            'meta.protocolId': ObjectId(protocolId)
-        }))
-
-        updates = {}
-        editors = {}
-
-        userModel = UserModel()
-        for item in items:
-            if 'identifier' in item['meta'] and 'lastUpdatedBy' in item:
-                editorId = str(item['lastUpdatedBy'])
-
-                if editorId not in editors:
-                    user = userModel.findOne({
-                        '_id': item['lastUpdatedBy']
-                    })
-
-                    editors[editorId] = user['firstName']
-
-                updates[item['meta']['identifier']] = {
-                    'updated': item['updated'],
-                    'lastUpdatedBy': editors[editorId]
-                }
-
-        return updates
-
+        return ProtocolModel().getProtocolUpdates(protocolId)
 
     @access.user(scope=TokenScope.DATA_OWN)
     @autoDescribeRoute(
@@ -416,6 +393,38 @@ class AppletLibrary(Resource):
 
     @access.public
     @autoDescribeRoute(
+        Description('Get Published Applet.')
+        .notes(
+            'Get an applet published in the library.'
+        )
+        .param(
+            'libraryId',
+            description='ID of the applet in the library',
+            required=True
+        )
+    )
+    def getApplet(self, libraryId):
+        libraryApplet = self._model.findOne({
+            '_id': ObjectId(libraryId)
+        }, fields=self._model.metaFields)
+
+        if not libraryApplet:
+            raise ValidationException('invalid applet')
+
+        return {
+            'id': libraryApplet['_id'],
+            'appletId': libraryApplet['appletId'],
+            'name': libraryApplet['name'],
+            'accountId': libraryApplet['accountId'],
+            'categoryId': libraryApplet['categoryId'],
+            'subCategoryId': libraryApplet['subCategoryId'],
+            'keywords': libraryApplet['keywords'],
+            'description': libraryApplet.get('description'),
+            'image': libraryApplet.get('image')
+        }
+
+    @access.public
+    @autoDescribeRoute(
         Description('Get Content of an applet.')
         .notes(
             'Get Content of published applet.'
@@ -432,10 +441,13 @@ class AppletLibrary(Resource):
             required=False,
         )
     )
-    def getPublishedApplet(self, libraryId, nextActivity):
+    def getPublishedContent(self, libraryId, nextActivity):
         libraryApplet = self._model.findOne({
             '_id': ObjectId(libraryId)
         }, fields=self._model.metaFields)
+
+        if not libraryApplet:
+            raise ValidationException('invalid applet')
 
         appletModel = AppletModel()
         applet = appletModel.findOne({

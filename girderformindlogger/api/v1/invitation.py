@@ -156,6 +156,8 @@ class Invitation(Resource):
         """
         Accept an invitation.
         """
+        from girderformindlogger.models.profile import Profile
+
         currentUser = self.getCurrentUser()
         if currentUser is None or not email:
             raise AccessException(
@@ -167,10 +169,18 @@ class Invitation(Resource):
         invitation = InvitationModel().findOne({ '_id': ObjectId(id) })
 
         if not invitation:
-            return InvitationModel().getMessageForAlreadyAcceptedInvitation(id, currentUser)
+            return InvitationModel().getMessageForAlreadyAcceptedInvitation(
+                id,
+                currentUser.get("lang", "en")
+            )
 
         if invitation.get('role', 'user') == 'owner':
-            profile = AppletModel().receiveOwnerShip(AppletModel().load(invitation['appletId'], force=True), currentUser, email)
+            AppletModel().receiveOwnerShip(
+                AppletModel().load(invitation['appletId'], force=True),
+                currentUser,
+                email,
+                invitation['_id']
+            )
         else:
             profile = InvitationModel().acceptInvitation(invitation, currentUser, email)
 
@@ -210,6 +220,8 @@ class Invitation(Resource):
         """
         Accept an invitation.
         """
+        from girderformindlogger.models.profile import Profile
+
         currentUser = Token().load(
             token,
             force=True,
@@ -226,10 +238,18 @@ class Invitation(Resource):
         invitation = InvitationModel().findOne({ '_id': ObjectId(id) })
 
         if not invitation:
-            return InvitationModel().getMessageForAlreadyAcceptedInvitation(id, currentUser)
+            return InvitationModel().getMessageForAlreadyAcceptedInvitation(
+                id,
+                currentUser.get("lang", "en")
+            )
 
         if invitation.get('role', 'user') == 'owner':
-            AppletModel().receiveOwnerShip(AppletModel().load(invitation['appletId'], force=True), currentUser, email)
+            AppletModel().receiveOwnerShip(
+                AppletModel().load(invitation['appletId'], force=True),
+                currentUser,
+                email,
+                invitation['_id']
+            )
         else:
             profile = InvitationModel().acceptInvitation(invitation, currentUser, email)
 
@@ -259,7 +279,10 @@ class Invitation(Resource):
         invitation = InvitationModel().findOne({ '_id': ObjectId(id) })
 
         if not invitation:
-            return InvitationModel().getMessageForAlreadyAcceptedInvitation(id, currentUser)
+            return InvitationModel().getMessageForAlreadyAcceptedInvitation(
+                id,
+                currentUser.get("lang", "en")
+            )
 
         InvitationModel().remove(invitation)
         return {
