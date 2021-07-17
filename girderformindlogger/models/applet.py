@@ -1834,14 +1834,14 @@ class Applet(FolderModel):
             )}
 
         inviteLink['createdBy']['creatorId'] = coordinator['_id']
-        
-        self.update({'_id': ObjectId(appletId)},
-                    {'$set': {'inviteLink':inviteLink}})
-        
-        return inviteLink
-    
 
-    def replaceInviteLink(self, appletId, coordinator):
+        self.update({'_id': ObjectId(appletId)},
+                    {'$set': {'publicLink':inviteLink}})
+
+        return inviteLink
+
+
+    def createPublicLink(self, appletId, coordinator):
         """"
         coordinator: person creating the link
         """
@@ -1852,21 +1852,20 @@ class Applet(FolderModel):
                 appletId,
                 coordinator)
         updates = {
-            'inviteLink.id' : newId,
-            'inviteLink.updated':now,
-            'inviteLink.createdBy': profile
-            }
+            'publicLink.id' : newId,
+            'publicLink.updated':now,
+            'publicLink.createdBy': profile
+        }
+
         self.update({'_id': ObjectId(appletId)},
                     {'$set': updates})
 
         applet = self.findOne({'_id': ObjectId(appletId)})
 
-        print("applet['inviteLink']: ",applet['inviteLink']) 
-        
-        return applet['inviteLink']
+        return applet['publicLink']
 
 
-    def deleteInviteLink(self, appletId, coordinator, keep_record=False):
+    def deletePublicLink(self, appletId, coordinator, keep_record=False):
         """"
         coordinator: person creating the link
         """
@@ -1886,7 +1885,7 @@ class Applet(FolderModel):
 
         else:
             response = self.update({'_id': ObjectId(appletId)},
-                        {'$unset': {'inviteLink':1}})
+                        {'$unset': {'publicLink':1}})
             print('response: ', response)
 
         return response
