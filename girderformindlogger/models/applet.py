@@ -1841,7 +1841,7 @@ class Applet(FolderModel):
         return inviteLink
 
 
-    def createPublicLink(self, appletId, coordinator):
+    def createPublicLink(self, appletId, coordinator, requireLogin):
         """"
         coordinator: person creating the link
         """
@@ -1854,7 +1854,8 @@ class Applet(FolderModel):
         updates = {
             'publicLink.id' : newId,
             'publicLink.updated':now,
-            'publicLink.createdBy': profile
+            'publicLink.createdBy': profile,
+            'publicLink.requireLogin': requireLogin
         }
 
         self.update({'_id': ObjectId(appletId)},

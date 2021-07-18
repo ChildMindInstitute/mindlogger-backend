@@ -1804,9 +1804,15 @@ class Applet(Resource):
             level=AccessType.ADMIN,
             destName='applet'
         )
+        .param(
+            'requireLogin',
+            'if true, require user to create account to take assessment',
+            required=True,
+            dataType='boolean',
+        )
         .errorResponse('invite link already exists for this applet', 403)
     )
-    def createPublicLink(self, applet):
+    def createPublicLink(self, applet, requireLogin):
         self.shield("inviteUser")
 
         thisUser = self.getCurrentUser()
@@ -1818,12 +1824,13 @@ class Applet(Resource):
         #check if a link already exists
         if 'publicLink' in applet:
             if 'id' in applet['publicLink']:
-                raise ValidationException('invite link already exists for this applet')
+                raise ValidationException('public link already exists for this applet')
 
-        inviteLink = self._model.createPublicLink(applet['_id'], thisUser)
+        inviteLink = self._model.createPublicLink(applet['_id'], thisUser, requireLogin)
 
         return {
-            'inviteId':inviteLink['id']
+            'inviteId': inviteLink['id'],
+            'requireLogin': inviteLink.get('requireLogin', True)
         }
 
 
@@ -1843,8 +1850,8 @@ class Applet(Resource):
     def getPublicLink(
         self,
         applet,
-        ):
-        self.shield("inviteUser")
+    ):
+        self.shield('inviteUser')
 
         thisUser = self.getCurrentUser()
         appletProfile = ProfileModel().findOne({'appletId': applet['_id'], 'userId': thisUser['_id']})
@@ -1852,11 +1859,10 @@ class Applet(Resource):
         if not appletProfile or ('coordinator' not in appletProfile.get('roles', []) and 'manager' not in appletProfile.get('roles', [])):
             raise AccessException('You don\'t have enough permission to view the open invitation for this applet')
 
-        if "publicLink" in applet:
-
-            publicLinkId = applet['publicLink']["id"]
+        if 'publicLink' in applet:
             return {
-                'inviteId': publicLinkId,
+                'inviteId': applet['publicLink']['id'],
+                'requireLogin': applet['publicLink'].get('requireLogin', True)
             }
 
         else:
@@ -1891,6 +1897,7 @@ class Applet(Resource):
 
         return {
             'inviteId':inviteLink['id'],
+            'requireLogin': applet['publicLink'].get('requireLogin', True)
         }
 
     @access.user(scope=TokenScope.DATA_WRITE)
@@ -1932,7 +1939,10 @@ class Applet(Resource):
         userEmail = user.get('email')
 
         # find applet using invite id
-        applet = AppletModel().findOne({'inviteLink.id':inviteLinkId})
+        applet = AppletModel().findOne({
+            'publicLink.id':inviteLinkId,
+            'publicLink.requireLogin': True
+        })
 
         if not applet:
             raise ValidationException('invalid invite link')
@@ -1975,7 +1985,10 @@ class Applet(Resource):
     def viewInviteLinkInfo(self, inviteLinkId):
 
         # find applet from invite id
-        applet = AppletModel().findOne({'inviteLink.id':inviteLinkId})
+        applet = AppletModel().findOne({
+            'publicLink.id': inviteLinkId,
+            'publicLink.requireLogin': True
+        })
         if applet:
             resp = applet['meta']['applet']
         else:
