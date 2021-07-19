@@ -714,28 +714,31 @@ class User(Resource):
                 collect = True
 
             if applet.get('cached') and collect:
-                nextIRI, data, remaining = AppletModel().appletFormatted(
-                    applet=applet,
-                    reviewer=reviewer,
-                    role=role,
-                    retrieveSchedule=retrieveSchedule,
-                    retrieveAllEvents=retrieveAllEvents,
-                    eventFilter=(currentUserDate, numberOfDays) if numberOfDays else None,
-                    retrieveResponses=retrieveResponses,
-                    groupByDateActivity=groupByDateActivity,
-                    retrieveLastResponseTime=retrieveLastResponseTime,
-                    localInfo=localInfo.get(str(applet['_id']), {}) if localInfo else {},
-                    nextActivity=nextActivity,
-                    bufferSize=bufferSize,
-                )
+                try:
+                    nextIRI, data, remaining = AppletModel().appletFormatted(
+                        applet=applet,
+                        reviewer=reviewer,
+                        role=role,
+                        retrieveSchedule=retrieveSchedule,
+                        retrieveAllEvents=retrieveAllEvents,
+                        eventFilter=(currentUserDate, numberOfDays) if numberOfDays else None,
+                        retrieveResponses=retrieveResponses,
+                        groupByDateActivity=groupByDateActivity,
+                        retrieveLastResponseTime=retrieveLastResponseTime,
+                        localInfo=localInfo.get(str(applet['_id']), {}) if localInfo else {},
+                        nextActivity=nextActivity,
+                        bufferSize=bufferSize,
+                    )
 
-                bufferSize = remaining
+                    bufferSize = remaining
 
-                result.append(data)
+                    result.append(data)
 
-                nextActivity = nextIRI
-                if nextIRI:
-                    break
+                    nextActivity = nextIRI
+                    if nextIRI:
+                        break
+                except:
+                    nextActivity = None
 
         return {
             'data': result,
@@ -822,11 +825,16 @@ class User(Resource):
         for account in accounts:
             applets = account.get('applets', {})
             if len(applets.get('reviewer', [])) or len(applets.get('coordinator', [])) or len(applets.get('editor', [])) or len(applets.get('manager', [])):
-                response.append({
+                accountInfo = {
                     'accountName': account['accountName'],
                     'accountId': account['accountId'],
                     'owned': (account['_id'] == account['accountId'])
-                })
+                }
+
+                if accountInfo['owned']:
+                    accountInfo['isDefaultName'] = False if user['accountName'] else True
+
+                response.append(accountInfo)
 
         return response
 
@@ -1422,7 +1430,7 @@ class User(Resource):
 
         web_url = os.getenv('WEB_URI') or 'localhost:8081'
 
-        url = 'https://%s/#/useraccount/%s/token/%s?lang=%s' % (
+        url = 'https://%s/useraccount/%s/token/%s?lang=%s' % (
             web_url, str(user['_id']), str(token['_id']), lang)
 
         html = mail_utils.renderTemplate(f'temporaryAccess.{lang}.mako', {

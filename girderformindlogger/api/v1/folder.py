@@ -185,6 +185,8 @@ class Folder(Resource):
 
                 formatted['updated'] = applet['updated']
                 formatted['accountId'] = applet['accountId']
+                formatted['hasUrl'] = (applet['meta'].get('protocol', {}).get('url', None) != None)
+                formatted['published'] = applet['meta'].get('published', False)
 
                 if _applet.get('_pin_order'):
                     formatted['pinOrder']=_applet['_pin_order']

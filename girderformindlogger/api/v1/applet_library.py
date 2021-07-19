@@ -2,6 +2,7 @@
 from ..rest import Resource
 from ..describe import Description, autoDescribeRoute
 from girderformindlogger.api import access
+from girderformindlogger.exceptions import AccessException, ValidationException
 from girderformindlogger.models.applet_library import AppletLibrary as AppletLibraryModel
 from girderformindlogger.constants import AccessType, SortDir, TokenScope,     \
     DEFINED_INFORMANTS, REPROLIB_CANONICAL, SPECIAL_SUBJECTS, USER_ROLES, MAX_PULL_SIZE
@@ -28,13 +29,15 @@ class AppletLibrary(Resource):
         self._model = AppletLibraryModel()
 
         self.route('GET', ('applets',), self.getApplets)
+        self.route('GET', ('applet',), self.getApplet)
         self.route('GET', ('categories',), self.getCategories)
         self.route('GET', (':id', 'checkName',), self.checkAppletName)
-        self.route('GET', ('applet', 'content'), self.getPublishedApplet)
+        self.route('GET', ('applet', 'content'), self.getPublishedContent)
 
         self.route('POST', ('categories',), self.addCategory)
         self.route('POST', ('basket', ), self.setBasket)
         self.route('GET', ('basket', ), self.getBasket)
+        self.route('PUT', ('basket', 'applets',), self.getAppletsForBasket)
         self.route('GET', ('basket', 'content',), self.getBasketContent)
         self.route('PUT', ('basket', 'selection'), self.updateBasket)
         self.route('DELETE', ('basket', 'applet'), self.deleteAppletFromBasket)
@@ -56,7 +59,7 @@ class AppletLibrary(Resource):
     def getProtocolContributions(self, libraryId):
         libraryApplet = self._model.findOne({
             '_id': ObjectId(libraryId)
-        })
+        }, fields=self._model.metaFields)
 
         applet = AppletModel().findOne({
             '_id': libraryApplet['appletId']
@@ -80,7 +83,7 @@ class AppletLibrary(Resource):
     def getProtocolUpdates(self, libraryId):
         libraryApplet = self._model.findOne({
             '_id': ObjectId(libraryId)
-        })
+        }, fields=self._model.metaFields)
 
         applet = AppletModel().findOne({
             '_id': libraryApplet['appletId']
@@ -88,32 +91,7 @@ class AppletLibrary(Resource):
 
         protocolId = applet.get('meta', {}).get('protocol', {}).get('_id', '').split('/')[-1]
 
-        items = list(ItemModel().find({
-            'meta.protocolId': ObjectId(protocolId)
-        }))
-
-        updates = {}
-        editors = {}
-
-        userModel = UserModel()
-        for item in items:
-            if 'identifier' in item['meta'] and 'lastUpdatedBy' in item:
-                editorId = str(item['lastUpdatedBy'])
-
-                if editorId not in editors:
-                    user = userModel.findOne({
-                        '_id': item['lastUpdatedBy']
-                    })
-
-                    editors[editorId] = user['firstName']
-
-                updates[item['meta']['identifier']] = {
-                    'updated': item['updated'],
-                    'lastUpdatedBy': editors[editorId]
-                }
-
-        return updates
-
+        return ProtocolModel().getProtocolUpdates(protocolId)
 
     @access.user(scope=TokenScope.DATA_OWN)
     @autoDescribeRoute(
@@ -209,6 +187,8 @@ class AppletLibrary(Resource):
 
                     if items: # select specific items
                         itemIDToIRI = {}
+                        content['activities'][activityIRI] = activityModel.disableConditionals(formattedActivity['activity'])
+
                         for itemIRI in formattedActivity['items']:
                             itemID = formattedActivity['items'][itemIRI]['_id'].split('/')[-1]
                             itemIDToIRI[itemID] = itemIRI
@@ -227,6 +207,57 @@ class AppletLibrary(Resource):
                 result[appletId] = content
 
         return result
+
+    @access.user(scope=TokenScope.DATA_OWN)
+    @autoDescribeRoute(
+        Description('Get applets used in basket.')
+        .notes(
+            'This endpoint is used for getting all applets used in basket'
+        )
+        .jsonParam(
+            'basket',
+            'json data containing basket selection',
+            required=False,
+            default=None
+        )
+    )
+    def getAppletsForBasket(self, basket):
+        user = self.getCurrentUser()
+
+        if not basket:
+            basket = AppletBasket().getBasket(user['_id'])
+
+        appletIds = []
+        for appletId in basket:
+            appletIds.append(ObjectId(appletId))
+
+        libraryApplets = list(
+            self._model.find({
+                'appletId': {
+                    '$in': appletIds
+                }
+            }, fields=self._model.metaFields)
+        )
+
+        def getSortKey(applet):
+            return applet['name'].lower()
+        libraryApplets.sort(key=getSortKey)
+
+        data = []
+        for libraryApplet in libraryApplets:
+            data.append({
+                'id': libraryApplet['_id'],
+                'appletId': libraryApplet['appletId'],
+                'name': libraryApplet['name'],
+                'accountId': libraryApplet['accountId'],
+                'categoryId': libraryApplet['categoryId'],
+                'subCategoryId': libraryApplet['subCategoryId'],
+                'keywords': libraryApplet['keywords'],
+                'description': libraryApplet.get('description'),
+                'image': libraryApplet.get('image')
+            })
+
+        return data
 
     @access.user(scope=TokenScope.DATA_OWN)
     @autoDescribeRoute(
@@ -286,9 +317,48 @@ class AppletLibrary(Resource):
         .notes(
             'Get applets published in the library.'
         )
+        .param(
+            'recordsPerPage',
+            'records per page',
+            required=False,
+            dataType='integer',
+            default=5
+        )
+        .param(
+            'pageIndex',
+            'page index',
+            dataType='integer',
+            required=False,
+            default=0
+        )
+        .param(
+            'searchText',
+            'search text',
+            required=False,
+            default=''
+        )
     )
-    def getApplets(self):
-        libraryApplets = list(self._model.find({}, sort=[("name", ASCENDING)]))
+    def getApplets(self, recordsPerPage, pageIndex, searchText):
+        keys = ['name', 'keywords', 'description', 'activities.name', 'activities.items.name']
+        libraryApplets = list(
+            self._model.find({
+                '$or': [
+                    {
+                        key: {
+                            '$regex': f'{searchText}',
+                            '$options' :'i'
+                        }
+                    } for key in keys
+                ]
+            }, fields=self._model.metaFields)
+        )
+
+        def getSortKey(applet):
+            return applet['name'].lower()
+        libraryApplets.sort(key=getSortKey)
+
+        totalCount = len(libraryApplets)
+        libraryApplets = libraryApplets[recordsPerPage * pageIndex: recordsPerPage * pageIndex + recordsPerPage]
 
         appletIds = []
         for libraryApplet in libraryApplets:
@@ -302,13 +372,9 @@ class AppletLibrary(Resource):
             }
         }))
 
-        appletMetaInfoById = {}
-        for applet in applets:
-            appletMetaInfoById[str(applet['_id'])] = appletModel.getAppletMeta(applet)
-
-        result = []
+        data = []
         for libraryApplet in libraryApplets:
-            result.append({
+            data.append({
                 'id': libraryApplet['_id'],
                 'appletId': libraryApplet['appletId'],
                 'name': libraryApplet['name'],
@@ -316,11 +382,46 @@ class AppletLibrary(Resource):
                 'categoryId': libraryApplet['categoryId'],
                 'subCategoryId': libraryApplet['subCategoryId'],
                 'keywords': libraryApplet['keywords'],
-                'description': appletMetaInfoById[str(libraryApplet['appletId'])].get('description', ''),
-                'image': appletMetaInfoById[str(libraryApplet['appletId'])].get('image', '')
+                'description': libraryApplet.get('description'),
+                'image': libraryApplet.get('image')
             })
 
-        return result
+        return {
+            'totalCount': totalCount,
+            'data': data
+        }
+
+    @access.public
+    @autoDescribeRoute(
+        Description('Get Published Applet.')
+        .notes(
+            'Get an applet published in the library.'
+        )
+        .param(
+            'libraryId',
+            description='ID of the applet in the library',
+            required=True
+        )
+    )
+    def getApplet(self, libraryId):
+        libraryApplet = self._model.findOne({
+            '_id': ObjectId(libraryId)
+        }, fields=self._model.metaFields)
+
+        if not libraryApplet:
+            raise ValidationException('invalid applet')
+
+        return {
+            'id': libraryApplet['_id'],
+            'appletId': libraryApplet['appletId'],
+            'name': libraryApplet['name'],
+            'accountId': libraryApplet['accountId'],
+            'categoryId': libraryApplet['categoryId'],
+            'subCategoryId': libraryApplet['subCategoryId'],
+            'keywords': libraryApplet['keywords'],
+            'description': libraryApplet.get('description'),
+            'image': libraryApplet.get('image')
+        }
 
     @access.public
     @autoDescribeRoute(
@@ -340,10 +441,13 @@ class AppletLibrary(Resource):
             required=False,
         )
     )
-    def getPublishedApplet(self, libraryId, nextActivity):
+    def getPublishedContent(self, libraryId, nextActivity):
         libraryApplet = self._model.findOne({
             '_id': ObjectId(libraryId)
-        })
+        }, fields=self._model.metaFields)
+
+        if not libraryApplet:
+            raise ValidationException('invalid applet')
 
         appletModel = AppletModel()
         applet = appletModel.findOne({
@@ -411,7 +515,7 @@ class AppletLibrary(Resource):
             'appletId': {
                 '$ne': applet['_id']
             }
-        })
+        }, fields=self._model.metaFields)
 
         if existing:
             return False

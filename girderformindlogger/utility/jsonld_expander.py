@@ -330,7 +330,16 @@ def createProtocolFromExpandedDocument(protocol, user, editExisting=False, remov
                         metadata['identifier'] = '{}/{}'.format(metadata['activityId'], str(item['_id']))
 
                         if editExisting:
-                            insertHistoryData(None, '{}/{}'.format(metadata['activityId'], str(item['_id'])), modelType, baseVersion, historyFolder, historyReferenceFolder, user, modelClasses)
+                            insertHistoryData(
+                                None,
+                                '{}/{}'.format(metadata['activityId'], str(item['_id'])),
+                                modelType,
+                                baseVersion,
+                                historyFolder,
+                                historyReferenceFolder,
+                                user,
+                                modelClasses
+                            )
 
                     newModel = modelClass.setMetadata(
                         item,
@@ -626,6 +635,7 @@ def updateContributions(protocol, document, user):
 
     ## log new contributions
     appletIdToAccountId = {}
+    appletIdToVersion = {}
 
     for activity in document['protocol']['activities'].values():
         if 'items' in activity:
@@ -648,15 +658,21 @@ def updateContributions(protocol, document, user):
                         'baseItemId': baseItem['_id'],
                         'itemId': item['_id'],
                         'baseAppletId': ObjectId(item['baseAppletId']),
-                        'created': baseItem['created']
+                        'created': baseItem['created'],
+                        'updated': baseItem['updated'],
+                        'lastUpdatedBy': baseItem.get('lastUpdatedBy', baseItem.get('creatorId'))
                     }
                     appletId = str(contribution['meta']['baseAppletId'])
 
                     if appletId not in appletIdToAccountId:
                         applet = FolderModel().findOne({'_id': ObjectId(appletId)})
+                        formatted = formatLdObject(applet, 'applet', None, refreshCache=False)
+
+                        appletIdToVersion[appletId] = formatted['applet'].get('schema:schemaVersion', [{}])[0].get('@value', '0.0.0')
                         appletIdToAccountId[appletId] = applet['accountId']
 
                     contribution['meta']['baseAccountId'] = appletIdToAccountId[appletId]
+                    contribution['meta']['version'] = appletIdToVersion[appletId]
 
                     if baseItem.get('cached', None):
                         cache = loadCache(baseItem['cached'])
@@ -739,8 +755,8 @@ def loadFromSingleFile(document, user, editExisting=False):
     protocolId = createProtocolFromExpandedDocument(protocol, user, editExisting, document.get('removed', {}), document.get('baseVersion', None))
     protocol = ProtocolModel().load(protocolId, force=True)
 
-    cacheProtocolContent(protocol, document, user, editExisting)
     updateContributions(protocol, document, user)
+    cacheProtocolContent(protocol, document, user, editExisting)
 
     return formatLdObject(
         protocol,

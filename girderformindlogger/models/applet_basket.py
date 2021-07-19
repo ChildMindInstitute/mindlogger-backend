@@ -36,7 +36,7 @@ class AppletBasket(AccessControlledModel):
         return document
 
     def updateSelection(self, userId, appletId, selection):
-        libraryApplet = AppletLibrary().findOne({'appletId': appletId})
+        libraryApplet = AppletLibrary().findOne({'appletId': appletId}, fields=['_id'])
 
         if not libraryApplet:
             raise AccessException("Unable to find published applet with specified id.")
@@ -56,30 +56,20 @@ class AppletBasket(AccessControlledModel):
         if not selection:
             document['selection'] = None
         else:
+            document['selection'] = []
+
             for activitySelection in selection:
                 activityId = ObjectId(activitySelection['activityId'])
                 items = activitySelection.get('items', None)
 
                 updated = False
 
-                if not document.get('selection', []):
-                    document['selection'] = []
-
-                for activitySelection in document['selection']:
-                    if activitySelection['activityId'] == activityId:
-                        updated = True
-
-                        activitySelection['items'] = [
-                            ObjectId(itemId) for itemId in items
-                        ] if items is not None else None
-
-                if not updated:
-                    document['selection'].append({
-                        'activityId': activityId,
-                        'items': [
-                            ObjectId(itemId) for itemId in items
-                        ] if items is not None else None
-                    })
+                document['selection'].append({
+                    'activityId': activityId,
+                    'items': [
+                        ObjectId(itemId) for itemId in items
+                    ] if items is not None else None
+                })
 
         self.save(document)
 

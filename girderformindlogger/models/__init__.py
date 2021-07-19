@@ -136,93 +136,38 @@ def pluralize(modelType):
 
 
 def cycleModels(IRIset, modelType=None, meta={}):
-    from girderformindlogger.constants import HIERARCHY, REPROLIB_TYPES
+    from girderformindlogger.constants import REPROLIB_TYPES
     from girderformindlogger.models.folder import Folder as FolderModel
     from girderformindlogger.models.item import Item as ItemModel
-    from girderformindlogger.utility.jsonld_expander import reprolibCanonize
 
     cachedDoc = None
-    primary = [modelType] if isinstance(modelType, str) else [
-    ] if modelType is None else modelType
-    secondary = [m for m in HIERARCHY if m not in primary]
 
-    del modelType
+    if not modelType:
+        if 'appletId' in meta:
+            modelType = 'protocol'
+        elif 'activityId' in meta:
+            modelType = 'screen'
+        elif 'protocolId' in meta:
+            modelType = 'activity'
+        else:
+            return (None, None)
+    else:
+        if isinstance(modelType, list):
+            modelType = modelType[0]
 
-    if len(primary):
-        query = {
-            '$and': [
-                { # search by type
-                    '$or': [{
-                        'meta.{}.@type'.format(modelType): {
-                            "$in": [
-                                t for t in [
-                                    reprolibCanonize(
-                                        REPROLIB_TYPES[modelType]
-                                    ),
-                                    'reproschema:{}'.format(suffix),
-                                    'reprolib:{}'.format(suffix),
-                                    'reprolib:schemas/{}'.format(suffix),
-                                    suffix
-                                ] if t is not None
-                            ] for suffix in [
-                                REPROLIB_TYPES[modelType].split('/')[-1]
-                            ]
-                        }
-                    } for modelType in primary if modelType in REPROLIB_TYPES]
-                },
-                { # search by url
-                    '$or': [{
-                        'meta.{}.url'.format(modelType): {
-                            '$in': list(IRIset)
-                        }
-                    } for modelType in primary if modelType in REPROLIB_TYPES]
-                },
-                *[{
-                    'meta.{}'.format(key): meta[key]
-                } for key in meta]
-            ]
+    reprolibType = REPROLIB_TYPES[modelType]
+
+    query = {
+        'meta.{}.@type'.format(modelType): reprolibType,
+        'meta.{}.url'.format(modelType): {
+            '$in': list(IRIset)
         }
-        cachedDoc = (FolderModel() if not any([
-            'screen' in primary,
-            'item' in primary
-        ]) else ItemModel()).findOne(query)
-    if cachedDoc is None:
-        query = {
-            '$and': [
-                {
-                    '$or': [{
-                        'meta.{}.@type'.format(modelType): {
-                            "$in": [
-                                t for t in [
-                                    reprolibCanonize(
-                                        REPROLIB_TYPES[modelType]
-                                    ),
-                                    'reproschema:{}'.format(suffix),
-                                    'reprolib:{}'.format(suffix),
-                                    'reprolib:schemas/{}'.format(suffix),
-                                    suffix
-                                ] if t is not None
-                            ] for suffix in [
-                                REPROLIB_TYPES[modelType].split('/')[-1]
-                            ]
-                        }
-                    } for modelType in secondary if modelType in REPROLIB_TYPES]
-                },
-                {
-                    '$or': [{
-                        'meta.{}.url'.format(modelType): {
-                            '$in': list(IRIset)
-                        }
-                    } for modelType in secondary if modelType in REPROLIB_TYPES]
-                },
-                *[{
-                    'meta.{}'.format(key): meta[key]
-                } for key in meta]
-            ]
-        }
-        cachedDoc = FolderModel().findOne(query)
-    if cachedDoc is None:
-        cachedDoc = ItemModel().findOne(query)
+    }
+
+    for key in meta:
+        query['meta.{}'.format(key)] = meta[key]
+
+    cachedDoc = ItemModel().findOne(query) if modelType == 'screen' else FolderModel().findOne(query)
 
     if cachedDoc is None:
         return(None, None)

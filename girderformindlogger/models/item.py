@@ -46,10 +46,10 @@ class Item(acl_mixin.AccessControlMixin, Model):
                     ('updated', 1),
                 ], {}),
                 ([
-                    ('folderId', 1),
-                    ('name', 1),
                     ('meta.screen.@type', 1),
-                    ('meta.screen.url', 1)
+                    ('meta.screen.url', 1),
+                    ('meta.protocolId', 1),
+                    ('meta.activityId', 1),
                 ], {}),
                 ([
                     ('baseParentId', 1),
