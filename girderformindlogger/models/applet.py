@@ -27,6 +27,7 @@ import threading
 import re
 import pytz
 import ijson
+from uuid import uuid4
 
 from bson.objectid import ObjectId
 from girderformindlogger import events
@@ -1815,6 +1816,81 @@ class Applet(FolderModel):
                 })
 
         return invitations
+
+
+    def createInviteLink(self, appletId, coordinator):
+        """"
+        coordinator: person creating the link
+        """
+        now = datetime.datetime.utcnow()
+
+        inviteLink = {
+            'id': str(uuid4())[:18],
+            'created': now,
+            'updated': now,
+            'createdBy': Profile().coordinatorProfile(
+                appletId,
+                coordinator
+            )}
+
+        inviteLink['createdBy']['creatorId'] = coordinator['_id']
+        
+        self.update({'_id': ObjectId(appletId)},
+                    {'$set': {'inviteLink':inviteLink}})
+        
+        return inviteLink
+    
+
+    def replaceInviteLink(self, appletId, coordinator):
+        """"
+        coordinator: person creating the link
+        """
+        now = datetime.datetime.utcnow()
+
+        newId = str(uuid4())[:18]
+        profile = Profile().coordinatorProfile(
+                appletId,
+                coordinator)
+        updates = {
+            'inviteLink.id' : newId,
+            'inviteLink.updated':now,
+            'inviteLink.createdBy': profile
+            }
+        self.update({'_id': ObjectId(appletId)},
+                    {'$set': updates})
+
+        applet = self.findOne({'_id': ObjectId(appletId)})
+
+        print("applet['inviteLink']: ",applet['inviteLink']) 
+        
+        return applet['inviteLink']
+
+
+    def deleteInviteLink(self, appletId, coordinator, keep_record=False):
+        """"
+        coordinator: person creating the link
+        """
+        if keep_record:
+            now = datetime.datetime.utcnow()
+            profile = Profile().coordinatorProfile(
+                    appletId,
+                    coordinator)
+            updates = {
+                'inviteLink.updated':now,
+                'inviteLink.createdBy': profile
+                }
+            self.update({'_id': ObjectId(appletId)},
+                        {'$set': updates})
+            response = self.update({'_id': ObjectId(appletId)},
+                        {'$unset': {'inviteLink.id':1}})
+
+        else:
+            response = self.update({'_id': ObjectId(appletId)},
+                        {'$unset': {'inviteLink':1}})
+            print('response: ', response)
+
+        return response
+
 
     def load(self, id, level=AccessType.ADMIN, user=None, objectId=True,
              force=False, fields=None, exc=False):
