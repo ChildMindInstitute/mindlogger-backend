@@ -530,7 +530,7 @@ class ResponseItem(Resource):
                 updateInfo.get('userPublicKey', None)
             )
 
-    @access.user(scope=TokenScope.DATA_WRITE)
+    @access.public
     @autoDescribeRoute(
         Description('Create a new user response item.')
         .notes(
@@ -596,17 +596,30 @@ class ResponseItem(Resource):
                 )
             }
             informant = self.getCurrentUser()
-            subject_id = subject_id if subject_id else str(
-                informant['_id']
-            )
 
-            profile = Profile().findOne({
-                'appletId': applet['_id'],
-                'userId': ObjectId(subject_id)
-            })
-            subject_id = profile.get('_id')
+            if informant:
+                subject_id = subject_id if subject_id else str(
+                    informant['_id']
+                )
 
-            print(subject_id)
+                profile = Profile().findOne({
+                    'appletId': applet['_id'],
+                    'userId': ObjectId(subject_id)
+                })
+                subject_id = profile.get('_id')
+            else:
+                publicId = metadata.get('publicId')
+                appletPublicLink = applet.get('publicLink')
+
+                if appletPublicLink and publicId and not appletPublicLink['requireLogin'] and appletPublicLink['id'] == publicId:
+                    profile = Profile().createFakeProfile(applet)
+                    subject_id = profile.get('_id')
+                else:
+                    raise AccessException('access is denied')
+
+                informant = {
+                    '_id': subject_id
+                }
 
             if isinstance(metadata.get('subject'), dict):
                 metadata['subject']['@id'] = subject_id

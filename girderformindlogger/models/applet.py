@@ -1818,29 +1818,6 @@ class Applet(FolderModel):
         return invitations
 
 
-    def createInviteLink(self, appletId, coordinator):
-        """"
-        coordinator: person creating the link
-        """
-        now = datetime.datetime.utcnow()
-
-        inviteLink = {
-            'id': str(uuid4())[:18],
-            'created': now,
-            'updated': now,
-            'createdBy': Profile().coordinatorProfile(
-                appletId,
-                coordinator
-            )}
-
-        inviteLink['createdBy']['creatorId'] = coordinator['_id']
-
-        self.update({'_id': ObjectId(appletId)},
-                    {'$set': {'publicLink':inviteLink}})
-
-        return inviteLink
-
-
     def createPublicLink(self, appletId, coordinator, requireLogin):
         """"
         coordinator: person creating the link

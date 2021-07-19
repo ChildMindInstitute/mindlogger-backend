@@ -80,6 +80,7 @@ class Applet(Resource):
         self.route('POST', (':id', 'inviteUser'), self.inviteUser)
         self.route('POST', (':id', 'publicLink'), self.createPublicLink)
         self.route('GET', (':id', 'publicLink'), self.getPublicLink)
+        self.route('GET', ('public', ':publicId', 'data'), self.getAppletFromPublicLink)
         self.route('PUT', (':id', 'publicLink'), self.replacePublicLink)
         self.route('DELETE', (':id', 'publicLink'), self.deletePublicLink)
 
@@ -1311,6 +1312,49 @@ class Applet(Resource):
 
         return(data)
 
+    @access.public
+    @autoDescribeRoute(
+        Description('Get applet data from public id.')
+        .notes(
+            'This endpoint returns applet data from public id.'
+        )
+        .param(
+            'publicId',
+            'public id of applet',
+            required=True
+        )
+        .param(
+            'nextActivity',
+            'id of next activity',
+            default=None,
+            required=False,
+        )
+    )
+    def getAppletFromPublicLink(self, publicId, nextActivity):
+        applet = self._model.findOne({
+            'publicLink.id': publicId,
+            'publicLink.requireLogin': False
+        })
+
+        if not applet:
+            raise AccessException('unable to find applet with specified public id')
+
+        formatted = jsonld_expander.formatLdObject(applet, 'applet', None, refreshCache=False)
+
+        (nextIRI, data, remaining) = self._model.getNextAppletData(formatted['activities'], nextActivity, MAX_PULL_SIZE)
+
+        if nextActivity:
+            return {
+                'nextActivity': nextIRI,
+                **data
+            }
+
+        formatted['updated'] = applet['updated']
+        formatted['accountId'] = applet['accountId']
+        formatted['nextActivity'] = nextIRI
+
+        formatted.update(data)
+        return formatted
 
     @access.user(scope=TokenScope.DATA_WRITE)
     @autoDescribeRoute(
@@ -1893,7 +1937,7 @@ class Applet(Resource):
         if 'publicLink' not in applet:
             raise ValidationException('invite link does not exist for this applet')
 
-        inviteLink = self._model.replacePublicLink(applet['_id'], thisUser)
+        inviteLink = self._model.createPublicLink(applet['_id'], thisUser)
 
         return {
             'inviteId':inviteLink['id'],
