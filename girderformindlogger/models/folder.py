@@ -49,7 +49,7 @@ class Folder(AccessControlledModel):
                     ('meta.activity.url', 1),
                     ('meta.appletId', 1)
                 ], {}),
-                'inviteLink.id',
+                'publicLink.id',
             )
         )
         self.ensureTextIndex({
