@@ -324,17 +324,19 @@ class Applet(FolderModel):
         if 'description' not in meta or 'image' not in meta:
             from girderformindlogger.utility import jsonld_expander
             formatted = jsonld_expander.formatLdObject(applet)
-            description = formatted['applet'].get('schema:description', [])
-            image = formatted['applet'].get('schema:image', '')
 
-            meta.update({
-                'description': description[0]['@value'] if description else '',
-                'image': image
-            })
+            if 'applet' in formatted:
+                description = formatted['applet'].get('schema:description', [])
+                image = formatted['applet'].get('schema:image', '')
 
-            applet['meta']['applet'] = meta
+                meta.update({
+                    'description': description[0]['@value'] if description else '',
+                    'image': image
+                })
 
-            self.setMetadata(applet, metadata=applet['meta'])
+                applet['meta']['applet'] = meta
+
+                self.setMetadata(applet, metadata=applet['meta'])
 
         if '_id' in meta:
             meta.pop('_id')
