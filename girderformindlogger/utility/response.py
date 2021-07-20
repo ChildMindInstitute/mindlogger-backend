@@ -452,7 +452,8 @@ def add_latest_daily_response(data, responses, tokens):
 
         date = response['meta'].get('subject', {}).get('userTime').isoformat()
         version = response['meta'].get('applet', {}).get('version', '0.0.0')
-        key_dump = json_util.dumps(response['meta']['userPublicKey'])
+
+        key_dump = json_util.dumps(response['meta'].get('userPublicKey'))
 
         for item in response['meta']['responses']:
             if item not in data['responses']:
@@ -525,11 +526,11 @@ def add_latest_daily_response(data, responses, tokens):
 def _oneResponsePerDatePerVersion(responses, offset):
     newResponses = {}
     for response in responses:
-   
+
         df = pd.DataFrame(responses[response])
 
         df["datetime"] = df.date
-    
+
         df["date"] = df.date + timedelta(hours=offset)
         df["date"] = df.date.apply(determine_date)
         df["versionValue"] = df.version.apply(convertToComparableVersion)
