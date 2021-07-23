@@ -124,6 +124,40 @@ Windows
 
       deactivate
 
+Docker
+######
+
+The database and api can be run using docker-compose for local development purposes.
+
+1. make sure docker is running. For example:
+
+   .. code-block:: shell
+
+      docker -v
+         Docker version 20.10.7, build f0df350
+
+
+2. run the db and api.
+
+   .. code-block:: shell
+
+      docker-compose -f docker-compose.local.yml up
+
+
+The first time this command is run will take a few minutes as the images are downloaded and built.
+
+3. make some changes to your local code and restart the girderformindlogger container to see the changes.
+
+   .. code-block:: shell
+
+      docker-compose -f docker-compose.local.yml restart girderformindlogger
+
+or  
+
+   .. code-block:: shell
+
+      docker restart mindlogger-backend_girderformindlogger_1
+
 Deployment
 ----------
 

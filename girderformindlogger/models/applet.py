@@ -54,6 +54,7 @@ from bson import json_util
 from girderformindlogger.utility import mail_utils
 from girderformindlogger.i18n import t
 from datetime import datetime as dt
+from girderformindlogger.api.v1.theme import findThemeById
 
 RETENTION_SET = {
     'day': 1,
@@ -76,7 +77,8 @@ class Applet(FolderModel):
         constraints=None,
         appletRole='editor',
         accountId=None,
-        encryption={}
+        encryption={},
+        themeId=None
     ):
         """
         Method to create an Applet.
@@ -92,6 +94,8 @@ class Applet(FolderModel):
         :type roles: dict or None
         :param constraints: Constraints to set to this Applet
         :type constraints: dict or None
+        :param themeId:ObjectId for the theme to for styling the applet
+        :type themeId: string or None
         """
         from girderformindlogger.utility import jsonld_expander
         from girderformindlogger.models.protocol import Protocol
@@ -129,7 +133,8 @@ class Applet(FolderModel):
         metadata['applet'].update({
             'displayName': name,
             'largeApplet': isLargeApplet,
-            'editing': False
+            'editing': False,
+            'themeId':themeId
         })
 
         applet = self.setMetadata(
@@ -776,7 +781,8 @@ class Applet(FolderModel):
         sendEmail=True,
         appletRole='editor',
         accountId=None,
-        encryption={}
+        encryption={},
+        themeId=None
     ):
         from girderformindlogger.models.protocol import Protocol
         from girderformindlogger.utility import mail_utils
@@ -824,7 +830,8 @@ class Applet(FolderModel):
                 },
                 appletRole=appletRole,
                 accountId=accountId,
-                encryption=encryption
+                encryption=encryption,
+                themeId=themeId
             )
 
             html = mail_utils.renderTemplate(f'appletUploadSuccess.{user.get("lang", "en")}.mako', {
@@ -1565,7 +1572,8 @@ class Applet(FolderModel):
                 "groups": self.getAppletGroups(
                     applet,
                     arrayOfObjects=True
-                )
+                ),
+                "theme": findThemeById(themeId=applet['meta']['applet'].get('themeId'))
             } if role in ["coordinator", "manager"] else {
                 **jsonld_expander.formatLdObject(
                     applet,
@@ -1587,7 +1595,8 @@ class Applet(FolderModel):
                                 *reviewer.get('declinedInvites', [])
                             ]]
                         ]
-                ]
+                ],
+                "theme": findThemeById(themeId=applet['meta']['applet'].get('themeId'))
             }
 
             formatted['removedActivities'] = []
@@ -1943,3 +1952,12 @@ class Applet(FolderModel):
                     {'$set': {'meta.protocol.activities': activities}})
 
         return activities
+
+
+    def setAppletTheme(self, applet, themeId):
+        """set object Id for a particular theme"""
+
+        applet['meta']['applet'].update({"themeId": str(themeId)})
+        self.save(applet)
+
+        return 

@@ -1,0 +1,42 @@
+version: '3'
+
+services:
+  db:
+    image: mongo:4-bionic
+    ports:
+      - 27017:27017
+      - 27018:27018
+      - 27019:27019
+    volumes:
+      - "mongovolume:/data/db"
+      - ./mongo-local-init.sh:/docker-entrypoint-initdb.d/mongo-init.sh
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: mongouser
+      MONGO_INITDB_ROOT_PASSWORD: mongopass
+      MONGO_INITDB_DATABASE: girderformindlogger
+    command: ["--auth"]
+
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile.local.dev
+    volumes: 
+      - "./girderformindlogger:/mindlogger-backend/girderformindlogger"
+    ports:
+      - "8081:8081"
+    environment:
+      HTTP_HOST: localhost
+      GIRDER_PORT: 8081
+      SECRET_ACCESS_KEY: 1
+      ACCESS_KEY_ID: 1co
+      LC_ALL: C.UTF-8
+      LANG: C.UTF-8
+    command: >
+      sh -c "echo 'wait 10s for db to start' &&
+             sleep 10 &&
+             girderformindlogger serve --host 0.0.0.0 --database mongodb://mongouser:mongopass@db:27017/girderformindlogger
+      "
+
+volumes:
+  mongovolume:
+      driver: local

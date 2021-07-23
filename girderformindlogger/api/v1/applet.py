@@ -97,10 +97,10 @@ class Applet(Resource):
         self.route('GET', (':id', 'invitations'), self.getAppletInvitations)
         self.route('DELETE', (':id',), self.deactivateApplet)
         self.route('POST', ('fromJSON', ), self.createAppletFromProtocolData)
+        self.route('PUT', (':id', 'fromJSON'), self.updateAppletFromProtocolData)
         self.route('GET', (':id', 'protocolData'), self.getProtocolData)
         self.route('GET', (':id', 'versions'), self.getProtocolVersions)
         self.route('PUT', (':id', 'prepare',), self.prepareAppletForEdit)
-        self.route('PUT', (':id', 'fromJSON'), self.updateAppletFromProtocolData)
         self.route('POST', (':id', 'duplicate', ), self.duplicateApplet)
         self.route('POST', ('setBadge',), self.setBadgeCount)
         self.route('PUT', (':id', 'transferOwnerShip', ), self.transferOwnerShip)
@@ -111,6 +111,7 @@ class Applet(Resource):
         self.route('PUT', (':id', 'searchTerms'), self.updateAppletSearch)
         self.route('GET', (':id', 'searchTerms'), self.getAppletSearch)
         self.route('GET', (':id', 'libraryUrl'), self.getAppletLibraryUrl)
+        self.route('POST', (':id', 'setTheme', ), self.setAppletTheme)
 
     @access.user(scope=TokenScope.DATA_WRITE)
     @autoDescribeRoute(
@@ -1087,9 +1088,16 @@ class Applet(Resource):
             paramType='form',
             required=False
         )
+        .param(
+            'themeId',
+            'id of the theme to apply to this applet. Sets a logo, background image and main colors',
+            paramType='string',
+            default=None,
+            required=False
+        )
         .errorResponse('Write access was denied for this applet.', 403)
     )
-    def createAppletFromProtocolData(self, protocol, email='', name=None, informant=None, encryption={}):
+    def createAppletFromProtocolData(self, protocol, email='', name=None, informant=None, encryption={}, themeId=None):
         accountProfile = AccountProfile()
 
         thisUser = self.getCurrentUser()
@@ -1116,7 +1124,8 @@ class Applet(Resource):
                 } if informant is not None else None,
                 'appletRole': appletRole,
                 'accountId': profile['accountId'],
-                'encryption': encryption
+                'encryption': encryption,
+                'themeId':str(themeId)
             }
         )
         thread.start()
@@ -1156,7 +1165,7 @@ class Applet(Resource):
 
     @access.user(scope=TokenScope.DATA_WRITE)
     @autoDescribeRoute(
-        Description('Create an applet.')
+        Description('Update an applet')
         .notes(
             'This endpoint is used to update existing applet. <br>'
             '(updating applet will take few seconds.)'
@@ -1179,25 +1188,41 @@ class Applet(Resource):
             paramType='form',
             required=False
         )
+        .param(
+            'themeId',
+            'id of the theme to apply to this applet. Sets a logo, background image and main colors',
+            paramType='string',
+            default=None,
+            required=False
+        )
         .errorResponse('Write access was denied for this applet.', 403)
     )
-    def updateAppletFromProtocolData(self, applet, name, protocol):
+    def updateAppletFromProtocolData(self, applet, name, protocol, themeId=None):
         thisUser = self.getCurrentUser()
         profile = ProfileModel().findOne({
             'appletId': applet['_id'],
             'userId': thisUser['_id']
         })
 
+        if profile == None:
+            raise ValidationException("no applet found for this combination of user and applet id")
+
         if 'editor' not in profile.get('roles', []) and 'manager' not in profile.get('roles', []):
             raise AccessException("You don't have enough permission to update this applet.")
+        
+        if protocol:
+            AppletModel().updateAppletFromProtocolData(
+                applet=applet,
+                name=name,
+                content=protocol,
+                user=thisUser,
+                accountId=applet['accountId']
+            )
 
-        AppletModel().updateAppletFromProtocolData(
-            applet=applet,
-            name=name,
-            content=protocol,
-            user=thisUser,
-            accountId=applet['accountId']
-        )
+        # update theme
+        if themeId:
+            applet = AppletModel().findOne({"_id":applet['_id']})
+            AppletModel().setAppletTheme(applet, themeId)
 
         return {
             'message': 'success'
@@ -1500,6 +1525,7 @@ class Applet(Resource):
         formatted['updated'] = applet['updated']
         formatted['accountId'] = applet['accountId']
         formatted['nextActivity'] = nextIRI
+        formatted['applet']['themeId'] = applet['meta']['applet']['themeId']
         formatted.update(data)
 
         return formatted
@@ -2294,6 +2320,40 @@ class Applet(Resource):
                 event['id'] = savedEvent['_id']
 
         return schedule if rewrite else EventsModel().getSchedule(applet['_id'])
+
+
+    # @access.user(scope=TokenScope.DATA_WRITE)
+    @autoDescribeRoute(
+        Description('Set or update the id of the theme to style the applet with')
+        .notes(
+            'this endpoint is used for setting a theme for styling an applet, usually an institutions logo and color pallete <br>'
+            'only coordinator/managers are able to make request to this endpoint. <br>'
+        )
+        .modelParam(
+            'id',
+            model=AppletModel,
+            level=AccessType.READ,
+            destName='applet'
+        )
+        .param(
+            'themeId',
+            'objectId for the theme to assign',
+            dataType='string',
+            required=True
+        )
+        .errorResponse('Invalid applet ID.')
+        .errorResponse('Read access was denied for this applet.', 403)
+    )
+    def setAppletTheme(self, applet, themeId):
+        thisUser = self.getCurrentUser()
+        #### TO DO -> if not AppletModel().isCoordinator(applet['_id'], thisUser):
+        #     raise AccessException(
+        #         "Only coordinators and managers can update applet themes."
+        #     )
+
+        AppletModel().setAppletTheme(applet, themeId)
+        
+        return
 
 
 def authorizeReviewer(applet, reviewer, user):
