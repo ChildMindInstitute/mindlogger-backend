@@ -1209,7 +1209,7 @@ class Applet(Resource):
 
         if 'editor' not in profile.get('roles', []) and 'manager' not in profile.get('roles', []):
             raise AccessException("You don't have enough permission to update this applet.")
-        
+
         if protocol:
             AppletModel().updateAppletFromProtocolData(
                 applet=applet,
@@ -1525,7 +1525,7 @@ class Applet(Resource):
         formatted['updated'] = applet['updated']
         formatted['accountId'] = applet['accountId']
         formatted['nextActivity'] = nextIRI
-        formatted['applet']['themeId'] = applet['meta']['applet']['themeId']
+        formatted['applet']['themeId'] = applet['meta']['applet'].get('themeId')
         formatted.update(data)
 
         return formatted
@@ -2352,7 +2352,7 @@ class Applet(Resource):
         #     )
 
         AppletModel().setAppletTheme(applet, themeId)
-        
+
         return
 
 
