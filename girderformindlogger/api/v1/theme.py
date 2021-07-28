@@ -35,12 +35,12 @@ from bson.objectid import ObjectId
 
 def findThemeById(themeId=None):
     """use the theme id to look up the logo, colors etc. for a theme.
-    if themeId or a theme is not found, returns None""" 
-    if themeId==None:
+    if themeId or a theme is not found, returns None"""
+    if str(themeId)=='None':
         return None
 
     theme = FolderModel().findOne({"_id":ObjectId(str(themeId))})
-    
+
     if theme==None:
         return None
 
@@ -70,7 +70,7 @@ def validateTheme(name=None,
     check that provided inputs to a theme definition pass validation checks or are None
     returns True or raises ValidationException
     """
-    
+
     if logo:
         if not isValidImageUrl(logo):
             raise ValidationException("logo url is not a valid url. example valid url: https://sitename.com/image.png")
@@ -124,11 +124,11 @@ class Theme(Resource):
         themeSettings
         ):
         """
-        save updates to the meta field of a theme folder. 
-        query the db to return the updated document 
+        save updates to the meta field of a theme folder.
+        query the db to return the updated document
         """
 
-        theme['meta'].update(themeSettings)        
+        theme['meta'].update(themeSettings)
         FolderModel().save(theme, validate=False)
         theme = FolderModel().findOne({'_id': ObjectId(theme['_id'])})
 
@@ -191,7 +191,7 @@ class Theme(Resource):
         Create a theme
         """
         currentUser = self.getCurrentUser()
-        
+
         if not currentUser or not currentUser['admin']:
             raise AccessException("You must be an administrator to create a Theme.")
 
@@ -249,7 +249,7 @@ class Theme(Resource):
         Get a theme as a json document.
         """
 
-        if name: 
+        if name:
             theme = FolderModel().findOne({"name":str(name)})
             if theme==None:
                 raise ValidationException(f"theme not found for id: {id}")
@@ -278,7 +278,7 @@ class Theme(Resource):
                 if themeSettings != {}:
                     themeSettings["_id"] = theme["_id"]
                     response.append(themeSettings)
-            
+
             return response
 
 
@@ -342,13 +342,13 @@ class Theme(Resource):
         ):
         """
         endpoint for updating a theme
-        """        
+        """
         #get existing theme document
         theme = FolderModel().findOne({"_id":ObjectId(str(id))})
 
         if theme==None:
             raise ValidationException(f"theme not found for id: {id}")
-        
+
         validateTheme(name=name,
                       logo=logo,
                       backgroundImage=backgroundImage,
