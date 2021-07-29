@@ -597,17 +597,7 @@ class ResponseItem(Resource):
             }
             informant = self.getCurrentUser()
 
-            if informant:
-                subject_id = subject_id if subject_id else str(
-                    informant['_id']
-                )
-
-                profile = Profile().findOne({
-                    'appletId': applet['_id'],
-                    'userId': ObjectId(subject_id)
-                })
-                subject_id = profile.get('_id')
-            else:
+            if metadata.get('publicId'):
                 publicId = metadata.get('publicId')
                 appletPublicLink = applet.get('publicLink')
 
@@ -620,6 +610,19 @@ class ResponseItem(Resource):
                 informant = {
                     '_id': subject_id
                 }
+            else:
+                if not informant:
+                    raise AccessException('access is denied')
+
+                subject_id = subject_id if subject_id else str(
+                    informant['_id']
+                )
+
+                profile = Profile().findOne({
+                    'appletId': applet['_id'],
+                    'userId': ObjectId(subject_id)
+                })
+                subject_id = profile.get('_id')
 
             if isinstance(metadata.get('subject'), dict):
                 metadata['subject']['@id'] = subject_id
