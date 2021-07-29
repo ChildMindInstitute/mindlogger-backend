@@ -162,19 +162,19 @@ class Theme(Resource):
         )
         .param(
             'primaryColor',
-            'set the main color for styling the applet. Used for header, footer, navbar and buttons',
+            'set the main color for styling the applet. Used for header, footer, navbar and buttons. Must be valid hexadecimal, start with # and contain 6 characters e.g.: #09AFaf',
             dataType='string',
             required=False
         )
         .param(
             'secondaryColor',
-            'Set a secondary color',
+            'Set a secondary color. Must be valid hexadecimal, start with # and contain 6 characters e.g.: #09AFaf',
             dataType='string',
             required=False
         )
         .param(
             'tertiaryColor',
-            'Set a tertiary color',
+            'Set a tertiary color/ Must be valid hexadecimal, start with # and contain 6 characters e.g.: #09AFaf',
             dataType='string',
             required=False
         )
@@ -314,7 +314,7 @@ class Theme(Resource):
         )
         .param(
             'primaryColor',
-            'set the main color for styling the applet. Used for header, footer, navbar and buttons',
+            'set the main color for styling the applet. Used for header, footer, navbar and buttons. ',
             dataType='string',
             required=False
         )
