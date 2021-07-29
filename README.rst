@@ -415,7 +415,7 @@ As a site admin, you should see an Admin console link in the left-side navigatio
 
 **Important:** The **1st theme** added to the database is selected as the default theme for all new applets.
 
-2. Using the API GUI, you can add themes with different logos, colors etc. (see fields here https://api-staging.mindlogger.org/api/v1#/theme ). Make sure to manually check before posting a new theme that the image urls are publicly accessible and that the image's format is compatible with the appearance in the app.  
+2. Using the API GUI, you can add themes with different logos, colors etc. (see fields here https://api.mindlogger.org/api/v1#/theme ). Make sure to manually check before posting a new theme that the image urls are publicly accessible and that the image's format is compatible with the appearance in the app.  
 
 See an example of the logo, background image and colors applied in the app here: https://github.com/ChildMindInstitute/mindlogger-app/issues/1864  
 
