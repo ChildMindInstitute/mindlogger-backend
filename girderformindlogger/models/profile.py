@@ -999,7 +999,7 @@ class Profile(AESEncryption, dict):
             ],
             'firstName': '',
             'lastName': '',
-            'MRN': 'Fake'
+            'MRN': 'Guest Account Submission'
         }
 
         self.setPublic(profile, False, save=False)
