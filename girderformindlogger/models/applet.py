@@ -1613,7 +1613,9 @@ class Applet(FolderModel):
                     formatted.update(data)
 
                     if updates:
-                        formatted['removedActivities'] = list(updates['activity'].keys())
+                        for activityIRI in updates['activity']:
+                            if activityIRI not in formatted['activities']:
+                                formatted['removedActivities'].append(activityIRI)
             else:
                 data = { 'activities': {}, 'items': {} }
                 itemIRIs = {}
@@ -1960,4 +1962,4 @@ class Applet(FolderModel):
         applet['meta']['applet'].update({"themeId": str(themeId)})
         self.save(applet)
 
-        return 
+        return
