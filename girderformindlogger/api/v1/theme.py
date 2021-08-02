@@ -209,7 +209,7 @@ class Theme(Resource):
                         name=name,
                         parentType='collection',
                         public=True,
-                        creator=user,
+                        creator=currentUser,
                         allowRename=False)
 
         themeSettings =  {
