@@ -1192,8 +1192,10 @@ class Applet(FolderModel):
         if reviewerProfile['_id'] not in reviewerProfile['reviewers'] and (str(reviewerProfile['_id']) in users or not users):
             profiles.append(reviewerProfile)
 
-        query["creatorId"] = {
-            "$in": [profile['userId'] for profile in profiles]
+        query["meta.subject.@id"] = {
+            "$in": [
+                profile['_id'] for profile in profiles
+            ]
         }
 
         if retentionSettings != None:
@@ -1236,6 +1238,9 @@ class Applet(FolderModel):
         #            }
 
         insertedIRI = {}
+
+        print('responses are', responses)
+        print('query is', query)
 
         for response in responses:
             meta = response.get('meta', {})

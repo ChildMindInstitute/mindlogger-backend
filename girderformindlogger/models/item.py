@@ -57,6 +57,10 @@ class Item(acl_mixin.AccessControlMixin, Model):
                     ('meta.subject.@id', 1),
                     ('baseParentType', 1),
                     ('isCumulative', 1)
+                ], {}),
+                ([
+                    ('meta.applet.@id', 1),
+                    ('meta.subject.@id', 1)
                 ], {})
             )
         )
