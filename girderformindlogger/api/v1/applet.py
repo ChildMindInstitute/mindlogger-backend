@@ -2067,19 +2067,22 @@ class Applet(Resource):
 
         # look up who created invitelink
         try:
-            creator_id = applet['publicLink']['createdBy']['creatorId']
+        creator_id = applet['publicLink']['createdBy']['_id']
         except:
             creator_id = None
 
-        if creator_id:
-            inviter = ProfileModel().findOne({
-                    'userId': applet['publicLink']['createdBy']['creatorId'],
-                    'appletId': applet['_id']
-                })
-            resp['inviter'] = ProfileModel().display(inviter, 'coordinator')
+        resp['inviter'] = ''
 
-        else:
-            resp['inviter'] = ''
+        if creator_id:
+
+            qry = {
+                '_id': ObjectId(str(creator_id)),
+                'appletId': ObjectId(str(applet['_id']))
+                }
+            inviter = ProfileModel().findOne(qry)
+
+            if inviter:
+                resp['inviter'] = ProfileModel().display(inviter, 'coordinator')
 
         # look up who has access to applet data and settings'
         admin_roles = ['manager', 'coordinator', 'reviewer']
