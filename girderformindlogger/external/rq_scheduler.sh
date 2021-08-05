@@ -1,4 +1,5 @@
 #!/bin/bash
-source /var/app/venv/staging-LQM1lest/bin/activate
-cd /var/app/current
+source /opt/python/run/venv/bin/activate
+source /opt/python/current/env
+cd /opt/python/current/app
 python girderformindlogger/external/scheduler.py
