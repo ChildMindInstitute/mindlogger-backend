@@ -2065,21 +2065,24 @@ class Applet(Resource):
             resp = {}
             raise ValidationException('invalid inviteLink id')
 
-        # look up who created invitelink
+        # look up who created invitelink, return empty string if not found
+        resp['inviter'] = ''
+
         try:
-            creator_id = applet['publicLink']['createdBy']['creatorId']
+            creator_id = applet['publicLink']['createdBy']['_id']
         except:
             creator_id = None
 
         if creator_id:
-            inviter = ProfileModel().findOne({
-                    'userId': applet['publicLink']['createdBy']['creatorId'],
-                    'appletId': applet['_id']
-                })
-            resp['inviter'] = ProfileModel().display(inviter, 'coordinator')
+            
+            qry = {
+                '_id': creator_id,
+                'appletId': applet['_id']
+                }
+            inviter = ProfileModel().findOne(qry)
 
-        else:
-            resp['inviter'] = ''
+            if inviter:
+                resp['inviter'] = ProfileModel().display(inviter, 'coordinator')
 
         # look up who has access to applet data and settings'
         admin_roles = ['manager', 'coordinator', 'reviewer']
