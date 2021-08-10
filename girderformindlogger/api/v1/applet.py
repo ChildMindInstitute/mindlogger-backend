@@ -2074,7 +2074,7 @@ class Applet(Resource):
             creator_id = None
 
         if creator_id:
-            
+
             qry = {
                 '_id': creator_id,
                 'appletId': applet['_id']

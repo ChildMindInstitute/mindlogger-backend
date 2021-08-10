@@ -302,22 +302,23 @@ class Applet(FolderModel):
         if role == 'reviewer':
             Profile().updateReviewerList(userProfile, [])
 
-        group = self.getAppletGroups(applet).get(role)
-        GroupModel().removeUser(GroupModel().load(
-            ObjectId(list(group.keys())[0]),
-            force=True
-        ), UserModel().load(userProfile['userId'], force=True))
+        if userProfile.get('userId'):
+            group = self.getAppletGroups(applet).get(role)
+            GroupModel().removeUser(GroupModel().load(
+                ObjectId(list(group.keys())[0]),
+                force=True
+            ), UserModel().load(userProfile['userId'], force=True))
+
+            AccountProfile().removeApplet(
+                AccountProfile().findOne({
+                    'accountId': applet['accountId'],
+                    'userId': userProfile['userId']
+                }),
+                applet['_id'],
+                [role]
+            )
 
         userProfile['roles'].remove(role)
-
-        AccountProfile().removeApplet(
-            AccountProfile().findOne({
-                'accountId': applet['accountId'],
-                'userId': userProfile['userId']
-            }),
-            applet['_id'],
-            [role]
-        )
 
         Profile().save(userProfile, validate=False)
 
