@@ -880,6 +880,7 @@ class User(Resource):
             raise AccessException('account does not exist or you are not allowed to access to this account')
 
         account['folders']=[]
+        ownerAccount = AccountProfile().findOne({'_id': ObjectId(accountId)})
 
         for folder in folders:
             if folder['meta'].get('responseFolder', False):
@@ -944,6 +945,7 @@ class User(Resource):
         tokenInfo['account']['alerts'] = ResponseAlerts().getResponseAlerts(user['_id'], account['accountId'])
 
         tokenInfo['account']['applets'] = applets
+        tokenInfo['account']['appletPublishEnabled'] = ownerAccount.get('appletPublishEnabled', False)
 
         if token['accountId'] == user['accountId']:
             tokenInfo['account']['isDefaultName'] = False if user['accountName'] else True
