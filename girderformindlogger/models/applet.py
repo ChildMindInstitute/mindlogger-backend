@@ -302,22 +302,23 @@ class Applet(FolderModel):
         if role == 'reviewer':
             Profile().updateReviewerList(userProfile, [])
 
-        group = self.getAppletGroups(applet).get(role)
-        GroupModel().removeUser(GroupModel().load(
-            ObjectId(list(group.keys())[0]),
-            force=True
-        ), UserModel().load(userProfile['userId'], force=True))
+        if userProfile.get('userId'):
+            group = self.getAppletGroups(applet).get(role)
+            GroupModel().removeUser(GroupModel().load(
+                ObjectId(list(group.keys())[0]),
+                force=True
+            ), UserModel().load(userProfile['userId'], force=True))
+
+            AccountProfile().removeApplet(
+                AccountProfile().findOne({
+                    'accountId': applet['accountId'],
+                    'userId': userProfile['userId']
+                }),
+                applet['_id'],
+                [role]
+            )
 
         userProfile['roles'].remove(role)
-
-        AccountProfile().removeApplet(
-            AccountProfile().findOne({
-                'accountId': applet['accountId'],
-                'userId': userProfile['userId']
-            }),
-            applet['_id'],
-            [role]
-        )
 
         Profile().save(userProfile, validate=False)
 
@@ -1192,8 +1193,10 @@ class Applet(FolderModel):
         if reviewerProfile['_id'] not in reviewerProfile['reviewers'] and (str(reviewerProfile['_id']) in users or not users):
             profiles.append(reviewerProfile)
 
-        query["creatorId"] = {
-            "$in": [profile['userId'] for profile in profiles]
+        query["meta.subject.@id"] = {
+            "$in": [
+                profile['_id'] for profile in profiles
+            ]
         }
 
         if retentionSettings != None:
@@ -1236,6 +1239,9 @@ class Applet(FolderModel):
         #            }
 
         insertedIRI = {}
+
+        print('responses are', responses)
+        print('query is', query)
 
         for response in responses:
             meta = response.get('meta', {})
@@ -1613,7 +1619,9 @@ class Applet(FolderModel):
                     formatted.update(data)
 
                     if updates:
-                        formatted['removedActivities'] = list(updates['activity'].keys())
+                        for activityIRI in updates['activity']:
+                            if activityIRI not in formatted['activities']:
+                                formatted['removedActivities'].append(activityIRI)
             else:
                 data = { 'activities': {}, 'items': {} }
                 itemIRIs = {}
@@ -1960,4 +1968,4 @@ class Applet(FolderModel):
         applet['meta']['applet'].update({"themeId": str(themeId)})
         self.save(applet)
 
-        return 
+        return
