@@ -1222,6 +1222,7 @@ class Applet(FolderModel):
             'dataSources': {},
             'subScaleSources': {},
             'keys': [],
+            'nextsAt': {},
             'responses': []
         }
 
@@ -1239,9 +1240,6 @@ class Applet(FolderModel):
         #            }
 
         insertedIRI = {}
-
-        print('responses are', responses)
-        print('query is', query)
 
         for response in responses:
             meta = response.get('meta', {})
@@ -1306,6 +1304,8 @@ class Applet(FolderModel):
                         'key': userKeys[keyDump],
                         'data': meta['subScaleSource']
                     }
+
+                data['nextsAt'][str(response['_id'])] = meta.get('nextsAt', {})
 
         data.update(
             Protocol().getHistoryDataFromItemIRIs(
