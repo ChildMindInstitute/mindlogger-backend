@@ -859,6 +859,11 @@ class Applet(Resource):
         if 'manager' not in profile.get('roles', []):
             raise AccessException("You don't have enough permission to update this applet.")
 
+        ownerAccount = AccountProfile().findOne({'_id': applet['accountId']})
+
+        if not ownerAccount.get('appletPublishEnabled'):
+            raise AccessException("applet publish is not enabled on this account")
+
         applet['meta']['published'] = publish
         applet = self._model.setMetadata(applet, applet['meta'])
 
