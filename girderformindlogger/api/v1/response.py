@@ -369,17 +369,17 @@ class ResponseItem(Resource):
             self._model.reconnectToDb(db_uri=owner_account.get('db', None))
 
         for user in users:
+            query = {
+                "created": { "$lte": toDate, "$gt": fromDate },
+                "meta.applet.@id": ObjectId(applet['_id']),
+                "meta.subject.@id": user['_id'],
+                "reviewing": {'$exists': False}
+            }
             if activities:
                 query["meta.activity.@id"] = { "$in": activities },
 
             responses = self._model.find(
-                query={
-                    "created": { "$lte": toDate, "$gt": fromDate },
-                    "meta.applet.@id": ObjectId(applet['_id']),
-                    "meta.activity.@id": { "$in": activities },
-                    "meta.subject.@id": user['_id'],
-                    "reviewing": {'$exists': False}
-                },
+                query=query,
                 force=True,
                 sort=[("created", DESCENDING)]
             )
