@@ -444,7 +444,7 @@ def responseDateList(appletId, userId, reviewer):
     rdl.sort(reverse=True)
     return(rdl)
 
-def add_latest_daily_response(data, responses, tokens):
+def add_latest_daily_response(data, responses, tokens={}):
     user_keys = {}
 
     for response in responses:
@@ -504,11 +504,11 @@ def add_latest_daily_response(data, responses, tokens):
                 }
 
     for tokenField in ['cumulativeToken', 'tokenUpdates']:
+        if not tokens.get(tokenField):
+            continue
+
         if isinstance(tokens[tokenField], dict):
             tokens[tokenField] = [tokens[tokenField]]
-
-        if not tokens[tokenField]:
-            continue
 
         for value in tokens[tokenField]:
             key_dump = json_util.dumps(value['userPublicKey'])
