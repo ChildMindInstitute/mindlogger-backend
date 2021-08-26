@@ -23,9 +23,8 @@ from girderformindlogger.models.account_profile import AccountProfile
 from girderformindlogger.models.response_alerts import ResponseAlerts
 from girderformindlogger.models.notification import Notification
 from girderformindlogger.settings import SettingKey
-from girderformindlogger.utility import jsonld_expander, mail_utils
+from girderformindlogger.utility import jsonld_expander, mail_utils, theme
 from girderformindlogger.i18n import t
-from girderformindlogger.api.v1.theme import findThemeById
 import os
 
 from dateutil.relativedelta import relativedelta
@@ -559,7 +558,7 @@ class User(Resource):
                                 ]]
                             ]
                         ],
-                        "theme": findThemeById(themeId=applet['meta']['applet'].get('themeId'))
+                        "theme": theme.findThemeById(themeId=applet['meta']['applet'].get('themeId'))
                     } for applet in applets if (
                         applet is not None and not applet.get(
                             'meta',
@@ -714,8 +713,8 @@ class User(Resource):
         currentAppletId = None
 
         for applet in applets:
-            
-            currentAppletId = applet['_id'] 
+
+            currentAppletId = applet['_id']
 
             if str(currentAppletId) == currentApplet:
                 collect = True
@@ -748,7 +747,7 @@ class User(Resource):
                 except:
                     nextActivity = None
 
-        
+
         return {
             'data': result,
             'currentApplet': currentAppletId,

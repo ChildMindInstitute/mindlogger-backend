@@ -51,10 +51,9 @@ from girderformindlogger.models.activity import Activity as ActivityModel
 from girderformindlogger.models.token import Token
 from girderformindlogger.external.notification import send_applet_update_notification
 from bson import json_util
-from girderformindlogger.utility import mail_utils
+from girderformindlogger.utility import mail_utils, theme
 from girderformindlogger.i18n import t
 from datetime import datetime as dt
-from girderformindlogger.api.v1.theme import findThemeById
 
 RETENTION_SET = {
     'day': 1,
@@ -1580,7 +1579,7 @@ class Applet(FolderModel):
                     applet,
                     arrayOfObjects=True
                 ),
-                "theme": findThemeById(themeId=applet['meta']['applet'].get('themeId'))
+                "theme": theme.findThemeById(themeId=applet['meta']['applet'].get('themeId'))
             } if role in ["coordinator", "manager"] else {
                 **jsonld_expander.formatLdObject(
                     applet,
@@ -1603,7 +1602,7 @@ class Applet(FolderModel):
                             ]]
                         ]
                 ],
-                "theme": findThemeById(themeId=applet['meta']['applet'].get('themeId'))
+                "theme": theme.findThemeById(themeId=applet['meta']['applet'].get('themeId'))
             }
 
             formatted['removedActivities'] = []
