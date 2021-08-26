@@ -27,6 +27,7 @@ import threading
 import re
 import pytz
 import ijson
+from uuid import uuid4
 
 from bson.objectid import ObjectId
 from girderformindlogger import events
@@ -50,7 +51,7 @@ from girderformindlogger.models.activity import Activity as ActivityModel
 from girderformindlogger.models.token import Token
 from girderformindlogger.external.notification import send_applet_update_notification
 from bson import json_util
-from girderformindlogger.utility import mail_utils
+from girderformindlogger.utility import mail_utils, theme
 from girderformindlogger.i18n import t
 from datetime import datetime as dt
 
@@ -75,7 +76,8 @@ class Applet(FolderModel):
         constraints=None,
         appletRole='editor',
         accountId=None,
-        encryption={}
+        encryption={},
+        themeId=None
     ):
         """
         Method to create an Applet.
@@ -91,6 +93,8 @@ class Applet(FolderModel):
         :type roles: dict or None
         :param constraints: Constraints to set to this Applet
         :type constraints: dict or None
+        :param themeId:ObjectId for the theme to for styling the applet
+        :type themeId: string or None
         """
         from girderformindlogger.utility import jsonld_expander
         from girderformindlogger.models.protocol import Protocol
@@ -128,7 +132,8 @@ class Applet(FolderModel):
         metadata['applet'].update({
             'displayName': name,
             'largeApplet': isLargeApplet,
-            'editing': False
+            'editing': False,
+            'themeId':themeId
         })
 
         applet = self.setMetadata(
@@ -296,22 +301,23 @@ class Applet(FolderModel):
         if role == 'reviewer':
             Profile().updateReviewerList(userProfile, [])
 
-        group = self.getAppletGroups(applet).get(role)
-        GroupModel().removeUser(GroupModel().load(
-            ObjectId(list(group.keys())[0]),
-            force=True
-        ), UserModel().load(userProfile['userId'], force=True))
+        if userProfile.get('userId'):
+            group = self.getAppletGroups(applet).get(role)
+            GroupModel().removeUser(GroupModel().load(
+                ObjectId(list(group.keys())[0]),
+                force=True
+            ), UserModel().load(userProfile['userId'], force=True))
+
+            AccountProfile().removeApplet(
+                AccountProfile().findOne({
+                    'accountId': applet['accountId'],
+                    'userId': userProfile['userId']
+                }),
+                applet['_id'],
+                [role]
+            )
 
         userProfile['roles'].remove(role)
-
-        AccountProfile().removeApplet(
-            AccountProfile().findOne({
-                'accountId': applet['accountId'],
-                'userId': userProfile['userId']
-            }),
-            applet['_id'],
-            [role]
-        )
 
         Profile().save(userProfile, validate=False)
 
@@ -775,7 +781,8 @@ class Applet(FolderModel):
         sendEmail=True,
         appletRole='editor',
         accountId=None,
-        encryption={}
+        encryption={},
+        themeId=None
     ):
         from girderformindlogger.models.protocol import Protocol
         from girderformindlogger.utility import mail_utils
@@ -823,7 +830,8 @@ class Applet(FolderModel):
                 },
                 appletRole=appletRole,
                 accountId=accountId,
-                encryption=encryption
+                encryption=encryption,
+                themeId=themeId
             )
 
             html = mail_utils.renderTemplate(f'appletUploadSuccess.{user.get("lang", "en")}.mako', {
@@ -1184,8 +1192,10 @@ class Applet(FolderModel):
         if reviewerProfile['_id'] not in reviewerProfile['reviewers'] and (str(reviewerProfile['_id']) in users or not users):
             profiles.append(reviewerProfile)
 
-        query["creatorId"] = {
-            "$in": [profile['userId'] for profile in profiles]
+        query["meta.subject.@id"] = {
+            "$in": [
+                profile['_id'] for profile in profiles
+            ]
         }
 
         if retentionSettings != None:
@@ -1228,6 +1238,9 @@ class Applet(FolderModel):
         #            }
 
         insertedIRI = {}
+
+        print('responses are', responses)
+        print('query is', query)
 
         for response in responses:
             meta = response.get('meta', {})
@@ -1564,7 +1577,8 @@ class Applet(FolderModel):
                 "groups": self.getAppletGroups(
                     applet,
                     arrayOfObjects=True
-                )
+                ),
+                "theme": theme.findThemeById(themeId=applet['meta']['applet'].get('themeId'))
             } if role in ["coordinator", "manager"] else {
                 **jsonld_expander.formatLdObject(
                     applet,
@@ -1586,7 +1600,8 @@ class Applet(FolderModel):
                                 *reviewer.get('declinedInvites', [])
                             ]]
                         ]
-                ]
+                ],
+                "theme": theme.findThemeById(themeId=applet['meta']['applet'].get('themeId'))
             }
 
             formatted['removedActivities'] = []
@@ -1603,7 +1618,9 @@ class Applet(FolderModel):
                     formatted.update(data)
 
                     if updates:
-                        formatted['removedActivities'] = list(updates['activity'].keys())
+                        for activityIRI in updates['activity']:
+                            if activityIRI not in formatted['activities']:
+                                formatted['removedActivities'].append(activityIRI)
             else:
                 data = { 'activities': {}, 'items': {} }
                 itemIRIs = {}
@@ -1818,6 +1835,58 @@ class Applet(FolderModel):
 
         return invitations
 
+
+    def createPublicLink(self, appletId, coordinator, requireLogin):
+        """"
+        coordinator: person creating the link
+        """
+        now = datetime.datetime.utcnow()
+
+        newId = str(uuid4())[:18]
+        profile = Profile().coordinatorProfile(
+                appletId,
+                coordinator)
+        updates = {
+            'publicLink.id' : newId,
+            'publicLink.updated':now,
+            'publicLink.createdBy': profile,
+            'publicLink.requireLogin': requireLogin
+        }
+
+        self.update({'_id': ObjectId(appletId)},
+                    {'$set': updates})
+
+        applet = self.findOne({'_id': ObjectId(appletId)})
+
+        return applet['publicLink']
+
+
+    def deletePublicLink(self, appletId, coordinator, keep_record=False):
+        """"
+        coordinator: person creating the link
+        """
+        if keep_record:
+            now = datetime.datetime.utcnow()
+            profile = Profile().coordinatorProfile(
+                    appletId,
+                    coordinator)
+            updates = {
+                'inviteLink.updated':now,
+                'inviteLink.createdBy': profile
+                }
+            self.update({'_id': ObjectId(appletId)},
+                        {'$set': updates})
+            response = self.update({'_id': ObjectId(appletId)},
+                        {'$unset': {'inviteLink.id':1}})
+
+        else:
+            response = self.update({'_id': ObjectId(appletId)},
+                        {'$unset': {'publicLink':1}})
+            print('response: ', response)
+
+        return response
+
+
     def load(self, id, level=AccessType.ADMIN, user=None, objectId=True,
              force=False, fields=None, exc=False):
         """
@@ -1890,3 +1959,12 @@ class Applet(FolderModel):
                     {'$set': {'meta.protocol.activities': activities}})
 
         return activities
+
+
+    def setAppletTheme(self, applet, themeId):
+        """set object Id for a particular theme"""
+
+        applet['meta']['applet'].update({"themeId": str(themeId)})
+        self.save(applet)
+
+        return

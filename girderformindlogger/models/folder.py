@@ -46,8 +46,10 @@ class Folder(AccessControlledModel):
                 ([
                     ('meta.protocol.@type', 1),
                     ('meta.protocol.url', 1),
+                    ('meta.activity.url', 1),
                     ('meta.appletId', 1)
                 ], {}),
+                'publicLink.id',
             )
         )
         self.ensureTextIndex({

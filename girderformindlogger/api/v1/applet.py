@@ -78,7 +78,14 @@ class Applet(Resource):
         self.route('PUT', (':id', 'refresh'), self.refresh)
         self.route('POST', (':id', 'invite'), self.invite)
         self.route('POST', (':id', 'inviteUser'), self.inviteUser)
+        self.route('POST', (':id', 'publicLink'), self.createPublicLink)
+        self.route('GET', (':id', 'publicLink'), self.getPublicLink)
+        self.route('GET', ('public', ':publicId', 'data'), self.getAppletFromPublicLink)
+        self.route('PUT', (':id', 'publicLink'), self.replacePublicLink)
+        self.route('DELETE', (':id', 'publicLink'), self.deletePublicLink)
 
+        self.route('GET', ('invitelink', ':inviteLinkId', 'info'), self.viewInviteLinkInfo)
+        self.route('POST', ('invitelink', ':inviteLinkId', 'accept'), self.acceptOpenInviteLink)
         self.route('PUT', (':id', 'updateRoles'), self.updateRoles)
 
         self.route('PUT', (':id', 'reviewer', 'userList'), self.updateUserListForReviewer)
@@ -90,10 +97,10 @@ class Applet(Resource):
         self.route('GET', (':id', 'invitations'), self.getAppletInvitations)
         self.route('DELETE', (':id',), self.deactivateApplet)
         self.route('POST', ('fromJSON', ), self.createAppletFromProtocolData)
+        self.route('PUT', (':id', 'fromJSON'), self.updateAppletFromProtocolData)
         self.route('GET', (':id', 'protocolData'), self.getProtocolData)
         self.route('GET', (':id', 'versions'), self.getProtocolVersions)
         self.route('PUT', (':id', 'prepare',), self.prepareAppletForEdit)
-        self.route('PUT', (':id', 'fromJSON'), self.updateAppletFromProtocolData)
         self.route('POST', (':id', 'duplicate', ), self.duplicateApplet)
         self.route('POST', ('setBadge',), self.setBadgeCount)
         self.route('PUT', (':id', 'transferOwnerShip', ), self.transferOwnerShip)
@@ -104,6 +111,7 @@ class Applet(Resource):
         self.route('PUT', (':id', 'searchTerms'), self.updateAppletSearch)
         self.route('GET', (':id', 'searchTerms'), self.getAppletSearch)
         self.route('GET', (':id', 'libraryUrl'), self.getAppletLibraryUrl)
+        self.route('POST', (':id', 'setTheme', ), self.setAppletTheme)
 
     @access.user(scope=TokenScope.DATA_WRITE)
     @autoDescribeRoute(
@@ -1085,9 +1093,16 @@ class Applet(Resource):
             paramType='form',
             required=False
         )
+        .param(
+            'themeId',
+            'id of the theme to apply to this applet. Sets a logo, background image and main colors',
+            paramType='string',
+            default=None,
+            required=False
+        )
         .errorResponse('Write access was denied for this applet.', 403)
     )
-    def createAppletFromProtocolData(self, protocol, email='', name=None, informant=None, encryption={}):
+    def createAppletFromProtocolData(self, protocol, email='', name=None, informant=None, encryption={}, themeId=None):
         accountProfile = AccountProfile()
 
         thisUser = self.getCurrentUser()
@@ -1114,7 +1129,8 @@ class Applet(Resource):
                 } if informant is not None else None,
                 'appletRole': appletRole,
                 'accountId': profile['accountId'],
-                'encryption': encryption
+                'encryption': encryption,
+                'themeId':str(themeId)
             }
         )
         thread.start()
@@ -1154,7 +1170,7 @@ class Applet(Resource):
 
     @access.user(scope=TokenScope.DATA_WRITE)
     @autoDescribeRoute(
-        Description('Create an applet.')
+        Description('Update an applet')
         .notes(
             'This endpoint is used to update existing applet. <br>'
             '(updating applet will take few seconds.)'
@@ -1177,25 +1193,41 @@ class Applet(Resource):
             paramType='form',
             required=False
         )
+        .param(
+            'themeId',
+            'id of the theme to apply to this applet. Sets a logo, background image and main colors',
+            paramType='string',
+            default=None,
+            required=False
+        )
         .errorResponse('Write access was denied for this applet.', 403)
     )
-    def updateAppletFromProtocolData(self, applet, name, protocol):
+    def updateAppletFromProtocolData(self, applet, name, protocol, themeId=None):
         thisUser = self.getCurrentUser()
         profile = ProfileModel().findOne({
             'appletId': applet['_id'],
             'userId': thisUser['_id']
         })
 
+        if profile == None:
+            raise ValidationException("no applet found for this combination of user and applet id")
+
         if 'editor' not in profile.get('roles', []) and 'manager' not in profile.get('roles', []):
             raise AccessException("You don't have enough permission to update this applet.")
 
-        AppletModel().updateAppletFromProtocolData(
-            applet=applet,
-            name=name,
-            content=protocol,
-            user=thisUser,
-            accountId=applet['accountId']
-        )
+        if protocol:
+            AppletModel().updateAppletFromProtocolData(
+                applet=applet,
+                name=name,
+                content=protocol,
+                user=thisUser,
+                accountId=applet['accountId']
+            )
+
+        # update theme
+        if themeId:
+            applet = AppletModel().findOne({"_id":applet['_id']})
+            AppletModel().setAppletTheme(applet, themeId)
 
         return {
             'message': 'success'
@@ -1310,6 +1342,49 @@ class Applet(Resource):
 
         return(data)
 
+    @access.public
+    @autoDescribeRoute(
+        Description('Get applet data from public id.')
+        .notes(
+            'This endpoint returns applet data from public id.'
+        )
+        .param(
+            'publicId',
+            'public id of applet',
+            required=True
+        )
+        .param(
+            'nextActivity',
+            'id of next activity',
+            default=None,
+            required=False,
+        )
+    )
+    def getAppletFromPublicLink(self, publicId, nextActivity):
+        applet = self._model.findOne({
+            'publicLink.id': publicId,
+            'publicLink.requireLogin': False
+        })
+
+        if not applet:
+            raise AccessException('unable to find applet with specified public id')
+
+        formatted = jsonld_expander.formatLdObject(applet, 'applet', None, refreshCache=False)
+
+        (nextIRI, data, remaining) = self._model.getNextAppletData(formatted['activities'], nextActivity, MAX_PULL_SIZE)
+
+        if nextActivity:
+            return {
+                'nextActivity': nextIRI,
+                **data
+            }
+
+        formatted['updated'] = applet['updated']
+        formatted['accountId'] = applet['accountId']
+        formatted['nextActivity'] = nextIRI
+
+        formatted.update(data)
+        return formatted
 
     @access.user(scope=TokenScope.DATA_WRITE)
     @autoDescribeRoute(
@@ -1455,6 +1530,7 @@ class Applet(Resource):
         formatted['updated'] = applet['updated']
         formatted['accountId'] = applet['accountId']
         formatted['nextActivity'] = nextIRI
+        formatted['applet']['themeId'] = applet['meta']['applet'].get('themeId')
         formatted.update(data)
 
         return formatted
@@ -1793,6 +1869,238 @@ class Applet(Resource):
 
     @access.user(scope=TokenScope.DATA_WRITE)
     @autoDescribeRoute(
+        Description('creates a url that users can use to add themselves directly to an applet')
+        .notes(
+            'creates an invite url that users can open in the browser to add themselves (i.e. create a profile) to an applet'
+        )
+        .modelParam(
+            'id',
+            model=AppletModel,
+            level=AccessType.ADMIN,
+            destName='applet'
+        )
+        .param(
+            'requireLogin',
+            'if true, require user to create account to take assessment',
+            required=True,
+            dataType='boolean',
+        )
+        .errorResponse('invite link already exists for this applet', 403)
+    )
+    def createPublicLink(self, applet, requireLogin):
+        self.shield("inviteUser")
+
+        thisUser = self.getCurrentUser()
+        appletProfile = ProfileModel().findOne({'appletId': applet['_id'], 'userId': thisUser['_id']})
+
+        if not appletProfile or ('coordinator' not in appletProfile.get('roles', []) and 'manager' not in appletProfile.get('roles', [])):
+            raise AccessException('You don\'t have enough permission to create an open invitation to this applet')
+
+        #check if a link already exists
+        if 'publicLink' in applet:
+            if 'id' in applet['publicLink']:
+                raise ValidationException('public link already exists for this applet')
+
+        inviteLink = self._model.createPublicLink(applet['_id'], thisUser, requireLogin)
+
+        return {
+            'inviteId': inviteLink['id'],
+            'requireLogin': inviteLink.get('requireLogin', True)
+        }
+
+
+    @access.user(scope=TokenScope.DATA_READ)
+    @autoDescribeRoute(
+        Description('get an existing url that users can use to add themselves to an applet')
+        .notes(
+            'get the open invite url that users can open in the browser to add themselves (i.e. create a profile) to an applet'
+        )
+        .modelParam(
+            'id',
+            model=AppletModel,
+            level=AccessType.ADMIN,
+            destName='applet'
+        )
+    )
+    def getPublicLink(
+        self,
+        applet,
+    ):
+        self.shield('inviteUser')
+
+        thisUser = self.getCurrentUser()
+        appletProfile = ProfileModel().findOne({'appletId': applet['_id'], 'userId': thisUser['_id']})
+
+        if not appletProfile or ('coordinator' not in appletProfile.get('roles', []) and 'manager' not in appletProfile.get('roles', [])):
+            raise AccessException('You don\'t have enough permission to view the open invitation for this applet')
+
+        if 'publicLink' in applet:
+            return {
+                'inviteId': applet['publicLink']['id'],
+                'requireLogin': applet['publicLink'].get('requireLogin', True)
+            }
+
+        else:
+            return {}
+
+    @access.user(scope=TokenScope.DATA_WRITE)
+    @autoDescribeRoute(
+        Description('replace an invite url with a new id')
+        .modelParam(
+            'id',
+            model=AppletModel,
+            level=AccessType.ADMIN,
+            destName='applet'
+        )
+        .errorResponse('invite link already exists for this applet', 403)
+    )
+    def replacePublicLink(self, applet):
+
+        self.shield("inviteUser")
+
+        thisUser = self.getCurrentUser()
+        appletProfile = ProfileModel().findOne({'appletId': applet['_id'], 'userId': thisUser['_id']})
+
+        if not appletProfile or ('coordinator' not in appletProfile.get('roles', []) and 'manager' not in appletProfile.get('roles', [])):
+            raise AccessException('You don\'t have enough permission to replace the open invitation url for this applet')
+
+        #check if a link already exists
+        if 'publicLink' not in applet:
+            raise ValidationException('invite link does not exist for this applet')
+
+        inviteLink = self._model.createPublicLink(applet['_id'], thisUser)
+
+        return {
+            'inviteId':inviteLink['id'],
+            'requireLogin': applet['publicLink'].get('requireLogin', True)
+        }
+
+    @access.user(scope=TokenScope.DATA_WRITE)
+    @autoDescribeRoute(
+        Description('delete the open invite url for an applet')
+        .modelParam(
+            'id',
+            model=AppletModel,
+            level=AccessType.ADMIN,
+            destName='applet'
+        )
+    )
+    def deletePublicLink(self, applet):
+
+        self.shield("inviteUser")
+
+        thisUser = self.getCurrentUser()
+        appletProfile = ProfileModel().findOne({'appletId': applet['_id'], 'userId': thisUser['_id']})
+
+        if not appletProfile or ('coordinator' not in appletProfile.get('roles', []) and 'manager' not in appletProfile.get('roles', [])):
+            raise AccessException('You don\'t have enough permission to delete the open invitation url for this applet')
+
+        #check if a link already exists
+        if 'publicLink' not in applet:
+            raise ValidationException('invite link does not exist for this applet')
+
+        response = self._model.deletePublicLink(applet['_id'], thisUser)
+
+        return 'open invite url deleted for this applet'
+
+
+    @access.user(scope=TokenScope.DATA_READ)
+    @autoDescribeRoute(
+        Description('allow a logged in user to add themselves to an applet via this link id')
+    )
+    def acceptOpenInviteLink(self, inviteLinkId):
+
+        user = self.getCurrentUser()
+        userEmail = user.get('email')
+
+        # find applet using invite id
+        applet = AppletModel().findOne({
+            'publicLink.id':inviteLinkId,
+            'publicLink.requireLogin': True
+        })
+
+        if not applet:
+            raise ValidationException('invalid invite link')
+
+        # check for existing profile
+        existing = ProfileModel().findOne(
+            {
+                'appletId': applet['_id'],
+                'userId': user['_id'],
+                'profile': True
+            },)
+
+        if existing:
+
+            return {}
+
+        profile = ProfileModel().createProfile(
+            applet,
+            user,
+            role='user')
+
+        # append role of user to profile
+        profile = ProfileModel().load(profile['_id'], force=True)
+        if profile.get('roles', False):
+            profile['roles'].append('user')
+        else:
+            profile['roles'] = ['user',]
+
+        #randomly assign an MRN
+        profile['MRN'] = uuid.uuid4()
+        ProfileModel().save(profile, validate=False)
+        AccountProfile().appendApplet(AccountProfile().createAccountProfile(applet['accountId'], user['_id']), applet['_id'], profile['roles'])
+
+        return {}
+
+    @access.public(scope=TokenScope.DATA_READ)
+    @autoDescribeRoute(
+        Description('use an inviteLinkId to look up and return an applets metadata')
+    )
+    def viewInviteLinkInfo(self, inviteLinkId):
+
+        # find applet from invite id
+        applet = AppletModel().findOne({
+            'publicLink.id': inviteLinkId,
+            'publicLink.requireLogin': True
+        })
+        if applet:
+            resp = applet['meta']['applet']
+        else:
+            resp = {}
+            raise ValidationException('invalid inviteLink id')
+
+        # look up who created invitelink, return empty string if not found
+        resp['inviter'] = ''
+
+        try:
+            creator_id = applet['publicLink']['createdBy']['_id']
+        except:
+            creator_id = None
+
+        if creator_id:
+
+            qry = {
+                '_id': creator_id,
+                'appletId': applet['_id']
+                }
+            inviter = ProfileModel().findOne(qry)
+
+            if inviter:
+                resp['inviter'] = ProfileModel().display(inviter, 'coordinator')
+
+        # look up who has access to applet data and settings'
+        admin_roles = ['manager', 'coordinator', 'reviewer']
+        for role in admin_roles:
+
+            admin_role_dict = AppletModel().listUsers(applet, role, force=True)
+            resp[role] = list(admin_role_dict.values())
+
+        return resp
+
+
+    @access.user(scope=TokenScope.DATA_WRITE)
+    @autoDescribeRoute(
         Description('Invite a user to a role in an applet.')
         .notes(
             'this endpoint will be used for owners to transfer ownership for an applet to another owner'
@@ -2020,6 +2328,40 @@ class Applet(Resource):
                 event['id'] = savedEvent['_id']
 
         return schedule if rewrite else EventsModel().getSchedule(applet['_id'])
+
+
+    # @access.user(scope=TokenScope.DATA_WRITE)
+    @autoDescribeRoute(
+        Description('Set or update the id of the theme to style the applet with')
+        .notes(
+            'this endpoint is used for setting a theme for styling an applet, usually an institutions logo and color pallete <br>'
+            'only coordinator/managers are able to make request to this endpoint. <br>'
+        )
+        .modelParam(
+            'id',
+            model=AppletModel,
+            level=AccessType.READ,
+            destName='applet'
+        )
+        .param(
+            'themeId',
+            'objectId for the theme to assign',
+            dataType='string',
+            required=True
+        )
+        .errorResponse('Invalid applet ID.')
+        .errorResponse('Read access was denied for this applet.', 403)
+    )
+    def setAppletTheme(self, applet, themeId):
+        thisUser = self.getCurrentUser()
+        #### TO DO -> if not AppletModel().isCoordinator(applet['_id'], thisUser):
+        #     raise AccessException(
+        #         "Only coordinators and managers can update applet themes."
+        #     )
+
+        AppletModel().setAppletTheme(applet, themeId)
+
+        return
 
 
 def authorizeReviewer(applet, reviewer, user):

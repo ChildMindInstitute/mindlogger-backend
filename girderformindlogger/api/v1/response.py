@@ -344,9 +344,7 @@ class ResponseItem(Resource):
                 users.append(profile)
 
         # If not speciied, retrieve responses for all activities.
-        if not activities:
-            activities = applet['meta']['protocol']['activities']
-        else:
+        if activities:
             activities = list(map(lambda s: ObjectId(s), activities))
 
         data = {
@@ -370,13 +368,20 @@ class ResponseItem(Resource):
             self._model.reconnectToDb(db_uri=owner_account.get('db', None))
 
         for user in users:
+            query = {
+                "created": { "$lte": toDate, "$gt": fromDate },
+                "meta.applet.@id": ObjectId(applet['_id']),
+                "meta.subject.@id": user['_id']
+            }
+
+            if activities:
+                query["meta.activity.@id"] = { "$in": activities },
+
             responses = self._model.find(
-                query={"created": { "$lte": toDate, "$gt": fromDate },
-                       "meta.applet.@id": ObjectId(applet['_id']),
-                       "meta.activity.@id": { "$in": activities },
-                       "meta.subject.@id": user['_id']},
+                query=query,
                 force=True,
-                sort=[("created", DESCENDING)])
+                sort=[("created", DESCENDING)]
+            )
 
             # we need this to handle old responses
             for response in responses:
@@ -530,7 +535,7 @@ class ResponseItem(Resource):
                 updateInfo.get('userPublicKey', None)
             )
 
-    @access.user(scope=TokenScope.DATA_WRITE)
+    @access.public
     @autoDescribeRoute(
         Description('Create a new user response item.')
         .notes(
@@ -596,17 +601,33 @@ class ResponseItem(Resource):
                 )
             }
             informant = self.getCurrentUser()
-            subject_id = subject_id if subject_id else str(
-                informant['_id']
-            )
 
-            profile = Profile().findOne({
-                'appletId': applet['_id'],
-                'userId': ObjectId(subject_id)
-            })
-            subject_id = profile.get('_id')
+            if metadata.get('publicId'):
+                publicId = metadata.get('publicId')
+                appletPublicLink = applet.get('publicLink')
 
-            print(subject_id)
+                if appletPublicLink and publicId and not appletPublicLink['requireLogin'] and appletPublicLink['id'] == publicId:
+                    profile = Profile().createFakeProfile(applet)
+                    subject_id = profile.get('_id')
+                else:
+                    raise AccessException('access is denied')
+
+                informant = {
+                    '_id': subject_id
+                }
+            else:
+                if not informant:
+                    raise AccessException('access is denied')
+
+                subject_id = subject_id if subject_id else str(
+                    informant['_id']
+                )
+
+                profile = Profile().findOne({
+                    'appletId': applet['_id'],
+                    'userId': ObjectId(subject_id)
+                })
+                subject_id = profile.get('_id')
 
             if isinstance(metadata.get('subject'), dict):
                 metadata['subject']['@id'] = subject_id
@@ -614,6 +635,9 @@ class ResponseItem(Resource):
                 metadata['subject'] = {'@id': subject_id}
 
             metadata['subject']['timezone'] = profile.get('timezone', 0)
+
+            if 'identifier' in metadata:
+                metadata['subject']['identifier'] = metadata.pop('identifier')
 
             now = datetime.now(tz=pytz.timezone("UTC"))
 
@@ -739,6 +763,13 @@ class ResponseItem(Resource):
                     "activity_id": metadata['activity']['@id'],
                     "completed_time": now
                 })
+
+            if 'identifier' in metadata['subject']:
+                if 'identifiers' not in data:
+                    data['identifiers'] = []
+
+                if metadata['subject']['identifier'] not in data['identifiers']:
+                    data['identifiers'].append(metadata['subject']['identifier'])
 
             data['updated'] = now
             profile.save(data, validate=False)

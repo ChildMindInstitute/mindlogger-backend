@@ -656,9 +656,9 @@ class Profile(AESEncryption, dict):
             return None
 
         if not isUser:
-            fields = ['_id', 'updated', 'roles', 'firstName', 'lastName', 'email']
+            fields = ['_id', 'updated', 'roles', 'firstName', 'lastName', 'email', 'identifiers', 'fake']
         else:
-            fields = ['_id', 'updated', 'roles', 'MRN']
+            fields = ['_id', 'updated', 'roles', 'MRN', 'identifiers', 'fake']
 
         data = {
             field: profile.get(field, '') for field in fields
@@ -962,6 +962,48 @@ class Profile(AESEncryption, dict):
             k: v for k, v in profile.items(
             ) if k in returnFields
         })
+
+    def createFakeProfile(self, applet):
+        profile = self.findOne({
+            'appletId': ObjectId(applet['_id']),
+            'fake': True
+        })
+
+        if profile:
+            return profile
+
+        now = datetime.datetime.utcnow()
+
+        managers = list(self.find(query={'appletId': applet['_id'], 'roles': 'manager'}, fields=['_id']))
+        profile = {
+            'appletId': ObjectId(applet['_id']),
+            'userId': None,
+            'fake': True,
+            'profile': True,
+            'badge': 0,
+            'created': now,
+            'updated': now,
+            'deviceId': None,
+            'timezone': 0,
+            'individual_events': 0,
+            'roles': ['user'],
+            'completed_activities': [
+                {
+                    'activity_id': activity_id, 'completed_time': None
+                } for activity_id in applet.get('meta', {}).get('protocol', {}).get('activities', [])
+            ],
+            'accountId': applet.get('accountId', None),
+            'size': 0,
+            'reviewers': [
+                manager['_id'] for manager in managers
+            ],
+            'firstName': '',
+            'lastName': '',
+            'MRN': 'Guest Account Submission'
+        }
+
+        self.setPublic(profile, False, save=False)
+        return self.save(profile, validate=False)
 
     def createPassiveProfile(self, appletId, code, displayName, coordinator):
         """

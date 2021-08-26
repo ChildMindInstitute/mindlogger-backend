@@ -23,7 +23,7 @@ from girderformindlogger.models.account_profile import AccountProfile
 from girderformindlogger.models.response_alerts import ResponseAlerts
 from girderformindlogger.models.notification import Notification
 from girderformindlogger.settings import SettingKey
-from girderformindlogger.utility import jsonld_expander, mail_utils
+from girderformindlogger.utility import jsonld_expander, mail_utils, theme
 from girderformindlogger.i18n import t
 import os
 
@@ -557,7 +557,8 @@ class User(Resource):
                                     *user.get('declinedInvites', [])
                                 ]]
                             ]
-                        ]
+                        ],
+                        "theme": theme.findThemeById(themeId=applet['meta']['applet'].get('themeId'))
                     } for applet in applets if (
                         applet is not None and not applet.get(
                             'meta',
@@ -681,11 +682,12 @@ class User(Resource):
 
         reviewer = self.getCurrentUser()
 
+        if reviewer is None:
+            raise AccessException("You must be logged in to get user applets.")
+
         currentUserDate = datetime.datetime.utcnow() + datetime.timedelta(hours=int(reviewer['timezone']))
         currentUserDate = currentUserDate.replace(hour=0, minute=0, second=0, microsecond=0)
 
-        if reviewer is None:
-            raise AccessException("You must be logged in to get user applets.")
         role = role.lower()
         if role not in USER_ROLES.keys():
             raise RestException(
@@ -708,12 +710,17 @@ class User(Resource):
         bufferSize = MAX_PULL_SIZE
 
         collect = not currentApplet
+        currentAppletId = None
 
         for applet in applets:
-            if str(applet['_id']) == currentApplet:
+
+            currentAppletId = applet['_id']
+
+            if str(currentAppletId) == currentApplet:
                 collect = True
 
             if applet.get('cached') and collect:
+
                 try:
                     nextIRI, data, remaining = AppletModel().appletFormatted(
                         applet=applet,
@@ -725,7 +732,7 @@ class User(Resource):
                         retrieveResponses=retrieveResponses,
                         groupByDateActivity=groupByDateActivity,
                         retrieveLastResponseTime=retrieveLastResponseTime,
-                        localInfo=localInfo.get(str(applet['_id']), {}) if localInfo else {},
+                        localInfo=localInfo.get(str(currentAppletId), {}) if localInfo else {},
                         nextActivity=nextActivity,
                         bufferSize=bufferSize,
                     )
@@ -740,9 +747,10 @@ class User(Resource):
                 except:
                     nextActivity = None
 
+
         return {
             'data': result,
-            'currentApplet': applet['_id'],
+            'currentApplet': currentAppletId,
             'nextActivity': nextActivity
         }
 

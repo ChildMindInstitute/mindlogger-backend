@@ -196,10 +196,18 @@ class AccountProfile(Resource):
                             '$exists': False
                         }
                     else:
-                        query['MRN'] = {
-                            '$regex': f'{MRN}',
-                            '$options' :'i'
-                        }
+                        query['$or'] = [ {
+                                'MRN': {
+                                    '$regex': f'{MRN}',
+                                    '$options' :'i'
+                                },
+                            }, {
+                                'identifiers': {
+                                    '$regex': f'{MRN}',
+                                    '$options' :'i'
+                                }
+                            }
+                        ]
 
                 if pinStatus == 'pinned':
                     query['pinnedBy'] = viewerProfileByApplet[appletId]['_id']

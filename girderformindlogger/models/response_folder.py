@@ -175,7 +175,8 @@ class ResponseFolder(Folder):
                 creator=user, reuseExisting=True, public=False
             ).get('_id'),
             user=reviewer,
-            level=AccessType.READ
+            level=AccessType.READ,
+            force=force
         )
         responseFolder = Folder().setMetadata(responseFolder, {
             'responseFolder': True
