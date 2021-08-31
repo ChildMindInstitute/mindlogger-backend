@@ -70,7 +70,7 @@ class CaseModel(AccessControlledModel):
             self.removeWithQuery({ '_id': ObjectId(id) })
 
             CaseUser().removeWithQuery({ 'caseId': ObjectId(id) })
-            Entry().removeWithQuery({ 'caseId': ObjectId(id) })
+            EntryModel().removeWithQuery({ 'caseId': ObjectId(id) })
         else:
             self.update({
                 '_id': ObjectId(id)
@@ -90,7 +90,7 @@ class CaseModel(AccessControlledModel):
                 }
             })
 
-            Entry().update({
+            EntryModel().update({
                 'caseId': ObjectId(id)
             }, {
                 '$set': {

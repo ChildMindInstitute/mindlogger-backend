@@ -164,7 +164,7 @@ class Cases(Resource):
 
         applets = accountProfile.get('applets', {})
 
-        if not len(applets.get('coordinator', [])) and not len(applets.get('manager', [])):
+        if not len(applets.get('manager', [])):
             raise AccessException('permission denied')
 
         self._model.deleteCase(id, deleteResponse)
