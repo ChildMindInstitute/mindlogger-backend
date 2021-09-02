@@ -508,38 +508,70 @@ class Cases(Resource):
             required=True
         )
         .param(
+            'appletId',
+            'id of applet',
+        )
+        .param(
             'entryType',
-            'type of entry',
+            'type of entry, one of one_time_report, self_report, user_report',
             required=True
         )
     )
-    def addEntry(self, id, profileId, entryType):
+    def addEntry(self, id, profileId, appletId, entryType):
         user = self.getCurrentUser()
         accountProfile = self.getAccountProfile()
 
         applets = accountProfile.get('applets', {})
 
-        profile = ProfileModel().findOne({'_id': ObjectId(profileId)})
+        if entryType == 'user_report':
+            profile = ProfileModel().findOne({
+                '_id': ObjectId(profileId)
+            })
+        elif entryType == 'self_report':
+            profile = ProfileModel().findOne({
+                'userId': user['_id'],
+                'appletId': ObjectId(appletId)
+            })
+        else:
+            profile = None
 
-        if not profile:
+        if not profile and entryType != 'one_time_submit':
             raise ValidationException('unable to find user with specified id')
 
-        if profile['appletId'] not in applets.get('coordinator', []) and profile['appletId'] not in applets.get('manager', []):
+        if ObjectId(appletId) not in applets.get('coordinator', []) and ObjectId(appletId) not in applets.get('manager', []):
             raise AccessException('permission denied')
 
         case = self._model.findOne({ '_id': ObjectId(id) })
-        caseUser = CaseUser().findOne({
-            'userId': profile['userId'],
-            'caseId': case['_id']
-        })
-        if not caseUser:
-            raise ValidationException('unable to find user linked to case')
+
+        if entryType != 'user_report':
+            caseUser = None
+        else:
+            caseUser = CaseUser().findOne({
+                'userId': profile['userId'],
+                'caseId': case['_id']
+            })
+
+            if not caseUser:
+                raise ValidationException('unable to find user linked to case')
 
         applet = AppletModel().load(profile['appletId'])
 
-        entry = EntryModel().addEntry(applet, profile['userId'], entryType, case['_id'], caseUser['_id'])
+        responder = None
+        if entryType == 'self_report':
+            responder = user.get('email')
+        elif entryType != 'one_time_report':
+            responder = caseUser.get('MRN')
 
-        return entry
+        entry = EntryModel().addEntry(
+            applet,
+            profile['userId'] if profile else None,
+            entryType,
+            case['_id'],
+            caseUser['_id'] if caseUser else None,
+            responder
+        )
+
+        return EntryModel().getEntryData(entry)
 
     @access.user(scope=TokenScope.DATA_WRITE)
     @autoDescribeRoute(

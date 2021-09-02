@@ -43,7 +43,7 @@ class EntryModel(AccessControlledModel):
             raise ValidationException('caseId is not defined', 'caseId')
         return document
 
-    def addEntry(self, applet, userId, entryType, caseId, caseUserId):
+    def addEntry(self, applet, userId, entryType, caseId, caseUserId, responder):
         profile = AppletProfile().findOne({ 'appletId': applet['_id'], 'userId': ObjectId(userId) })
 
         activities = applet['meta']['protocol'].get('activities')
@@ -52,7 +52,6 @@ class EntryModel(AccessControlledModel):
             'caseId': ObjectId(caseId),
             'appletId': applet['_id'],
             'userId': ObjectId(userId),
-            'entryType': entryType
         })
 
         if not entry:
@@ -72,6 +71,7 @@ class EntryModel(AccessControlledModel):
             ],
             'created': datetime.datetime.now(),
             'caseUserId': ObjectId(caseUserId),
+            'responder': responder,
             'active': True
         })
 
@@ -102,6 +102,35 @@ class EntryModel(AccessControlledModel):
                 }
             })
 
+    def getEntryData(self, entry):
+        lastUpdated = None
+
+        count = 0
+        for activity in entry['completed_activities']:
+            if activity['completed_time']:
+                count = count + 1
+
+                if not lastUpdated or lastUpdated < activity['completed_time']:
+                    lastUpdated = activity['completed_time']
+
+        status = 'not_started'
+
+        if count == len(entry['completed_activities']):
+            status = 'completed'
+        elif count > 0:
+            status = 'in_progress'
+
+        return {
+            '_id': entry['_id'],
+            'profileId': entry['profileId'],
+            'caseUserId': entry['caseUserId'],
+            'appletId': entry['appletId'],
+            'entryType': entry['entryType'],
+            'responder': entry['responder'],
+            'status': status,
+            'lastUpdated': lastUpdated
+        }
+
     def getEntries(self, caseId, applets):
         entries = self.find({
             'caseId': ObjectId(caseId),
@@ -113,31 +142,6 @@ class EntryModel(AccessControlledModel):
         result = []
 
         for entry in entries:
-            lastUpdated = None
-
-            count = 0
-            for activity in entry['completed_activities']:
-                if activity['completed_time']:
-                    count = count + 1
-
-                    if not lastUpdated or lastUpdated < activity['completed_time']:
-                        lastUpdated = activity['completed_time']
-
-            status = 'not_started'
-
-            if count == len(entry['completed_activities']):
-                status = 'completed'
-            elif count > 0:
-                status = 'in_progress'
-
-            result.append({
-                '_id': entry['_id'],
-                'profileId': entry['profileId'],
-                'caseUserId': entry['caseUserId'],
-                'appletId': entry['appletId'],
-                'entryType': entry['entryType'],
-                'status': status,
-                'lastUpdated': lastUpdated
-            })
+            result.append(self.getEntryData(entry))
 
         return result
