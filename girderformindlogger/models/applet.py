@@ -1239,9 +1239,6 @@ class Applet(FolderModel):
 
         insertedIRI = {}
 
-        print('responses are', responses)
-        print('query is', query)
-
         for response in responses:
             meta = response.get('meta', {})
 
