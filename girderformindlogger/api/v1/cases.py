@@ -422,11 +422,17 @@ class Cases(Resource):
         for obj in caseUser['applets']:
             if obj['appletId'] not in newApplets:
                 applet = appletModel.findOne({'_id': obj['appletId'] })
+                profile = profileModel.findOne({'_id': obj['profileId']})
 
                 appletModel.deleteUserFromApplet(
                     applet,
-                    profileModel.findOne({'_id': obj['profileId']})
+                    profile
                 )
+
+                entries = EntryModel().find({ 'profileId': profile['_id'] })
+
+                for entry in entries:
+                    EntryModel().deleteEntry(entry)
 
         caseUser = CaseUser().addCaseUser(
             caseId=id,

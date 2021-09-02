@@ -51,7 +51,8 @@ class EntryModel(AccessControlledModel):
         entry = self.findOne({
             'caseId': ObjectId(caseId),
             'appletId': applet['_id'],
-            'userId': ObjectId(userId)
+            'userId': ObjectId(userId),
+            'entryType': entryType
         })
 
         if not entry:
