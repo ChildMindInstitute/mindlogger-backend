@@ -32,7 +32,7 @@ from uuid import uuid4
 from bson.objectid import ObjectId
 from girderformindlogger import events
 from girderformindlogger.api.rest import getCurrentUser
-from girderformindlogger.constants import AccessType, SortDir, USER_ROLES, TokenScope
+from girderformindlogger.constants import AccessType, SortDir, USER_ROLES, TokenScope, RESPONSE_ITEM_PAGINATION
 from girderformindlogger.exceptions import AccessException, GirderException, \
     ValidationException
 from girderformindlogger.models.collection import Collection as CollectionModel
@@ -1134,7 +1134,7 @@ class Applet(FolderModel):
             refreshCache=True
         )
 
-    def getResponseData(self, appletId, reviewer, users):
+    def getResponseData(self, appletId, reviewer, users, pagination):
         """
         Function to collect response data available to given reviewer.
 
@@ -1207,11 +1207,23 @@ class Applet(FolderModel):
                 '$gte': applet['created']
             }
 
-        responses = list(ResponseItem().find(
-            query=query,
-            user=reviewer,
-            sort=[("created", DESCENDING)]
-        ))
+        if pagination.get('allow'):
+            offset = RESPONSE_ITEM_PAGINATION * pagination['pageIndex']
+            limit = RESPONSE_ITEM_PAGINATION
+
+            responses = list(ResponseItem().find(
+                query=query,
+                user=reviewer,
+                offset=offset,
+                limit=limit,
+                sort=[("created", DESCENDING)]
+            ))
+        else:
+            responses = list(ResponseItem().find(
+                query=query,
+                user=reviewer,
+                sort=[("created", DESCENDING)]
+            ))
 
         user=getCurrentUser()
 
@@ -1310,6 +1322,13 @@ class Applet(FolderModel):
                 IRIs
             )
         )
+
+        if pagination.get('allow'):
+            data['pagination'] = {
+                'pageIndex': pagination['pageIndex'],
+                'recordsPerPage': RESPONSE_ITEM_PAGINATION,
+                'returnCount': len(data['responses'])
+            }
 
         return data
 
