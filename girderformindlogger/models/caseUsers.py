@@ -54,13 +54,13 @@ class CaseUser(AccessControlledModel):
             caseUser = {
                 'caseId': ObjectId(caseId),
                 'userId': ObjectId(userId),
+                'created': datetime.datetime.now(),
+                'accountId': accountId,
             }
 
         caseUser.update({
             'applets': [],
-            'accountId': accountId,
             'MRN': MRN,
-            'created': datetime.datetime.now(),
             'active': True
         })
 
@@ -79,7 +79,7 @@ class CaseUser(AccessControlledModel):
                 'caseId': caseUser['caseId'],
             })
 
-            Entry().removeWithQuery({
+            EntryModel().removeWithQuery({
                 'caseUserId': caseUser['_id']
             })
 
@@ -102,7 +102,7 @@ class CaseUser(AccessControlledModel):
                 }
             })
 
-            Entry().update({
+            EntryModel().update({
                 'caseUserId': caseUser['_id']
             }, {
                 '$set': {
@@ -111,3 +111,21 @@ class CaseUser(AccessControlledModel):
                 }
             })
 
+    def getData(self, document):
+        return {
+            'applets': document['applets'],
+            'MRN': document['MRN'],
+            '_id': document['_id']
+        }
+
+    def getLinkedUsers(self, caseId):
+        users = self.find({
+            'caseId': ObjectId(caseId),
+            'active': True
+        })
+
+        linkedUsers = []
+        for user in users:
+            linkedUsers.append(self.getData(user))
+
+        return linkedUsers

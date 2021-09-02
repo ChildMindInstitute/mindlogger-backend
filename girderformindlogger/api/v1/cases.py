@@ -32,16 +32,63 @@ class Cases(Resource):
 
         self.route('GET', ('list',), self.getCases)
         self.route('POST', (), self.createCase)
+        self.route('GET', (':id', ), self.getCase)
         self.route('PUT', (':id', 'applets', 'add'), self.addApplets)
         self.route('DELETE', (':id', ), self.deleteCase)
+        self.route('GET', (':id', 'users', 'list'), self.getLinkedUsers)
         self.route('POST', (':id', 'users', 'add'), self.linkUser)
+        self.route('PUT', (':id', 'users', 'update'), self.updateLinkedUser)
         self.route('DELETE', (':id', 'users', 'delete'), self.unlinkUser)
+        self.route('GET', (':id', 'entries', 'list'), self.getEntries)
         self.route('POST', (':id', 'entries', 'add'), self.addEntry)
         self.route('DELETE', (':id', 'entries', 'delete'), self.deleteEntry)
 
     @access.user(scope=TokenScope.DATA_WRITE)
     @autoDescribeRoute(
-        Description('Create case in current account.')
+        Description('Get a case with specified id.')
+        .param(
+            'id',
+            'id of case',
+            required=True
+        )
+    )
+    def getCase(self, id):
+        user = self.getCurrentUser()
+        accountProfile = self.getAccountProfile()
+
+        accountApplets = accountProfile.get('applets', {})
+
+        document = self._model.findOne({'_id': ObjectId(id)})
+
+        if not document:
+            raise ValidationException('unable to find a case with specified id')
+
+        applets = []
+        for role in ['manager', 'coordinator', 'reviewer']:
+            for appletId in accountApplets.get(role, []):
+                if appletId not in applets:
+                    applets.append(appletId)
+
+        hasPermission = True if len(document['applets']) else False
+        for appletId in document['applets']:
+            if appletId in applets:
+                hasPermission = True
+
+        if not hasPermission:
+            raise AccessException('permission denied')
+
+        entries = EntryModel().getEntries(id, applets)
+        users = CaseUser().getLinkedUsers(id)
+
+        result = self._model.getCaseData(document)
+        result['entries'] = entries
+        result['users'] = users
+
+        return result
+
+    @access.user(scope=TokenScope.DATA_WRITE)
+    @autoDescribeRoute(
+        Description('Get cases in current account.')
     )
     def getCases(self):
         account = self.getAccountProfile()
@@ -175,6 +222,50 @@ class Cases(Resource):
 
     @access.user(scope=TokenScope.DATA_WRITE)
     @autoDescribeRoute(
+        Description('Get list of linked users for a case.')
+        .param(
+            'id',
+            'id of case',
+            required=True
+        )
+    )
+    def getLinkedUsers(self, id):
+        user = self.getCurrentUser()
+        accountProfile = self.getAccountProfile()
+
+        applets = accountProfile.get('applets', {})
+        if not len(applets.get('manager', [])) and not len(applets.get('coordinator', [])):
+            raise AccessException('permission denied')
+
+        return CaseUser().getLinkedUsers(id)
+
+    @access.user(scope=TokenScope.DATA_WRITE)
+    @autoDescribeRoute(
+        Description('Get list of entries for a case.')
+        .param(
+            'id',
+            'id of case',
+            required=True
+        )
+    )
+    def getEntries(self, id):
+        user = self.getCurrentUser()
+        accountProfile = self.getAccountProfile()
+
+        accountApplets = accountProfile.get('applets', {})
+
+        applets = []
+        for role in ['manager', 'coordinator', 'reviewer']:
+            for appletId in accountApplets[role]:
+                if appletId not in applets:
+                    applets.append(appletId)
+
+        entries = EntryModel().getEntries(id, applets)
+
+        return entries
+
+    @access.user(scope=TokenScope.DATA_WRITE)
+    @autoDescribeRoute(
         Description('Link users to specified case.')
         .param(
             'id',
@@ -242,13 +333,110 @@ class Cases(Resource):
 
             profiles.append(profile)
 
-        CaseUser().addCaseUser(
+        caseUser = CaseUser().addCaseUser(
             caseId=case['_id'],
             profiles=profiles,
             accountId=userProfile['accountId'],
             userId=userProfile['userId'],
             MRN=MRN
         )
+
+        return CaseUser().getData(caseUser)
+
+    @access.user(scope=TokenScope.DATA_WRITE)
+    @autoDescribeRoute(
+        Description('Link users to specified case.')
+        .param(
+            'id',
+            'id of case',
+            required=True
+        )
+        .param(
+            'userId',
+            'id of user profile',
+            required=True
+        )
+        .jsonParam(
+            'applets',
+            'array of applet id to link',
+            required=True
+        )
+    )
+    def updateLinkedUser(self, id, userId, applets):
+        user = self.getCurrentUser()
+        accountProfile = self.getAccountProfile()
+        accountApplets = accountProfile.get('applets', {})
+
+        caseUser = CaseUser().findOne({
+            'caseId': ObjectId(id),
+            '_id': ObjectId(userId)
+        })
+
+        if not caseUser:
+            raise ValidationException('unable to find user with specified id')
+
+        oldApplets = [applet['appletId'] for applet in caseUser['applets']]
+        newApplets = [ObjectId(appletId) for appletId in applets]
+
+        # check permission for new applets being added
+        for appletId in newApplets:
+            if appletId not in oldApplets:
+                if appletId not in accountApplets.get('coordinator') and appletId not in accountApplets.get('manager'):
+                    raise AccessException('permission denied')
+
+        # check permission for old applets being removed
+        for appletId in oldApplets:
+            if appletId not in newApplets:
+                if appletId not in accountApplets.get('coordinator') and appletId not in accountApplets.get('manager'):
+                    raise AccessException('permission denied')
+
+        userModel = User()
+        appletModel = AppletModel()
+        profileModel = ProfileModel()
+
+        profiles = []
+        for appletId in newApplets:
+            profile = profileModel.findOne({
+                'userId': caseUser['userId'],
+                'appletId': appletId,
+            })
+
+            if not profile or profile.get('deactivated'):
+                # add user to applet
+                appletModel.grantAccessToApplet(
+                    userModel.findOne({ '_id': ObjectId(caseUser['userId']) }),
+                    appletModel.load(appletId, user=user),
+                    'user',
+                    user,
+                    validateEmail=False,
+                    MRN=caseUser['MRN']
+                )
+
+                profile = profileModel.findOne({
+                    'userId': caseUser['userId'],
+                    'appletId': ObjectId(appletId),
+                })
+
+            profiles.append(profile)
+
+        for obj in caseUser['applets']:
+            if obj['appletId'] not in newApplets:
+                applet = appletModel.findOne({'_id': obj['appletId'] })
+
+                appletModel.deleteUserFromApplet(
+                    applet,
+                    profileModel.findOne({'_id': obj['profileId']})
+                )
+
+        caseUser = CaseUser().addCaseUser(
+            caseId=id,
+            profiles=profiles,
+            accountId=caseUser['accountId'],
+            userId=caseUser['userId'],
+            MRN=caseUser['MRN']
+        )
+
+        return CaseUser().getData(caseUser)
 
     @access.user(scope=TokenScope.DATA_WRITE)
     @autoDescribeRoute(
@@ -298,7 +486,7 @@ class Cases(Resource):
                 profileModel.findOne({'_id': obj['profileId']})
             )
 
-        self.deleteCaseUser(id, caseUser, deleteResponse)
+        CaseUser().deleteCaseUser(caseUser, deleteResponse)
 
     @access.user(scope=TokenScope.DATA_WRITE)
     @autoDescribeRoute(

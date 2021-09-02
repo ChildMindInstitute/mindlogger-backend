@@ -100,3 +100,43 @@ class EntryModel(AccessControlledModel):
                     'deleted': datetime.datetime.now()
                 }
             })
+
+    def getEntries(self, caseId, applets):
+        entries = self.find({
+            'caseId': ObjectId(caseId),
+            'appletId': {
+                '$in': applets
+            }
+        })
+
+        result = []
+
+        for entry in entries:
+            lastUpdated = None
+
+            count = 0
+            for activity in entry['completed_activities']:
+                if activity['completed_time']:
+                    count = count + 1
+
+                    if not lastUpdated or lastUpdated < activity['completed_time']:
+                        lastUpdated = activity['completed_time']
+
+            status = 'not_started'
+
+            if count == len(entry['completed_activities']):
+                status = 'completed'
+            elif count > 0:
+                status = 'in_progress'
+
+            result.append({
+                '_id': entry['_id'],
+                'profileId': entry['profileId'],
+                'caseUserId': entry['caseUserId'],
+                'appletId': entry['appletId'],
+                'entryType': entry['entryType'],
+                'status': status,
+                'lastUpdated': lastUpdated
+            })
+
+        return result
