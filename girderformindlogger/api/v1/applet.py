@@ -1315,9 +1315,15 @@ class Applet(Resource):
             dataType='array',
             default=''
         )
+        .jsonParam(
+            'pagination',
+            'pagination info - allow, pageIndex fields are available',
+            required=False,
+            default={}
+        )
         .errorResponse('Write access was denied for this applet.', 403)
     )
-    def getAppletData(self, id, users):
+    def getAppletData(self, id, users, pagination):
         from datetime import datetime
         from ..rest import setContentDisposition, setRawResponse, setResponseHeader
 
@@ -1327,7 +1333,7 @@ class Applet(Resource):
             users = users.replace(' ', '').split(",")
 
         users = users if users else []
-        data = AppletModel().getResponseData(id, thisUser, users)
+        data = AppletModel().getResponseData(id, thisUser, users, pagination)
 
         setContentDisposition("{}-{}.{}".format(
             str(id),
