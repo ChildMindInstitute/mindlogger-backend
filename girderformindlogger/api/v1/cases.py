@@ -505,7 +505,8 @@ class Cases(Resource):
         .param(
             'profileId',
             'id of user profile',
-            required=True
+            required=False,
+            default=None
         )
         .param(
             'appletId',
@@ -535,7 +536,7 @@ class Cases(Resource):
         else:
             profile = None
 
-        if not profile and entryType != 'one_time_submit':
+        if not profile and entryType != 'one_time_report':
             raise ValidationException('unable to find user with specified id')
 
         if ObjectId(appletId) not in applets.get('coordinator', []) and ObjectId(appletId) not in applets.get('manager', []):
@@ -554,7 +555,7 @@ class Cases(Resource):
             if not caseUser:
                 raise ValidationException('unable to find user linked to case')
 
-        applet = AppletModel().load(profile['appletId'])
+        applet = AppletModel().load(appletId, user=user)
 
         responder = None
         if entryType == 'self_report':
@@ -608,7 +609,7 @@ class Cases(Resource):
         if not entry:
             raise ValidationException('unable to find an entry with specified id')
 
-        if entry['appletId'] not in applet.get('coordinator', []) and entry['appletId'] not in applet.get('manager', []):
+        if entry['appletId'] not in applets.get('coordinator', []) and entry['appletId'] not in applets.get('manager', []):
             raise AccessException('permission denied')
 
         EntryModel().deleteEntry(entry, deleteResponse)

@@ -27,7 +27,7 @@ class EntryModel(AccessControlledModel):
     """
 
     def initialize(self):
-        self.name = 'caseUsers'
+        self.name = 'entries'
         self.ensureIndices(
             (
                 'appletId',
@@ -52,16 +52,19 @@ class EntryModel(AccessControlledModel):
             'caseId': ObjectId(caseId),
             'appletId': applet['_id'],
             'userId': ObjectId(userId),
+            'entryType': entryType
         })
 
         if not entry:
             entry = {}
+        elif entry.get('active'):
+            raise ValidationException('entry already exists')
 
         entry.update({
             'caseId': ObjectId(caseId),
             'appletId': applet['_id'],
             'userId': userId,
-            'profileId': profile['_id'],
+            'profileId': profile['_id'] if profile else None,
             'entryType': entryType,
             'completed_activities': [
                 {
@@ -136,7 +139,8 @@ class EntryModel(AccessControlledModel):
             'caseId': ObjectId(caseId),
             'appletId': {
                 '$in': applets
-            }
+            },
+            'active': True
         })
 
         result = []
