@@ -69,7 +69,7 @@ class Cases(Resource):
                 if appletId not in applets:
                     applets.append(appletId)
 
-        hasPermission = True if len(document['applets']) else False
+        hasPermission = True if not len(document['applets']) else False
         for appletId in document['applets']:
             if appletId in applets:
                 hasPermission = True
