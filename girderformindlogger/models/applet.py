@@ -1162,7 +1162,7 @@ class Applet(FolderModel):
             refreshCache=True
         )
 
-    def getResponseData(self, appletId, reviewer, users, caseId, pagination):
+    def getResponseData(self, appletId, reviewer, users, caseId, entryId, pagination):
         """
         Function to collect response data available to given reviewer.
 
@@ -1249,6 +1249,9 @@ class Applet(FolderModel):
 
         if caseId:
             query['meta.case.caseId'] = ObjectId(caseId)
+
+        if entryId:
+            query['meta.case.entryId'] = ObjectId(entryId)
 
         if pagination.get('allow'):
             offset = RESPONSE_ITEM_PAGINATION * pagination['pageIndex']
