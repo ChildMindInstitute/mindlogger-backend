@@ -463,6 +463,7 @@ def add_latest_daily_response(data, responses, tokens={}):
                 "date": date,
                 "value": response['meta']['responses'][item],
                 "version": version,
+                "responseId": response['_id']
             })
 
             if str(response['_id']) not in data['dataSources'] and 'dataSource' in response['meta']:
@@ -495,6 +496,7 @@ def add_latest_daily_response(data, responses, tokens={}):
                 "date": date,
                 "value": response['meta']['subScales'][subScale],
                 "version": version,
+                "responseId": response['_id']
             })
 
             if str(response['_id']) not in data['subScaleSources'] and 'subScaleSource' in response['meta']:
