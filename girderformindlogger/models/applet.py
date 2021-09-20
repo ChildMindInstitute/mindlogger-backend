@@ -598,9 +598,10 @@ class Applet(FolderModel):
                 ))
 
         for user in appletUsers:
-            appletUser = UserModel().load(user['userId'], force=True)
-            for group in groups:
-                Group().removeUser(group, appletUser)
+            if user['userId']:
+                appletUser = UserModel().load(user['userId'], force=True)
+                for group in groups:
+                    Group().removeUser(group, appletUser)
 
             Profile().remove(user)
 
