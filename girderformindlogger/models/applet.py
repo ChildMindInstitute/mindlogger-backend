@@ -32,7 +32,7 @@ from uuid import uuid4
 from bson.objectid import ObjectId
 from girderformindlogger import events
 from girderformindlogger.api.rest import getCurrentUser
-from girderformindlogger.constants import AccessType, SortDir, USER_ROLES, TokenScope
+from girderformindlogger.constants import AccessType, SortDir, USER_ROLES, TokenScope, RESPONSE_ITEM_PAGINATION
 from girderformindlogger.exceptions import AccessException, GirderException, \
     ValidationException
 from girderformindlogger.models.collection import Collection as CollectionModel
@@ -381,7 +381,8 @@ class Applet(FolderModel):
         self,
         applet,
         name,
-        editor
+        editor,
+        encryption
     ):
         from girderformindlogger.utility import jsonld_expander
         from girderformindlogger.models.protocol import Protocol
@@ -413,6 +414,10 @@ class Applet(FolderModel):
             },
             'published': False
         }
+
+        if encryption:
+            metadata['encryption'] = encryption
+
         metadata['applet']['displayName'] = appletName
 
         newApplet = self.setMetadata(
@@ -598,9 +603,10 @@ class Applet(FolderModel):
                 ))
 
         for user in appletUsers:
-            appletUser = UserModel().load(user['userId'], force=True)
-            for group in groups:
-                Group().removeUser(group, appletUser)
+            if user['userId']:
+                appletUser = UserModel().load(user['userId'], force=True)
+                for group in groups:
+                    Group().removeUser(group, appletUser)
 
             Profile().remove(user)
 
@@ -1134,7 +1140,7 @@ class Applet(FolderModel):
             refreshCache=True
         )
 
-    def getResponseData(self, appletId, reviewer, users):
+    def getResponseData(self, appletId, reviewer, users, pagination):
         """
         Function to collect response data available to given reviewer.
 
@@ -1207,11 +1213,23 @@ class Applet(FolderModel):
                 '$gte': applet['created']
             }
 
-        responses = list(ResponseItem().find(
-            query=query,
-            user=reviewer,
-            sort=[("created", DESCENDING)]
-        ))
+        if pagination.get('allow'):
+            offset = RESPONSE_ITEM_PAGINATION * pagination['pageIndex']
+            limit = RESPONSE_ITEM_PAGINATION
+
+            responses = list(ResponseItem().find(
+                query=query,
+                user=reviewer,
+                offset=offset,
+                limit=limit,
+                sort=[("created", DESCENDING)]
+            ))
+        else:
+            responses = list(ResponseItem().find(
+                query=query,
+                user=reviewer,
+                sort=[("created", DESCENDING)]
+            ))
 
         user=getCurrentUser()
 
@@ -1238,9 +1256,6 @@ class Applet(FolderModel):
         #            }
 
         insertedIRI = {}
-
-        print('responses are', responses)
-        print('query is', query)
 
         for response in responses:
             meta = response.get('meta', {})
@@ -1276,7 +1291,8 @@ class Applet(FolderModel):
                 'responseCompleted':times['responseCompleted'],
                 'responseScheduled':times['scheduledTime'],
                 'timeout': meta.get('timeout', 0),
-                'version': meta['applet'].get('version', '0.0.0')
+                'version': meta['applet'].get('version', '0.0.0'),
+                'reviewing': meta.get('reviewing', {}).get('responseId', None)
             })
 
             for IRI in meta.get('responses', {}):
@@ -1312,6 +1328,13 @@ class Applet(FolderModel):
                 IRIs
             )
         )
+
+        if pagination.get('allow'):
+            data['pagination'] = {
+                'pageIndex': pagination['pageIndex'],
+                'recordsPerPage': RESPONSE_ITEM_PAGINATION,
+                'returnCount': len(data['responses'])
+            }
 
         return data
 

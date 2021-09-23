@@ -1027,9 +1027,15 @@ class Applet(Resource):
             default='en',
             required=True
         )
+        .jsonParam(
+            'encryption',
+            'encryption info',
+            paramType='form',
+            required=False
+        )
         .errorResponse('Write access was denied for this applet.', 403)
     )
-    def duplicateApplet(self, applet, name, lang='en'):
+    def duplicateApplet(self, applet, name, lang='en', encryption=None):
         thisUser = self.getCurrentUser()
         accountProfile = self.getAccountProfile()
 
@@ -1044,6 +1050,7 @@ class Applet(Resource):
                 'applet': applet,
                 'name': name,
                 'editor': thisUser,
+                'encryption': encryption
             }
         )
         thread.start()
@@ -1320,9 +1327,15 @@ class Applet(Resource):
             dataType='array',
             default=''
         )
+        .jsonParam(
+            'pagination',
+            'pagination info - allow, pageIndex fields are available',
+            required=False,
+            default={}
+        )
         .errorResponse('Write access was denied for this applet.', 403)
     )
-    def getAppletData(self, id, users):
+    def getAppletData(self, id, users, pagination):
         from datetime import datetime
         from ..rest import setContentDisposition, setRawResponse, setResponseHeader
 
@@ -1332,7 +1345,7 @@ class Applet(Resource):
             users = users.replace(' ', '').split(",")
 
         users = users if users else []
-        data = AppletModel().getResponseData(id, thisUser, users)
+        data = AppletModel().getResponseData(id, thisUser, users, pagination)
 
         setContentDisposition("{}-{}.{}".format(
             str(id),
