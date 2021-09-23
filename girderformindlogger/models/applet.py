@@ -381,7 +381,8 @@ class Applet(FolderModel):
         self,
         applet,
         name,
-        editor
+        editor,
+        encryption
     ):
         from girderformindlogger.utility import jsonld_expander
         from girderformindlogger.models.protocol import Protocol
@@ -413,6 +414,10 @@ class Applet(FolderModel):
             },
             'published': False
         }
+
+        if encryption:
+            metadata['encryption'] = encryption
+
         metadata['applet']['displayName'] = appletName
 
         newApplet = self.setMetadata(
@@ -1286,7 +1291,8 @@ class Applet(FolderModel):
                 'responseCompleted':times['responseCompleted'],
                 'responseScheduled':times['scheduledTime'],
                 'timeout': meta.get('timeout', 0),
-                'version': meta['applet'].get('version', '0.0.0')
+                'version': meta['applet'].get('version', '0.0.0'),
+                'reviewing': meta.get('reviewing', {}).get('responseId', None)
             })
 
             for IRI in meta.get('responses', {}):

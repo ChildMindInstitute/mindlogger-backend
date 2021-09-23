@@ -1027,9 +1027,15 @@ class Applet(Resource):
             default='en',
             required=True
         )
+        .jsonParam(
+            'encryption',
+            'encryption info',
+            paramType='form',
+            required=False
+        )
         .errorResponse('Write access was denied for this applet.', 403)
     )
-    def duplicateApplet(self, applet, name, lang='en'):
+    def duplicateApplet(self, applet, name, lang='en', encryption=None):
         thisUser = self.getCurrentUser()
         accountProfile = self.getAccountProfile()
 
@@ -1044,6 +1050,7 @@ class Applet(Resource):
                 'applet': applet,
                 'name': name,
                 'editor': thisUser,
+                'encryption': encryption
             }
         )
         thread.start()

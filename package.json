@@ -1,6 +1,6 @@
 {
     "name": "@girder/lint",
-    "version": "0.17.0",
+    "version": "0.18.0",
     "description": "Extensible data management platform",
     "homepage": "https://girderformindlogger.readthedocs.org",
     "bugs": {
