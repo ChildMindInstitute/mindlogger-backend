@@ -47,8 +47,20 @@ class Events(Model):
                     "_id": {
                         "$in": event['data']['users']
                     }
-                    }, update={'$inc': {
+                }, update={
+                    '$inc': {
                         'individual_events': -1
+                    },
+                    '$unset': {
+                        f'finished_events.{str(event_id)}': ''
+                    }
+                })
+            else:
+                ProfileModel().update(query={
+                    'appletId': event['applet_id']
+                }, update={
+                    '$unset': {
+                        f'finished_events.{str(event_id)}': ''
                     }
                 })
 

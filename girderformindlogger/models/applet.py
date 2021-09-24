@@ -1713,20 +1713,7 @@ class Applet(FolderModel):
 
             if retrieveLastResponseTime:
                 profile = Profile().findOne({'appletId': applet['_id'], 'userId': reviewer['_id']})
-                activities = profile['completed_activities']
-
-                formatted['lastResponses'] = {}
-
-                for activity in activities:
-                    completed_time = activity['completed_time']
-                    timezone = str(profile.get('timezone', 0))
-                    if completed_time:
-                        if isinstance(timezone, str) and timezone in pytz.all_timezones:
-                            completed_time = activity['completed_time'].astimezone(pytz.timezone(timezone)).isoformat()
-                        else:
-                            completed_time = activity['completed_time'].isoformat()
-
-                    formatted['lastResponses'][str(activity['activity_id'])] = completed_time
+                formatted['finishedEvents'] = profile.get('finished_events', {})
         else:
             formatted.pop('applet')
             formatted.pop('protocol')
