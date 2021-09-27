@@ -714,6 +714,10 @@ class ResponseItem(Resource):
                 metadata['subject'] = {'@id': subject_id}
 
             metadata['subject']['timezone'] = profile.get('timezone', 0)
+            if metadata.get('event'):
+                metadata['scheduledTime'] = metadata['event'].get('scheduledTime')
+
+            event = metadata.pop('event')
 
             if 'identifier' in metadata:
                 metadata['subject']['identifier'] = metadata.pop('identifier')
@@ -859,6 +863,12 @@ class ResponseItem(Resource):
 
                 if metadata['subject']['identifier'] not in data['identifiers']:
                     data['identifiers'].append(metadata['subject']['identifier'])
+
+            if event:
+                if not data.get('finished_events'):
+                    data['finished_events'] = {}
+
+                data['finished_events'][event['id']] = event['finishedTime']
 
             data['updated'] = now
             profile.save(data, validate=False)
