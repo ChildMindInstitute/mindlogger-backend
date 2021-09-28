@@ -717,7 +717,9 @@ class ResponseItem(Resource):
             if metadata.get('event'):
                 metadata['scheduledTime'] = metadata['event'].get('scheduledTime')
 
-            event = metadata.pop('event')
+                event = metadata.pop('event')
+            else:
+                event = None
 
             if 'identifier' in metadata:
                 metadata['subject']['identifier'] = metadata.pop('identifier')
