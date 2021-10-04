@@ -721,6 +721,11 @@ class ResponseItem(Resource):
             else:
                 event = None
 
+            if metadata.get('nextActivities'):
+                nextActivities = metadata.pop('nextActivities')
+            else:
+                nextActivities = []
+
             if 'identifier' in metadata:
                 metadata['subject']['identifier'] = metadata.pop('identifier')
 
@@ -846,6 +851,18 @@ class ResponseItem(Resource):
             data = profile.findOne(query={
                 "_id": subject_id
             })
+
+            if nextActivities:
+                if 'nextActivities' not in data:
+                    data['nextActivities'] = {}
+                activityId = str(activity['_id'])
+
+                if activityId not in data['nextActivities']:
+                    data['nextActivities'][activityId] = []
+
+                for nextActivity in nextActivities:
+                    if ObjectId(nextActivity) not in data['nextActivities'][activityId]:
+                        data['nextActivities'][activityId].append(ObjectId(nextActivity))
 
             updated = False
             for activity in data['completed_activities']:
