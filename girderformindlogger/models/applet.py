@@ -1769,7 +1769,15 @@ class Applet(FolderModel):
 
             if retrieveLastResponseTime:
                 profile = Profile().findOne({'appletId': applet['_id'], 'userId': reviewer['_id']})
+
                 formatted['finishedEvents'] = profile.get('finished_events', {})
+                formatted['lastResponses'] = {}
+
+                activities = profile['completed_activities']
+
+                for activity in activities:
+                    completed_time = activity['completed_time']
+                    formatted['lastResponses'][f'activity/{str(activity["activity_id"])}'] = completed_time
         else:
             formatted.pop('applet')
             formatted.pop('protocol')
