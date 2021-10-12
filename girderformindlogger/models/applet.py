@@ -1709,6 +1709,9 @@ class Applet(FolderModel):
                 if schedule:
                     formatted["schedule"] = schedule
 
+                profile = Profile().findOne({'appletId': applet['_id'], 'userId': reviewer['_id']})
+                formatted['cumulativeActivities'] = profile.get('nextActivities', {})
+
             if retrieveResponses:
                 formatted["responses"] = last7Days(
                     applet['_id'],
