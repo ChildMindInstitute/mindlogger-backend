@@ -597,13 +597,31 @@ class ResponseItem(Resource):
             'userId': user['_id']
         })
 
+        profile['lastTokenTime'] = datetime.utcnow()
+
+        if updateInfo.get('isReward', False) and updateInfo.get('isEndOfDay', False):
+            rewardTime = datetime.fromtimestamp(updateInfo.get('rewardTime', 0) / 1000)
+
+            if profile.get('lastRewardTime'):
+                delta = rewardTime - profile['lastRewardTime']
+
+                # events are sent twice from mobile app
+                if delta < 120:
+                    return
+
+            profile['lastRewardTime'] = updateInfo['rewardTime']
+
+        Profile().save(profile, validate=False)
+
         if updateInfo.get('tokenUpdate', None):
             ResponseTokens().saveResponseToken(
                 profile,
                 updateInfo['tokenUpdate'],
                 False,
                 updateInfo.get('userPublicKey', None),
-                updateInfo.get('version', None)
+                updateInfo.get('version', None),
+                updateInfo.get('isReward', False),
+                updateInfo.get('isEndOfDay', False)
             )
 
         if updateInfo.get('cumulative', None):
@@ -816,7 +834,7 @@ class ResponseItem(Resource):
                             'ptr': metadata['subScales'][subScale]
                         }
 
-                if metadata.get('tokenCumulation', None):
+                if metadata.get('tokenCumulation', None) is not None:
                     ResponseTokens().saveResponseToken(profile, metadata['tokenCumulation'], True, metadata.get('userPublicKey', None))
 
                 if metadata.get('alerts', []):
@@ -886,6 +904,9 @@ class ResponseItem(Resource):
 
                 if metadata['subject']['identifier'] not in data['identifiers']:
                     data['identifiers'].append(metadata['subject']['identifier'])
+
+            if metadata.get('tokenCumulation', None) is not None:
+                data['lastTokenTime'] = now
 
             if event:
                 if not data.get('finished_events'):

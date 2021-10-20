@@ -1778,6 +1778,9 @@ class Applet(FolderModel):
                 for activity in activities:
                     completed_time = activity['completed_time']
                     formatted['lastResponses'][f'activity/{str(activity["activity_id"])}'] = completed_time
+
+                formatted['lastTokenTime'] = profile.get('lastTokenTime', None)
+                formatted['lastRewardTime'] = profile.get('lastRewardTime', None)
         else:
             formatted.pop('applet')
             formatted.pop('protocol')

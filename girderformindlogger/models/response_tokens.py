@@ -34,7 +34,7 @@ class ResponseTokens(AESEncryption, dict):
                 ([
                     ('userId', 1),
                     ('appletId', 1),
-                    ('isCumulative', 1), 
+                    ('isCumulative', 1),
                     ('created', 1)
                 ], {})
             )
@@ -57,7 +57,7 @@ class ResponseTokens(AESEncryption, dict):
         except:
             pass
 
-    def saveResponseToken(self, profile, data, isCumulative, userPublicKey, version=None):
+    def saveResponseToken(self, profile, data, isCumulative, userPublicKey, version=None, isReward=False, isEndOfDay=False):
         now = datetime.utcnow()
 
         tokenInfo = {}
@@ -74,7 +74,9 @@ class ResponseTokens(AESEncryption, dict):
             'accountId': profile['accountId'],
             'data': data,
             'isCumulative': isCumulative,
-            'userPublicKey': userPublicKey
+            'userPublicKey': userPublicKey,
+            'isReward': isReward,
+            'isEndOfDay': isEndOfDay
         })
 
         if version:
@@ -108,7 +110,7 @@ class ResponseTokens(AESEncryption, dict):
 
         tokenUpdates = list(self.find(
             query,
-            fields=['created', 'data', 'userPublicKey'] if retrieveUserKeys else ['created', 'data'],
+            fields=['created', 'data', 'userPublicKey', 'isReward', 'isEndOfDay'] if retrieveUserKeys else ['created', 'data', 'isReward', 'isEndOfDay'],
             sort=[("created", ASCENDING)]
         ))
 
