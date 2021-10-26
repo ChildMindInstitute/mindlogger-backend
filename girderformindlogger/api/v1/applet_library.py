@@ -339,38 +339,44 @@ class AppletLibrary(Resource):
         )
     )
     def getApplets(self, recordsPerPage, pageIndex, searchText):
-        keys = ['name', 'keywords', 'description', 'activities.name', 'activities.items.name']
-        libraryApplets = list(
-            self._model.find({
-                '$or': [
-                    {
-                        key: {
-                            '$regex': f'{searchText}',
-                            '$options' :'i'
-                        }
-                    } for key in keys
-                ]
-            }, fields=self._model.metaFields)
-        )
+        keys = ['keywords', 'name', 'description', 'activities.name', 'activities.items.name']
+        libraryApplets = []
+        totalCount = 0
 
         def getSortKey(applet):
             return applet['name'].lower()
-        libraryApplets.sort(key=getSortKey)
+
+        appletIds = {}
+
+        for key in keys:
+            query = {
+                key: { '$regex': f'{searchText}', '$options' :'i' }
+            }
+
+            if key == 'keywords':
+                searchWords = searchText.split(', ')
+
+                query = {
+                    '$and': [
+                        {
+                            key: { '$regex': f'{word}', '$options': 'i' }
+                        } for word in searchWords
+                    ]
+                }
+
+            applets = list(self._model.find(query, fields=self._model.metaFields))
+
+            applets.sort(key=getSortKey)
+            for libraryApplet in applets:
+                appletId = str(libraryApplet['appletId'])
+
+                if appletId not in appletIds:
+                    appletIds[appletId] = True
+                    libraryApplets.append(libraryApplet)
 
         totalCount = len(libraryApplets)
+
         libraryApplets = libraryApplets[recordsPerPage * pageIndex: recordsPerPage * pageIndex + recordsPerPage]
-
-        appletIds = []
-        for libraryApplet in libraryApplets:
-            appletIds.append(libraryApplet['appletId'])
-
-        appletModel = AppletModel()
-
-        applets = list(appletModel.find({
-            '_id': {
-                '$in': appletIds
-            }
-        }))
 
         data = []
         for libraryApplet in libraryApplets:
