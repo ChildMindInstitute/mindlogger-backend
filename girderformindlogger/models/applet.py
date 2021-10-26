@@ -1239,6 +1239,7 @@ class Applet(FolderModel):
             'dataSources': {},
             'subScaleSources': {},
             'keys': [],
+            'nextsAt': {},
             'responses': []
         }
 
@@ -1321,6 +1322,17 @@ class Applet(FolderModel):
                         'key': userKeys[keyDump],
                         'data': meta['subScaleSource']
                     }
+
+                resNextsAt = {}
+                metaNextsAt = meta.get('nextsAt', 0)
+                if metaNextsAt:
+                    for key in metaNextsAt:
+                        ts = metaNextsAt.get(key, 0)
+                        if not ts:
+                            continue
+                        resNextsAt[key] = moment.unix(ts).strftime("%Y-%m-%d %H:%M:%S")
+
+                data['nextsAt'][str(response['_id'])] = resNextsAt
 
         data.update(
             Protocol().getHistoryDataFromItemIRIs(
@@ -1716,20 +1728,7 @@ class Applet(FolderModel):
 
             if retrieveLastResponseTime:
                 profile = Profile().findOne({'appletId': applet['_id'], 'userId': reviewer['_id']})
-                activities = profile['completed_activities']
-
-                formatted['lastResponses'] = {}
-
-                for activity in activities:
-                    completed_time = activity['completed_time']
-                    timezone = str(profile.get('timezone', 0))
-                    if completed_time:
-                        if isinstance(timezone, str) and timezone in pytz.all_timezones:
-                            completed_time = activity['completed_time'].astimezone(pytz.timezone(timezone)).isoformat()
-                        else:
-                            completed_time = activity['completed_time'].isoformat()
-
-                    formatted['lastResponses'][str(activity['activity_id'])] = completed_time
+                formatted['finishedEvents'] = profile.get('finished_events', {})
         else:
             formatted.pop('applet')
             formatted.pop('protocol')
