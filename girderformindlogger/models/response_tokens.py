@@ -57,10 +57,22 @@ class ResponseTokens(AESEncryption, dict):
         except:
             pass
 
-    def saveResponseToken(self, profile, data, isCumulative, userPublicKey, version=None, isReward=False, isEndOfDay=False):
+    def saveResponseToken(
+        self,
+        profile,
+        data,
+        userPublicKey,
+        isCumulative=False,
+        isToken=False,
+        isTracker=False,
+        version=None,
+        tokenId=None,
+        date=None
+    ):
         now = datetime.utcnow()
 
         tokenInfo = {}
+
         if isCumulative:
             tokenInfo = self.findOne({
                 'userId': profile['userId'],
@@ -68,16 +80,22 @@ class ResponseTokens(AESEncryption, dict):
                 'isCumulative': isCumulative
             }) or {}
 
+        if tokenId:
+            tokenInfo = self.findOne({'_id': ObjectId(tokenId)})
+
         tokenInfo.update({
             'userId': profile['userId'],
             'appletId': profile['appletId'],
             'accountId': profile['accountId'],
             'data': data,
             'isCumulative': isCumulative,
+            'isToken': isToken,
+            'isTracker': isTracker,
             'userPublicKey': userPublicKey,
-            'isReward': isReward,
-            'isEndOfDay': isEndOfDay
         })
+
+        if date:
+            tokenInfo['date'] = date
 
         if version:
             tokenInfo['version'] = version
@@ -95,12 +113,12 @@ class ResponseTokens(AESEncryption, dict):
             'userId': profile['userId'],
             'appletId': profile['appletId'],
             'isCumulative': True
-        }, fields=['data', 'userPublicKey'] if retrieveUserKeys else ['data'])
+        }, fields=['data'])
 
         query = {
             'userId': profile['userId'],
             'appletId': profile['appletId'],
-            'isCumulative': False,
+            'isToken': True,
         }
 
         if startDate:
@@ -108,27 +126,39 @@ class ResponseTokens(AESEncryption, dict):
                 "$gte": startDate,
             }
 
-        tokenUpdates = list(self.find(
+        tokens = list(self.find(
             query,
-            fields=['created', 'data', 'userPublicKey', 'isReward', 'isEndOfDay'] if retrieveUserKeys else ['created', 'data', 'isReward', 'isEndOfDay'],
+            fields=['created', 'data', 'date', 'userPublicKey'] if retrieveUserKeys else ['data', 'date'],
             sort=[("created", ASCENDING)]
         ))
 
-        if cumulativeToken:
-            cumulativeToken.pop('_id')
+        def convertTimeZone(tokens, profile):
+            for token in tokens:
+                if 'created' in token:
+                    token["created"] = token["created"].replace(tzinfo=pytz.timezone("UTC")).astimezone(
+                        timezone(
+                            timedelta(
+                                hours=profile.get('timezone', 0)
+                            )
+                        )
+                    ).isoformat()
 
-        for tokenUpdate in tokenUpdates:
-            tokenUpdate["created"] = tokenUpdate["created"].replace(tzinfo=pytz.timezone("UTC")).astimezone(
-                timezone(
-                    timedelta(
-                        hours=profile.get('timezone', 0)
-                    )
-                )
-            ).isoformat()
+                token['id'] = token.pop('_id')
 
-            tokenUpdate['id'] = tokenUpdate.pop('_id')
+        convertTimeZone(tokens, profile)
+
+        query['isTracker'] = query.pop('isToken')
+        trackers = list(self.find(
+            query,
+            fields=['created', 'data', 'userPublicKey'] if retrieveUserKeys else ['created', 'data']
+        ))
+
+        convertTimeZone(trackers, profile)
 
         return {
-            'cumulativeToken': cumulativeToken,
-            'tokenUpdates': tokenUpdates
+            'cumulative': cumulativeToken['data'] if cumulativeToken else 0,
+            'tokenTimes': profile.get('tokenTimes', []),
+            'lastRewardTime': profile.get('lastRewardTime', None),
+            'tokens': tokens,
+            'trackers': trackers
         }

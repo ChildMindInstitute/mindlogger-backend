@@ -355,10 +355,7 @@ class ResponseItem(Resource):
             'items': {},
             'subScaleSources': {},
             'subScales': {},
-            'tokens': {
-                'cumulativeToken': [],
-                'tokenUpdates': [],
-            },
+            'tokens': {},
         }
 
         # Get the responses for each users and generate the group responses data.
@@ -597,9 +594,7 @@ class ResponseItem(Resource):
             'userId': user['_id']
         })
 
-        profile['lastTokenTime'] = datetime.utcnow()
-
-        if updateInfo.get('isReward', False) and updateInfo.get('isEndOfDay', False):
+        if updateInfo.get('isReward', False):
             rewardTime = datetime.fromtimestamp(updateInfo.get('rewardTime', 0) / 1000)
 
             if profile.get('lastRewardTime'):
@@ -611,25 +606,27 @@ class ResponseItem(Resource):
 
             profile['lastRewardTime'] = updateInfo['rewardTime']
 
+            if len(profile['tokenTimes']):
+                profile['tokenTimes'] = [profile['tokenTimes'][-1]]
+
         Profile().save(profile, validate=False)
 
-        if updateInfo.get('tokenUpdate', None):
-            ResponseTokens().saveResponseToken(
-                profile,
-                updateInfo['tokenUpdate'],
-                False,
-                updateInfo.get('userPublicKey', None),
-                updateInfo.get('version', None),
-                updateInfo.get('isReward', False),
-                updateInfo.get('isEndOfDay', False)
-            )
+        ResponseTokens().saveResponseToken(
+            profile,
+            updateInfo.get('cumulative'),
+            updateInfo.get('userPublicKey'),
+            isCumulative=True
+        )
 
-        if updateInfo.get('cumulative', None):
+        if updateInfo.get('changes'):
             ResponseTokens().saveResponseToken(
                 profile,
-                updateInfo['cumulative'],
-                True,
-                updateInfo.get('userPublicKey', None)
+                updateInfo['changes'].get('data'),
+                updateInfo.get('userPublicKey'),
+                isToken=not updateInfo.get('isReward', False),
+                isTracker=updateInfo.get('isReward', False),
+                version=updateInfo['version'],
+                tokenId=updateInfo['changes'].get('id')
             )
 
     @access.public
@@ -834,8 +831,26 @@ class ResponseItem(Resource):
                             'ptr': metadata['subScales'][subScale]
                         }
 
-                if metadata.get('tokenCumulation', None) is not None:
-                    ResponseTokens().saveResponseToken(profile, metadata['tokenCumulation'], True, metadata.get('userPublicKey', None))
+                token = metadata.get('token')
+
+                if token:
+                    ResponseTokens().saveResponseToken(
+                        profile,
+                        token.get('cumulative'),
+                        metadata.get('userPublicKey'),
+                        isCumulative=True
+                    )
+
+                    if 'changes' in token:
+                        ResponseTokens().saveResponseToken(
+                            profile,
+                            token['changes'].get('data'),
+                            metadata.get('userPublicKey'),
+                            isToken=True,
+                            version=metadata['applet']['version'],
+                            tokenId=token['changes'].get('id'),
+                            date=token['changes'].get('date')
+                        )
 
                 if metadata.get('alerts', []):
                     alerts = metadata.get('alerts', [])
@@ -905,8 +920,9 @@ class ResponseItem(Resource):
                 if metadata['subject']['identifier'] not in data['identifiers']:
                     data['identifiers'].append(metadata['subject']['identifier'])
 
-            if metadata.get('tokenCumulation', None) is not None:
-                data['lastTokenTime'] = now
+            if metadata.get('token'):
+                data['tokenTimes'] = data.get('tokenTimes', [])
+                data['tokenTimes'].append(now)
 
             if event:
                 if not data.get('finished_events'):
