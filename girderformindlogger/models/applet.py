@@ -1280,7 +1280,7 @@ class Applet(FolderModel):
                     continue
                 times[key] = moment.unix(ts).strftime("%Y-%m-%d %H:%M:%S")
 
-            responsesData = meta.get('responses', {})
+            responsesData = meta.get('responses', {})            
             try:
                 for key in responsesData:
                     if key in responsesData:
@@ -1289,12 +1289,21 @@ class Applet(FolderModel):
                             if type(activity.get('ptr')) is dict:
                                 if 'lines' in activity.get('ptr'):
                                     for (i, item) in enumerate(activity.get('ptr')['lines']):
-                                        for key2 in item:
-                                            for (k, point) in enumerate(item[key2]):
-                                                ts = point.get('time', 0)
-                                                if not ts:
-                                                    continue
-                                                responsesData[key]['ptr']['lines'][i][key2][k]['time'] = moment.unix(ts).strftime("%Y-%m-%d %H:%M:%S")
+                                        try:
+                                            for key2 in item:
+                                                for (k, point) in enumerate(item[key2]):
+                                                    ts = point.get('time', 0)
+                                                    if not ts:
+                                                        continue
+                                                    responsesData[key]['ptr']['lines'][i][key2][k]['time'] = moment.unix(ts).strftime("%Y-%m-%d %H:%M:%S")
+                                        except:
+                                            if 'points' in item:
+                                                for (k, point) in enumerate(item.get('points')):
+                                                    ts = point.get('time', 0)
+                                                    if not ts:
+                                                        continue
+                                                    responsesData[key]['ptr']['lines'][i]['points'][k]['time'] = moment.unix(ts).strftime("%Y-%m-%d %H:%M:%S")
+                                            pass
             except:
                 import sys
                 print(sys.exc_info())
