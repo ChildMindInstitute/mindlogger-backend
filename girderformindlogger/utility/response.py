@@ -501,26 +501,27 @@ def add_latest_daily_response(data, responses, tokens={}):
                     'data': response['meta']['subScaleSource']
                 }
 
-    data['token']['cumulative'] = tokens['cumulative']
-    data['token']['tokenTimes'] = tokens['tokenTimes']
+    if 'cumulative' in tokens:
+        data['token']['cumulative'] = tokens['cumulative']
+        data['token']['tokenTimes'] = tokens['tokenTimes']
 
-    for tokenField in ['tokens', 'trackers']:
-        if not tokens.get(tokenField):
-            continue
+        for tokenField in ['tokens', 'trackers']:
+            if not tokens.get(tokenField):
+                continue
 
-        data['token'][tokenField] = []
+            data['token'][tokenField] = []
 
-        for value in tokens[tokenField]:
-            key_dump = json_util.dumps(value['userPublicKey'])
+            for value in tokens[tokenField]:
+                key_dump = json_util.dumps(value['userPublicKey'])
 
-            if key_dump not in user_keys:
-                user_keys[key_dump] = len(data['keys'])
-                data['keys'].append(value['userPublicKey'])
+                if key_dump not in user_keys:
+                    user_keys[key_dump] = len(data['keys'])
+                    data['keys'].append(value['userPublicKey'])
 
-            value['key'] = user_keys[key_dump]
-            value.pop('userPublicKey')
+                value['key'] = user_keys[key_dump]
+                value.pop('userPublicKey')
 
-            data['token'][tokenField].append(value)
+                data['token'][tokenField].append(value)
 
 
 def _oneResponsePerDatePerVersion(responses, offset):
