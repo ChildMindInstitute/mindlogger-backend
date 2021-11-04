@@ -506,10 +506,10 @@ def add_latest_daily_response(data, responses, tokens={}):
         data['token']['tokenTimes'] = tokens['tokenTimes']
 
         for tokenField in ['tokens', 'trackers']:
+            data['token'][tokenField] = []
+
             if not tokens.get(tokenField):
                 continue
-
-            data['token'][tokenField] = []
 
             for value in tokens[tokenField]:
                 key_dump = json_util.dumps(value['userPublicKey'])
