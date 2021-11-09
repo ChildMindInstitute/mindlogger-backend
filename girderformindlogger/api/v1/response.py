@@ -853,16 +853,15 @@ class ResponseItem(Resource):
             })
 
             if nextActivities:
-                if 'nextActivities' not in data:
-                    data['nextActivities'] = {}
-                activityId = str(activity['_id'])
+                if 'availableActivities' not in data:
+                    data['availableActivities'] = []
 
-                if activityId not in data['nextActivities']:
-                    data['nextActivities'][activityId] = []
+                if activity['_id'] in data['availableActivities']:
+                    data['availableActivities'].remove(activity['_id'])
 
                 for nextActivity in nextActivities:
-                    if ObjectId(nextActivity) not in data['nextActivities'][activityId]:
-                        data['nextActivities'][activityId].append(ObjectId(nextActivity))
+                    if ObjectId(nextActivity) not in data['availableActivities']:
+                        data['availableActivities'].append(ObjectId(nextActivity))
 
             updated = False
             for activity in data['completed_activities']:
