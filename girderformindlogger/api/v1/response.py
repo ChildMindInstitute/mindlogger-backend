@@ -853,15 +853,20 @@ class ResponseItem(Resource):
             })
 
             if nextActivities:
-                if 'availableActivities' not in data:
-                    data['availableActivities'] = []
+                if 'cumulative_activities' not in data:
+                    data['cumulative_activities'] = {
+                        'available': [],
+                        'archieved': []
+                    }
 
-                if activity['_id'] in data['availableActivities']:
-                    data['availableActivities'].remove(activity['_id'])
+                if activity['_id'] in data['cumulative_activities']['available']:
+                    data['cumulative_activities']['available'].remove(activity['_id'])
+                if activity['_id'] not in data['cumulative_activities']['archieved']:
+                    data['cumulative_activities']['archieved'].append(activity['_id'])
 
                 for nextActivity in nextActivities:
-                    if ObjectId(nextActivity) not in data['availableActivities']:
-                        data['availableActivities'].append(ObjectId(nextActivity))
+                    if ObjectId(nextActivity) not in data['cumulative_activities']['available']:
+                        data['cumulative_activities']['available'].append(ObjectId(nextActivity))
 
             updated = False
             for activity in data['completed_activities']:
