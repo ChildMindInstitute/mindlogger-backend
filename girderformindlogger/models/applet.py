@@ -1280,7 +1280,7 @@ class Applet(FolderModel):
                     continue
                 times[key] = moment.unix(ts).strftime("%Y-%m-%d %H:%M:%S")
 
-            responsesData = meta.get('responses', {})            
+            responsesData = meta.get('responses', {})
             try:
                 for key in responsesData:
                     if key in responsesData:
@@ -1739,8 +1739,8 @@ class Applet(FolderModel):
                     formatted["schedule"] = schedule
 
                 profile = Profile().findOne({'appletId': applet['_id'], 'userId': reviewer['_id']})
-                formatted['cumulativeActivities'] = profile.get('availableActivities', [])
-                
+                formatted['cumulativeActivities'] = profile.get('cumulative_activities', { 'available': [], 'archieved': [] })
+
             if retrieveResponses:
                 formatted["responses"] = last7Days(
                     applet['_id'],
