@@ -16,7 +16,7 @@
 
     <div style="border-top: 2px solid rgb(216,216,216); padding-top: 25px; ">
         <img
-            src="https://raw.githubusercontent.com/ChildMindInstitute/mindlogger-admin/feature/759/src/assets/mail-footer.png"
+            src="https://cmi-logos.s3.amazonaws.com/ChildMindInstitute_Logo_Horizontal_RGB.png"
             style="width: 200px; margin-left: 120px;"
         >
     </div>
