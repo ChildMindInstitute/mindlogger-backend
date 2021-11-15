@@ -59,6 +59,7 @@ class ResponseItem(Resource):
         self._model = ResponseItemModel()
         self.route('GET', (':applet',), self.getResponsesForApplet)
         self.route('GET', ('last7Days', ':applet'), self.getLast7Days)
+        self.route('GET', ('tokens', ':applet'), self.getResponseTokens)
         self.route('POST', (':applet', ':activity'), self.createResponseItem)
         self.route('POST', (':applet', 'updateResponseToken'), self.updateResponseToken)
         self.route('PUT', (':applet',), self.updateReponseHistory)
@@ -400,6 +401,40 @@ class ResponseItem(Resource):
         data.update(getOldVersions(data['responses'], applet))
 
         return data
+
+    @access.user(scope=TokenScope.DATA_READ)
+    @autoDescribeRoute(
+        Description(
+            'Get all user responses for a given applet.'
+        )
+        .modelParam(
+            'applet',
+            model=AppletModel,
+            level=AccessType.READ,
+            destName='applet',
+            description='The ID of the applet'
+        )
+        .param(
+            'startDate',
+            'Date for the oldest entry to retrieve',
+            required=False,
+            dataType='dateTime',
+        )
+    )
+    def getResponseTokens(
+        self,
+        applet=None,
+        startDate=None
+    ):
+        from girderformindlogger.models.profile import Profile
+
+        user = self.getCurrentUser()
+        profile = Profile().findOne({
+            'appletId': applet['_id'],
+            'userId': user['_id']
+        })
+
+        return ResponseTokens().getResponseTokens(profile, startDate, retrieveUserKeys=False)
 
     @access.user(scope=TokenScope.DATA_READ)
     @autoDescribeRoute(
@@ -850,6 +885,17 @@ class ResponseItem(Resource):
                             version=metadata['applet']['version'],
                             tokenId=token['changes'].get('id'),
                             date=token['changes'].get('date')
+                        )
+
+                    if 'trackerAggregation' in token:
+                        ResponseTokens().saveResponseToken(
+                            profile,
+                            token['trackerAggregation'].get('data'),
+                            metadata.get('userPublicKey'),
+                            trackerAggregation=True,
+                            version=metadata['applet']['version'],
+                            tokenId=token['trackerAggregation'].get('id'),
+                            date=token['trackerAggregation'].get('date')
                         )
 
                 if metadata.get('alerts', []):

@@ -65,6 +65,7 @@ class ResponseTokens(AESEncryption, dict):
         isCumulative=False,
         isToken=False,
         isTracker=False,
+        trackerAggregation=False,
         version=None,
         tokenId=None,
         date=None
@@ -91,6 +92,7 @@ class ResponseTokens(AESEncryption, dict):
             'isCumulative': isCumulative,
             'isToken': isToken,
             'isTracker': isTracker,
+            'trackerAggregation': trackerAggregation,
             'userPublicKey': userPublicKey,
         })
 
@@ -126,12 +128,6 @@ class ResponseTokens(AESEncryption, dict):
                 "$gte": startDate,
             }
 
-        tokens = list(self.find(
-            query,
-            fields=['created', 'data', 'date', 'userPublicKey'] if retrieveUserKeys else ['data', 'date'],
-            sort=[("created", ASCENDING)]
-        ))
-
         def convertTimeZone(tokens, profile):
             for token in tokens:
                 if 'created' in token:
@@ -145,6 +141,11 @@ class ResponseTokens(AESEncryption, dict):
 
                 token['id'] = token.pop('_id')
 
+        tokens = list(self.find(
+            query,
+            fields=['created', 'data', 'date', 'userPublicKey'] if retrieveUserKeys else ['data', 'date'],
+            sort=[("created", ASCENDING)]
+        ))
         convertTimeZone(tokens, profile)
 
         query['isTracker'] = query.pop('isToken')
@@ -152,13 +153,20 @@ class ResponseTokens(AESEncryption, dict):
             query,
             fields=['created', 'data', 'userPublicKey'] if retrieveUserKeys else ['created', 'data']
         ))
-
         convertTimeZone(trackers, profile)
+
+        query['trackerAggregation'] = query.pop('isTracker')
+        trackerAggregation = list(self.find(
+            query,
+            fields=['created', 'data', 'userPublicKey'] if retrieveUserKeys else ['created', 'data']
+        ))
+        convertTimeZone(trackerAggregation, profile)
 
         return {
             'cumulative': cumulativeToken['data'] if cumulativeToken else 0,
             'tokenTimes': profile.get('tokenTimes', []),
             'lastRewardTime': profile.get('lastRewardTime', None),
             'tokens': tokens,
-            'trackers': trackers
+            'trackers': trackers,
+            'trackerAggregation': trackerAggregation
         }
