@@ -873,7 +873,7 @@ class Applet(FolderModel):
         from girderformindlogger.models.protocol import Protocol
         from girderformindlogger.utility import jsonld_expander
 
-        if applet['meta'].get('editing', False):
+        if applet['meta']['applet'].get('editing', False):
             raise AccessException('applet is being edited')
 
         applet['meta']['applet']['editing'] = True
@@ -906,7 +906,6 @@ class Applet(FolderModel):
         )
         applet['meta']['applet']['version'] = protocol['schema:schemaVersion'][0].get('@value', '0.0.0') if 'schema:schemaVersion' in protocol else '0.0.0'
         applet['meta']['applet'].update(Protocol().getImageAndDescription(protocol))
-        applet['meta']['applet']['editing'] = False
         applet['updated'] = now
 
         applet = self.setMetadata(folder=applet, metadata=applet['meta'])
@@ -981,6 +980,9 @@ class Applet(FolderModel):
 
         if applet['meta'].get('published', False):
             AppletLibrary().appletContentUpdate(applet)
+
+        applet['meta']['applet']['editing'] = False
+        self.setMetadata(folder=applet, metadata=applet['meta'])
 
         return formatted
 
