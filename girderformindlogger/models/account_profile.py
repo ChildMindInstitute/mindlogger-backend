@@ -40,10 +40,8 @@ class AccountProfile(AccessControlledModel):
 
     def validateDBURL(self, db_uri: str):
         match = re.fullmatch(r'^mongodb://\w+:\w+@\w+:\d+/\w+', db_uri)
-        # if not match:
-            # match = re(r'^mongodb://\w+:\w+@\w+', db_uri)
-            # if not match:
-            #     raise ValidationException('MongoDB url is not correct.')
+        if not match:
+            raise ValidationException('MongoDB url is not correct.')
 
     def createOwner(self, user):
         account = {
