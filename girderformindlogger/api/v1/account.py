@@ -15,7 +15,7 @@ class Account(Resource):
         super(Account, self).__init__()
         self.resourceName = 'account'
         self._model = AccountProfile()
-        # self.route('PUT', (':id',), self.updateAccountDB)
+        self.route('PUT', (':id',), self.updateAccountDB)
 
     @access.user(scope=TokenScope.DATA_WRITE)
     @autoDescribeRoute(
