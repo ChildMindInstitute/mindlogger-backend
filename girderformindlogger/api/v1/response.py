@@ -46,7 +46,6 @@ import string
 import random
 import base64
 import io
-from boto.s3.connection import OrdinaryCallingFormat
 
 DEFAULT_REGION = 'us-east-1'
 
@@ -752,10 +751,6 @@ class ResponseItem(Resource):
             if owner_account and owner_account.get('db', None):
                 self._model.reconnectToDb(db_uri=owner_account.get('db', None))
 
-            if owner_account and owner_account.get('s3Bucket', None) and owner_account.get('accessKeyId', None):
-                self.s3_client = boto3.client('s3', region_name=DEFAULT_REGION, aws_access_key_id=owner_account.get('accessKeyId', None),
-                            aws_secret_access_key=owner_account.get('secretAccessKey', None))
-
             try:
                 newItem = self._model.createResponseItem(
                     folder=AppletSubjectResponsesFolder,
@@ -784,10 +779,7 @@ class ResponseItem(Resource):
 
                 file_data=base64.b64decode(value)
 
-                if owner_account and owner_account.get('s3Bucket', None):
-                    self.s3_client.upload_fileobj(io.BytesIO(file_data),owner_account.get('s3Bucket', os.environ['S3_MEDIA_BUCKET']),_file_obj_key)
-                else: 
-                    self.s3_client.upload_fileobj(io.BytesIO(file_data),os.environ['S3_MEDIA_BUCKET'],_file_obj_key)
+                self.s3_client.upload_fileobj(io.BytesIO(file_data),os.environ['S3_MEDIA_BUCKET'],_file_obj_key)
 
                 # newUpload = um.uploadFromFile(
                 #     value.file,
@@ -804,7 +796,6 @@ class ResponseItem(Resource):
                 value['size']=metadata['responses'][key]['size']
                 value['type']=metadata['responses'][key]['type']
                 value['uri']="s3://{}/{}".format(os.environ['S3_MEDIA_BUCKET'],_file_obj_key)
-
                 # now, replace the metadata key with a link to this upload
                 metadata['responses'][key]['value'] = value
                 del metadata['responses'][key]['size']

@@ -21,7 +21,6 @@ class AccountProfile(Resource):
         self._model = AccountProfileModel()
 
         self.route('GET', ('users',), self.getUsers)
-        self.route('PUT', (':id',), self.updateAccountDB)
         self.route('PUT', ('manage', 'pin', ), self.updatePin)
         self.route('PUT', ('updateAlertStatus', ':id', ), self.updateAlertStatus)
 
@@ -266,23 +265,3 @@ class AccountProfile(Resource):
             'total': len(users)
         }
 
-    @access.user(scope=TokenScope.DATA_WRITE)
-    @autoDescribeRoute(
-        Description('Update profile personal db uri')
-        .param('id', 'account id', required=True)
-        .param('dbURL', 'db uri for store the user responses', default=False, required=True)
-        .param('s3Bucket', 'S3 bucket name for uploading media responses', default=None, required=False)
-        .param('accessKeyId', 'S3 access key id', default=None, required=False)
-        .param('secretAccessKey', 'S3 secret access key', default=None, required=False)
-    )
-    def updateAccountDB(self, id, dbURL, s3Bucket, accessKeyId, secretAccessKey):
-        account = self._model.findOne({"accountId": ObjectId(id)})
-        self._model.validateDBURL(dbURL)
-        account.update({
-           'db': dbURL,
-           's3Bucket': s3Bucket,
-           'accessKeyId': accessKeyId,
-           'secretAccessKey': secretAccessKey,
-        })
-        self._model.save(account, validate=False)
-        return 'Information has been saved successfully.'
