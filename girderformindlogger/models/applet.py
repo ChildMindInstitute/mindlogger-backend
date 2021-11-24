@@ -1278,7 +1278,36 @@ class Applet(FolderModel):
                 ts = meta.get(key, 0)
                 if not ts:
                     continue
-                times[key] = moment.unix(ts).strftime("%Y-%m-%d %H:%M:%S")
+                times[key] = moment.unix(ts).strftime("%Y-%m-%d %H:%M:%S.%f")[:-3]
+
+            responsesData = meta.get('responses', {})
+            try:
+                for key in responsesData:
+                    if key in responsesData:
+                        activity = responsesData.get(key)
+                        if activity.get('ptr'):
+                            if type(activity.get('ptr')) is dict:
+                                if 'lines' in activity.get('ptr'):
+                                    for (i, item) in enumerate(activity.get('ptr')['lines']):
+                                        try:
+                                            for key2 in item:
+                                                for (k, point) in enumerate(item[key2]):
+                                                    ts = point.get('time', 0)
+                                                    if not ts:
+                                                        continue
+                                                    responsesData[key]['ptr']['lines'][i][key2][k]['time'] = moment.unix(ts).strftime("%Y-%m-%d %H:%M:%S.%f")[:-3]
+                                        except:
+                                            if 'points' in item:
+                                                for (k, point) in enumerate(item.get('points')):
+                                                    ts = point.get('time', 0)
+                                                    if not ts:
+                                                        continue
+                                                    responsesData[key]['ptr']['lines'][i]['points'][k]['time'] = moment.unix(ts).strftime("%Y-%m-%d %H:%M:%S.%f")[:-3]
+                                            pass
+            except:
+                import sys
+                print(sys.exc_info())
+                responsesData = meta.get('responses', {})
 
             responsesData = meta.get('responses', {})            
             try:
@@ -1359,7 +1388,7 @@ class Applet(FolderModel):
                         ts = metaNextsAt.get(key, 0)
                         if not ts:
                             continue
-                        resNextsAt[key] = moment.unix(ts).strftime("%Y-%m-%d %H:%M:%S")
+                        resNextsAt[key] = moment.unix(ts).strftime("%Y-%m-%d %H:%M:%S.%f")[:-3]
 
                 data['nextsAt'][str(response['_id'])] = resNextsAt
 
@@ -1739,7 +1768,7 @@ class Applet(FolderModel):
                     formatted["schedule"] = schedule
 
                 profile = Profile().findOne({'appletId': applet['_id'], 'userId': reviewer['_id']})
-                formatted['cumulativeActivities'] = profile.get('nextActivities', {})
+                formatted['cumulativeActivities'] = profile.get('cumulative_activities', { 'available': [], 'archieved': [] })
 
             if retrieveResponses:
                 formatted["responses"] = last7Days(
