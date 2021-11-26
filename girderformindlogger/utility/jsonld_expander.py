@@ -211,6 +211,8 @@ def createProtocolFromExpandedDocument(protocol, user, editExisting=False, remov
     historyReferenceFolder = None
 
     modelClasses = {}
+
+    models = { 'screen': [], 'activity': [] }
     for modelType in ['protocol', 'activity', 'screen']:
         modelClass = getModel(modelClasses, modelType)
         docCollection = getModelCollection(modelType)
@@ -365,14 +367,7 @@ def createProtocolFromExpandedDocument(protocol, user, editExisting=False, remov
                 )
 
                 if modelType != 'protocol':
-                    formatted = _fixUpFormat(formatLdObject(
-                        newModel,
-                        mesoPrefix=modelType,
-                        user=user,
-                        refreshCache=True
-                    ))
-
-                    createCache(newModel, formatted, modelType, user)
+                    models[modelType].append(newModel)
 
                 model['_id'] = newModel['_id']
 
@@ -437,6 +432,17 @@ def createProtocolFromExpandedDocument(protocol, user, editExisting=False, remov
                                     insertHistoryData(item, item['meta']['identifier'], 'screen', baseVersion, historyFolder, historyReferenceFolder, user, modelClasses)
 
                 model['ref2Document']['_id'] = newModel['_id']
+
+    for modelType in ['screen', 'activity']:
+        for model in models[modelType]:
+            formatted = _fixUpFormat(formatLdObject(
+                model,
+                mesoPrefix=modelType,
+                user=user,
+                refreshCache=True
+            ))
+
+            createCache(model, formatted, modelType, user)
 
     return protocolId
 

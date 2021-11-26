@@ -873,7 +873,7 @@ class Applet(FolderModel):
         from girderformindlogger.models.protocol import Protocol
         from girderformindlogger.utility import jsonld_expander
 
-        if applet['meta'].get('editing', False):
+        if applet['meta']['applet'].get('editing', False):
             raise AccessException('applet is being edited')
 
         applet['meta']['applet']['editing'] = True
@@ -906,7 +906,6 @@ class Applet(FolderModel):
         )
         applet['meta']['applet']['version'] = protocol['schema:schemaVersion'][0].get('@value', '0.0.0') if 'schema:schemaVersion' in protocol else '0.0.0'
         applet['meta']['applet'].update(Protocol().getImageAndDescription(protocol))
-        applet['meta']['applet']['editing'] = False
         applet['updated'] = now
 
         applet = self.setMetadata(folder=applet, metadata=applet['meta'])
@@ -982,6 +981,9 @@ class Applet(FolderModel):
         if applet['meta'].get('published', False):
             AppletLibrary().appletContentUpdate(applet)
 
+        applet['meta']['applet']['editing'] = False
+        self.setMetadata(folder=applet, metadata=applet['meta'])
+
         return formatted
 
     def renameApplet(
@@ -1032,6 +1034,11 @@ class Applet(FolderModel):
         metadata = applet.get('meta', {})
         protocolId = metadata.get('protocol', {}).get('_id', '/').split('/')[-1]
 
+        content = {}
+
+        for key, value in ijson.kvitems(protocol, 'protocol.data'):
+            content[key] = value
+
         if metadata.get('protocol', {}).get('url', None):
             if not protocolId:
                 raise ValidationException('this applet does not have protocol id')
@@ -1076,14 +1083,9 @@ class Applet(FolderModel):
 
                 jsonld_expander.convertObjectToSingleFileFormat(activity, 'activity', user, str(activity['_id']), modelClasses=modelClasses)
 
-            data = {}
-
-            for key, value in ijson.kvitems(protocol, 'protocol.data'):
-                data[key] = value
-
             for key in ['schema:version', 'schema:schemaVersion']:
                 schemaVersion = protocolFolder['meta']['protocol'][key]
-                schemaVersion[0]['@value'] = data.get(key, '0.0.0')
+                schemaVersion[0]['@value'] = content.get(key, '0.0.0')
 
             jsonld_expander.convertObjectToSingleFileFormat(protocolFolder, 'protocol', user, modelClasses=modelClasses)
 
@@ -1093,6 +1095,14 @@ class Applet(FolderModel):
 
             jsonld_expander.formatLdObject(protocolFolder, 'protocol', user, refreshCache=True)
         else:
+            protocolFolder = Protocol().load(protocolId, force=True)
+
+            for key in ['schema:version', 'schema:schemaVersion']:
+                schemaVersion = protocolFolder['meta']['protocol'][key]
+                schemaVersion[0]['@value'] = content.get(key, '0.0.0')
+
+            Protocol().setMetadata(protocolFolder, protocolFolder['meta'])
+
             Protocol().createHistoryFolders(protocolId, user)
 
         jsonld_expander.cacheProtocolContent(Protocol().load(protocolId, force=True), protocol, user)
@@ -1107,6 +1117,8 @@ class Applet(FolderModel):
         )
 
         applet['meta']['applet']['editing'] = False
+        applet['meta']['applet']['version'] = content.get('schema:version', '0.0.0')
+
         self.setMetadata(applet, applet['meta'])
 
         if thread and 'email' in user and not user.get('email_encrypted', True):
