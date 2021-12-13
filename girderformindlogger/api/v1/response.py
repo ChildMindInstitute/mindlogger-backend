@@ -833,7 +833,7 @@ class ResponseItem(Resource):
                 )
                 _file_obj_key=f"{ObjectId(profile['_id'])}/{ObjectId(applet['_id'])}/{ObjectId(activity['_id'])}/{filename}"
 
-                file_data=base64.b64decode(value)
+                file_data = value.file.read()
 
                 if owner_account and owner_account.get('s3Bucket', None):
                     self.s3_client.upload_fileobj(io.BytesIO(file_data),owner_account.get('s3Bucket', os.environ['S3_MEDIA_BUCKET']),_file_obj_key)
