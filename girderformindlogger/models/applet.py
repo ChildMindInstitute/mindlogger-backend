@@ -1305,14 +1305,14 @@ class Applet(FolderModel):
                                             for key2 in item:
                                                 for (k, point) in enumerate(item[key2]):
                                                     ts = point.get('time', 0)
-                                                    if not ts:
+                                                    if not ts or type(ts) == str:
                                                         continue
                                                     responsesData[key]['ptr']['lines'][i][key2][k]['time'] = moment.unix(ts).strftime("%Y-%m-%d %H:%M:%S.%f")[:-3]
                                         except:
                                             if 'points' in item:
                                                 for (k, point) in enumerate(item.get('points')):
                                                     ts = point.get('time', 0)
-                                                    if not ts:
+                                                    if not ts or type(ts) == str:
                                                         continue
                                                     responsesData[key]['ptr']['lines'][i]['points'][k]['time'] = moment.unix(ts).strftime("%Y-%m-%d %H:%M:%S.%f")[:-3]
                                             pass
