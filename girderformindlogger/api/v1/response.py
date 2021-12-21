@@ -726,11 +726,6 @@ class ResponseItem(Resource):
             else:
                 nextActivities = []
 
-            if metadata.get('nextActivities'):
-                nextActivities = metadata.pop('nextActivities')
-            else:
-                nextActivities = []
-
             if 'identifier' in metadata:
                 metadata['subject']['identifier'] = metadata.pop('identifier')
 
