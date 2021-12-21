@@ -178,6 +178,22 @@ class Protocol(FolderModel):
                     activity.pop(key)
 
             expandedActivity = jsonld_expander.formatLdObject(activity, 'activity')
+
+            for key in expandedActivity['activity']:
+                if key.endswith('prefLabel') and isinstance(expandedActivity['activity'][key], list):
+                    value = expandedActivity['activity'][key][0]['@value']
+
+                    if 'reprolib:terms/order' in formatted['protocol']:
+                        order = formatted['protocol']['reprolib:terms/order'][0]['@list']
+                        for child in order:
+                            uri = child.get('@id', None)
+                            if uri.split('/')[-1] == expandedActivity['activity']['@id']:
+                                child['@id'] = value
+                                break
+
+                    expandedActivity['activity']['@id'] = value
+                    break
+
             protocol['activity'][activityKey] = {
                 'parentKey': 'protocol',
                 'parentId': formatted['protocol']['@id'],

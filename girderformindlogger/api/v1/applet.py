@@ -1274,6 +1274,9 @@ class Applet(Resource):
         if applet['meta']['applet'].get('editing'):
             raise AccessException("applet is being edited")
 
+        if not thread and applet['meta']['applet'].get('largeApplet', False):
+            raise ValidationException('unable to edit this applet without thread')
+
         applet['meta']['applet']['editing'] = True
         self._model.setMetadata(applet, applet['meta'])
 
@@ -1293,8 +1296,6 @@ class Applet(Resource):
             return({
                 "message": "The applet is building. We will send you an email in 10 min or less when it has been successfully created or failed."
             })
-        elif applet['meta']['applet'].get('largeApplet', False):
-            raise ValidationException('unable to edit this applet without thread')
 
         AppletModel().prepareAppletForEdit(
             applet=applet,
