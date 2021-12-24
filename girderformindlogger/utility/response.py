@@ -298,7 +298,7 @@ def last7Days(
     subject=None,
     startDate=None,
     includeOldItems=True,
-    groupByDateActivity=True,
+    groupByDateActivity=False,
     localItems=[],
     localActivities=[]
 ):
@@ -338,10 +338,11 @@ def last7Days(
         for resp in outputResponses[item]:
             resp['date'] = delocalize(resp['date'])
             if not groupByDateActivity:
+                resp['datetime'] = resp['date']
                 resp['date'] = determine_date(resp['date'] + timedelta(hours=profile['timezone']))
 
     l7d = {}
-    l7d['tokens'] = ResponseTokens().getResponseTokens(profile, startDate, False)
+    l7d['token'] = ResponseTokens().getResponseTokens(profile, startDate, False)
     l7d["responses"] = _oneResponsePerDatePerVersion(outputResponses, profile['timezone']) if groupByDateActivity else outputResponses
 
     l7d["schema:endDate"] = responses.get("schema:endDate", datetime.utcnow()).isoformat()
@@ -500,24 +501,27 @@ def add_latest_daily_response(data, responses, tokens={}):
                     'data': response['meta']['subScaleSource']
                 }
 
-    for tokenField in ['cumulativeToken', 'tokenUpdates']:
-        if not tokens.get(tokenField):
-            continue
+    if 'cumulative' in tokens:
+        data['token']['cumulative'] = tokens['cumulative']
+        data['token']['tokenTimes'] = tokens['tokenTimes']
 
-        if isinstance(tokens[tokenField], dict):
-            tokens[tokenField] = [tokens[tokenField]]
+        for tokenField in ['tokens', 'trackers']:
+            data['token'][tokenField] = []
 
-        for value in tokens[tokenField]:
-            key_dump = json_util.dumps(value['userPublicKey'])
+            if not tokens.get(tokenField):
+                continue
 
-            if key_dump not in user_keys:
-                user_keys[key_dump] = len(data['keys'])
-                data['keys'].append(value['userPublicKey'])
+            for value in tokens[tokenField]:
+                key_dump = json_util.dumps(value['userPublicKey'])
 
-            value['key'] = user_keys[key_dump]
-            value.pop('userPublicKey')
+                if key_dump not in user_keys:
+                    user_keys[key_dump] = len(data['keys'])
+                    data['keys'].append(value['userPublicKey'])
 
-            data['tokens'][tokenField].append(value)
+                value['key'] = user_keys[key_dump]
+                value.pop('userPublicKey')
+
+                data['token'][tokenField].append(value)
 
 
 def _oneResponsePerDatePerVersion(responses, offset):
