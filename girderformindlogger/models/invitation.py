@@ -171,6 +171,7 @@ class Invitation(AESEncryption):
         user,
         firstName,
         lastName,
+        nickName,
         lang,
         MRN,
         userEmail = "",
@@ -212,6 +213,7 @@ class Invitation(AESEncryption):
             'role': role,
             'firstName': firstName,
             'lastName': lastName,
+            'nickName': nickName,
             'lang': lang,
             'MRN': MRN,
             'updated': now,
@@ -343,6 +345,7 @@ class Invitation(AESEncryption):
                 user=user,
                 firstName=invitation.get('firstName', ''),
                 lastName=invitation.get('lastName', ''),
+                nickName=invitation.get('nickName', ''),
                 lang='en',
                 MRN=invitation.get('MRN', ''),
                 userEmail=userEmail
