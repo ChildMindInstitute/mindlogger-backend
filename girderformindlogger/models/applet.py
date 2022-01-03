@@ -1769,9 +1769,9 @@ class Applet(FolderModel):
                     localInfo.get('localActivities', []) or []
                 )
 
-            if retrieveLastResponseTime:
-                profile = Profile().findOne({'appletId': applet['_id'], 'userId': reviewer['_id']})
+            profile = Profile().findOne({'appletId': applet['_id'], 'userId': reviewer['_id']})
 
+            if retrieveLastResponseTime:
                 formatted['finishedEvents'] = profile.get('finished_events', {})
                 formatted['lastResponses'] = {}
 
@@ -1781,11 +1781,11 @@ class Applet(FolderModel):
                     completed_time = activity['completed_time']
                     formatted['lastResponses'][f'activity/{str(activity["activity_id"])}'] = completed_time
 
-                formatted['profile'] = {
-                    'firstName': profile.get('firstName', ''),
-                    'lastName': profile.get('lastname', ''),
-                    'nickName': profile.get('nickName', '')
-                }
+            formatted['profile'] = {
+                'firstName': profile.get('firstName', ''),
+                'lastName': profile.get('lastname', ''),
+                'nickName': profile.get('nickName', '')
+            }
 
         else:
             formatted.pop('applet')
