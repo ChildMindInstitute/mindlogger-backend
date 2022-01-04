@@ -630,10 +630,8 @@ class ResponseItem(Resource):
         })
 
         if updateInfo.get('isReward', False):
-            rewardTime = datetime.fromtimestamp(updateInfo.get('rewardTime', 0) / 1000)
-
             if profile.get('lastRewardTime'):
-                delta = rewardTime - profile['lastRewardTime']
+                delta = updateInfo.get('rewardTime', 0) / 1000 - profile['lastRewardTime'] / 1000
 
                 # events are sent twice from mobile app
                 if delta < 120:
