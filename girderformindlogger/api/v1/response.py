@@ -855,7 +855,10 @@ class ResponseItem(Resource):
                 value['fromLibrary']=False
                 value['size']=metadata['responses'][key]['size']
                 value['type']=metadata['responses'][key]['type']
-                value['uri']="s3://{}/{}".format(os.environ['S3_MEDIA_BUCKET'],_file_obj_key)
+                if owner_account and owner_account.get('s3Bucket', None):
+                    value['uri']="s3://{}/{}".format(owner_account.get('s3Bucket', None),_file_obj_key)
+                else:
+                    value['uri']="s3://{}/{}".format(os.environ['S3_MEDIA_BUCKET'],_file_obj_key)
                 # now, replace the metadata key with a link to this upload
                 metadata['responses'][key]['value'] = value
                 del metadata['responses'][key]['size']
