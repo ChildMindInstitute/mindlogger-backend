@@ -21,7 +21,7 @@ class AccountProfile(Resource):
         self._model = AccountProfileModel()
 
         self.route('GET', ('users',), self.getUsers)
-        self.route('PUT', (':id',), self.updateAccountDB)        
+        self.route('PUT', (':id',), self.updateAccountDB)
         self.route('PUT', ('manage', 'pin', ), self.updatePin)
         self.route('PUT', ('updateAlertStatus', ':id', ), self.updateAlertStatus)
 

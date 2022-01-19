@@ -366,6 +366,7 @@ class Applet(FolderModel):
                 user=user,
                 firstName=user['firstName'],
                 lastName=user['lastName'],
+                nickName='',
                 lang='en',
                 MRN='',
                 userEmail=user['email']
@@ -1738,6 +1739,8 @@ class Applet(FolderModel):
                 formatted.update(data)
 
         if not nextActivity:
+            profile = Profile().findOne({'appletId': applet['_id'], 'userId': reviewer['_id']})
+
             if retrieveSchedule:
                 schedule = self.getSchedule(
                     applet,
@@ -1750,7 +1753,6 @@ class Applet(FolderModel):
                 if schedule:
                     formatted["schedule"] = schedule
 
-                profile = Profile().findOne({'appletId': applet['_id'], 'userId': reviewer['_id']})
                 formatted['cumulativeActivities'] = profile.get('cumulative_activities', { 'available': [], 'archieved': [] })
 
             if retrieveResponses:
@@ -1767,9 +1769,24 @@ class Applet(FolderModel):
                     localInfo.get('localActivities', []) or []
                 )
 
+            profile = Profile().findOne({'appletId': applet['_id'], 'userId': reviewer['_id']})
+
             if retrieveLastResponseTime:
-                profile = Profile().findOne({'appletId': applet['_id'], 'userId': reviewer['_id']})
                 formatted['finishedEvents'] = profile.get('finished_events', {})
+                formatted['lastResponses'] = {}
+
+                activities = profile['completed_activities']
+
+                for activity in activities:
+                    completed_time = activity['completed_time']
+                    formatted['lastResponses'][f'activity/{str(activity["activity_id"])}'] = completed_time
+
+            formatted['profile'] = {
+                'firstName': profile.get('firstName', ''),
+                'lastName': profile.get('lastname', ''),
+                'nickName': profile.get('nickName', '')
+            }
+
         else:
             formatted.pop('applet')
             formatted.pop('protocol')
@@ -1893,7 +1910,7 @@ class Applet(FolderModel):
 
         invitations = []
         for p in list(Invitation().find(query={'appletId': applet['_id']})):
-            fields = ['_id', 'firstName', 'lastName', 'role', 'MRN', 'created', 'lang']
+            fields = ['_id', 'firstName', 'lastName', 'role', 'MRN', 'created', 'lang', 'nickName']
             if p['role'] != 'owner':
                 invitations.append({
                     key: p[key] for key in fields if p.get(key, None)

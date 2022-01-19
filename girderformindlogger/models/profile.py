@@ -45,6 +45,7 @@ class Profile(AESEncryption, dict):
         self.initAES([
             ('firstName', 64),
             ('lastName', 64),
+            ('nickName', 64),
             ('userDefined.displayName', 64),
             ('coordinatorDefined.displayName', 64),
             ('cachedDisplay.manager.displayName', 64)
@@ -656,9 +657,9 @@ class Profile(AESEncryption, dict):
             return None
 
         if not isUser:
-            fields = ['_id', 'updated', 'roles', 'firstName', 'lastName', 'email', 'identifiers', 'fake']
+            fields = ['_id', 'updated', 'roles', 'firstName', 'lastName', 'email', 'identifiers', 'fake', 'nickName']
         else:
-            fields = ['_id', 'updated', 'roles', 'MRN', 'identifiers', 'fake']
+            fields = ['_id', 'updated', 'roles', 'MRN', 'identifiers', 'fake', 'nickName']
 
         data = {
             field: profile.get(field, '') for field in fields

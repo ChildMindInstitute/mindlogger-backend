@@ -35,6 +35,7 @@ class Invitation(AESEncryption):
         self.initAES([
             ('firstName', 64),
             ('lastName', 64),
+            ('nickName', 64),
             ('invitedBy.displayName', 64)
         ])
 
@@ -171,6 +172,7 @@ class Invitation(AESEncryption):
         user,
         firstName,
         lastName,
+        nickName,
         lang,
         MRN,
         userEmail = "",
@@ -212,6 +214,7 @@ class Invitation(AESEncryption):
             'role': role,
             'firstName': firstName,
             'lastName': lastName,
+            'nickName': nickName,
             'lang': lang,
             'MRN': MRN,
             'updated': now,
@@ -308,6 +311,7 @@ class Invitation(AESEncryption):
 
         profile['firstName'] = invitation.get('firstName', '')
         profile['lastName'] = invitation.get('lastName', '')
+        profile['nickName'] = invitation.get('nickName', '')
         profile['MRN'] = invitation.get('MRN', '')
         profile['invitationId'] = invitation['_id']
         if 'invited_role' != 'user':
@@ -343,6 +347,7 @@ class Invitation(AESEncryption):
                 user=user,
                 firstName=invitation.get('firstName', ''),
                 lastName=invitation.get('lastName', ''),
+                nickName=invitation.get('nickName', ''),
                 lang='en',
                 MRN=invitation.get('MRN', ''),
                 userEmail=userEmail
