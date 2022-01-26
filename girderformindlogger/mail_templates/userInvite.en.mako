@@ -8,7 +8,7 @@
     <br>
 
     <p>
-        Welcome to ${appletName}
+        Welcome to ${appletName}!
     </p>
 
     <p>
