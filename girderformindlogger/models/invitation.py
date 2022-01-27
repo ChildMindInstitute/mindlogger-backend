@@ -460,6 +460,8 @@ class Invitation(AESEncryption):
         userName = ''
         if invitation.get('firstName'):
             userName = invitation.get('firstName')
+        if invitation.get('lastName'):
+            userName = userName + ' ' + invitation.get('lastName')
 
         body = mail_utils.renderTemplate(f'welcome{"Owner" if role == "owner" else ""}.{invitation.get("lang", "en")}.mako', {
             'userName': userName, 
@@ -484,14 +486,19 @@ class Invitation(AESEncryption):
             'url': f'https://{web_url}/#/invitation/{str(invitation["_id"])}'
         })
 
-        body2 = mail_utils.renderTemplate(f'welcome{"-" if role == "owner" else "2"}.{invitation.get("lang", "en")}.mako', {
-            'userName': userName, 
-            'accept': accept,
-            'appletName': appletName,
-            'role': "an editor" if role == "editor" else "a {}".format(role),
-            'url': f'https://{web_url}/#/invitation/{str(invitation["_id"])}',
-            'newUser': bool(existingProfile)
-        })
+        body2 = None
+        try:
+            body2 = mail_utils.renderTemplate(f'welcomeFooter.{invitation.get("lang", "en")}.mako', {
+                'userName': userName, 
+                'accept': accept,
+                'appletName': appletName,
+                'role': "an editor" if role == "editor" else "a {}".format(role),
+                'url': f'https://{web_url}/#/invitation/{str(invitation["_id"])}',
+                'newUser': bool(existingProfile)
+            })
+        except:
+            import sys, traceback
+            print(sys.exc_info())
 
         return {
             'body': (body if not fullDoc else """

@@ -2,10 +2,10 @@
 After you have accepted the invitation, you will be able to access ${appletName} in the free MindLogger app on your mobile device, if you follow three simple steps (see the <a href="https://mindlogger.org//guides/user-guide.html" target="_blank">user guide</a> for greater detail):
 
 <ol>
-    <li>Install the MindLogger app on your mobile device, if it isn’t already installed.</li>
+    <li>Install the MindLogger app on your mobile device, if it isn't already installed</li>
     <li>Open the MindLogger app on your mobile device, and log in 
         % if not newUser: 
-            (if you have a MindLogger account) or sign up (if you are new to MindLogger). To sign up, tap “New User” on the login screen, and enter the email address where you received this email invitation. 
+            (if you have a MindLogger account) or sign up (if you are new to MindLogger). To sign up, tap "New User" on the login screen, and enter the email address where you received this email invitation. 
         % endif
     </li>
     <li>Tap ${appletName} on the MindLogger home screen and you are ready to go!
