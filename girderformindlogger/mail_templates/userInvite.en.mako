@@ -16,10 +16,6 @@
     </p>
     <br>
     <p>
-        Thank you for agreeing to participate in the MIT Behavior Study. If you have any issues getting started or wish to speak with a coordinator, please write to <a href="mailto:mit-behavior-study@mit.edu">mit-behavior-study@mit.edu</a>
-    </p>
-    <br>
-    <p>
         To accept this invitation, click below and your internet browser will open to the ${appletName} invitation page:
     </p>
     <br>
