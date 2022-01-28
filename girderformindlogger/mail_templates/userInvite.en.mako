@@ -3,7 +3,7 @@
 
 <div style="max-width: 440px;">
     <p>
-        ${userName} --
+        ${userName}
     </p>
     <br>
 
