@@ -5,22 +5,17 @@
     <p>
         ${userName}
     </p>
-    <br>
-
-    <p>
+    <p style="margin-top: 15px;">
         Welcome to ${appletName}!
     </p>
 
     <p>
         You have been invited to become a ${role} of "${appletName}", which runs in the MindLogger app (see below).
     </p>
-    <br>
-    <p>
-        To accept this invitation, click below and your internet browser will open to the "${appletName}" invitation page:
+    <p style="margin-top: 10px;">
+        To accept this invitation, click below and your internet browser will open to the ${appletName} invitation page:
     </p>
-    <br>
-
-    <p style="text-align: center;">
+    <p style="text-align: center;margin-top: 12px;">
         <a
             href="${url}/accept"
             style="padding: 0.4rem 1rem; font-size: 0.8rem; line-height: 1.5; border-radius: 0.3rem; margin: 4px; display: inline-block; font-weight: 400; text-align: center; vertical-align: middle; text-decoration: none; color: #ffffff; background-color: rgb(88, 217, 65); border-color: rgb(88, 217, 65);"
@@ -28,10 +23,8 @@
             Go to "${appletName}" invitation page
         </a> 
     </p>
-
-    <br>
-    <p>
-        After you have accepted the invitation, you will be able to access "${appletName}" in the free MindLogger app on your mobile device, if you follow three simple steps (see the <a href="https://mindlogger.org//guides/user-guide.html" target="_blank">user guide</a> for greater detail):
+    <p style="margin-top: 6px;">
+        After you have accepted the invitation, you will be able to access ${appletName} in the free MindLogger app on your mobile device, if you follow three simple steps (see the <a href="https://mindlogger.org//guides/user-guide.html" target="_blank">user guide</a> for greater detail):
     </p>
     <ol>
         <li>Install the MindLogger app on your mobile device, if it isn’t already installed.</li>
@@ -44,9 +37,7 @@
             If "${appletName}" does not appear, refresh the screen by sliding your finger downwards from the top, and a spinning wheel should appear while loading "${appletName}".
         </li>
     </ol>
-
-    <br>
-    <p>
+    <p style="margin-top: 10px;">
         Thank you for accepting the invitation to use ${appletName}! 
     <p/>
 
