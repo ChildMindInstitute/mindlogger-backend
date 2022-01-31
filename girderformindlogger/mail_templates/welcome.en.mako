@@ -1,4 +1,4 @@
-${userName} --
+${userName}
 <br/>
 <br/>
 You have been invited to become ${role} of <b>${appletName}</b>.
