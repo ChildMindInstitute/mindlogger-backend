@@ -10,7 +10,7 @@
     </p>
 
     <p>
-        You have been invited to become a ${role} of ${appletName}, which runs in the MindLogger app (see below).
+        You have been invited to become a ${role} of "${appletName}", which runs in the MindLogger app (see below).
     </p>
     <p style="margin-top: 10px;">
         To accept this invitation, click below and your internet browser will open to the ${appletName} invitation page:
@@ -20,7 +20,7 @@
             href="${url}/accept"
             style="padding: 0.4rem 1rem; font-size: 0.8rem; line-height: 1.5; border-radius: 0.3rem; margin: 4px; display: inline-block; font-weight: 400; text-align: center; vertical-align: middle; text-decoration: none; color: #ffffff; background-color: rgb(88, 217, 65); border-color: rgb(88, 217, 65);"
         >
-            Go to ${appletName} invitation page
+            Go to "${appletName}" invitation page
         </a> 
     </p>
     <p style="margin-top: 6px;">
@@ -33,8 +33,8 @@
                 (if you have a MindLogger account) or sign up (if you are new to MindLogger). To sign up, tap “New User” on the login screen, and enter the email address where you received this email invitation. 
             % endif
         </li>
-        <li>Tap ${appletName} on the MindLogger home screen and you are ready to go!
-            If ${appletName} does not appear, refresh the screen by sliding your finger downwards from the top, and a spinning wheel should appear while loading ${appletName}.
+        <li>Tap "${appletName}" on the MindLogger home screen and you are ready to go!
+            If "${appletName}" does not appear, refresh the screen by sliding your finger downwards from the top, and a spinning wheel should appear while loading "${appletName}".
         </li>
     </ol>
     <p style="margin-top: 10px;">
