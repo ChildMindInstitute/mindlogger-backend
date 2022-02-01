@@ -6,14 +6,14 @@
         ${userName}
     </p>
     <p style="margin-top: 15px;">
-        Welcome to ${appletName}!
+        Welcome to "${appletName}"!
     </p>
 
     <p>
         You have been invited to become a ${role} of "${appletName}", which runs in the MindLogger app (see below).
     </p>
     <p style="margin-top: 10px;">
-        To accept this invitation, click below and your internet browser will open to the ${appletName} invitation page:
+        To accept this invitation, click below and your internet browser will open to the "${appletName}" invitation page:
     </p>
     <p style="text-align: center;margin-top: 12px;">
         <a
@@ -24,7 +24,7 @@
         </a> 
     </p>
     <p style="margin-top: 6px;">
-        After you have accepted the invitation, you will be able to access ${appletName} in the free MindLogger app on your mobile device, if you follow three simple steps (see the <a href="https://mindlogger.org//guides/user-guide.html" target="_blank">user guide</a> for greater detail):
+        After you have accepted the invitation, you will be able to access "${appletName}" in the free MindLogger app on your mobile device, if you follow three simple steps (see the <a href="https://mindlogger.org//guides/user-guide.html" target="_blank">user guide</a> for greater detail):
     </p>
     <ol>
         <li>Install the MindLogger app on your mobile device, if it isn’t already installed.</li>
@@ -38,7 +38,7 @@
         </li>
     </ol>
     <p style="margin-top: 10px;">
-        Thank you for accepting the invitation to use ${appletName}! 
+        Thank you for accepting the invitation to use "${appletName}"! 
     <p/>
 
     <div style="border-top: 2px solid rgb(216,216,216); padding-top: 25px; ">
