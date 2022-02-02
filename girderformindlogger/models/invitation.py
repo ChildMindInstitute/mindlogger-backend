@@ -494,7 +494,7 @@ class Invitation(AESEncryption):
                 'appletName': appletName,
                 'role': "an editor" if role == "editor" else "a {}".format(role),
                 'url': f'https://{web_url}/#/invitation/{str(invitation["_id"])}',
-                'newUser': bool(existingProfile)
+                'newUser': True
             })
         except:
             import sys, traceback
