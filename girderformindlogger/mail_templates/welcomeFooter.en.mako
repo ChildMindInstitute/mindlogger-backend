@@ -3,11 +3,11 @@ After you have accepted the invitation, you will be able to access <b>${appletNa
 
 <ol>
     <li>Install the MindLogger app on your mobile device, if it isn't already installed</li>
-    <li>Open the MindLogger app on your mobile device, and log in 
-        % if not newUser: 
+    % if not newUser: 
+        <li>Open the MindLogger app on your mobile device, and log in 
             (if you have a MindLogger account) or sign up (if you are new to MindLogger). To sign up, tap "New User" on the login screen, and enter the email address where you received this email invitation. 
-        % endif
-    </li>
+        </li>
+    % endif
     <li>Tap <b>${appletName}</b> on the MindLogger home screen and you are ready to go!
         If <b>${appletName}</b> does not appear, refresh the screen by sliding your finger downwards from the top, and a spinning wheel should appear while loading <b>${appletName}</b>.
     </li>
