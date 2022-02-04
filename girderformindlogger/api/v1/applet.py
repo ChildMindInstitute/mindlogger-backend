@@ -1928,8 +1928,7 @@ class Applet(Resource):
 
         try:
             appletName = applet['meta']['applet'].get('displayName', applet.get('displayName', 'applet'))
-            html = mail_utils.renderTemplate(f'userInvite.{lang}.mako' if role == 'user' or not invitedUser
-                else f'inviteEmployee.{lang}.mako', {
+            html = mail_utils.renderTemplate(f'userInvite.{lang}.mako', {
                 'url': url,
                 'userName': firstName + " " + lastName,
                 'coordinatorName': thisUser['firstName'],
