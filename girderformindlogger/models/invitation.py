@@ -457,7 +457,14 @@ class Invitation(AESEncryption):
             Applet().listUsers(applet, 'reviewer', force=True)
         )
 
+        userName = ''
+        if invitation.get('firstName'):
+            userName = invitation.get('firstName')
+        if invitation.get('lastName'):
+            userName = userName + ' ' + invitation.get('lastName')
+
         body = mail_utils.renderTemplate(f'welcome{"Owner" if role == "owner" else ""}.{invitation.get("lang", "en")}.mako', {
+            'userName': userName, 
             'accept': accept,
             'appletName': appletName,
             'byCoordinator': "by {} ({}) ".format(
@@ -479,6 +486,20 @@ class Invitation(AESEncryption):
             'url': f'https://{web_url}/#/invitation/{str(invitation["_id"])}'
         })
 
+        body2 = None
+        try:
+            body2 = mail_utils.renderTemplate(f'welcomeFooter.{invitation.get("lang", "en")}.mako', {
+                'userName': userName, 
+                'accept': accept,
+                'appletName': appletName,
+                'role': "an editor" if role == "editor" else "a {}".format(role),
+                'url': f'https://{web_url}/#/invitation/{str(invitation["_id"])}',
+                'newUser': True
+            })
+        except:
+            import sys, traceback
+            print(sys.exc_info())
+
         return {
             'body': (body if not fullDoc else """
                 <!DOCTYPE html>
@@ -496,6 +517,7 @@ class Invitation(AESEncryption):
                 instanceName=instanceName,
                 body=body
             ).strip()),
+            'body2': (body2 if not fullDoc else ""),
             'acceptable': True,
             'lang': invitation.get("lang", "en")
         }

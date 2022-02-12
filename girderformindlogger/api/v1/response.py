@@ -800,8 +800,13 @@ class ResponseItem(Resource):
                 self._model.reconnectToDb(db_uri=owner_account.get('db', None))
 
             if owner_account and owner_account.get('s3Bucket', None) and owner_account.get('accessKeyId', None):
-                self.s3_client = boto3.client('s3', region_name=DEFAULT_REGION, aws_access_key_id=owner_account.get('accessKeyId', None), aws_secret_access_key=owner_account.get('secretAccessKey', None))
-
+                self.s3_client = boto3.client(
+                    's3',
+                    region_name=DEFAULT_REGION,
+                    aws_access_key_id=owner_account.get('accessKeyId', None),
+                    aws_secret_access_key=owner_account.get('secretAccessKey', None)
+                )
+                
             try:
                 newItem = self._model.createResponseItem(
                     folder=AppletSubjectResponsesFolder,
@@ -832,7 +837,7 @@ class ResponseItem(Resource):
 
                 if owner_account and owner_account.get('s3Bucket', None):
                     self.s3_client.upload_fileobj(io.BytesIO(file_data),owner_account.get('s3Bucket', os.environ['S3_MEDIA_BUCKET']),_file_obj_key)
-                else: 
+                else:
                     self.s3_client.upload_fileobj(io.BytesIO(file_data),os.environ['S3_MEDIA_BUCKET'],_file_obj_key)
 
                 # newUpload = um.uploadFromFile(
@@ -894,16 +899,17 @@ class ResponseItem(Resource):
                             date=token['changes'].get('date')
                         )
 
-                    if 'trackerAggregation' in token:
-                        ResponseTokens().saveResponseToken(
-                            profile,
-                            token['trackerAggregation'].get('data'),
-                            metadata.get('userPublicKey'),
-                            trackerAggregation=True,
-                            version=metadata['applet']['version'],
-                            tokenId=token['trackerAggregation'].get('id'),
-                            date=token['trackerAggregation'].get('date')
-                        )
+                    if 'trackerAggregations' in token:
+                        for aggregation in token['trackerAggregations']:
+                            ResponseTokens().saveResponseToken(
+                                profile,
+                                aggregation.get('data'),
+                                metadata.get('userPublicKey'),
+                                trackerAggregation=True,
+                                version=metadata['applet']['version'],
+                                tokenId=aggregation.get('id'),
+                                date=aggregation.get('date')
+                            )
 
                 if metadata.get('alerts', []):
                     alerts = metadata.get('alerts', [])

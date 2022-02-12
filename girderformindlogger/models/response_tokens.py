@@ -158,7 +158,7 @@ class ResponseTokens(AESEncryption, dict):
         query['trackerAggregation'] = query.pop('isTracker')
         trackerAggregation = list(self.find(
             query,
-            fields=['created', 'data', 'userPublicKey'] if retrieveUserKeys else ['created', 'data']
+            fields=['created', 'data', 'userPublicKey', 'date'] if retrieveUserKeys else ['created', 'data', 'date']
         ))
         convertTimeZone(trackerAggregation, profile)
 

@@ -1915,7 +1915,7 @@ class Applet(Resource):
             lang=lang,
             MRN=MRN,
             userEmail=encryptedEmail,
-            accessibleUsers=users
+            accessibleUsers=users,
         )
 
         web_url = os.getenv('WEB_URI') or 'localhost:8081'
@@ -1932,18 +1932,18 @@ class Applet(Resource):
         )
 
         try:
-            html = mail_utils.renderTemplate(f'inviteUserWithoutAccount.{lang}.mako' if not invitedUser
-                else f'userInvite.{lang}.mako' if role == 'user'
-                else f'inviteEmployee.{lang}.mako', {
+            appletName = applet['meta']['applet'].get('displayName', applet.get('displayName', 'applet'))
+            html = mail_utils.renderTemplate(f'userInvite.{lang}.mako', {
                 'url': url,
-                'userName': firstName,
+                'userName': firstName + " " + lastName,
                 'coordinatorName': thisUser['firstName'],
-                'appletName': applet['meta']['applet'].get('displayName', applet.get('displayName', 'applet')),
+                'appletName': appletName,
                 'MRN': MRN,
                 'managers': managers,
                 'coordinators': coordinators,
                 'reviewers': reviewers,
-                'role': role
+                'role': role,
+                'newUser': bool(invitedUser)
             })
         except KeyError:
             raise ValidationException(
@@ -1952,7 +1952,7 @@ class Applet(Resource):
             )
 
         mail_utils.sendMail(
-            t('invite_email_subject', lang),
+            appletName + ' ' + t('invite_email_subject', lang),
             html,
             [email]
         )
