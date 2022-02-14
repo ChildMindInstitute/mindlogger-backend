@@ -34,7 +34,7 @@ class ResponseTokens(AESEncryption, dict):
                 ([
                     ('userId', 1),
                     ('appletId', 1),
-                    ('isCumulative', 1), 
+                    ('isCumulative', 1),
                     ('created', 1)
                 ], {})
             )
@@ -57,10 +57,23 @@ class ResponseTokens(AESEncryption, dict):
         except:
             pass
 
-    def saveResponseToken(self, profile, data, isCumulative, userPublicKey, version=None):
+    def saveResponseToken(
+        self,
+        profile,
+        data,
+        userPublicKey,
+        isCumulative=False,
+        isToken=False,
+        isTracker=False,
+        trackerAggregation=False,
+        version=None,
+        tokenId=None,
+        date=None
+    ):
         now = datetime.utcnow()
 
         tokenInfo = {}
+
         if isCumulative:
             tokenInfo = self.findOne({
                 'userId': profile['userId'],
@@ -68,14 +81,23 @@ class ResponseTokens(AESEncryption, dict):
                 'isCumulative': isCumulative
             }) or {}
 
+        if tokenId:
+            tokenInfo = self.findOne({'_id': ObjectId(tokenId)})
+
         tokenInfo.update({
             'userId': profile['userId'],
             'appletId': profile['appletId'],
             'accountId': profile['accountId'],
             'data': data,
             'isCumulative': isCumulative,
-            'userPublicKey': userPublicKey
+            'isToken': isToken,
+            'isTracker': isTracker,
+            'trackerAggregation': trackerAggregation,
+            'userPublicKey': userPublicKey,
         })
+
+        if date:
+            tokenInfo['date'] = date
 
         if version:
             tokenInfo['version'] = version
@@ -93,12 +115,12 @@ class ResponseTokens(AESEncryption, dict):
             'userId': profile['userId'],
             'appletId': profile['appletId'],
             'isCumulative': True
-        }, fields=['data', 'userPublicKey'] if retrieveUserKeys else ['data'])
+        }, fields=['data'])
 
         query = {
             'userId': profile['userId'],
             'appletId': profile['appletId'],
-            'isCumulative': False,
+            'isToken': True,
         }
 
         if startDate:
@@ -106,27 +128,45 @@ class ResponseTokens(AESEncryption, dict):
                 "$gte": startDate,
             }
 
-        tokenUpdates = list(self.find(
+        def convertTimeZone(tokens, profile):
+            for token in tokens:
+                if 'created' in token:
+                    token["created"] = token["created"].replace(tzinfo=pytz.timezone("UTC")).astimezone(
+                        timezone(
+                            timedelta(
+                                hours=profile.get('timezone', 0)
+                            )
+                        )
+                    ).isoformat()
+
+                token['id'] = token.pop('_id')
+
+        tokens = list(self.find(
             query,
-            fields=['created', 'data', 'userPublicKey'] if retrieveUserKeys else ['created', 'data'],
+            fields=['created', 'data', 'date', 'userPublicKey'] if retrieveUserKeys else ['data', 'date'],
             sort=[("created", ASCENDING)]
         ))
+        convertTimeZone(tokens, profile)
 
-        if cumulativeToken:
-            cumulativeToken.pop('_id')
+        query['isTracker'] = query.pop('isToken')
+        trackers = list(self.find(
+            query,
+            fields=['created', 'data', 'userPublicKey'] if retrieveUserKeys else ['created', 'data']
+        ))
+        convertTimeZone(trackers, profile)
 
-        for tokenUpdate in tokenUpdates:
-            tokenUpdate["created"] = tokenUpdate["created"].replace(tzinfo=pytz.timezone("UTC")).astimezone(
-                timezone(
-                    timedelta(
-                        hours=profile.get('timezone', 0)
-                    )
-                )
-            ).isoformat()
-
-            tokenUpdate['id'] = tokenUpdate.pop('_id')
+        query['trackerAggregation'] = query.pop('isTracker')
+        trackerAggregation = list(self.find(
+            query,
+            fields=['created', 'data', 'userPublicKey', 'date'] if retrieveUserKeys else ['created', 'data', 'date']
+        ))
+        convertTimeZone(trackerAggregation, profile)
 
         return {
-            'cumulativeToken': cumulativeToken,
-            'tokenUpdates': tokenUpdates
+            'cumulative': cumulativeToken['data'] if cumulativeToken else 0,
+            'tokenTimes': profile.get('tokenTimes', []),
+            'lastRewardTime': profile.get('lastRewardTime', None),
+            'tokens': tokens,
+            'trackers': trackers,
+            'trackerAggregation': trackerAggregation
         }

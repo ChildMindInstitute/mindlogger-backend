@@ -87,6 +87,7 @@ class Applet(Resource):
         self.route('GET', ('invitelink', ':inviteLinkId', 'info'), self.viewInviteLinkInfo)
         self.route('POST', ('invitelink', ':inviteLinkId', 'accept'), self.acceptOpenInviteLink)
         self.route('PUT', (':id', 'updateRoles'), self.updateRoles)
+        self.route('PUT', (':id', 'updateProfile'), self.updateProfile)
 
         self.route('PUT', (':id', 'reviewer', 'userList'), self.updateUserListForReviewer)
         self.route('GET', (':id', 'reviewer', 'userList'), self.getUserListForReviewer)
@@ -266,6 +267,77 @@ class Applet(Resource):
         return ({
             'roles': userProfile.get('roles', [])
         })
+
+    @access.user(scope=TokenScope.DATA_OWN)
+    @autoDescribeRoute(
+        Description('update profile of user of applet')
+        .modelParam(
+            'id',
+            model=AppletModel,
+            level=AccessType.ADMIN,
+            destName='applet'
+        )
+        .param(
+            'userId',
+            'id for applet user',
+            required=True,
+            default=None
+        )
+        .param(
+            'firstName',
+            'first name of the user',
+            default=None,
+            required=False
+        )
+        .param(
+            'lastName',
+            'last name of the user',
+            default=None,
+            required=False
+        )
+        .param(
+            'MRN',
+            'MRN of the user',
+            default=None,
+            required=False
+        )
+        .param(
+            'nickName',
+            'nickName of the user',
+            default=None,
+            required=False
+        )
+    )
+    def updateProfile(self, applet, userId, firstName=None, lastName=None, MRN=None, nickName=None):
+        userProfile = ProfileModel().findOne({'_id': ObjectId(userId)})
+
+        if not userProfile or userProfile['appletId'] != applet['_id']:
+            raise ValidationException('unable to find user with specified id')
+
+        accountProfile = self.getAccountProfile()
+        thisUser = self.getCurrentUser()
+
+        isCoordinator = self._model.isCoordinator(applet['_id'], thisUser)
+        if not accountProfile or 'manager' in userProfile.get('roles') and applet.get('accountId', None) != thisUser['accountId'] or not isCoordinator:
+            raise AccessException('permission denied')
+
+        updates = {
+            'firstName': firstName,
+            'lastName': lastName,
+            'MRN': MRN,
+            'nickName': nickName
+        }
+
+        for key in updates:
+            if updates[key] is not None:
+                userProfile[key] = updates[key]
+
+        userProfile = ProfileModel().save(userProfile, validate=False)
+
+        return ProfileModel().getProfileData(
+            userProfile,
+            ProfileModel().findOne({'appletId': applet['_id'], 'userId': thisUser['_id']})
+        )
 
     @access.user(scope=TokenScope.DATA_OWN)
     @autoDescribeRoute(
@@ -1274,6 +1346,9 @@ class Applet(Resource):
         if applet['meta']['applet'].get('editing'):
             raise AccessException("applet is being edited")
 
+        if not thread and applet['meta']['applet'].get('largeApplet', False):
+            raise ValidationException('unable to edit this applet without thread')
+
         applet['meta']['applet']['editing'] = True
         self._model.setMetadata(applet, applet['meta'])
 
@@ -1293,8 +1368,6 @@ class Applet(Resource):
             return({
                 "message": "The applet is building. We will send you an email in 10 min or less when it has been successfully created or failed."
             })
-        elif applet['meta']['applet'].get('largeApplet', False):
-            raise ValidationException('unable to edit this applet without thread')
 
         AppletModel().prepareAppletForEdit(
             applet=applet,
@@ -1741,6 +1814,11 @@ class Applet(Resource):
             required=True
         )
         .param(
+            'nickName',
+            'nickName for user',
+            required=False
+        )
+        .param(
             'MRN',
             'MRN for user',
             default='',
@@ -1768,11 +1846,12 @@ class Applet(Resource):
         'email': {'type': 'string', 'check_with': email_validator},
         'firstName': {'type': 'string', 'check_with': symbol_validator},
         'lastName': {'type': 'string', 'check_with': symbol_validator},
+        'nickName': {'type': 'string', 'check_with': symbol_validator},
         'MRN': {'type': 'string', 'check_with': symbol_validator},
         'lang': {'type': 'string', 'allowed': ['en', 'fr']},
         'users': {'type': 'list'}
     })
-    def inviteUser(self, applet, role="user", email='', firstName='', lastName='', MRN='', lang='en',users=[]):
+    def inviteUser(self, applet, role="user", email='', firstName='', lastName='', nickName='', MRN='', lang='en',users=[]):
         self.shield("inviteUser")
         from girderformindlogger.models.invitation import Invitation
         from girderformindlogger.models.profile import Profile
@@ -1832,10 +1911,11 @@ class Applet(Resource):
             user=invitedUser,
             firstName=firstName,
             lastName=lastName,
+            nickName=nickName,
             lang=lang,
             MRN=MRN,
             userEmail=encryptedEmail,
-            accessibleUsers=users
+            accessibleUsers=users,
         )
 
         web_url = os.getenv('WEB_URI') or 'localhost:8081'
@@ -1852,18 +1932,18 @@ class Applet(Resource):
         )
 
         try:
-            html = mail_utils.renderTemplate(f'inviteUserWithoutAccount.{lang}.mako' if not invitedUser
-                else f'userInvite.{lang}.mako' if role == 'user'
-                else f'inviteEmployee.{lang}.mako', {
+            appletName = applet['meta']['applet'].get('displayName', applet.get('displayName', 'applet'))
+            html = mail_utils.renderTemplate(f'userInvite.{lang}.mako', {
                 'url': url,
-                'userName': firstName,
+                'userName': firstName + " " + lastName,
                 'coordinatorName': thisUser['firstName'],
-                'appletName': applet['meta']['applet'].get('displayName', applet.get('displayName', 'applet')),
+                'appletName': appletName,
                 'MRN': MRN,
                 'managers': managers,
                 'coordinators': coordinators,
                 'reviewers': reviewers,
-                'role': role
+                'role': role,
+                'newUser': bool(invitedUser)
             })
         except KeyError:
             raise ValidationException(
@@ -1872,7 +1952,7 @@ class Applet(Resource):
             )
 
         mail_utils.sendMail(
-            t('invite_email_subject', lang),
+            appletName + ' ' + t('invite_email_subject', lang),
             html,
             [email]
         )
@@ -2157,6 +2237,7 @@ class Applet(Resource):
             invitedUser,
             firstName=invitedUser['firstName'] if invitedUser else '',
             lastName=invitedUser['lastName'] if invitedUser else '',
+            nickName='',
             lang='en',
             MRN='',
             userEmail=email

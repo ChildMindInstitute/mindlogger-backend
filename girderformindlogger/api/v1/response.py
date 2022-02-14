@@ -59,6 +59,7 @@ class ResponseItem(Resource):
         self._model = ResponseItemModel()
         self.route('GET', (':applet',), self.getResponsesForApplet)
         self.route('GET', ('last7Days', ':applet'), self.getLast7Days)
+        self.route('GET', ('tokens', ':applet'), self.getResponseTokens)
         self.route('POST', (':applet', ':activity'), self.createResponseItem)
         self.route('POST', (':applet', 'updateResponseToken'), self.updateResponseToken)
         self.route('PUT', (':applet',), self.updateReponseHistory)
@@ -355,10 +356,7 @@ class ResponseItem(Resource):
             'items': {},
             'subScaleSources': {},
             'subScales': {},
-            'tokens': {
-                'cumulativeToken': [],
-                'tokenUpdates': [],
-            },
+            'token': {},
         }
 
         # Get the responses for each users and generate the group responses data.
@@ -403,6 +401,40 @@ class ResponseItem(Resource):
         data.update(getOldVersions(data['responses'], applet))
 
         return data
+
+    @access.user(scope=TokenScope.DATA_READ)
+    @autoDescribeRoute(
+        Description(
+            'Get all user responses for a given applet.'
+        )
+        .modelParam(
+            'applet',
+            model=AppletModel,
+            level=AccessType.READ,
+            destName='applet',
+            description='The ID of the applet'
+        )
+        .param(
+            'startDate',
+            'Date for the oldest entry to retrieve',
+            required=False,
+            dataType='dateTime',
+        )
+    )
+    def getResponseTokens(
+        self,
+        applet=None,
+        startDate=None
+    ):
+        from girderformindlogger.models.profile import Profile
+
+        user = self.getCurrentUser()
+        profile = Profile().findOne({
+            'appletId': applet['_id'],
+            'userId': user['_id']
+        })
+
+        return ResponseTokens().getResponseTokens(profile, startDate, retrieveUserKeys=False)
 
     @access.user(scope=TokenScope.DATA_READ)
     @autoDescribeRoute(
@@ -597,21 +629,37 @@ class ResponseItem(Resource):
             'userId': user['_id']
         })
 
-        if updateInfo.get('tokenUpdate', None):
-            ResponseTokens().saveResponseToken(
-                profile,
-                updateInfo['tokenUpdate'],
-                False,
-                updateInfo.get('userPublicKey', None),
-                updateInfo.get('version', None)
-            )
+        if updateInfo.get('isReward', False):
+            if profile.get('lastRewardTime'):
+                delta = updateInfo.get('rewardTime', 0) / 1000 - profile['lastRewardTime'] / 1000
 
-        if updateInfo.get('cumulative', None):
+                # events are sent twice from mobile app
+                if delta < 120:
+                    return
+
+            profile['lastRewardTime'] = updateInfo['rewardTime']
+
+            if len(profile['tokenTimes']):
+                profile['tokenTimes'] = [profile['tokenTimes'][-1]]
+
+        Profile().save(profile, validate=False)
+
+        ResponseTokens().saveResponseToken(
+            profile,
+            updateInfo.get('cumulative'),
+            updateInfo.get('userPublicKey'),
+            isCumulative=True
+        )
+
+        if updateInfo.get('changes'):
             ResponseTokens().saveResponseToken(
                 profile,
-                updateInfo['cumulative'],
-                True,
-                updateInfo.get('userPublicKey', None)
+                updateInfo['changes'].get('data'),
+                updateInfo.get('userPublicKey'),
+                isToken=not updateInfo.get('isReward', False),
+                isTracker=updateInfo.get('isReward', False),
+                version=updateInfo['version'],
+                tokenId=updateInfo['changes'].get('id')
             )
 
     @access.public
@@ -751,6 +799,14 @@ class ResponseItem(Resource):
             if owner_account and owner_account.get('db', None):
                 self._model.reconnectToDb(db_uri=owner_account.get('db', None))
 
+            if owner_account and owner_account.get('s3Bucket', None) and owner_account.get('accessKeyId', None):
+                self.s3_client = boto3.client(
+                    's3',
+                    region_name=DEFAULT_REGION,
+                    aws_access_key_id=owner_account.get('accessKeyId', None),
+                    aws_secret_access_key=owner_account.get('secretAccessKey', None)
+                )
+                
             try:
                 newItem = self._model.createResponseItem(
                     folder=AppletSubjectResponsesFolder,
@@ -779,7 +835,10 @@ class ResponseItem(Resource):
 
                 file_data=base64.b64decode(value)
 
-                self.s3_client.upload_fileobj(io.BytesIO(file_data),os.environ['S3_MEDIA_BUCKET'],_file_obj_key)
+                if owner_account and owner_account.get('s3Bucket', None):
+                    self.s3_client.upload_fileobj(io.BytesIO(file_data),owner_account.get('s3Bucket', os.environ['S3_MEDIA_BUCKET']),_file_obj_key)
+                else:
+                    self.s3_client.upload_fileobj(io.BytesIO(file_data),os.environ['S3_MEDIA_BUCKET'],_file_obj_key)
 
                 # newUpload = um.uploadFromFile(
                 #     value.file,
@@ -795,7 +854,10 @@ class ResponseItem(Resource):
                 value['fromLibrary']=False
                 value['size']=metadata['responses'][key]['size']
                 value['type']=metadata['responses'][key]['type']
-                value['uri']="s3://{}/{}".format(os.environ['S3_MEDIA_BUCKET'],_file_obj_key)
+                if owner_account and owner_account.get('s3Bucket', None):
+                    value['uri']="s3://{}/{}".format(owner_account.get('s3Bucket', None),_file_obj_key)
+                else:
+                    value['uri']="s3://{}/{}".format(os.environ['S3_MEDIA_BUCKET'],_file_obj_key)
                 # now, replace the metadata key with a link to this upload
                 metadata['responses'][key]['value'] = value
                 del metadata['responses'][key]['size']
@@ -816,8 +878,38 @@ class ResponseItem(Resource):
                             'ptr': metadata['subScales'][subScale]
                         }
 
-                if metadata.get('tokenCumulation', None):
-                    ResponseTokens().saveResponseToken(profile, metadata['tokenCumulation'], True, metadata.get('userPublicKey', None))
+                token = metadata.get('token')
+
+                if token:
+                    ResponseTokens().saveResponseToken(
+                        profile,
+                        token.get('cumulative'),
+                        metadata.get('userPublicKey'),
+                        isCumulative=True
+                    )
+
+                    if 'changes' in token:
+                        ResponseTokens().saveResponseToken(
+                            profile,
+                            token['changes'].get('data'),
+                            metadata.get('userPublicKey'),
+                            isToken=True,
+                            version=metadata['applet']['version'],
+                            tokenId=token['changes'].get('id'),
+                            date=token['changes'].get('date')
+                        )
+
+                    if 'trackerAggregations' in token:
+                        for aggregation in token['trackerAggregations']:
+                            ResponseTokens().saveResponseToken(
+                                profile,
+                                aggregation.get('data'),
+                                metadata.get('userPublicKey'),
+                                trackerAggregation=True,
+                                version=metadata['applet']['version'],
+                                tokenId=aggregation.get('id'),
+                                date=aggregation.get('date')
+                            )
 
                 if metadata.get('alerts', []):
                     alerts = metadata.get('alerts', [])
@@ -886,6 +978,10 @@ class ResponseItem(Resource):
 
                 if metadata['subject']['identifier'] not in data['identifiers']:
                     data['identifiers'].append(metadata['subject']['identifier'])
+
+            if metadata.get('token'):
+                data['tokenTimes'] = data.get('tokenTimes', [])
+                data['tokenTimes'].append(now)
 
             if event:
                 if not data.get('finished_events'):
