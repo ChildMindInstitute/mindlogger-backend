@@ -33,8 +33,6 @@ class Folder(AccessControlledModel):
                 'duplicateOf',
                 'accountId',
                 'meta.protocolId',
-                'meta.activity.@type',
-                'meta.protocol.@type',
                 'meta.protocol.url',
                 'meta.activity.url',
                 'meta.contentType',
