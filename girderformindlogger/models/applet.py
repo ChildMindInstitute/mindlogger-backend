@@ -1279,7 +1279,7 @@ class Applet(FolderModel):
             if not profile:
                 continue
 
-            MRN = profile['MRN'] if profile.get('MRN', '') else f"None ({profile.get('userDefined', {}).get('email', '')})"
+            MRN = profile['MRN'] if profile.get('MRN', '') else f"[admin account] ({profile.get('userDefined', {}).get('email', '')})"
 
             times = {
                 'responseStarted': '',
