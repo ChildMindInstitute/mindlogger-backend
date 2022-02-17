@@ -1792,8 +1792,9 @@ class Applet(FolderModel):
             formatted.pop('applet')
             formatted.pop('protocol')
 
-        formatted["updated"] = applet['updated'].isoformat()
-        formatted["id"] = applet['_id']
+        formatted['updated'] = applet['updated'].isoformat()
+        formatted['id'] = applet['_id']
+        formatted['accountId'] = applet['accountId']
 
         return (nextIRI, formatted, bufferSize)
 
