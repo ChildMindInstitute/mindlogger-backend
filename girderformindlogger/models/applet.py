@@ -1258,8 +1258,8 @@ class Applet(FolderModel):
         data = {
             'dataSources': {},
             'subScaleSources': {},
+            'eventSources': [],
             'keys': [],
-            'nextsAt': {},
             'responses': []
         }
 
@@ -1343,7 +1343,8 @@ class Applet(FolderModel):
                 'responseScheduled':times['scheduledTime'],
                 'timeout': meta.get('timeout', 0),
                 'version': meta['applet'].get('version', '0.0.0'),
-                'reviewing': meta.get('reviewing', {}).get('responseId', None)
+                'reviewing': meta.get('reviewing', {}).get('responseId', None),
+                'events': len(data['eventSources']) if 'userPublicKey' in meta else meta.get('events')
             })
 
             for IRI in meta.get('responses', {}):
@@ -1366,6 +1367,11 @@ class Applet(FolderModel):
                     'key': userKeys[keyDump],
                     'data': meta['dataSource']
                 }
+
+                data['eventSources'].append({
+                    'key': userKeys[keyDump],
+                    'data': meta.get('events', None)
+                })
 
                 if 'subScaleSource' in meta:
                     data['subScaleSources'][str(response['_id'])] = {
