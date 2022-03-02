@@ -12,7 +12,7 @@ After you have accepted the invitation, you will be able to access <b>${appletNa
         If <b>${appletName}</b> does not appear, refresh the screen by sliding your finger downwards from the top, and a spinning wheel should appear while loading <b>${appletName}</b>.
     </li>
 </ol>
-<div style="border-top: 2px solid rgb(216,216,216); padding-top: 25px; ">
+<div style="border-top: 2px solid rgb(216,216,216); padding-top: 35px; ">
     % if isMobile:
         <img
             src="https://cmi-logos.s3.amazonaws.com/ChildMindInstitute_Logo_Horizontal_KO.png"
