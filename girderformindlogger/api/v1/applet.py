@@ -933,9 +933,6 @@ class Applet(Resource):
 
         ownerAccount = AccountProfile().findOne({'_id': applet['accountId']})
 
-        if not ownerAccount.get('appletPublishEnabled'):
-            raise AccessException("applet publish is not enabled on this account")
-
         applet['meta']['published'] = publish
         applet = self._model.setMetadata(applet, applet['meta'])
 
