@@ -21,7 +21,6 @@ class Profile(AESEncryption, dict):
         self.name = 'appletProfile'
         self.ensureIndices(
             (
-                'appletId',
                 'userId',
                 'individual_events',
                 'completed_activities',

@@ -68,9 +68,16 @@ class Invitation(Resource):
             required=False,
             dataType='boolean'
         )
+        .param(
+            'isMobile',
+            'value is true if mobile browser sends request',
+            required=False,
+            dataType='boolean',
+            default=False
+        )
         .errorResponse()
     )
-    def getInvitation(self, id, fullHTML=False, includeLink=True):
+    def getInvitation(self, id, fullHTML=False, includeLink=True, isMobile=False):
         """
         Get an invitation as a string.
         """
@@ -88,7 +95,8 @@ class Invitation(Resource):
             id,
             currentUser,
             fullDoc=fullHTML,
-            includeLink=includeLink if includeLink is not None else True
+            includeLink=includeLink if includeLink is not None else True,
+            isMobile=isMobile
         )
         return htmlInvitation
 

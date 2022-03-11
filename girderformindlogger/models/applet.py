@@ -59,7 +59,8 @@ RETENTION_SET = {
     'day': 1,
     'week': 7,
     'month': 30,
-    'year': 365
+    'year': 365,
+    'indefinitely': 0
 }
 
 class Applet(FolderModel):
@@ -123,8 +124,8 @@ class Applet(FolderModel):
             ) else {},
             'encryption': encryption,
             'retentionSettings': {
-                'period': 5,
-                'retention': 'year',
+                'period': 0,
+                'retention': 'indefinitely',
                 'enabled': True
             },
             'schema': '1.0.1'
@@ -1217,7 +1218,7 @@ class Applet(FolderModel):
             ]
         }
 
-        if retentionSettings != None:
+        if retentionSettings != None and retentionSettings['retention'] != 'indefinitely':
             query['created'] = {
                 '$gte': datetime.datetime.now() - datetime.timedelta(days=timedelta_in_days)
             }
@@ -1279,7 +1280,7 @@ class Applet(FolderModel):
             if not profile:
                 continue
 
-            MRN = profile['MRN'] if profile.get('MRN', '') else f"None ({profile.get('userDefined', {}).get('email', '')})"
+            MRN = profile['MRN'] if profile.get('MRN', '') else f"[admin account] ({profile.get('userDefined', {}).get('email', '')})"
 
             times = {
                 'responseStarted': '',
@@ -1791,8 +1792,9 @@ class Applet(FolderModel):
             formatted.pop('applet')
             formatted.pop('protocol')
 
-        formatted["updated"] = applet['updated'].isoformat()
-        formatted["id"] = applet['_id']
+        formatted['updated'] = applet['updated'].isoformat()
+        formatted['id'] = applet['_id']
+        formatted['accountId'] = applet['accountId']
 
         return (nextIRI, formatted, bufferSize)
 

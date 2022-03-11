@@ -135,7 +135,7 @@ class Applet(Resource):
             'Retention parameter inslude only day/week/month/year',
             default='year',
             required=True,
-            enum=['day', 'week', 'month', 'year']
+            enum=['day', 'week', 'month', 'year', 'indefinitely']
         )
         .param(
             'enabled',
