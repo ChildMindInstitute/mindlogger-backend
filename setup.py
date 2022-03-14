@@ -53,7 +53,7 @@ installReqs = [
     'Mako',
     'pandas==0.25.1',
     'passlib [bcrypt,totp]',
-    'pymongo>=3.6',
+    'pymongo==3.7.2',
     'PyYAML',
     'psutil==5.6.6',
     'pyld>=2.0.2',
