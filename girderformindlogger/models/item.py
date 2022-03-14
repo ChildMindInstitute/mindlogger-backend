@@ -26,7 +26,6 @@ class Item(acl_mixin.AccessControlMixin, Model):
         self.name = 'item'
         self.ensureIndices(
             (
-                'folderId',
                 'name',
                 'lowerName',
                 'version',
@@ -44,6 +43,10 @@ class Item(acl_mixin.AccessControlMixin, Model):
                 ([
                     ('folderId', 1),
                     ('updated', 1),
+                ], {}),
+                ([
+                    ('meta.baseAppletId', 1),
+                    ('meta.baseItemId', 1)
                 ], {}),
                 ([
                     ('meta.screen.@type', 1),

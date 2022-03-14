@@ -23,7 +23,7 @@
 
     <div style="margin-top: 10px;">
         <p style="text-align: right; width: 440px;">
-            © Child Mind Institute MATTER Lab 2021
+            © Child Mind Institute MATTER Lab 2022
         </p>
         <p style="text-align: right; width: 440px;">
             <a href="mailto:matterlab@childmind.org" target="_blank">Contact us</a>
