@@ -10,7 +10,8 @@ RETENTION_SET = {
     'day': 1,
     'week': 7,
     'month': 30,
-    'year': 365
+    'year': 365,
+    'indefinitely': 0
 }
 
 
@@ -35,6 +36,9 @@ for applet in applets:
 
     retention = retentionSettings.get('retention', 'year')
     period = retentionSettings.get('period', 5)
+
+    if retention == 'indefinitely':
+        continue
 
     timedelta_in_days = int(period) * int(RETENTION_SET[retention])
 

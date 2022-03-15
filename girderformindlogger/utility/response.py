@@ -105,29 +105,48 @@ def getLatestResponseTime(informantId, appletId, activityID, tz=None):
     )
 
 
-def aggregate(metadata, informant, startDate=None, endDate=None):
+def aggregate(metadata, informant, startDate=None, endDate=None, activities=[]):
     """
     Function to calculate aggregates
     """
+    definedRange = []
+
     query = {
-            "baseParentType": 'user',
-            "baseParentId": informant.get("_id") if isinstance(
-                informant,
-                dict
-            ) else informant,
-            "created": {
-                "$gt": startDate,
-            } if startDate else {
-            },
-            "meta.applet.@id": metadata["applet_id"],
-            "meta.subject.@id": metadata["subject_id"]
-        }
+        "baseParentType": 'user',
+        "baseParentId": informant.get("_id") if isinstance(
+            informant,
+            dict
+        ) else informant,
+        "created": {
+            "$gt": startDate,
+        } if startDate else {
+        },
+        "meta.applet.@id": metadata["applet_id"],
+        "meta.subject.@id": metadata["subject_id"]
+    }
 
     definedRange = list(ResponseItem().find(
         query=query,
         force=True,
         sort=[("created", ASCENDING)]
     ))
+
+    query.pop('created')
+    for activityId in activities:
+        included = False
+
+        for response in definedRange:
+            if response['meta']['activity']['@id'] == activityId:
+                included = True
+
+        if not included:
+            query["meta.activity.@id"] = activityId
+
+            definedRange += list(ResponseItem().find(
+                query=query,
+                sort=[("created", DESCENDING)],
+                limit=1
+            ))
 
     if not len(definedRange):
         print('\n\n defined range returns an empty list.')
@@ -325,7 +344,7 @@ def last7Days(
     responses = aggregate({
         'applet_id': profile['appletId'],
         'subject_id': profile['_id']
-    }, informantId, startDate, referenceDate)
+    }, informantId, startDate, referenceDate, appletInfo['meta'].get('protocol', {}).get('activities', []))
 
     # destructure the responses
     # TODO: we are assuming here that activities don't share items.

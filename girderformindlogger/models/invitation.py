@@ -360,7 +360,8 @@ class Invitation(AESEncryption):
         invitationId,
         invitee=None,
         fullDoc=False,
-        includeLink=True
+        includeLink=True,
+        isMobile=False
     ):
         """
         Returns an HTML document rendering the invitation.
@@ -464,7 +465,7 @@ class Invitation(AESEncryption):
             userName = userName + ' ' + invitation.get('lastName')
 
         body = mail_utils.renderTemplate(f'welcome{"Owner" if role == "owner" else ""}.{invitation.get("lang", "en")}.mako', {
-            'userName': userName, 
+            'userName': userName,
             'accept': accept,
             'appletName': appletName,
             'byCoordinator': "by {} ({}) ".format(
@@ -489,7 +490,8 @@ class Invitation(AESEncryption):
         body2 = None
         try:
             body2 = mail_utils.renderTemplate(f'welcomeFooter.{invitation.get("lang", "en")}.mako', {
-                'userName': userName, 
+                'userName': userName,
+                'isMobile': isMobile,
                 'accept': accept,
                 'appletName': appletName,
                 'role': "an editor" if role == "editor" else "a {}".format(role),

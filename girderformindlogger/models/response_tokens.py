@@ -29,7 +29,6 @@ class ResponseTokens(AESEncryption, dict):
         self.name = 'responseTokens'
         self.ensureIndices(
             (
-                'userId',
                 'appletId',
                 ([
                     ('userId', 1),
