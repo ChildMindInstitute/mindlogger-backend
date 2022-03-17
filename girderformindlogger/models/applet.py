@@ -1292,7 +1292,8 @@ class Applet(FolderModel):
                 ts = meta.get(key, 0)
                 if not ts:
                     continue
-                times[key] = moment.unix(ts).strftime("%Y-%m-%d %H:%M:%S.%f")[:-3]
+
+                times[key] = ts
 
             responsesData = meta.get('responses', {})
             try:
@@ -1373,7 +1374,7 @@ class Applet(FolderModel):
                         ts = metaNextsAt.get(key, 0)
                         if not ts:
                             continue
-                        resNextsAt[key] = moment.unix(ts).strftime("%Y-%m-%d %H:%M:%S.%f")[:-3]
+                        resNextsAt[key] = ts
 
                 data['nextsAt'][str(response['_id'])] = resNextsAt
 
