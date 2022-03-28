@@ -1195,6 +1195,7 @@ class Applet(FolderModel):
             'appletId': ObjectId(appletId),
             'userId': reviewer['_id']
         })
+
         if len(users):
             profiles = list(Profile().find(query={
                 "_id": {
@@ -1203,6 +1204,11 @@ class Applet(FolderModel):
                 "profile": True,
                 "reviewers": reviewerProfile["_id"]
             }))
+            if not len(profiles):
+                profiles = list(Profile().find(query={
+                    "reviewers": reviewerProfile["_id"],
+                    "profile": True,
+                }))
         else:
             profiles = list(Profile().find(query={
                 "reviewers": reviewerProfile["_id"],
