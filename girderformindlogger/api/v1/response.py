@@ -58,9 +58,9 @@ class ResponseItem(Resource):
         self.s3_client = boto3.client('s3', region_name=DEFAULT_REGION, aws_access_key_id=os.environ['ACCESS_KEY_ID'],
                                 aws_secret_access_key=os.environ['SECRET_ACCESS_KEY'])
 
-        self.s3_config = TransferConfig(multipart_threshold=1024 * 25,
+        self.s3_config = TransferConfig(multipart_threshold=1024 * 100,
                         max_concurrency=10,
-                        multipart_chunksize=1024 * 25,
+                        multipart_chunksize=1024 * 100,
                         use_threads=False)
 
         self._model = ResponseItemModel()
@@ -847,14 +847,12 @@ class ResponseItem(Resource):
                         io.BytesIO(file_data),owner_account.get('s3Bucket',
                         os.environ['S3_MEDIA_BUCKET']),
                         _file_obj_key,
-                        Config=self.s3_config
                     )
                 else:
                     self.s3_client.upload_fileobj(
                         io.BytesIO(file_data),
                         os.environ['S3_MEDIA_BUCKET'],
                         _file_obj_key,
-                        Config=self.s3_config
                     )
 
 
