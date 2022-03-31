@@ -75,7 +75,7 @@ def loadConfig():
         'port': 6379,
         'password': ''
     }
-    
+
     redisConf = {
         'host': 'REDIS_URI', 'port': 'REDIS_PORT', 'password': 'REDIS_PASSWORD'
     }
