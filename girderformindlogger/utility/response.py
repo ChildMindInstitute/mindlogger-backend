@@ -364,7 +364,7 @@ def last7Days(
     l7d['token'] = ResponseTokens().getResponseTokens(profile, startDate, False)
     l7d["responses"] = _oneResponsePerDatePerVersion(outputResponses, profile['timezone']) if groupByDateActivity else outputResponses
 
-    l7d["schema:endDate"] = responses.get("schema:endDate", datetime.utcnow()).isoformat()
+    l7d["schema:endDate"] = datetime.utcnow().isoformat()
     l7d["schema:startDate"] = startDate.isoformat()
     l7d["schema:duration"] = responses.get("schema:duration", isodate.duration_isoformat(
         referenceDate - startDate
