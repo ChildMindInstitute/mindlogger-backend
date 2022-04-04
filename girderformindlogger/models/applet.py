@@ -1774,7 +1774,8 @@ class Applet(FolderModel):
                     True,
                     groupByDateActivity,
                     localInfo.get('localItems', []) or [],
-                    localInfo.get('localActivities', []) or []
+                    localInfo.get('localActivities', []) or [],
+                    localInfo.get('localResponses', []) or [],
                 )
 
             profile = Profile().findOne({'appletId': applet['_id'], 'userId': reviewer['_id']})
