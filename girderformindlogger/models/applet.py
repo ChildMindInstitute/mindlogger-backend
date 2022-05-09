@@ -1747,7 +1747,7 @@ class Applet(FolderModel):
                 formatted.update(data)
 
         if not nextActivity:
-            profile = Profile().findOne({'appletId': applet['_id'], 'userId': reviewer['_id']})
+            profile = Profile().findOne({'appletId': applet['_id'], 'userId': reviewer['_id']}) or {}
 
             if retrieveSchedule:
                 schedule = self.getSchedule(
@@ -1758,8 +1758,7 @@ class Applet(FolderModel):
                     localInfo.get('localEvents', [])
                 )
 
-                if schedule:
-                    formatted["schedule"] = schedule
+                formatted["schedule"] = schedule
 
                 formatted['cumulativeActivities'] = profile.get('cumulative_activities', { 'available': [], 'archieved': [] })
 
@@ -1778,13 +1777,11 @@ class Applet(FolderModel):
                     localInfo.get('localResponses', []) or [],
                 )
 
-            profile = Profile().findOne({'appletId': applet['_id'], 'userId': reviewer['_id']})
-
             if retrieveLastResponseTime:
                 formatted['finishedEvents'] = profile.get('finished_events', {})
                 formatted['lastResponses'] = {}
 
-                activities = profile['completed_activities']
+                activities = profile.get('completed_activities', [])
 
                 for activity in activities:
                     completed_time = activity['completed_time']
