@@ -560,6 +560,13 @@ def cacheProtocolContent(protocol, document, user, editExisting=False):
             })
 
             latestDocument = json_util.loads(latestItem['content'])
+
+            for key in dict.keys(latestDocument['protocol']['activities']):
+                activity = latestDocument['protocol']['activities'][key]
+
+                if type(activity) == str:
+                    latestDocument['protocol']['activities'][key] = loadCache(activity.split('/').pop())
+
             newContent = getUpdatedContent(document, latestDocument)
 
             item['length'] = len(json_util.dumps(newContent))

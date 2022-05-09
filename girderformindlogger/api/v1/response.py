@@ -46,6 +46,7 @@ import string
 import random
 import base64
 import io
+from boto3.s3.transfer import TransferConfig
 
 DEFAULT_REGION = 'us-east-1'
 
@@ -55,7 +56,13 @@ class ResponseItem(Resource):
         super(ResponseItem, self).__init__()
         self.resourceName = 'response'
         self.s3_client = boto3.client('s3', region_name=DEFAULT_REGION, aws_access_key_id=os.environ['ACCESS_KEY_ID'],
-                                 aws_secret_access_key=os.environ['SECRET_ACCESS_KEY'])
+                                aws_secret_access_key=os.environ['SECRET_ACCESS_KEY'])
+
+        self.s3_config = TransferConfig(multipart_threshold=1024 * 100,
+                        max_concurrency=10,
+                        multipart_chunksize=1024 * 100,
+                        use_threads=False)
+
         self._model = ResponseItemModel()
         self.route('GET', (':applet',), self.getResponsesForApplet)
         self.route('GET', ('last7Days', ':applet'), self.getLast7Days)
@@ -833,12 +840,20 @@ class ResponseItem(Resource):
                 )
                 _file_obj_key=f"{ObjectId(profile['_id'])}/{ObjectId(applet['_id'])}/{ObjectId(activity['_id'])}/{filename}"
 
-                file_data=base64.b64decode(value)
+                file_data = value.file.read()
 
                 if owner_account and owner_account.get('s3Bucket', None):
-                    self.s3_client.upload_fileobj(io.BytesIO(file_data),owner_account.get('s3Bucket', os.environ['S3_MEDIA_BUCKET']),_file_obj_key)
+                    self.s3_client.upload_fileobj(
+                        io.BytesIO(file_data),owner_account.get('s3Bucket',
+                        os.environ['S3_MEDIA_BUCKET']),
+                        _file_obj_key,
+                    )
                 else:
-                    self.s3_client.upload_fileobj(io.BytesIO(file_data),os.environ['S3_MEDIA_BUCKET'],_file_obj_key)
+                    self.s3_client.upload_fileobj(
+                        io.BytesIO(file_data),
+                        os.environ['S3_MEDIA_BUCKET'],
+                        _file_obj_key,
+                    )
 
                 # newUpload = um.uploadFromFile(
                 #     value.file,

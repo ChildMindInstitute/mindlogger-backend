@@ -1617,6 +1617,9 @@ class Applet(Resource):
         formatted['accountId'] = applet['accountId']
         formatted['nextActivity'] = nextIRI
         formatted['applet']['themeId'] = applet['meta']['applet'].get('themeId')
+
+        if 'publicLink' in applet:
+            formatted['applet']['publicLink'] = applet['publicLink'].get('id')
         formatted.update(data)
 
         return formatted

@@ -105,7 +105,7 @@ def getLatestResponseTime(informantId, appletId, activityID, tz=None):
     )
 
 
-def aggregate(metadata, informant, startDate=None, endDate=None, activities=[]):
+def aggregate(metadata, informant, startDate=None, endDate=None, activities=[], localResponses=[]):
     """
     Function to calculate aggregates
     """
@@ -148,23 +148,28 @@ def aggregate(metadata, informant, startDate=None, endDate=None, activities=[]):
                 limit=1
             ))
 
-    if not len(definedRange):
-        print('\n\n defined range returns an empty list.')
+    responses = []
+
+    for response in definedRange:
+        if str(response['_id']) not in localResponses:
+            responses.append(response)
+
+    if not len(responses):
         return {}
 
     startDate = min([response.get(
         'created',
-    ) for response in definedRange])
+    ) for response in responses])
 
     endDate = max([response.get(
         'created'
-    ) for response in definedRange])
+    ) for response in responses])
 
     duration = isodate.duration_isoformat(
         delocalize(endDate) - delocalize(startDate)
     )
 
-    responseIRIs = _responseIRIs(definedRange)
+    responseIRIs = _responseIRIs(responses)
 
     aggregated = {
         "schema:startDate": startDate,
@@ -178,7 +183,7 @@ def aggregate(metadata, informant, startDate=None, endDate=None, activities=[]):
                     ),
                     "date": completedDate(response),
                     "version": response.get('meta', {}).get('applet', {}).get('version', '0.0.0')
-                } for response in definedRange if itemIRI in response.get(
+                } for response in responses if itemIRI in response.get(
                     'meta',
                     {}
                 ).get('responses', {})
@@ -187,7 +192,7 @@ def aggregate(metadata, informant, startDate=None, endDate=None, activities=[]):
     }
 
     aggregated['dataSources'] = {}
-    for response in definedRange:
+    for response in responses:
         if 'dataSource' in response.get('meta', {}):
             aggregated['dataSources'][str(response['_id'])] = response['meta']['dataSource']
 
@@ -319,7 +324,8 @@ def last7Days(
     includeOldItems=True,
     groupByDateActivity=False,
     localItems=[],
-    localActivities=[]
+    localActivities=[],
+    localResponses=[]
 ):
     from girderformindlogger.models.profile import Profile
 
@@ -344,7 +350,7 @@ def last7Days(
     responses = aggregate({
         'applet_id': profile['appletId'],
         'subject_id': profile['_id']
-    }, informantId, startDate, referenceDate, appletInfo['meta'].get('protocol', {}).get('activities', []))
+    }, informantId, startDate, referenceDate, appletInfo['meta'].get('protocol', {}).get('activities', []), localResponses)
 
     # destructure the responses
     # TODO: we are assuming here that activities don't share items.
@@ -364,7 +370,7 @@ def last7Days(
     l7d['token'] = ResponseTokens().getResponseTokens(profile, startDate, False)
     l7d["responses"] = _oneResponsePerDatePerVersion(outputResponses, profile['timezone']) if groupByDateActivity else outputResponses
 
-    l7d["schema:endDate"] = responses.get("schema:endDate", datetime.utcnow()).isoformat()
+    l7d["schema:endDate"] = datetime.utcnow().isoformat()
     l7d["schema:startDate"] = startDate.isoformat()
     l7d["schema:duration"] = responses.get("schema:duration", isodate.duration_isoformat(
         referenceDate - startDate

@@ -1195,6 +1195,7 @@ class Applet(FolderModel):
             'appletId': ObjectId(appletId),
             'userId': reviewer['_id']
         })
+
         if len(users):
             profiles = list(Profile().find(query={
                 "_id": {
@@ -1203,6 +1204,11 @@ class Applet(FolderModel):
                 "profile": True,
                 "reviewers": reviewerProfile["_id"]
             }))
+            if not len(profiles):
+                profiles = list(Profile().find(query={
+                    "reviewers": reviewerProfile["_id"],
+                    "profile": True,
+                }))
         else:
             profiles = list(Profile().find(query={
                 "reviewers": reviewerProfile["_id"],
@@ -1292,7 +1298,8 @@ class Applet(FolderModel):
                 ts = meta.get(key, 0)
                 if not ts:
                     continue
-                times[key] = moment.unix(ts).strftime("%Y-%m-%d %H:%M:%S.%f")[:-3]
+
+                times[key] = ts
 
             responsesData = meta.get('responses', {})
             try:
@@ -1373,7 +1380,7 @@ class Applet(FolderModel):
                         ts = metaNextsAt.get(key, 0)
                         if not ts:
                             continue
-                        resNextsAt[key] = moment.unix(ts).strftime("%Y-%m-%d %H:%M:%S.%f")[:-3]
+                        resNextsAt[key] = ts
 
                 data['nextsAt'][str(response['_id'])] = resNextsAt
 
@@ -1767,7 +1774,8 @@ class Applet(FolderModel):
                     True,
                     groupByDateActivity,
                     localInfo.get('localItems', []) or [],
-                    localInfo.get('localActivities', []) or []
+                    localInfo.get('localActivities', []) or [],
+                    localInfo.get('localResponses', []) or [],
                 )
 
             profile = Profile().findOne({'appletId': applet['_id'], 'userId': reviewer['_id']})
