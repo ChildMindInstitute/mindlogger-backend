@@ -807,13 +807,23 @@ class ResponseItem(Resource):
                 self._model.reconnectToDb(db_uri=owner_account.get('db', None))
 
             if owner_account and owner_account.get('s3Bucket', None) and owner_account.get('accessKeyId', None):
-                self.s3_client = boto3.client(
-                    's3',
-                    region_name=DEFAULT_REGION,
-                    aws_access_key_id=owner_account.get('accessKeyId', None),
-                    aws_secret_access_key=owner_account.get('secretAccessKey', None)
-                )
-                
+                bucketType = owner_account.get('bucketType', None)
+                if bucketType and 'GCP' in bucketType or 'gcp' in bucketType:
+                    self.s3_client = boto3.client(
+                        's3',
+                        region_name=DEFAULT_REGION,
+                        endpoint_url="https://storage.googleapis.com",
+                        aws_access_key_id=owner_account.get('accessKeyId', None),
+                        aws_secret_access_key=owner_account.get('secretAccessKey', None)
+                    )
+                else:
+                    self.s3_client = boto3.client(
+                        's3',
+                        region_name=DEFAULT_REGION,
+                        aws_access_key_id=owner_account.get('accessKeyId', None),
+                        aws_secret_access_key=owner_account.get('secretAccessKey', None)
+                    )
+
             try:
                 newItem = self._model.createResponseItem(
                     folder=AppletSubjectResponsesFolder,
