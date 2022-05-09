@@ -953,7 +953,6 @@ class User(Resource):
         tokenInfo['account']['alerts'] = ResponseAlerts().getResponseAlerts(user['_id'], account['accountId'])
 
         tokenInfo['account']['applets'] = applets
-        tokenInfo['account']['appletPublishEnabled'] = ownerAccount.get('appletPublishEnabled', False)
 
         if token['accountId'] == user['accountId']:
             tokenInfo['account']['isDefaultName'] = False if user['accountName'] else True
