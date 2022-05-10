@@ -1379,17 +1379,6 @@ class Applet(FolderModel):
                         'data': meta['subScaleSource']
                     }
 
-                resNextsAt = {}
-                metaNextsAt = meta.get('nextsAt', 0)
-                if metaNextsAt:
-                    for key in metaNextsAt:
-                        ts = metaNextsAt.get(key, 0)
-                        if not ts:
-                            continue
-                        resNextsAt[key] = ts
-
-                data['nextsAt'][str(response['_id'])] = resNextsAt
-
         data.update(
             Protocol().getHistoryDataFromItemIRIs(
                 applet.get('meta', {}).get('protocol', {}).get('_id', '').split('/')[-1],
