@@ -347,14 +347,13 @@ def last7Days(
 
     profile = Profile().findOne({'userId': ObjectId(informantId), 'appletId': ObjectId(appletId)})
 
+    if not profile:
+        return {}
+
     responses = aggregate({
         'applet_id': profile['appletId'],
         'subject_id': profile['_id']
     }, informantId, startDate, referenceDate, appletInfo['meta'].get('protocol', {}).get('activities', []), localResponses)
-
-    # destructure the responses
-    # TODO: we are assuming here that activities don't share items.
-    # might not be the case later on, so watch out.
 
     outputResponses = responses.get('responses', {})
     dataSources = responses.get('dataSources', {})
