@@ -1258,8 +1258,8 @@ class Applet(FolderModel):
         data = {
             'dataSources': {},
             'subScaleSources': {},
+            'eventSources': [],
             'keys': [],
-            'nextsAt': {},
             'responses': []
         }
 
@@ -1343,7 +1343,8 @@ class Applet(FolderModel):
                 'responseScheduled':times['scheduledTime'],
                 'timeout': meta.get('timeout', 0),
                 'version': meta['applet'].get('version', '0.0.0'),
-                'reviewing': meta.get('reviewing', {}).get('responseId', None)
+                'reviewing': meta.get('reviewing', {}).get('responseId', None),
+                'events': len(data['eventSources']) if 'userPublicKey' in meta else meta.get('events')
             })
 
             for IRI in meta.get('responses', {}):
@@ -1367,22 +1368,16 @@ class Applet(FolderModel):
                     'data': meta['dataSource']
                 }
 
+                data['eventSources'].append({
+                    'key': userKeys[keyDump],
+                    'data': meta.get('events', None)
+                })
+
                 if 'subScaleSource' in meta:
                     data['subScaleSources'][str(response['_id'])] = {
                         'key': userKeys[keyDump],
                         'data': meta['subScaleSource']
                     }
-
-                resNextsAt = {}
-                metaNextsAt = meta.get('nextsAt', 0)
-                if metaNextsAt:
-                    for key in metaNextsAt:
-                        ts = metaNextsAt.get(key, 0)
-                        if not ts:
-                            continue
-                        resNextsAt[key] = ts
-
-                data['nextsAt'][str(response['_id'])] = resNextsAt
 
         data.update(
             Protocol().getHistoryDataFromItemIRIs(
