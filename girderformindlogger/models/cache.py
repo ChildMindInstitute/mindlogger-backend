@@ -13,7 +13,7 @@ from girderformindlogger.models.model_base import AccessControlledModel, Model
 from girderformindlogger.utility.model_importer import ModelImporter
 from girderformindlogger.utility.progress import noProgress, setResponseTimeLimit
 from bson import json_util
-
+import decimal
 
 class Cache(Model):
     """
@@ -33,12 +33,17 @@ class Cache(Model):
         return document
 
     def insertCache(self, collection_name, source_id, model_type, cachedData):
+        def decimal_default(obj):
+            if isinstance(obj, decimal.Decimal):
+                return float(obj)
+            raise TypeError
+
         newCache = {
             'collection_name': collection_name,
             'source_id': source_id,
             'model_type': model_type,
             'updated': datetime.datetime.utcnow(),
-            'cache_data': json_util.dumps(cachedData)
+            'cache_data': json_util.dumps(cachedData, default=decimal_default)
         }
         return self.save(newCache)
 
@@ -51,7 +56,7 @@ class Cache(Model):
             'updated': datetime.datetime.utcnow(),
             'cache_data': json_util.dumps(cachedData)
         })
-    
+
     def getCacheData(self, _id):
         document = self.findOne(query={'_id': ObjectId(_id)})
         if document.get('cache_data'):
