@@ -951,6 +951,10 @@ class User(Resource):
 
         for appletId in appletRoles:
             applet = appletModel.load(appletId, force=True)
+
+            if user['accountId'] != account['_id'] and applet['meta'].get('welcomeApplet', False):
+                continue
+
             applets.append(getMetadata(applet, appletRoles[appletId]))
 
         if user['accountId'] == account['_id']:
