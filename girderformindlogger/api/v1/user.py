@@ -957,12 +957,6 @@ class User(Resource):
 
             applets.append(getMetadata(applet, appletRoles[appletId]))
 
-        if user['accountId'] == account['_id']:
-            welcomeApplets = appletModel.find({ 'meta.welcomeApplet': True })
-            for applet in welcomeApplets:
-                if applet['accountId'] != user['accountId']:
-                    applets.append(getMetadata(applet, []))
-
         tokenInfo['account']['alerts'] = ResponseAlerts().getResponseAlerts(user['_id'], account['accountId'])
 
         tokenInfo['account']['applets'] = applets
