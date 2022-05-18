@@ -155,8 +155,10 @@ def MODELS():
     from girderformindlogger.models.user import User as UserModel
     from girderformindlogger.models.pushNotification import PushNotification as PushNotificationModel
     from girderformindlogger.models.cache import Cache as CacheModel
+
     return({
         'activity': ActivityModel,
+        'activityFlow': FolderModel,
         'activitySet': ProtocolModel,
         'applet': AppletModel,
         'collection': CollectionModel,

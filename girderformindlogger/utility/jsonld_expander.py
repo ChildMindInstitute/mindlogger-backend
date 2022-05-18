@@ -106,7 +106,7 @@ def convertObjectToSingleFileFormat(obj, modelType, user, identifier=None, refre
 
 # insert historical data in the database
 def insertHistoryData(obj, identifier, modelType, baseVersion, historyFolder, historyReferenceFolder, user, modelClasses):
-    if modelType not in ['activity', 'screen']:
+    if modelType not in ['activity', 'screen', 'activityFlow']:
         return
 
     modelClass = getModel(modelClasses, modelType)
@@ -166,7 +166,7 @@ def insertHistoryData(obj, identifier, modelType, baseVersion, historyFolder, hi
                 'activityId': obj['meta'].get('originalId', None)
             }
 
-        obj = createCache(obj, formatted, 'folder' if modelType == 'activity' else 'screen', user, modelClasses)
+        obj = createCache(obj, formatted, 'folder' if modelType == 'activity' or modelType == 'activityFlow' else 'screen', user, modelClasses)
 
     itemModel = getModel(modelClasses, 'item')
 
@@ -212,8 +212,9 @@ def createProtocolFromExpandedDocument(protocol, user, editExisting=False, remov
 
     modelClasses = {}
 
-    models = { 'screen': [], 'activity': [] }
-    for modelType in ['protocol', 'activity', 'screen']:
+    models = { 'screen': [], 'activity': [], 'activityFlow': [] }
+
+    for modelType in ['protocol', 'activity', 'screen', 'activityFlow']:
         modelClass = getModel(modelClasses, modelType)
         docCollection = getModelCollection(modelType)
 
@@ -234,12 +235,12 @@ def createProtocolFromExpandedDocument(protocol, user, editExisting=False, remov
                     metadata['{}Id'.format(key)] = tmp['_id']
 
                 if model['ref2Document'].get('_id', None) and editExisting:
-                    # in case of edit existing item/activity
+                    # in case of edit existing item/activity/activityFlow
                     if modelClass.name == 'folder':
                         try:
                             docFolder = FolderModel().load(model['ref2Document']['_id'], force=True)
 
-                            if 'identifier' in docFolder['meta'] and modelType == 'activity':
+                            if 'identifier' in docFolder['meta'] and (modelType == 'activity' or modelType == 'activityFlow'):
                                 model['historyObj'] = insertHistoryData(deepcopy(docFolder), docFolder['meta']['identifier'], modelType, baseVersion, historyFolder, historyReferenceFolder, user, modelClasses)
 
                             docFolder['name'] = prefName
@@ -283,8 +284,9 @@ def createProtocolFromExpandedDocument(protocol, user, editExisting=False, remov
                         reuseExisting=(modelClass.name == 'item')
                     )
 
-                    if modelType == 'activity':
+                    if modelType == 'activity' or modelType == 'activityFlow':
                         metadata['identifier'] = docFolder['_id']
+                        metadata['modelType'] = modelType
 
                         if editExisting:
                             insertHistoryData(None, metadata['identifier'], modelType, baseVersion, historyFolder, historyReferenceFolder, user, modelClasses)
@@ -397,6 +399,23 @@ def createProtocolFromExpandedDocument(protocol, user, editExisting=False, remov
                                     activityId = str(activity['_id'])
                                     activityIdToHistoryObj[activityId] = insertHistoryData(activity, activity['meta']['identifier'], 'activity', baseVersion, historyFolder, historyReferenceFolder, user, modelClasses)
 
+                        if 'activityFlows' in removed:
+                            removedFlows = list(FolderModel().find({
+                                'meta.protocolId': protocolId,
+                                '_id': {
+                                    '$in': [
+                                        ObjectId(flowId) for flowId in removed['activityFlows']
+                                    ]
+                                }
+                            }))
+
+                            for activityFlow in removedFlows:
+                                clearCache(activityFlow, 'activityFlow')
+                                FolderModel().remove(activityFlow)
+
+                                if 'identifier' in activityFlow['meta']:
+                                    insertHistoryData(activityFlow, activityFlow['meta']['identifier'], 'activityFlow', baseVersion, historyFolder, historyReferenceFolder, user, modelClasses)
+
                         # handle deleted items
                         if 'items' in removed:
                             removedItems = list(ScreenModel().find({
@@ -433,7 +452,7 @@ def createProtocolFromExpandedDocument(protocol, user, editExisting=False, remov
 
                 model['ref2Document']['_id'] = newModel['_id']
 
-    for modelType in ['screen', 'activity']:
+    for modelType in ['screen', 'activity', 'activityFlow']:
         for model in models[modelType]:
             formatted = _fixUpFormat(formatLdObject(
                 model,
@@ -731,6 +750,7 @@ def loadFromSingleFile(document, user, editExisting=False):
     protocol = {
         'protocol': {},
         'activity': {},
+        'activityFlow': {},
         'screen': {}
     }
 
@@ -765,7 +785,18 @@ def loadFromSingleFile(document, user, editExisting=False):
                     'ref2Document': item
                 }
 
+    for activityFlow in document['protocol'].get('activityFlows', {}).values():
+        expandedActivityFlow = expandObj(contexts, activityFlow)
+
+        protocol['activityFlow'][expandedActivityFlow['@id']] = {
+            'parentKey': 'protocol',
+            'parentId': expandedProtocol['@id'],
+            'expanded': expandedActivityFlow,
+            'ref2Document': activityFlow
+        }
+
     protocolId = createProtocolFromExpandedDocument(protocol, user, editExisting, document.get('removed', {}), document.get('baseVersion', None))
+
     protocol = ProtocolModel().load(protocolId, force=True)
 
     updateContributions(protocol, document, user)
@@ -1696,6 +1727,7 @@ def formatLdObject(
 
             applet = {}
             applet['activities'] = protocol.pop('activities', {})
+            applet['activityFlows'] = protocol.pop('activityFlows', {})
             applet['protocol'] = {
                 key: protocol.get(
                     'protocol',
@@ -1750,12 +1782,13 @@ def formatLdObject(
             protocol = {
                 'protocol': newObj,
                 'activities': {},
+                'activityFlows': {}
             }
 
             modelClasses = {}
 
             if obj.get('loadedFromSingleFile', False):
-                activities = ActivityModel().find({'meta.protocolId': obj['_id']})
+                activities = ActivityModel().find({'meta.protocolId': obj['_id'], 'meta.activity': { '$exists': True }})
 
                 activityIDMapping = {}
 
@@ -1771,6 +1804,15 @@ def formatLdObject(
                 if refreshCache:
                     if fixUpOrderList(obj, 'protocol', activityIDMapping):
                         ProtocolModel().setMetadata(obj, obj['meta'])
+
+                activityFlows = FolderModel().find({'meta.protocolId': obj['_id'], 'meta.activityFlow': { '$exists': True }})
+
+                for activityFlow in activityFlows:
+                    formatted = formatLdObject(activityFlow, 'activityFlow', user, refreshCache=refreshCache)
+                    if refreshCache:
+                        createCache(activityFlow, formatted, 'activityFlow', user, modelClasses)
+
+                    protocol['activityFlows'][str(activityFlow['_id'])] = formatted
             else:
                 try:
                     protocol = componentImport(
