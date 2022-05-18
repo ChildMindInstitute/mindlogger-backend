@@ -611,7 +611,8 @@ def cacheProtocolContent(protocol, document, user, editExisting=False):
                     'contexts': {},
                     'protocol': {
                         'data': {},
-                        'activities': {}
+                        'activities': {},
+                        'activityFlows': {}
                     }
                 }
 
@@ -626,6 +627,10 @@ def cacheProtocolContent(protocol, document, user, editExisting=False):
                 document.seek(0)
                 for key, activity in ijson.kvitems(document, 'protocol.activities'):
                     content['protocol']['activities'][key] = activity
+
+                document.seek(0)
+                for key, activityFlow in ijson.kvitems(document, 'protocol.activityFlows'):
+                    content['protocol']['activityFlows'][key] = activityFlow
 
             def decimal_default(obj):
                 if isinstance(obj, decimal.Decimal):
