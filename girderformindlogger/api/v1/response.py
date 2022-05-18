@@ -716,7 +716,6 @@ class ResponseItem(Resource):
         from girderformindlogger.models.profile import Profile
         from girderformindlogger.models.account_profile import AccountProfile
         try:
-            # TODO: pending
             metadata['applet'] = {
                 "@id": applet.get('_id'),
                 "name": AppletModel().preferredName(applet),
@@ -734,6 +733,10 @@ class ResponseItem(Resource):
                     activity.get('meta', {}).get('activity', {}).get('url')
                 )
             }
+            if metadata.get('activityFlowId'):
+                metadata['activityFlow'] = {
+                    '@id': metadata.pop('activityFlowId')
+                }
             informant = self.getCurrentUser()
 
             if metadata.get('publicId'):
@@ -779,11 +782,6 @@ class ResponseItem(Resource):
                 event = metadata.pop('event')
             else:
                 event = None
-
-            if metadata.get('nextActivities'):
-                nextActivities = metadata.pop('nextActivities')
-            else:
-                nextActivities = []
 
             if 'identifier' in metadata:
                 metadata['subject']['identifier'] = metadata.pop('identifier')
@@ -860,15 +858,6 @@ class ResponseItem(Resource):
                     )
 
 
-                # newUpload = um.uploadFromFile(
-                #     value.file,
-                #     metadata['responses'][key]['size'],
-                #     filename,
-                #     'item',
-                #     newItem,
-                #     informant,
-                #     metadata['responses'][key]['type'],
-                # )
                 value={}
                 value['filename']=filename
                 value['fromLibrary']=False
@@ -964,33 +953,32 @@ class ResponseItem(Resource):
                 "_id": subject_id
             })
 
-            if nextActivities:
-                if 'cumulative_activities' not in data:
-                    data['cumulative_activities'] = {
-                        'available': [],
-                        'archieved': []
-                    }
-
-                if activity['_id'] in data['cumulative_activities']['available']:
-                    data['cumulative_activities']['available'].remove(activity['_id'])
-                if activity['_id'] not in data['cumulative_activities']['archieved']:
-                    data['cumulative_activities']['archieved'].append(activity['_id'])
-
-                for nextActivity in nextActivities:
-                    if ObjectId(nextActivity) not in data['cumulative_activities']['available']:
-                        data['cumulative_activities']['available'].append(ObjectId(nextActivity))
-
             updated = False
-            for activity in data['completed_activities']:
-                if activity["activity_id"] == metadata['activity']['@id']:
-                    activity["completed_time"] = now
-                    updated = True
+            if metadata.get('activityFlow'):
+                for activityFlow in data['activity_flows']:
+                    if str(activityFlow['activity_flow_id']) == metadata['activityFlow']['@id']:
+                        activityFlow["last_activity"] = activity['_id']
+                        activityFlow["completed_time"] = now
+                        updated = True
 
-            if updated == False:
-                data['completed_activities'].append({
-                    "activity_id": metadata['activity']['@id'],
-                    "completed_time": now
-                })
+                if updated == False:
+                    data['activity_flows'].append({
+                        'activity_flow_id': metadata['activityFlow']['@id'],
+                        'last_activity': activity['_id'],
+                        'completed_time': now
+                    })
+
+            else:
+                for activity in data['completed_activities']:
+                    if activity["activity_id"] == metadata['activity']['@id']:
+                        activity["completed_time"] = now
+                        updated = True
+
+                if updated == False:
+                    data['completed_activities'].append({
+                        "activity_id": metadata['activity']['@id'],
+                        "completed_time": now
+                    })
 
             if 'identifier' in metadata['subject']:
                 if 'identifiers' not in data:
