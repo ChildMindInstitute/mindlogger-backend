@@ -71,7 +71,7 @@ class ResponseItem(Resource):
         self.route('POST', (':applet', 'updateResponseToken'), self.updateResponseToken)
         self.route('PUT', (':applet',), self.updateReponseHistory)
         self.route('GET', (':applet', 'reviews'), self.getReviewerResponses)
-
+        self.route('POST', (':applet', 'downloadGCPData'), self.downloadGCPData)
         self.route('POST', (':applet', 'note'), self.addNote)
         self.route('PUT', (':applet', 'note'), self.updateNote)
         self.route('GET', (':applet', 'notes'), self.getNotes)
@@ -880,7 +880,10 @@ class ResponseItem(Resource):
                 value['size']=metadata['responses'][key]['size']
                 value['type']=metadata['responses'][key]['type']
                 if owner_account and owner_account.get('s3Bucket', None):
-                    value['uri']="s3://{}/{}".format(owner_account.get('s3Bucket', None),_file_obj_key)
+                    if bucketType and 'GCP' in bucketType or 'gcp' in bucketType:                
+                        value['uri']="gs://{}/{}".format(owner_account.get('s3Bucket', None),_file_obj_key)
+                    else:
+                        value['uri']="s3://{}/{}".format(owner_account.get('s3Bucket', None),_file_obj_key)
                 else:
                     value['uri']="s3://{}/{}".format(os.environ['S3_MEDIA_BUCKET'],_file_obj_key)
                 # now, replace the metadata key with a link to this upload
@@ -1018,6 +1021,71 @@ class ResponseItem(Resource):
             profile.save(data, validate=False)
 
             return(newItem)
+        except:
+            import sys, traceback
+            print(sys.exc_info())
+            print(traceback.print_tb(sys.exc_info()[2]))
+            return(str(traceback.print_tb(sys.exc_info()[2])))
+
+    @access.public
+    @autoDescribeRoute(
+        Description('Download file from GCP.')
+        .notes(
+            'This endpoint is used to download GCP private bucket data.'
+        )
+        #.responseClass('Item')
+        .modelParam(
+            'applet',
+            model=AppletModel,
+            level=AccessType.READ,
+            destName='applet',
+            description='The ID of the Applet this response is to.'
+        )
+        .param('bucket', 'The name of the bucket.', required=True, default=None)
+        .param(
+            'key',
+            'The file path',
+            required=True, default=False)
+        .errorResponse()
+        .errorResponse('Write access was denied on the parent folder.', 403)
+    )
+    def downloadGCPData(
+        self,
+        applet,
+        bucket,
+        key
+    ):
+        from girderformindlogger.models.profile import Profile
+        from girderformindlogger.models.account_profile import AccountProfile
+        try:
+            owner_account = AccountProfile().findOne({
+                'applets.owner': applet.get('_id')
+            })
+
+            if not owner_account or not owner_account.get('s3Bucket', None):
+                raise ValidationException(
+                    "Couldn't find owner account for this response"
+                )
+
+            if owner_account and owner_account.get('s3Bucket', None) and owner_account.get('accessKeyId', None):
+                self.s3_client = boto3.resource(
+                    's3',
+                    region_name=DEFAULT_REGION,
+                    endpoint_url="https://storage.googleapis.com",
+                    aws_access_key_id=owner_account.get('accessKeyId', None),
+                    aws_secret_access_key=owner_account.get('secretAccessKey', None)
+                )
+                file_path = './girderformindlogger/media/'+key.split('/')[-1]
+                self.s3_client.Bucket(bucket).download_file(key, file_path)
+                with open(file_path, "rb") as image_file:
+                    data = base64.b64encode(image_file.read())
+
+                if os.path.exists(file_path):
+                    os.remove(file_path)
+
+                return(data)
+
+            return('')
         except:
             import sys, traceback
             print(sys.exc_info())
