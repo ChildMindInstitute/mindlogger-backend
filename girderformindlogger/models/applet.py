@@ -1797,6 +1797,7 @@ class Applet(FolderModel):
         else:
             formatted.pop('applet')
             formatted.pop('protocol')
+            formatted.pop('activityFlows')
 
         formatted['updated'] = applet['updated'].isoformat()
         formatted['welcomeApplet'] = applet['meta'].get('welcomeApplet', False)
