@@ -161,11 +161,26 @@ class Protocol(FolderModel):
                 }
             },
             'activity': {},
-            'screen': {}
+            'screen': {},
+            'activityFlow': {}
         }
 
         activityId2Key = {}
         activityModel = ActivityModel()
+
+        for activityFlowKey in formatted['activityFlows']:
+            activityFlow = formatted['activityFlows'][activityFlowKey]
+            activityFlowId = item.pop('_id').split('/')[-1]
+
+            protocol['activityFlow'][activityKey] = {
+                'parentKey': 'protocol',
+                'parentId': formatted['protocol']['@id'],
+                'expanded': activityFlow,
+                'ref2Document': {
+                    'duplicateOf': activityFlowId
+                }
+            }
+
         for activityKey in formatted['activities']:
             activityId = formatted['activities'][activityKey]
 
