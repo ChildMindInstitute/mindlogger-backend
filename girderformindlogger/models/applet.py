@@ -1793,6 +1793,7 @@ class Applet(FolderModel):
             formatted.pop('protocol')
 
         formatted['updated'] = applet['updated'].isoformat()
+        formatted['welcomeApplet'] = applet['meta'].get('welcomeApplet', False)
         formatted['id'] = applet['_id']
         formatted['accountId'] = applet['accountId']
 
