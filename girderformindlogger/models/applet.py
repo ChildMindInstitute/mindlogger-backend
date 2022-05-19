@@ -415,6 +415,9 @@ class Applet(FolderModel):
                 'activities': [
                     protocol['activities'][activity] for activity in protocol['activities']
                 ],
+                'activityFlows': [
+                    ObjectId(protocol['activityFlows'][activityFlow]['_id'].split('/')[-1]) for activityFlow in protocol.get('activityFlows', {})
+                ],
                 'name': prefLabel
             },
             'published': False
