@@ -170,9 +170,9 @@ class Protocol(FolderModel):
 
         for activityFlowKey in formatted['activityFlows']:
             activityFlow = formatted['activityFlows'][activityFlowKey]
-            activityFlowId = item.pop('_id').split('/')[-1]
+            activityFlowId = activityFlow.pop('_id').split('/')[-1]
 
-            protocol['activityFlow'][activityKey] = {
+            protocol['activityFlow'][activityFlowKey] = {
                 'parentKey': 'protocol',
                 'parentId': formatted['protocol']['@id'],
                 'expanded': activityFlow,
