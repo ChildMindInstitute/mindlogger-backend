@@ -1824,6 +1824,9 @@ class Applet(FolderModel):
                 '_id': ObjectId(activities[activityIRI])
             })
 
+            if not activity:
+                continue
+
             formattedActivity = jsonld_expander.formatLdObject(
                 activity,
                 'activity'
