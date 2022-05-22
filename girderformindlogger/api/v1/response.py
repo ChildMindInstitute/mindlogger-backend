@@ -47,8 +47,10 @@ import random
 import base64
 import io
 from boto3.s3.transfer import TransferConfig
+from azure.storage.blob import BlobServiceClient, BlobClient, ContainerClient
 
 DEFAULT_REGION = 'us-east-1'
+DEFAULT_CONTAINER_NAME = 'mindlogger'
 
 class ResponseItem(Resource):
 
@@ -803,17 +805,36 @@ class ResponseItem(Resource):
                 'applets.owner': applet.get('_id')
             })
 
+            blob_service_client=None
+
             if owner_account and owner_account.get('db', None):
                 self._model.reconnectToDb(db_uri=owner_account.get('db', None))
 
             if owner_account and owner_account.get('s3Bucket', None) and owner_account.get('accessKeyId', None):
-                self.s3_client = boto3.client(
-                    's3',
-                    region_name=DEFAULT_REGION,
-                    aws_access_key_id=owner_account.get('accessKeyId', None),
-                    aws_secret_access_key=owner_account.get('secretAccessKey', None)
-                )
-                
+                bucketType = owner_account.get('bucketType', None)
+                if bucketType and 'GCP' in bucketType or 'gcp' in bucketType:
+                    self.s3_client = boto3.client(
+                        's3',
+                        region_name=DEFAULT_REGION,
+                        endpoint_url="https://storage.googleapis.com",
+                        aws_access_key_id=owner_account.get('accessKeyId', None),
+                        aws_secret_access_key=owner_account.get('secretAccessKey', None)
+                    )
+                elif bucketType and 'Azure' in bucketType or 'azure' in bucketType:
+                    blob_service_client = BlobServiceClient.from_connection_string(owner_account.get('secretAccessKey', None))
+                    try:
+                        container_client = blob_service_client.create_container(DEFAULT_CONTAINER_NAME)
+                    except Exception as ex:
+                        print('Exception:')
+                        print(ex)
+                else:
+                    self.s3_client = boto3.client(
+                        's3',
+                        region_name=DEFAULT_REGION,
+                        aws_access_key_id=owner_account.get('accessKeyId', None),
+                        aws_secret_access_key=owner_account.get('secretAccessKey', None)
+                    )
+
             try:
                 newItem = self._model.createResponseItem(
                     folder=AppletSubjectResponsesFolder,
@@ -843,11 +864,15 @@ class ResponseItem(Resource):
                 file_data = value.file.read()
 
                 if owner_account and owner_account.get('s3Bucket', None):
-                    self.s3_client.upload_fileobj(
-                        io.BytesIO(file_data),owner_account.get('s3Bucket',
-                        os.environ['S3_MEDIA_BUCKET']),
-                        _file_obj_key,
-                    )
+                    if blob_service_client:
+                        blob_client = blob_service_client.get_blob_client(container=DEFAULT_CONTAINER_NAME, blob=_file_obj_key)
+                        blob_client.upload_blob(file_data)
+                    else:
+                        self.s3_client.upload_fileobj(
+                            io.BytesIO(file_data),owner_account.get('s3Bucket',
+                            os.environ['S3_MEDIA_BUCKET']),
+                            _file_obj_key,
+                        )
                 else:
                     self.s3_client.upload_fileobj(
                         io.BytesIO(file_data),
@@ -855,22 +880,18 @@ class ResponseItem(Resource):
                         _file_obj_key,
                     )
 
-                # newUpload = um.uploadFromFile(
-                #     value.file,
-                #     metadata['responses'][key]['size'],
-                #     filename,
-                #     'item',
-                #     newItem,
-                #     informant,
-                #     metadata['responses'][key]['type'],
-                # )
                 value={}
                 value['filename']=filename
                 value['fromLibrary']=False
                 value['size']=metadata['responses'][key]['size']
                 value['type']=metadata['responses'][key]['type']
                 if owner_account and owner_account.get('s3Bucket', None):
-                    value['uri']="s3://{}/{}".format(owner_account.get('s3Bucket', None),_file_obj_key)
+                    if bucketType and 'GCP' in bucketType or 'gcp' in bucketType:
+                        value['uri']="gs://{}/{}".format(owner_account.get('s3Bucket', None),_file_obj_key)
+                    elif bucketType and 'Azure' in bucketType or 'azure' in bucketType.lower():
+                        value['uri']="https://{}.blob.core.windows.net/mindlogger/{}".format(owner_account.get('s3Bucket', None),_file_obj_key)
+                    else:
+                        value['uri']="s3://{}/{}".format(owner_account.get('s3Bucket', None),_file_obj_key)
                 else:
                     value['uri']="s3://{}/{}".format(os.environ['S3_MEDIA_BUCKET'],_file_obj_key)
                 # now, replace the metadata key with a link to this upload
@@ -1008,6 +1029,86 @@ class ResponseItem(Resource):
             profile.save(data, validate=False)
 
             return(newItem)
+        except:
+            import sys, traceback
+            print(sys.exc_info())
+            print(traceback.print_tb(sys.exc_info()[2]))
+            return(str(traceback.print_tb(sys.exc_info()[2])))
+
+    @access.public
+    @autoDescribeRoute(
+        Description('Download file from GCP.')
+        .notes(
+            'This endpoint is used to download GCP private bucket data.'
+        )
+        #.responseClass('Item')
+        .modelParam(
+            'applet',
+            model=AppletModel,
+            level=AccessType.READ,
+            destName='applet',
+            description='The ID of the Applet this response is to.'
+        )
+        .param('bucket', 'The name of the bucket.', required=True, default=None)
+        .param(
+            'key',
+            'The file path',
+            required=True, default=False)
+        .param(
+            'isAzure',
+            'Azure check',
+            required=False, default=False)
+        .errorResponse()
+        .errorResponse('Write access was denied on the parent folder.', 403)
+    )
+    def downloadGCPData(
+        self,
+        applet,
+        bucket,
+        key,
+        isAzure
+    ):
+        from girderformindlogger.models.profile import Profile
+        from girderformindlogger.models.account_profile import AccountProfile
+        try:
+            owner_account = AccountProfile().findOne({
+                'applets.owner': applet.get('_id')
+            })
+
+            if not owner_account or not owner_account.get('s3Bucket', None):
+                raise ValidationException(
+                    "Couldn't find owner account for this response"
+                )
+    
+            file_path = './girderformindlogger/media/'+key.split('/')[-1]
+
+            if owner_account and isAzure is True:
+                container_client = ContainerClient.from_connection_string(conn_str=owner_account.get('secretAccessKey', None), container_name=DEFAULT_CONTAINER_NAME)
+                blob_name = key.split('/')[-1]
+                blob_client = container_client.get_blob_client(blob_name)
+                with open(file_path, "wb") as blob_data:
+                    # Download the file from Azure into a stream
+                    stream = blob_client.download_blob()
+                    # Write the stream to the local file
+                    blob_data.write(stream.readall())
+
+            if owner_account and isAzure is False and owner_account.get('s3Bucket', None) and owner_account.get('accessKeyId', None):
+                self.s3_client = boto3.resource(
+                    's3',
+                    region_name=DEFAULT_REGION,
+                    endpoint_url="https://storage.googleapis.com",
+                    aws_access_key_id=owner_account.get('accessKeyId', None),
+                    aws_secret_access_key=owner_account.get('secretAccessKey', None)
+                )
+                self.s3_client.Bucket(bucket).download_file(key, file_path)
+
+            with open(file_path, "rb") as image_file:
+                data = base64.b64encode(image_file.read())
+
+            if os.path.exists(file_path):
+                os.remove(file_path)
+
+            return(data)
         except:
             import sys, traceback
             print(sys.exc_info())

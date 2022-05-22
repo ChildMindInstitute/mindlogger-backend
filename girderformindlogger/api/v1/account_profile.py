@@ -271,9 +271,10 @@ class AccountProfile(Resource):
         Description('Update profile personal db uri')
         .param('id', 'account id', required=True)
         .param('dbURL', 'db uri for store the user responses', default=False, required=True)
-        .param('s3Bucket', 'S3 bucket name for uploading media responses', default=None, required=False)
-        .param('accessKeyId', 'S3 access key id', default=None, required=False)
-        .param('secretAccessKey', 'S3 secret access key', default=None, required=False)
+        .param('s3Bucket', 'Bucket name for uploading media responses or Storage Account Name in case of Azure', default=None, required=False)
+        .param('accessKeyId', 'Access key id', default=None, required=False)
+        .param('secretAccessKey', 'Secret access key or Connection string for Azure', default=None, required=False)
+        .param('bucketType', 'Amazon S3, GCP or Azure', default=None, required=False)
     )
     def updateAccountDB(self, id, dbURL, s3Bucket, accessKeyId, secretAccessKey):
         account = self._model.findOne({"accountId": ObjectId(id)})

@@ -70,6 +70,7 @@ Pillow = "==9.0.1"
 pyOpenSSL = "==19.0.0"
 PyYAML = "==5.1.2"
 pyDH = "==0.1.6"
+azure-storage-blob = "==12.8.0"
 
 [dev-packages]
 
