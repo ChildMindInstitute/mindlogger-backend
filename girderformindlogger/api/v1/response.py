@@ -73,7 +73,7 @@ class ResponseItem(Resource):
         self.route('POST', (':applet', 'updateResponseToken'), self.updateResponseToken)
         self.route('PUT', (':applet',), self.updateReponseHistory)
         self.route('GET', (':applet', 'reviews'), self.getReviewerResponses)
-
+        self.route('POST', (':applet', 'downloadGCPData'), self.downloadGCPData)
         self.route('POST', (':applet', 'note'), self.addNote)
         self.route('PUT', (':applet', 'note'), self.updateNote)
         self.route('GET', (':applet', 'notes'), self.getNotes)
@@ -825,7 +825,7 @@ class ResponseItem(Resource):
                     try:
                         container_client = blob_service_client.create_container(DEFAULT_CONTAINER_NAME)
                     except Exception as ex:
-                        print('Exception:')
+                        print('Azure CON Exception:')
                         print(ex)
                 else:
                     self.s3_client = boto3.client(
@@ -1049,7 +1049,7 @@ class ResponseItem(Resource):
             destName='applet',
             description='The ID of the Applet this response is to.'
         )
-        .param('bucket', 'The name of the bucket.', required=True, default=None)
+        .param('bucket', 'The name of the bucket.', required=False, default=None)
         .param(
             'key',
             'The file path',
@@ -1079,20 +1079,19 @@ class ResponseItem(Resource):
                 raise ValidationException(
                     "Couldn't find owner account for this response"
                 )
-    
             file_path = './girderformindlogger/media/'+key.split('/')[-1]
-
-            if owner_account and isAzure is True:
+            
+            if isAzure:
                 container_client = ContainerClient.from_connection_string(conn_str=owner_account.get('secretAccessKey', None), container_name=DEFAULT_CONTAINER_NAME)
+                blob_client = container_client.get_blob_client(key)
                 blob_name = key.split('/')[-1]
-                blob_client = container_client.get_blob_client(blob_name)
                 with open(file_path, "wb") as blob_data:
                     # Download the file from Azure into a stream
                     stream = blob_client.download_blob()
                     # Write the stream to the local file
                     blob_data.write(stream.readall())
 
-            if owner_account and isAzure is False and owner_account.get('s3Bucket', None) and owner_account.get('accessKeyId', None):
+            elif owner_account and owner_account.get('s3Bucket', None) and owner_account.get('accessKeyId', None):
                 self.s3_client = boto3.resource(
                     's3',
                     region_name=DEFAULT_REGION,
