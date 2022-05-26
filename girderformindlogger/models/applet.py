@@ -1218,6 +1218,12 @@ class Applet(FolderModel):
         if reviewerProfile['_id'] not in reviewerProfile['reviewers'] and (str(reviewerProfile['_id']) in users or not users):
             profiles.append(reviewerProfile)
 
+        if 'manager' in reviewerProfile['roles']:
+            profiles = profiles + list(Profile().find(query={
+                'profile': True,
+                'deactivated': True
+            }))
+
         query["meta.subject.@id"] = {
             "$in": [
                 profile['_id'] for profile in profiles
