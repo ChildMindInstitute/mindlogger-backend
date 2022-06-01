@@ -271,19 +271,38 @@ class AccountProfile(Resource):
         Description('Update profile personal db uri')
         .param('id', 'account id', required=True)
         .param('dbURL', 'db uri for store the user responses', default=False, required=True)
-        .param('s3Bucket', 'Bucket name for uploading media responses or Storage Account Name in case of Azure', default=None, required=False)
-        .param('accessKeyId', 'Access key id', default=None, required=False)
-        .param('secretAccessKey', 'Secret access key or Connection string for Azure', default=None, required=False)
-        .param('bucketType', 'Amazon S3, GCP or Azure', default=None, required=False)
+        .jsonParam('data', 'A JSON object containing the arbitrary bucket information to add', paramType='body', requireObject=True)
     )
-    def updateAccountDB(self, id, dbURL, s3Bucket, accessKeyId, secretAccessKey):
+    def updateAccountDB(self, id, dbURL, data):
         account = self._model.findOne({"accountId": ObjectId(id)})
         self._model.validateDBURL(dbURL)
+        accessKeyId = None
+        bucketType = None
+        s3Bucket = None
+        secretAccessKey = None
+
+        if (data.get('bucket_type').lower() == 'azure'):
+            bucketType = data.get('bucket_type').lower()
+            s3Bucket = data.get('storage_account_name')
+            secretAccessKey = data.get('connection_string')
+
+        elif (data.get('bucket_type').lower() == 'gcp'):
+            bucketType = data.get('bucket_type').lower()
+            s3Bucket = data.get('bucket_name')
+            accessKeyId = data.get('access_key')
+            secretAccessKey = data.get('secret_access_key')
+
+        else:
+            s3Bucket = data.get('bucket_name')
+            accessKeyId = data.get('access_key')
+            secretAccessKey = data.get('secret_access_key')
+
         account.update({
            'db': dbURL,
            's3Bucket': s3Bucket,
            'accessKeyId': accessKeyId,
            'secretAccessKey': secretAccessKey,
+           'bucketType': bucketType
         })
         self._model.save(account, validate=False)
         return 'Information has been saved successfully.'
