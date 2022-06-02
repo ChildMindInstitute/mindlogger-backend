@@ -1592,10 +1592,10 @@ def _fixUpFormat(obj):
     else:
         return(obj)
 
-def fixUpOrderList(obj, modelType, dictionary):
+def fixUpList(obj, modelType, dictionary, listKey):
     updated = False
-    if "reprolib:terms/order" in obj['meta'].get(modelType, {}):
-        order = obj['meta'][modelType]["reprolib:terms/order"][0]["@list"]
+    if listKey in obj['meta'].get(modelType, {}):
+        order = obj['meta'][modelType][listKey][0]["@list"]
         for child in order:
             uri = child.get("@id", None)
 
@@ -1807,17 +1807,24 @@ def formatLdObject(
                     activityIDMapping['{}/{}'.format(str(obj['_id']), formatted.get('activity', formatted).get('@id'))] = str(activity['_id'])
 
                 if refreshCache:
-                    if fixUpOrderList(obj, 'protocol', activityIDMapping):
+                    if fixUpList(obj, 'protocol', activityIDMapping, 'reprolib:terms/order'):
                         ProtocolModel().setMetadata(obj, obj['meta'])
 
                 activityFlows = FolderModel().find({'meta.protocolId': obj['_id'], 'meta.activityFlow': { '$exists': True }})
 
+                activityFlowIdMapping = {}
                 for activityFlow in activityFlows:
                     formatted = formatLdObject(activityFlow, 'activityFlow', user, refreshCache=refreshCache)
                     if refreshCache:
                         createCache(activityFlow, formatted, 'activityFlow', user, modelClasses)
 
                     protocol['activityFlows'][str(activityFlow['_id'])] = formatted
+
+                    activityFlowIdMapping['{}/{}'.format(str(obj['_id']), formatted.get('@id'))] = str(activityFlow['_id'])
+
+                if refreshCache:
+                    if fixUpList(obj, 'protocol', activityFlowIdMapping, 'reprolib:terms/activityFlowOrder'):
+                        ProtocolModel().setMetadata(obj, obj['meta'])
             else:
                 try:
                     protocol = componentImport(
@@ -1858,7 +1865,7 @@ def formatLdObject(
                     if item.get('duplicateOf', None):
                         itemIDMapping['{}/{}'.format(str(item['meta']['activityId']), str(item['duplicateOf']))] = key
 
-                if refreshCache and fixUpOrderList(obj, 'activity', itemIDMapping):
+                if refreshCache and fixUpList(obj, 'activity', itemIDMapping, 'reprolib:terms/order'):
                     ActivityModel().setMetadata(obj, obj['meta'])
 
                 activity['activity'] = _fixUpFormat(obj['meta'].get('activity'))
