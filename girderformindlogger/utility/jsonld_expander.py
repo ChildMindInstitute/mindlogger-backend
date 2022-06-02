@@ -638,7 +638,7 @@ def cacheProtocolContent(protocol, document, user, editExisting=False):
                 raise TypeError
 
             item['length'] = len(json_util.dumps(content, default=decimal_default))
-            for key in list(dict.keys(content['protocol']['activities'])):
+            for key in list(dict.keys(content['protocol'].get('activities', {}))):
                 cached = cacheModel.insertCache('item', item['_id'], 'content', content['protocol']['activities'][key])
                 content['protocol']['activities'][key] = f'cache/{str(cached["_id"])}'
 
@@ -674,7 +674,7 @@ def updateContributions(protocol, document, user):
     appletIdToAccountId = {}
     appletIdToVersion = {}
 
-    for activity in document['protocol']['activities'].values():
+    for activity in document['protocol'].get('activities', {}).values():
         if 'items' in activity:
             for item in activity['items'].values():
                 if item.get('baseItemId', None) and item.get('baseAppletId', None):
@@ -766,7 +766,7 @@ def loadFromSingleFile(document, user, editExisting=False):
     }
 
     protocolId = None
-    for activity in document['protocol']['activities'].values():
+    for activity in document['protocol'].get('activities', {}).values():
         expandedActivity = expandObj(contexts, activity['data'])
         protocol['activity'][expandedActivity['@id']] = {
             'parentKey': 'protocol',
