@@ -32,7 +32,8 @@ class Events(Model):
                 'applet_id',
                 'individualized',
                 'data.users',
-                'data.activity_id'
+                'data.activity_id',
+                'data.activity_flow_id'
             )
         )
 
@@ -108,6 +109,9 @@ class Events(Model):
 
             if 'activity_id' in newEvent['data']:
                 newEvent['data']['activity_id'] = ObjectId(newEvent['data']['activity_id'])
+
+            if 'activity_flow_id' in newEvent['data']:
+                newEvent['data']['activity_flow_id'] = ObjectId(newEvent['data']['activity_flow_id'])
 
             if 'users' in event['data'] and isinstance(event['data']['users'], list):
                 newEvent['individualized'] = True
@@ -307,6 +311,12 @@ class Events(Model):
             lastAvailableTime = endDate + timeDelta + timeout if endDate else None
             return ( (not endDate or lastAvailableTime >= date), lastAvailableTime )
 
+    def getIdentifier(self, event):
+        activityId = event.get('data', {}).get('activity_id', None)
+        activityFlowId = event.get('data', {}).get('activity_flow_id', None)
+
+        return activityId or activityFlowId
+
     def getScheduleForUser(self, applet_id, user_id, eventFilter=None):
         profile = Profile().findOne({'appletId': ObjectId(applet_id), 'userId': ObjectId(user_id)})
         result = {
@@ -331,25 +341,25 @@ class Events(Model):
 
                 for i in range(0, eventFilter[1]):
                     lastEvent = {}
-                    activityEvents = {}
+                    availableEvents = {}
 
                     for event in events:
                         event['valid'], lastAvailableTime = self.dateMatch(event, dayFilter)
 
-                        activityId = event.get('data', {}).get('activity_id', None)
+                        identifier = self.getIdentifier(event)
 
-                        if not activityId:
+                        if not identifier:
                             event['valid'] = False
                             continue
 
                         if not event['valid']:
                             if lastAvailableTime:
-                                if activityId not in lastEvent or (lastEvent[activityId] and lastAvailableTime > lastEvent[activityId][0]):
-                                    lastEvent[activityId] = (lastAvailableTime, event)
+                                if identifier not in lastEvent or (lastEvent[identifier] and lastAvailableTime > lastEvent[identifier][0]):
+                                    lastEvent[identifier] = (lastAvailableTime, event)
                         else:
-                            lastEvent[activityId] = None
+                            lastEvent[identifier] = None
 
-                        activityEvents[activityId] = event
+                        availableEvents[identifier] = event
 
                     data = []
                     for event in events:
@@ -360,16 +370,16 @@ class Events(Model):
                         if value and (value[1]['data'].get('completion', False) or not value[1]['data'].get('availability', False)):
                             data.append(value[1])
 
-                        activityId = event.get('data', {}).get('activity_id', None)
-                        if activityId in activityEvents:
-                            activityEvents.pop(activityId)
+                        identifier = self.getIdentifier(event)
+                        if identifier in availableEvents:
+                            availableEvents.pop(identifier)
 
                     for card in data:
-                        activityId = event.get('data', {}).get('activity_id', None)
-                        if activityId in activityEvents:
-                            activityEvents.pop(activityId)
+                        identifier = self.getIdentifier(event)
+                        if identifier in availableEvents:
+                            availableEvents.pop(identifier)
 
-                    for event in activityEvents.values():
+                    for event in availableEvents.values():
                         event['valid'] = False
                         data.append(event)
 
