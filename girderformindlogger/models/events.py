@@ -18,6 +18,7 @@ from girderformindlogger.utility.progress import noProgress, setResponseTimeLimi
 from bson import json_util
 from girderformindlogger.models.profile import Profile as ProfileModel
 from dateutil.relativedelta import relativedelta
+import calendar
 
 class Events(Model):
     """
@@ -278,7 +279,12 @@ class Events(Model):
                     if endDate.day < event['schedule']['dayOfMonth'][0]:
                         latestScheduledDay = latestScheduledDay - relativedelta(months=1)
                 else:
-                    latestScheduledDay = datetime.datetime(date.year, date.month, event['schedule']['dayOfMonth'][0])
+                    month = date.month
+
+                    while (calendar.monthrange(date.year, month)[1] < event['schedule']['dayOfMonth'][0]):
+                        month = month - 1
+
+                    latestScheduledDay = datetime.datetime(date.year, month, event['schedule']['dayOfMonth'][0])
 
                     if date.day < event['schedule']['dayOfMonth'][0]:
                         latestScheduledDay = latestScheduledDay - relativedelta(months=1)
