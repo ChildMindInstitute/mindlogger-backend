@@ -295,90 +295,90 @@ class Events(Model):
 
     def getScheduleForUser(self, applet_id, user_id, eventFilter=None):
         profile = Profile().findOne({'appletId': ObjectId(applet_id), 'userId': ObjectId(user_id)})
-        if not profile:
-            return {}
+        result = {
+            'events': {}
+        }
 
-        individualized = profile['individual_events'] > 0
-        events = self.getEvents(applet_id, individualized, profile['_id'])
-
-        result = {}
-
-        for event in events:
-            event['id'] = event['_id']
-            event.pop('_id')
-
-        if eventFilter:
-            dayFilter = eventFilter[0]
-
-            result["events"] = {}
-            result["data"] = {}
-
-            usedEventCards = {}
-
-            for i in range(0, eventFilter[1]):
-                lastEvent = {}
-                activityEvents = {}
-
-                for event in events:
-                    event['valid'], lastAvailableTime = self.dateMatch(event, dayFilter)
-
-                    activityId = event.get('data', {}).get('activity_id', None)
-
-                    if not activityId:
-                        event['valid'] = False
-                        continue
-
-                    if not event['valid']:
-                        if lastAvailableTime:
-                            if activityId not in lastEvent or (lastEvent[activityId] and lastAvailableTime > lastEvent[activityId][0]):
-                                lastEvent[activityId] = (lastAvailableTime, event)
-                    else:
-                        lastEvent[activityId] = None
-
-                    activityEvents[activityId] = event
-
-                data = []
-                for event in events:
-                    if event['valid']:
-                        data.append(event)
-
-                for value in lastEvent.values():
-                    if value and (value[1]['data'].get('completion', False) or not value[1]['data'].get('availability', False)):
-                        data.append(value[1])
-
-                    activityId = event.get('data', {}).get('activity_id', None)
-                    if activityId in activityEvents:
-                        activityEvents.pop(activityId)
-
-                for card in data:
-                    activityId = event.get('data', {}).get('activity_id', None)
-                    if activityId in activityEvents:
-                        activityEvents.pop(activityId)
-
-                for event in activityEvents.values():
-                    event['valid'] = False
-                    data.append(event)
-
-                for card in data:
-                    usedEventCards[str(card['id'])] = True
-
-                result['data'][dayFilter.strftime('%Y/%m/%d')] = [
-                    {
-                        'id': str(card['id']),
-                        'valid': card['valid']
-                    } for card in data
-                ]
-
-                dayFilter = dayFilter + relativedelta(days=1)
+        if profile:
+            individualized = profile['individual_events'] > 0
+            events = self.getEvents(applet_id, individualized, profile['_id'])
 
             for event in events:
-                event.pop('valid')
+                event['id'] = event['_id']
+                event.pop('_id')
 
-                if usedEventCards.get(str(event["id"]), False):
-                    result["events"][str(event["id"])] = event
+            if eventFilter:
+                dayFilter = eventFilter[0]
 
-        else:
-            result['events'] = events
+                result["events"] = {}
+                result["data"] = {}
+
+                usedEventCards = {}
+
+                for i in range(0, eventFilter[1]):
+                    lastEvent = {}
+                    activityEvents = {}
+
+                    for event in events:
+                        event['valid'], lastAvailableTime = self.dateMatch(event, dayFilter)
+
+                        activityId = event.get('data', {}).get('activity_id', None)
+
+                        if not activityId:
+                            event['valid'] = False
+                            continue
+
+                        if not event['valid']:
+                            if lastAvailableTime:
+                                if activityId not in lastEvent or (lastEvent[activityId] and lastAvailableTime > lastEvent[activityId][0]):
+                                    lastEvent[activityId] = (lastAvailableTime, event)
+                        else:
+                            lastEvent[activityId] = None
+
+                        activityEvents[activityId] = event
+
+                    data = []
+                    for event in events:
+                        if event['valid']:
+                            data.append(event)
+
+                    for value in lastEvent.values():
+                        if value and (value[1]['data'].get('completion', False) or not value[1]['data'].get('availability', False)):
+                            data.append(value[1])
+
+                        activityId = event.get('data', {}).get('activity_id', None)
+                        if activityId in activityEvents:
+                            activityEvents.pop(activityId)
+
+                    for card in data:
+                        activityId = event.get('data', {}).get('activity_id', None)
+                        if activityId in activityEvents:
+                            activityEvents.pop(activityId)
+
+                    for event in activityEvents.values():
+                        event['valid'] = False
+                        data.append(event)
+
+                    for card in data:
+                        usedEventCards[str(card['id'])] = True
+
+                    result['data'][dayFilter.strftime('%Y/%m/%d')] = [
+                        {
+                            'id': str(card['id']),
+                            'valid': card['valid']
+                        } for card in data
+                    ]
+
+                    dayFilter = dayFilter + relativedelta(days=1)
+
+                for event in events:
+                    event.pop('valid')
+
+                    if usedEventCards.get(str(event["id"]), False):
+                        result["events"][str(event["id"])] = event
+
+            else:
+                result['events'] = events
 
         return {
             "type": 2,

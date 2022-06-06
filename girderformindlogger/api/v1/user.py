@@ -702,9 +702,14 @@ class User(Resource):
             accounts = AccountProfile().getAccounts(reviewer['_id'])
             for account in accounts:
                 for applet in account.get('applets', {}).get(role, []):
-                    applet_ids.append(applet)
+                    applet_ids.append(ObjectId(applet))
 
-        applets = [AppletModel().load(ObjectId(applet_id), AccessType.READ) for applet_id in applet_ids]
+        applets = [AppletModel().load(applet_id, AccessType.READ) for applet_id in applet_ids]
+
+        welcomeApplets = AppletModel().find({ 'meta.welcomeApplet': True })
+        for applet in welcomeApplets:
+            if applet['_id'] not in applet_ids:
+                applets.append(applet)
 
         result = []
         bufferSize = MAX_PULL_SIZE
@@ -721,31 +726,28 @@ class User(Resource):
 
             if applet.get('cached') and collect:
 
-                try:
-                    nextIRI, data, remaining = AppletModel().appletFormatted(
-                        applet=applet,
-                        reviewer=reviewer,
-                        role=role,
-                        retrieveSchedule=retrieveSchedule,
-                        retrieveAllEvents=retrieveAllEvents,
-                        eventFilter=(currentUserDate, numberOfDays) if numberOfDays else None,
-                        retrieveResponses=retrieveResponses,
-                        groupByDateActivity=groupByDateActivity,
-                        retrieveLastResponseTime=retrieveLastResponseTime,
-                        localInfo=localInfo.get(str(currentAppletId), {}) if localInfo else {},
-                        nextActivity=nextActivity,
-                        bufferSize=bufferSize,
-                    )
+                nextIRI, data, remaining = AppletModel().appletFormatted(
+                    applet=applet,
+                    reviewer=reviewer,
+                    role=role,
+                    retrieveSchedule=retrieveSchedule,
+                    retrieveAllEvents=retrieveAllEvents,
+                    eventFilter=(currentUserDate, numberOfDays) if numberOfDays else None,
+                    retrieveResponses=retrieveResponses,
+                    groupByDateActivity=groupByDateActivity,
+                    retrieveLastResponseTime=retrieveLastResponseTime,
+                    localInfo=localInfo.get(str(currentAppletId), {}) if localInfo else {},
+                    nextActivity=nextActivity,
+                    bufferSize=bufferSize,
+                )
 
-                    bufferSize = remaining
+                bufferSize = remaining
 
-                    result.append(data)
+                result.append(data)
 
-                    nextActivity = nextIRI
-                    if nextIRI:
-                        break
-                except:
-                    nextActivity = None
+                nextActivity = nextIRI
+                if nextIRI:
+                    break
 
 
         return {
@@ -935,20 +937,26 @@ class User(Resource):
 
         appletModel = AppletModel()
 
-        for appletId in appletRoles:
-            applet = appletModel.load(appletId, force=True)
-
-            applets.append({
+        def getMetadata(applet, roles):
+            return {
                 **appletModel.getAppletMeta(applet),
                 'updated': applet['updated'],
                 'name': applet['meta'].get('applet', {}).get('displayName', applet.get('displayName', 'applet')),
-                'id': appletId,
-                'encryption': applet['meta']['encryption'] if applet['meta'].get('encryption', {}).get(
-                    'appletPublicKey', None) else None,
+                'id': applet['_id'],
+                'encryption': applet['meta']['encryption'] if applet['meta'].get('encryption', {}).get('appletPublicKey', None) else None,
                 'hasUrl': (applet['meta'].get('protocol', {}).get('url', None) != None),
-                'roles': appletRoles[appletId],
-                'published': applet['meta'].get('published', False)
-            })
+                'roles': roles,
+                'published': applet['meta'].get('published', False),
+                'welcomeApplet': applet['meta'].get('welcomeApplet', False),
+            }
+
+        for appletId in appletRoles:
+            applet = appletModel.load(appletId, force=True)
+
+            if user['accountId'] != account['_id'] and applet['meta'].get('welcomeApplet', False):
+                continue
+
+            applets.append(getMetadata(applet, appletRoles[appletId]))
 
         tokenInfo['account']['alerts'] = ResponseAlerts().getResponseAlerts(user['_id'], account['accountId'])
 

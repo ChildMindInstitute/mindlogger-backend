@@ -761,6 +761,10 @@ class ResponseItem(Resource):
                     'appletId': applet['_id'],
                     'userId': ObjectId(subject_id)
                 })
+
+                if not profile:
+                    return None
+
                 subject_id = profile.get('_id')
 
             if isinstance(metadata.get('subject'), dict):
