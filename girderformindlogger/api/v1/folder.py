@@ -200,7 +200,7 @@ class Folder(Resource):
                     if ObjectId(_applet['_id']) in account['applets'][role]:
                         formatted['roles'].append(role)
 
-                if 'applet' in formatted:
+                if 'applet' in formatted and (not applet['meta'].get('welcomeApplet', False) or 'owner' in formatted['roles']):
                     folder_applets.append(formatted)
 
             sorted_folder_applets = sorted(folder_applets, key=lambda k: ("pinOrder" not in k, k.get("pinOrder", None)))

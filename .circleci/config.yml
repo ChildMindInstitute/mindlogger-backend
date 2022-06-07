@@ -77,10 +77,10 @@ jobs:
       - run:
           name: Install MongoDB
           command: |
-            sudo apt-key adv --keyserver hkp://keyserver.ubuntu.com:80 --recv 2930ADAE8CAF5059EE73BB4B58712A2291FA4AD5
-            echo "deb [ arch=amd64 ] https://repo.mongodb.org/apt/ubuntu trusty/mongodb-org/3.6 multiverse" | sudo tee /etc/apt/sources.list.d/mongodb-org-3.6.list
-            sudo apt-get update
-            sudo apt-get install -y mongodb-org-server
+            sudo apt-key adv --keyserver hkp://keyserver.ubuntu.com:80 --recv 4B7C549A058F8B6B
+            echo "deb [arch=amd64] http://repo.mongodb.org/apt/ubuntu bionic/mongodb-org/4.2 multiverse" | sudo tee /etc/apt/sources.list.d/mongodb-org-4.2.list
+            sudo apt update
+            sudo apt install mongodb-org
       - run:
           # The "d3" npm package (required by some Girder plugins) has an optional dependency of
           # "canvas", which requires "node-gyp" to build. node-gyp strictly requires Python 2
@@ -92,21 +92,22 @@ jobs:
           name: Allow Boto to work with Python 3
           command: sudo rm --force /etc/boto.cfg
       - run:
-          name: Set up Python 3.6
+          name: Set up Python 3.7
           command: |
-             pyenv install 3.6.3 || true
-             pyenv global 3.6.3
+             pyenv install 3.7.12 || true
+             pyenv global 3.7.12
       - run:
           name: Create and activate virtual environment
           command: |
-            python3 -m venv /home/circleci/.virtualenvs/girderformindlogger
-            echo '. /home/circleci/.virtualenvs/girderformindlogger/bin/activate' >> $BASH_ENV
+            sudo apt install python3-venv
+            python3.7 -m venv girderformindlogger
+            . girderformindlogger/bin/activate
       - run:
           name: Upgrade Python toolchain
           command: pip install --upgrade wheel pip==20.2.4 setuptools==50.3.2
       - run:
           name: Install Girder plugin system dependencies
-          command: sudo apt-get install -y libldap2-dev libsasl2-dev
+          command: sudo apt-get update
       - run:
           name: Install Girder with extras
           command: |

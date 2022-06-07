@@ -48,6 +48,7 @@ class Folder(AccessControlledModel):
                     ('meta.appletId', 1)
                 ], {}),
                 'publicLink.id',
+                'meta.welcomeApplet',
             )
         )
         self.ensureTextIndex({
