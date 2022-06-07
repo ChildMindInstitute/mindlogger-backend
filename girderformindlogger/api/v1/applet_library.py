@@ -188,6 +188,7 @@ class AppletLibrary(Resource):
                     if items: # select specific items
                         itemIDToIRI = {}
                         content['activities'][activityIRI] = activityModel.disableConditionals(formattedActivity['activity'])
+                        content['activities'][activityIRI] = activityModel.disableCumulatives(content['activities'][activityIRI])
 
                         for itemIRI in formattedActivity['items']:
                             itemID = formattedActivity['items'][itemIRI]['_id'].split('/')[-1]

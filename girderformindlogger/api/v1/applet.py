@@ -109,6 +109,7 @@ class Applet(Resource):
         self.route('GET', ('validateName',), self.validateAppletName)
         self.route('PUT', (':id', 'name', ), self.renameApplet)
         self.route('PUT', (':id', 'status'), self.updateAppletPublishStatus)
+        self.route('PUT', (':id', 'welcomeApplet'), self.updateWelcomeAppletStatus)
         self.route('PUT', (':id', 'searchTerms'), self.updateAppletSearch)
         self.route('GET', (':id', 'searchTerms'), self.getAppletSearch)
         self.route('GET', (':id', 'libraryUrl'), self.getAppletLibraryUrl)
@@ -616,7 +617,7 @@ class Applet(Resource):
     def getProtocolVersions(self, applet, retrieveDate=False):
         thisUser = self.getCurrentUser()
 
-        if not self._model._hasRole(applet['_id'], thisUser, 'editor') and not self._model._hasRole(applet['_id'], thisUser, 'reviewer'):
+        if not applet['meta'].get('welcomeApplet') and not self._model._hasRole(applet['_id'], thisUser, 'editor') and not self._model._hasRole(applet['_id'], thisUser, 'reviewer'):
             raise AccessException('You don\'t have enough permission to get content of this protocol')
 
         protocol = ProtocolModel().load(applet.get('meta', {}).get('protocol', {}).get('_id', '').split('/')[-1], force=True)
@@ -940,6 +941,44 @@ class Applet(Resource):
             AppletLibrary().addAppletToLibrary(applet)
         else:
             AppletLibrary().deleteAppletFromLibrary(applet)
+
+        return { 'message': 'success' }
+
+    @access.user(scope=TokenScope.DATA_OWN)
+    @autoDescribeRoute(
+        Description('Set Publish Status for an applet.')
+        .notes(
+            'Use this endpoint to make applet to available for all users. <br>'
+        )
+        .modelParam(
+            'id',
+            model=AppletModel,
+            description='ID of the applet',
+            destName='applet',
+            level=AccessType.ADMIN
+        )
+        .param(
+            'status',
+            'true if publishing applet',
+            default=True,
+            required=True,
+            dataType='boolean'
+        )
+        .errorResponse('Write access was denied for this applet.', 403)
+    )
+    def updateWelcomeAppletStatus(self, applet, status=True):
+        thisUser = self.getCurrentUser()
+
+        profile = ProfileModel().findOne({
+            'appletId': applet['_id'],
+            'userId': thisUser['_id']
+        })
+
+        if 'owner' not in profile.get('roles', []) or not thisUser.get('admin'):
+            raise AccessException("You don't have enough permission to update this applet.")
+
+        applet['meta']['welcomeApplet'] = status
+        applet = self._model.setMetadata(applet, applet['meta'])
 
         return { 'message': 'success' }
 
@@ -1592,6 +1631,9 @@ class Applet(Resource):
     def getApplet(self, applet, retrieveSchedule=False, retrieveAllEvents=False, nextActivity=None):
         user = self.getCurrentUser()
 
+        if not applet['meta'].get('welcomeApplet') and not self._model._hasRole(applet['_id'], user, 'user'):
+            raise AccessException('You don\'t have enough permission to get content of this protocol')
+
         formatted = jsonld_expander.formatLdObject(
             applet,
             'applet',
@@ -1614,6 +1656,9 @@ class Applet(Resource):
         formatted['accountId'] = applet['accountId']
         formatted['nextActivity'] = nextIRI
         formatted['applet']['themeId'] = applet['meta']['applet'].get('themeId')
+
+        if 'publicLink' in applet:
+            formatted['applet']['publicLink'] = applet['publicLink'].get('id')
         formatted.update(data)
 
         return formatted

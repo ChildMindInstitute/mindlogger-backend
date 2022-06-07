@@ -128,6 +128,12 @@ class Activity(Folder):
                     "Invalid Activity ID."
                 )
 
+    def disableCumulatives(self, activity):
+        activity['reprolib:terms/compute'] = []
+        activity['reprolib:terms/messages'] = []
+
+        return activity
+
     def disableConditionals(self, activity):
         properties = activity.get('reprolib:terms/addProperties', [])
 

@@ -1195,6 +1195,7 @@ class Applet(FolderModel):
             'appletId': ObjectId(appletId),
             'userId': reviewer['_id']
         })
+
         if len(users):
             profiles = list(Profile().find(query={
                 "_id": {
@@ -1203,6 +1204,11 @@ class Applet(FolderModel):
                 "profile": True,
                 "reviewers": reviewerProfile["_id"]
             }))
+            if not len(profiles):
+                profiles = list(Profile().find(query={
+                    "reviewers": reviewerProfile["_id"],
+                    "profile": True,
+                }))
         else:
             profiles = list(Profile().find(query={
                 "reviewers": reviewerProfile["_id"],
@@ -1211,6 +1217,12 @@ class Applet(FolderModel):
 
         if reviewerProfile['_id'] not in reviewerProfile['reviewers'] and (str(reviewerProfile['_id']) in users or not users):
             profiles.append(reviewerProfile)
+
+        if 'manager' in reviewerProfile['roles']:
+            profiles = profiles + list(Profile().find(query={
+                'profile': True,
+                'deactivated': True
+            }))
 
         query["meta.subject.@id"] = {
             "$in": [
@@ -1252,8 +1264,8 @@ class Applet(FolderModel):
         data = {
             'dataSources': {},
             'subScaleSources': {},
+            'eventSources': [],
             'keys': [],
-            'nextsAt': {},
             'responses': []
         }
 
@@ -1337,7 +1349,8 @@ class Applet(FolderModel):
                 'responseScheduled':times['scheduledTime'],
                 'timeout': meta.get('timeout', 0),
                 'version': meta['applet'].get('version', '0.0.0'),
-                'reviewing': meta.get('reviewing', {}).get('responseId', None)
+                'reviewing': meta.get('reviewing', {}).get('responseId', None),
+                'events': len(data['eventSources']) if 'userPublicKey' in meta else meta.get('events')
             })
 
             for IRI in meta.get('responses', {}):
@@ -1361,22 +1374,16 @@ class Applet(FolderModel):
                     'data': meta['dataSource']
                 }
 
+                data['eventSources'].append({
+                    'key': userKeys[keyDump],
+                    'data': meta.get('events', None)
+                })
+
                 if 'subScaleSource' in meta:
                     data['subScaleSources'][str(response['_id'])] = {
                         'key': userKeys[keyDump],
                         'data': meta['subScaleSource']
                     }
-
-                resNextsAt = {}
-                metaNextsAt = meta.get('nextsAt', 0)
-                if metaNextsAt:
-                    for key in metaNextsAt:
-                        ts = metaNextsAt.get(key, 0)
-                        if not ts:
-                            continue
-                        resNextsAt[key] = ts
-
-                data['nextsAt'][str(response['_id'])] = resNextsAt
 
         data.update(
             Protocol().getHistoryDataFromItemIRIs(
@@ -1741,7 +1748,7 @@ class Applet(FolderModel):
                 formatted.update(data)
 
         if not nextActivity:
-            profile = Profile().findOne({'appletId': applet['_id'], 'userId': reviewer['_id']})
+            profile = Profile().findOne({'appletId': applet['_id'], 'userId': reviewer['_id']}) or {}
 
             if retrieveSchedule:
                 schedule = self.getSchedule(
@@ -1752,8 +1759,7 @@ class Applet(FolderModel):
                     localInfo.get('localEvents', [])
                 )
 
-                if schedule:
-                    formatted["schedule"] = schedule
+                formatted["schedule"] = schedule
 
                 formatted['cumulativeActivities'] = profile.get('cumulative_activities', { 'available': [], 'archieved': [] })
 
@@ -1768,16 +1774,15 @@ class Applet(FolderModel):
                     True,
                     groupByDateActivity,
                     localInfo.get('localItems', []) or [],
-                    localInfo.get('localActivities', []) or []
+                    localInfo.get('localActivities', []) or [],
+                    localInfo.get('localResponses', []) or [],
                 )
-
-            profile = Profile().findOne({'appletId': applet['_id'], 'userId': reviewer['_id']})
 
             if retrieveLastResponseTime:
                 formatted['finishedEvents'] = profile.get('finished_events', {})
                 formatted['lastResponses'] = {}
 
-                activities = profile['completed_activities']
+                activities = profile.get('completed_activities', [])
 
                 for activity in activities:
                     completed_time = activity['completed_time']
@@ -1794,6 +1799,7 @@ class Applet(FolderModel):
             formatted.pop('protocol')
 
         formatted['updated'] = applet['updated'].isoformat()
+        formatted['welcomeApplet'] = applet['meta'].get('welcomeApplet', False)
         formatted['id'] = applet['_id']
         formatted['accountId'] = applet['accountId']
 
@@ -1823,6 +1829,9 @@ class Applet(FolderModel):
             activity = ActivityModel().findOne({
                 '_id': ObjectId(activities[activityIRI])
             })
+
+            if not activity:
+                continue
 
             formattedActivity = jsonld_expander.formatLdObject(
                 activity,
