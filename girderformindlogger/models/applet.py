@@ -696,6 +696,40 @@ class Applet(FolderModel):
 
         return appletName if not n else '%s (%d)' % (appletName, n)
 
+    def updateActivityFlowVisibility(self, applet, activityFlowId, status):
+        from girderformindlogger.utility import jsonld_expander
+        from girderformindlogger.models.protocol import Protocol
+
+        protocolId = ObjectId(applet['meta'].get('protocol', {}).get('_id', '').split('/')[-1])
+        activityFlow = FolderModel().findOne({ '_id': ObjectId(activityFlowId), 'meta.protocolId': protocolId })
+
+        protocol = Protocol().findOne({
+            '_id': ObjectId(protocolId)
+        })
+
+        if activityFlow and protocol:
+            flowProperties = protocol['meta']['protocol'].get('reprolib:terms/activityFlowProperties', [])
+            variableName = activityFlow['meta'].get('activityFlow', {}).get('@id')
+            updated = False
+
+            for flowProperty in flowProperties:
+                if flowProperty['reprolib:terms/variableName'][0]['@value'] == variableName:
+                    flowProperty['reprolib:terms/isVis'][0]['@value'] = status
+                    updated = True
+                    break
+
+            if updated:
+                Protocol().setMetadata(protocol, protocol['meta'])
+
+                cached = jsonld_expander.loadCache(protocol['cached'])
+                cached['protocol'].update(protocol['meta']['protocol'])
+
+                jsonld_expander.createCache(protocol, cached, 'protocol')
+
+                jsonld_expander.clearCache(applet, 'applet')
+                jsonld_expander.formatLdObject(applet, 'applet')
+
+
     def createAppletFromUrl(
         self,
         name,
