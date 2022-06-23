@@ -65,9 +65,10 @@ class Events(Model):
                     }
                 })
 
-            push_notification = PushNotificationModel(event=event)
-            push_notification.remove_schedules()
-            self.removeWithQuery({'_id': ObjectId(event_id)})
+            if event.get('data', {}).get('useNotifications', False) and event.get('data', {}).get('notifications', []) > 0:
+                push_notification = PushNotificationModel(event=event)
+                push_notification.remove_schedules()
+                self.removeWithQuery({'_id': ObjectId(event_id)})
 
     def deleteEventsByAppletId(self, applet_id):
         events = self.find({'applet_id': ObjectId(applet_id)})
