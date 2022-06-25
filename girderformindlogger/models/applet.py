@@ -1931,15 +1931,17 @@ class Applet(FolderModel):
                 'pending': []
             }
 
+            viewer = profileModel.findOne({ 'appletId': applet['_id'], 'userId': user['_id'] })
+
             for p in list(profileModel.find(query={'appletId': applet['_id'], 'userId': {'$exists': True}, 'profile': True, 'deactivated': {'$ne': True}})):
-                    profile = profileModel.displayProfileFields(
+                    profile = profileModel.getProfileData(
                         p,
-                        user,
-                        forceManager=True
+                        viewer,
                     )
 
-                    if retrieveRoles:
-                        profile['roles'] = p['roles']
+                    if not retrieveRoles:
+                        profile.pop('roles')
+
                     if 'refreshRequest' in p and retrieveRequests:
                         profile['refreshRequest'] = p['refreshRequest']
 
