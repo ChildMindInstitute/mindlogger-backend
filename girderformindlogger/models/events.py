@@ -65,7 +65,7 @@ class Events(Model):
                     }
                 })
 
-            if event.get('data', {}).get('useNotifications', False) and event.get('data', {}).get('notifications', []) > 0:
+            if event.get('data', {}).get('useNotifications', False) and len(event.get('data', {}).get('notifications', [])) > 0:
                 push_notification = PushNotificationModel(event=event)
                 push_notification.remove_schedules()
                 self.removeWithQuery({'_id': ObjectId(event_id)})
