@@ -930,6 +930,13 @@ class Profile(AESEncryption, dict):
                         'activity_id': activity_id, 'completed_time': None
                     } for activity_id in applet.get('meta', {}).get('protocol', {}).get('activities', [])
                 ],
+                'activity_flows': [
+                    {
+                        'activity_flow_id': activity_flow_id,
+                        'completed_time': None,
+                        'last_activity': None
+                    } for activity_flow_id in applet.get('meta', {}).get('protocol', {}).get('activityFlows', [])
+                ],
                 'accountId': applet.get('accountId', None),
                 'size': 0,
                 'coordinatorDefined': {},

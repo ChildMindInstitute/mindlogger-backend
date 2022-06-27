@@ -14,7 +14,7 @@ AMOUNT_MESSAGES_PER_REQUEST = 1000
 
 
 # this handles notifications for activities
-def send_push_notification(applet_id, event_id, activity_id=None, send_time=None, reminder=False):
+def send_push_notification(applet_id, event_id, activity_id=None, activity_flow_id=None, send_time=None, reminder=False):
     from girderformindlogger.models.events import Events
     from girderformindlogger.models.profile import Profile
 
@@ -56,7 +56,7 @@ def send_push_notification(applet_id, event_id, activity_id=None, send_time=None
                 '$in': event['data']['users']
             }
 
-        if activity_id:
+        if activity_id or activity_flow_id:
             rangeStart = now - datetime.timedelta(hours=12)
 
             if reminder:
@@ -65,27 +65,36 @@ def send_push_notification(applet_id, event_id, activity_id=None, send_time=None
 
                 rangeStart = now - datetime.timedelta(days=days, hours=int(time[:2]), minutes=int(time[-2:]))
 
-            query['completed_activities'] = {
-                '$elemMatch': {
-                    '$or': [
-                        {
-                            'activity_id': activity_id,
-                            'completed_time': {
-                                '$not': {
-                                    '$gt': rangeStart,
-                                    '$lt': now
-                                }
+            if activity_id:
+                query['completed_activities'] = {
+                    '$elemMatch': {
+                        '$or': [
+                            {
+                                'activity_id': activity_id,
+                                'completed_time': { '$not': { '$gt': rangeStart, '$lt': now } }
+                            },
+                            {
+                                'activity_id': activity_id,
+                                'completed_time': { '$eq': None }
                             }
-                        },
-                        {
-                            'activity_id': activity_id,
-                            'completed_time': {
-                                '$eq': None
-                            }
-                        }
-                    ]
+                        ]
+                    }
                 }
-            }
+            else:
+                query['activity_flows'] = {
+                    '$elemMatch': {
+                        '$or': [
+                            {
+                                'activity_flow_id': activity_flow_id,
+                                'completed_time': { '$not': { '$gt': rangeStart, '$lt': now } }
+                            },
+                            {
+                                'activity_flow_id': activity_flow_id,
+                                'completed_time': { '$eq': None }
+                            }
+                        ]
+                    }
+                }
 
         profiles = list(Profile().find(query=query, fields=['deviceId', 'badge', 'userId']))
 
@@ -111,6 +120,7 @@ def send_push_notification(applet_id, event_id, activity_id=None, send_time=None
                     "event_id": str(event_id),
                     "applet_id": str(applet_id),
                     "activity_id": str(activity_id),
+                    "activity_flow_id": str(activity_flow_id),
                     "type": 'event-alert'
                 },
                 extra_kwargs={"apns_expiration": "0"},
