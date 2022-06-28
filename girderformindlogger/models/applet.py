@@ -1831,6 +1831,7 @@ class Applet(FolderModel):
             if retrieveLastResponseTime:
                 formatted['finishedEvents'] = profile.get('finished_events', {})
                 formatted['lastResponses'] = {}
+                formatted['lastActivities'] = {}
 
                 activities = profile.get('completed_activities', [])
 
