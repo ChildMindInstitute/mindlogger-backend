@@ -123,7 +123,7 @@ class Events(Model):
 
     def updateIndividualSchedulesParameter(self, newEvent, oldEvent):
         new = newEvent['data']['users'] if 'users' in newEvent['data'] else []
-        old = newEvent['data']['users'] if oldEvent else []
+        old = oldEvent['data'].get('users', []) if oldEvent else []
 
         dicrementedUsers = list(set(old).difference(set(new)))
         incrementedUsers = list(set(new).difference(set(old)))
