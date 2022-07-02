@@ -5,6 +5,9 @@ import six
 import smtplib
 
 from email.mime.text import MIMEText
+from email.mime.multipart import MIMEMultipart
+from email.mime.base import MIMEBase
+from email import encoders
 from mako.lookup import TemplateLookup
 from girderformindlogger import events
 from girderformindlogger import logger
@@ -106,7 +109,7 @@ def renderTemplate(name, params=None):
     return template.render(**params)
 
 
-def _createMessage(subject, text, to, bcc):
+def _createMessage(subject, text, to, bcc, attachments = []):
     from girderformindlogger.models.setting import Setting
 
     # Coerce and validate arguments
@@ -123,17 +126,28 @@ def _createMessage(subject, text, to, bcc):
         subject = '[no subject]'
 
     if isinstance(text, six.text_type):
-        # TODO: needed?
         text = text.encode('utf8')
 
     # Build message
-    msg = MIMEText(text, 'html', 'UTF-8')
+    msg = MIMEMultipart()
     if to:
         msg['To'] = ', '.join(to)
     if bcc:
         msg['Bcc'] = ', '.join(bcc)
     msg['Subject'] = subject
     msg['From'] = Setting().get(SettingKey.EMAIL_FROM_ADDRESS)
+    msg.attach(MIMEText(text, 'html', 'UTF-8'))
+
+    for attachment in attachments:
+        part = MIMEBase("application", "octet-stream")
+        part.set_payload(attachment['file'].read())
+
+        encoders.encode_base64(part)
+        part.add_header(
+            "Content-Disposition",
+            f"attachment; filename= {attachment['name']}",
+        )
+        msg.attach(part)
 
     # Compute recipients
     recipients = list(set(to) | set(bcc))
@@ -206,14 +220,14 @@ def _sendmail(event):
 events.bind('_sendmail', 'core.email', _sendmail)
 
 
-def sendMailSync(subject, text, to, bcc=None):
+def sendMailSync(subject, text, to, bcc=None, attachments=[]):
     """Send an email synchronously."""
-    msg, recipients = _createMessage(subject, text, to, bcc)
+    msg, recipients = _createMessage(subject, text, to, bcc, attachments)
 
     _submitEmail(msg, recipients)
 
 
-def sendMail(subject, text, to, bcc=None):
+def sendMail(subject, text, to, bcc=None, attachments=[]):
     """
     Send an email asynchronously.
 
@@ -226,7 +240,7 @@ def sendMail(subject, text, to, bcc=None):
     :param bcc: Recipient email addresses that should be specified using the Bcc header.
     :type bcc: list or None
     """
-    msg, recipients = _createMessage(subject, text, to, bcc)
+    msg, recipients = _createMessage(subject, text, to, bcc, attachments)
 
     events.daemon.trigger('_sendmail', info={
         'message': msg,
