@@ -182,7 +182,8 @@ def aggregate(metadata, informant, startDate=None, endDate=None, activities=[], 
                         itemIRI
                     ),
                     "date": completedDate(response),
-                    "version": response.get('meta', {}).get('applet', {}).get('version', '0.0.0')
+                    "version": response.get('meta', {}).get('applet', {}).get('version', '0.0.0'),
+                    "activityFlow": response.get('meta', {}).get('activityFlow', {}).get('@id')
                 } for response in responses if itemIRI in response.get(
                     'meta',
                     {}
