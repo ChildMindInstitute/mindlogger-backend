@@ -1671,6 +1671,10 @@ class Applet(Resource):
     )
     def getApplet(self, applet, retrieveSchedule=False, retrieveAllEvents=False, nextActivity=None):
         user = self.getCurrentUser()
+        profile = ProfileModel().findOne({
+            'userId': user['_id'],
+            'appletId': applet['_id']
+        })
 
         if not applet['meta'].get('welcomeApplet') and not self._model._hasRole(applet['_id'], user, 'user'):
             raise AccessException('You don\'t have enough permission to get content of this protocol')
@@ -1697,7 +1701,12 @@ class Applet(Resource):
         formatted['accountId'] = applet['accountId']
         formatted['nextActivity'] = nextIRI
         formatted['applet']['themeId'] = applet['meta']['applet'].get('themeId')
-
+        formatted['user'] = {
+            'id': profile['_id'],
+            'MRN': profile.get('MRN', ''),
+            'email': profile.get('email', ''),
+            'timezone': profile.get('timezone', '')
+        }
         if 'publicLink' in applet:
             formatted['applet']['publicLink'] = applet['publicLink'].get('id')
         formatted.update(data)
