@@ -366,6 +366,7 @@ class ResponseItem(Resource):
             'subScaleSources': {},
             'subScales': {},
             'token': {},
+            'reports': []
         }
 
         # Get the responses for each users and generate the group responses data.

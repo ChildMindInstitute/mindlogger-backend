@@ -484,7 +484,7 @@ def add_latest_daily_response(data, responses, tokens={}):
                 "date": date,
                 "value": response['meta']['responses'][item],
                 "version": version,
-                "responseId": response['_id']
+                "responseId": response['_id'],
             })
 
             if str(response['_id']) not in data['dataSources'] and 'dataSource' in response['meta']:
@@ -496,6 +496,12 @@ def add_latest_daily_response(data, responses, tokens={}):
                     'key': user_keys[key_dump],
                     'data': response['meta']['dataSource']
                 }
+
+        if 'report' in response['meta']:
+            data['reports'].append({
+                'responseId': response['_id'],
+                **response['meta']['report']
+            })
 
         activityId = response['meta'].get('activity', {}).get('@id', None)
 
