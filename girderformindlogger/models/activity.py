@@ -128,9 +128,8 @@ class Activity(Folder):
                     "Invalid Activity ID."
                 )
 
-    def disableCumulatives(self, activity):
-        activity['reprolib:terms/compute'] = []
-        activity['reprolib:terms/messages'] = []
+    def disableReports(self, activity):
+        activity['reprolib:terms/reports'] = []
 
         return activity
 
