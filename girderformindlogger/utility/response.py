@@ -182,7 +182,8 @@ def aggregate(metadata, informant, startDate=None, endDate=None, activities=[], 
                         itemIRI
                     ),
                     "date": completedDate(response),
-                    "version": response.get('meta', {}).get('applet', {}).get('version', '0.0.0')
+                    "version": response.get('meta', {}).get('applet', {}).get('version', '0.0.0'),
+                    "activityFlow": response.get('meta', {}).get('activityFlow', {}).get('@id')
                 } for response in responses if itemIRI in response.get(
                     'meta',
                     {}
@@ -483,7 +484,7 @@ def add_latest_daily_response(data, responses, tokens={}):
                 "date": date,
                 "value": response['meta']['responses'][item],
                 "version": version,
-                "responseId": response['_id']
+                "responseId": response['_id'],
             })
 
             if str(response['_id']) not in data['dataSources'] and 'dataSource' in response['meta']:
@@ -495,6 +496,12 @@ def add_latest_daily_response(data, responses, tokens={}):
                     'key': user_keys[key_dump],
                     'data': response['meta']['dataSource']
                 }
+
+        if 'report' in response['meta']:
+            data['reports'].append({
+                'responseId': response['_id'],
+                **response['meta']['report']
+            })
 
         activityId = response['meta'].get('activity', {}).get('@id', None)
 
