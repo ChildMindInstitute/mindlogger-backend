@@ -99,6 +99,7 @@ class Applet(Resource):
         self.route('DELETE', (':id',), self.deactivateApplet)
         self.route('POST', ('fromJSON', ), self.createAppletFromProtocolData)
         self.route('PUT', (':id', 'fromJSON'), self.updateAppletFromProtocolData)
+        self.route('PUT', (':id', 'activityFlow', 'visibility'), self.updateActivityFlowVisibility)
         self.route('GET', (':id', 'protocolData'), self.getProtocolData)
         self.route('GET', (':id', 'versions'), self.getProtocolVersions)
         self.route('PUT', (':id', 'prepare',), self.prepareAppletForEdit)
@@ -1348,6 +1349,46 @@ class Applet(Resource):
 
     @access.user(scope=TokenScope.DATA_WRITE)
     @autoDescribeRoute(
+        Description('Update an applet')
+        .notes(
+            'This endpoint is used to updating visibility of activity flow. <br>'
+        )
+        .modelParam(
+            'id',
+            model=AppletModel,
+            level=AccessType.READ,
+            destName='applet'
+        )
+        .param(
+            'activityFlowId',
+            'id of activity flow to change visibility',
+            dataType='string',
+            required=True
+        )
+        .param(
+            'status',
+            'show or hide activity flow',
+            dataType='boolean',
+            required=True,
+            default=True
+        )
+    )
+    def updateActivityFlowVisibility(self, applet, activityFlowId, status):
+        profile = self.getAccountProfile()
+
+        appletRole = None
+        for role in ['manager', 'coordinator', 'editor']:
+            if AccountProfile().hasPermission(profile, role):
+                appletRole = role
+                break
+
+        if appletRole is None:
+            raise AccessException("only editor/coordinator/manager can use the endpoint to edit visibility status of activity flow.")
+
+        self._model.updateActivityFlowVisibility(applet, activityFlowId, status)
+
+    @access.user(scope=TokenScope.DATA_WRITE)
+    @autoDescribeRoute(
         Description('Create an applet.')
         .notes(
             'This endpoint is used to update applet to be edited'
@@ -1628,6 +1669,10 @@ class Applet(Resource):
     )
     def getApplet(self, applet, retrieveSchedule=False, retrieveAllEvents=False, nextActivity=None):
         user = self.getCurrentUser()
+        profile = ProfileModel().findOne({
+            'userId': user['_id'],
+            'appletId': applet['_id']
+        })
 
         if not applet['meta'].get('welcomeApplet') and not self._model._hasRole(applet['_id'], user, 'user'):
             raise AccessException('You don\'t have enough permission to get content of this protocol')
@@ -1654,7 +1699,12 @@ class Applet(Resource):
         formatted['accountId'] = applet['accountId']
         formatted['nextActivity'] = nextIRI
         formatted['applet']['themeId'] = applet['meta']['applet'].get('themeId')
-
+        formatted['user'] = {
+            'id': profile['_id'],
+            'MRN': profile.get('MRN', ''),
+            'email': profile.get('email', ''),
+            'timezone': profile.get('timezone', '')
+        }
         if 'publicLink' in applet:
             formatted['applet']['publicLink'] = applet['publicLink'].get('id')
         formatted.update(data)

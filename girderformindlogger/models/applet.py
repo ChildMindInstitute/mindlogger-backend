@@ -216,6 +216,9 @@ class Applet(FolderModel):
         if 'activities' in formatted:
             self.updateActivities(applet, formatted)
 
+        if 'activityFlows' in formatted:
+            self.updateActivityFlows(applet, formatted)
+
         # give all roles to creator of an applet
         applet = self.load(applet['_id'], force=True)
         profile = Profile().createProfile(applet, user, appletRole)
@@ -411,6 +414,9 @@ class Applet(FolderModel):
                 '_id': protocol['protocol']['_id'],
                 'activities': [
                     protocol['activities'][activity] for activity in protocol['activities']
+                ],
+                'activityFlows': [
+                    ObjectId(protocol['activityFlows'][activityFlow]['_id'].split('/')[-1]) for activityFlow in protocol.get('activityFlows', {})
                 ],
                 'name': prefLabel
             },
@@ -690,6 +696,40 @@ class Applet(FolderModel):
 
         return appletName if not n else '%s (%d)' % (appletName, n)
 
+    def updateActivityFlowVisibility(self, applet, activityFlowId, status):
+        from girderformindlogger.utility import jsonld_expander
+        from girderformindlogger.models.protocol import Protocol
+
+        protocolId = ObjectId(applet['meta'].get('protocol', {}).get('_id', '').split('/')[-1])
+        activityFlow = FolderModel().findOne({ '_id': ObjectId(activityFlowId), 'meta.protocolId': protocolId })
+
+        protocol = Protocol().findOne({
+            '_id': ObjectId(protocolId)
+        })
+
+        if activityFlow and protocol:
+            flowProperties = protocol['meta']['protocol'].get('reprolib:terms/activityFlowProperties', [])
+            variableName = activityFlow['meta'].get('activityFlow', {}).get('@id')
+            updated = False
+
+            for flowProperty in flowProperties:
+                if flowProperty['reprolib:terms/variableName'][0]['@value'] == variableName:
+                    flowProperty['reprolib:terms/isVis'][0]['@value'] = status
+                    updated = True
+                    break
+
+            if updated:
+                Protocol().setMetadata(protocol, protocol['meta'])
+
+                cached = jsonld_expander.loadCache(protocol['cached'])
+                cached['protocol'].update(protocol['meta']['protocol'])
+
+                jsonld_expander.createCache(protocol, cached, 'protocol')
+
+                jsonld_expander.clearCache(applet, 'applet')
+                jsonld_expander.formatLdObject(applet, 'applet')
+
+
     def createAppletFromUrl(
         self,
         name,
@@ -926,29 +966,38 @@ class Applet(FolderModel):
             for activityIRI in formatted['activities']:
                 activityId = ObjectId(formatted['activities'][activityIRI])
                 activities.append(activityId)
-
                 activity = FolderModel().findOne(activityId)
 
-                EventsModel().update({
-                    'data.activity_id': activityId
-                }, {
+                EventsModel().update({ 'data.activity_id': activityId }, {
                     '$set': {
                         'data.title': self.preferredName(activity['meta'].get('activity', {})),
                     },
                 })
 
-            self.update({
-                '_id': ObjectId(applet['_id'])
-            }, {
-                '$set': {
-                    'meta.protocol.activities': activities
-                }
-            })
+            self.updateActivities(applet, formatted)
+
+        activityFlows = []
+        if 'activityFlows' in formatted:
+            for activityFlowIRI in formatted['activityFlows']:
+                activityFlow = formatted['activityFlows'][activityFlowIRI]
+                activityFlowId = ObjectId(activityFlow['_id'].split('/')[-1])
+                activityFlows.append(activityFlowId)
+
+                EventsModel().update({ 'data.activity_flow_id': activityFlowId }, {
+                    '$set': {
+                        'data.title': self.preferredName(activityFlow)
+                    }
+                })
+
+            self.updateActivityFlows(applet, formatted)
 
         removedActivities = protocol.get('removed', {}).get('activities', [])
-
+        removedActivityFlows = protocol.get('removed', {}).get('activityFlows', [])
         for activityId in removedActivities:
             EventsModel().deleteEventsByActivityId(applet['_id'], activityId)
+
+        for activityFlowId in removedActivityFlows:
+            EventsModel().deleteEventsByActivityFlowId(applet['_id'], activityFlowId)
 
         appletProfiles = Profile().get_profiles_by_applet_id(applet['_id'])
 
@@ -957,28 +1006,31 @@ class Applet(FolderModel):
             originalActivities = profile.get('completed_activities', [])
             profile['completed_activities'] = []
 
-            activityUpdated = False
+            updated = False
             for activityId in activities:
-                activityData = None
-
+                activity = None
                 for originalActivity in originalActivities:
                     if originalActivity['activity_id'] == activityId:
-                        activityData = originalActivity
+                        activity = originalActivity
+                profile['completed_activities'].append(activity if activity else {'activity_id': activityId, 'completed_time': None})
 
-                if not activityData:
-                    activityUpdated = True
+                if not activity:
+                    updated = True
 
-                profile['completed_activities'].append(activityData if activityData else {'activity_id': activityId, 'completed_time': None})
+            originalFlows = profile.get('activity_flows', [])
+            profile['activity_flows'] = []
+            for activityFlowId in activityFlows:
+                activityFlow = None
+                for originalFlow in originalFlows:
+                    if originalFlow['activity_flow_id'] == activityFlowId:
+                        activityFlow = originalFlow
 
-            if activityUpdated:
+                profile['activity_flows'].append(activityFlow if activityFlow else { 'activity_flow_id': activityFlowId, 'completed_time': None, 'last_activity': None })
+                if not activityFlow:
+                    updated = True
+
+            if updated:
                 Profile().save(profile, validate=False)
-
-        # thread = threading.Thread(
-        #     target=send_applet_update_notification,
-        #     args=(applet,)
-        # )
-
-        # thread.start()
 
         if applet['meta'].get('published', False):
             AppletLibrary().appletContentUpdate(applet)
@@ -1761,8 +1813,6 @@ class Applet(FolderModel):
 
                 formatted["schedule"] = schedule
 
-                formatted['cumulativeActivities'] = profile.get('cumulative_activities', { 'available': [], 'archieved': [] })
-
             if retrieveResponses:
                 formatted["responses"] = last7Days(
                     applet['_id'],
@@ -1781,12 +1831,17 @@ class Applet(FolderModel):
             if retrieveLastResponseTime:
                 formatted['finishedEvents'] = profile.get('finished_events', {})
                 formatted['lastResponses'] = {}
+                formatted['lastActivities'] = {}
 
                 activities = profile.get('completed_activities', [])
 
                 for activity in activities:
                     completed_time = activity['completed_time']
                     formatted['lastResponses'][f'activity/{str(activity["activity_id"])}'] = completed_time
+
+                activityFlows = profile.get('activity_flows', [])
+                for activityFlow in activityFlows:
+                    formatted['lastActivities'][f'activity_flow/{str(activityFlow["activity_flow_id"])}'] = activityFlow['last_activity']
 
             formatted['profile'] = {
                 'firstName': profile.get('firstName', ''),
@@ -1797,6 +1852,7 @@ class Applet(FolderModel):
         else:
             formatted.pop('applet')
             formatted.pop('protocol')
+            formatted.pop('activityFlows')
 
         formatted['updated'] = applet['updated'].isoformat()
         formatted['welcomeApplet'] = applet['meta'].get('welcomeApplet', False)
@@ -2056,6 +2112,16 @@ class Applet(FolderModel):
                     {'$set': {'meta.protocol.activities': activities}})
 
         return activities
+
+    def updateActivityFlows(self, applet, obj):
+        activityFlows = [
+            ObjectId(obj['activityFlows'][activityFlow]['_id'].split('/')[-1]) for activityFlow in obj.get('activityFlows', {})
+        ]
+
+        self.update({'_id': ObjectId(applet['_id'])},
+                    {'$set': {'meta.protocol.activityFlows': activityFlows}})
+
+        return activityFlows
 
 
     def setAppletTheme(self, applet, themeId):

@@ -37,6 +37,7 @@ from girderformindlogger.models.item import Item as ItemModel
 from girderformindlogger.models.response_alerts import ResponseAlerts
 from girderformindlogger.models.upload import Upload as UploadModel
 from girderformindlogger.models.note import Note as NoteModel
+from girderformindlogger.utility import mail_utils
 from bson import json_util
 from pymongo import DESCENDING
 from bson import ObjectId
@@ -68,6 +69,7 @@ class ResponseItem(Resource):
         self.route('GET', ('last7Days', ':applet'), self.getLast7Days)
         self.route('GET', ('tokens', ':applet'), self.getResponseTokens)
         self.route('POST', (':applet', ':activity'), self.createResponseItem)
+        self.route('POST', ('report',), self.createPDFReport)
         self.route('POST', (':applet', 'updateResponseToken'), self.updateResponseToken)
         self.route('PUT', (':applet',), self.updateReponseHistory)
         self.route('GET', (':applet', 'reviews'), self.getReviewerResponses)
@@ -364,6 +366,7 @@ class ResponseItem(Resource):
             'subScaleSources': {},
             'subScales': {},
             'token': {},
+            'reports': []
         }
 
         # Get the responses for each users and generate the group responses data.
@@ -716,7 +719,6 @@ class ResponseItem(Resource):
         from girderformindlogger.models.profile import Profile
         from girderformindlogger.models.account_profile import AccountProfile
         try:
-            # TODO: pending
             metadata['applet'] = {
                 "@id": applet.get('_id'),
                 "name": AppletModel().preferredName(applet),
@@ -734,6 +736,10 @@ class ResponseItem(Resource):
                     activity.get('meta', {}).get('activity', {}).get('url')
                 )
             }
+            if metadata.get('activityFlowId'):
+                metadata['activityFlow'] = {
+                    '@id': ObjectId(metadata.pop('activityFlowId'))
+                }
             informant = self.getCurrentUser()
 
             if metadata.get('publicId'):
@@ -779,11 +785,6 @@ class ResponseItem(Resource):
                 event = metadata.pop('event')
             else:
                 event = None
-
-            if metadata.get('nextActivities'):
-                nextActivities = metadata.pop('nextActivities')
-            else:
-                nextActivities = []
 
             if 'identifier' in metadata:
                 metadata['subject']['identifier'] = metadata.pop('identifier')
@@ -860,15 +861,6 @@ class ResponseItem(Resource):
                     )
 
 
-                # newUpload = um.uploadFromFile(
-                #     value.file,
-                #     metadata['responses'][key]['size'],
-                #     filename,
-                #     'item',
-                #     newItem,
-                #     informant,
-                #     metadata['responses'][key]['type'],
-                # )
                 value={}
                 value['filename']=filename
                 value['fromLibrary']=False
@@ -964,33 +956,32 @@ class ResponseItem(Resource):
                 "_id": subject_id
             })
 
-            if nextActivities:
-                if 'cumulative_activities' not in data:
-                    data['cumulative_activities'] = {
-                        'available': [],
-                        'archieved': []
-                    }
-
-                if activity['_id'] in data['cumulative_activities']['available']:
-                    data['cumulative_activities']['available'].remove(activity['_id'])
-                if activity['_id'] not in data['cumulative_activities']['archieved']:
-                    data['cumulative_activities']['archieved'].append(activity['_id'])
-
-                for nextActivity in nextActivities:
-                    if ObjectId(nextActivity) not in data['cumulative_activities']['available']:
-                        data['cumulative_activities']['available'].append(ObjectId(nextActivity))
-
             updated = False
-            for activity in data['completed_activities']:
-                if activity["activity_id"] == metadata['activity']['@id']:
-                    activity["completed_time"] = now
-                    updated = True
+            if metadata.get('activityFlow'):
+                for activityFlow in data['activity_flows']:
+                    if str(activityFlow['activity_flow_id']) == metadata['activityFlow']['@id']:
+                        activityFlow["last_activity"] = activity['_id']
+                        activityFlow["completed_time"] = now
+                        updated = True
 
-            if updated == False:
-                data['completed_activities'].append({
-                    "activity_id": metadata['activity']['@id'],
-                    "completed_time": now
-                })
+                if updated == False:
+                    data['activity_flows'].append({
+                        'activity_flow_id': metadata['activityFlow']['@id'],
+                        'last_activity': activity['_id'],
+                        'completed_time': now
+                    })
+
+            else:
+                for activity in data['completed_activities']:
+                    if activity["activity_id"] == metadata['activity']['@id']:
+                        activity["completed_time"] = now
+                        updated = True
+
+                if updated == False:
+                    data['completed_activities'].append({
+                        "activity_id": metadata['activity']['@id'],
+                        "completed_time": now
+                    })
 
             if 'identifier' in metadata['subject']:
                 if 'identifiers' not in data:
@@ -1018,6 +1009,80 @@ class ResponseItem(Resource):
             print(sys.exc_info())
             print(traceback.print_tb(sys.exc_info()[2]))
             return(str(traceback.print_tb(sys.exc_info()[2])))
+
+    @access.user(scope=TokenScope.DATA_WRITE)
+    @autoDescribeRoute(
+        Description('upload pdf report.')
+        .notes(
+            'This endpoint is used for uploading and sending pdf reports.'
+        )
+        .param(
+            'appletId',
+            'id of applet',
+            required=True,
+        )
+        .param(
+            'responseId',
+            'id of repsonse',
+            required=True
+        )
+        .jsonParam(
+            'emailConfig',
+            'A JSON object containing email configuration information.',
+            paramType='form',
+            requireObject=True,
+            required=True
+        )
+        .errorResponse()
+        .errorResponse('Write access was denied on the parent folder.', 403)
+    )
+    def createPDFReport(
+        self,
+        appletId,
+        responseId,
+        emailConfig,
+        params
+    ):
+        from girderformindlogger.models.profile import Profile
+        user = self.getCurrentUser()
+
+        profile = Profile().findOne({ 'appletId': ObjectId(appletId), 'userId': ObjectId(user['_id']) })
+        responseItem = self._model.findOne({'_id': ObjectId(responseId), 'meta.applet.@id': ObjectId(appletId)})
+
+        pdf = params.get('pdf')
+
+        if not responseItem or not pdf or not profile:
+            raise ValidationException('invalid response id')
+
+        # upload pdf to s3
+        fileKey=f"reports/{ObjectId(appletId)}/{ObjectId(profile['_id'])}/{emailConfig.get('attachment')}"
+        pdfData = pdf.file.read()
+
+        self.s3_client.upload_fileobj(
+            io.BytesIO(pdfData),
+            os.environ['S3_MEDIA_BUCKET'],
+            fileKey,
+        )
+
+        uri = "s3://{}/{}".format(os.environ['S3_MEDIA_BUCKET'], fileKey)
+
+        # update response item with report
+        responseItem['meta']['report'] = {
+            'name': emailConfig.get('attachment'),
+            'uri': uri
+        }
+        self._model.setMetadata(responseItem, responseItem['meta'])
+
+        mail_utils.sendMail(
+            emailConfig.get('subject', ''),
+            emailConfig.get('body'),
+            emailConfig.get('emailRecipients'),
+            None,
+            [{
+                'name': emailConfig.get('attachment'),
+                'file': pdf.file
+            }]
+        )
 
     @access.user(scope=TokenScope.DATA_WRITE)
     @autoDescribeRoute(
