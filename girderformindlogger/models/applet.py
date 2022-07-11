@@ -1019,11 +1019,23 @@ class Applet(FolderModel):
 
             originalFlows = profile.get('activity_flows', [])
             profile['activity_flows'] = []
+
+            updatedFlows = []
+            for activityFlow in content['protocol']['activityFlows'].values():
+                if activityFlow.get('_id'):
+                    updatedFlows.append(ObjectId(activityFlow['_id']))
+
             for activityFlowId in activityFlows:
                 activityFlow = None
+
                 for originalFlow in originalFlows:
                     if originalFlow['activity_flow_id'] == activityFlowId:
                         activityFlow = originalFlow
+
+                        if activityFlowId in updatedFlows:
+                            updated = True
+                            activityFlow['last_activity'] = None
+                            activityFlow['completed_time'] = None
 
                 profile['activity_flows'].append(activityFlow if activityFlow else { 'activity_flow_id': activityFlowId, 'completed_time': None, 'last_activity': None })
                 if not activityFlow:
