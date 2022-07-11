@@ -476,7 +476,7 @@ class Protocol(FolderModel):
     def compareProtocols(self, protocolId, localVersion, localUpdateTime):
         from girderformindlogger.models.item import Item as ItemModel
 
-        changeInfo = { 'screen': {}, 'activity': {} }
+        changeInfo = { 'screen': {}, 'activity': {}, 'activityFlow': {} }
         hasUrl = False
 
         protocol = Protocol().load(protocolId, force=True)
