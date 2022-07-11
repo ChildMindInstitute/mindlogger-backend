@@ -72,6 +72,8 @@ class User(AESEncryption):
             if s in doc and doc[s] is None:
                 doc[s] = ''
         doc['login'] = doc.get('login', '').lower().strip()
+        if not 'email_encrypted' in doc:
+            doc['email_encrypted'] = False
         if not doc['email_encrypted']:
             doc['email'] = doc.get('email', '').lower().strip()
         doc['displayName'] = doc.get(
