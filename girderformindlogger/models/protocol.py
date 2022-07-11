@@ -181,6 +181,14 @@ class Protocol(FolderModel):
                 }
             }
 
+            if 'reprolib:terms/activityFlowOrder' in formatted['protocol']:
+                order = formatted['protocol']['reprolib:terms/activityFlowOrder'][0]['@list']
+                for child in order:
+                    uri = child.get('@id', None)
+                    if uri.split('/')[-1] == activityFlowId:
+                        child['@id'] = activityFlow['@id']
+                        break
+
         for activityKey in formatted['activities']:
             activityId = formatted['activities'][activityKey]
 
