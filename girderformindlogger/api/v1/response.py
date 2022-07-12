@@ -959,7 +959,7 @@ class ResponseItem(Resource):
             updated = False
             if metadata.get('activityFlow'):
                 for activityFlow in data['activity_flows']:
-                    if str(activityFlow['activity_flow_id']) == metadata['activityFlow']['@id']:
+                    if str(activityFlow['activity_flow_id']) == str(metadata['activityFlow']['@id']):
                         activityFlow["last_activity"] = activity['_id']
                         activityFlow["completed_time"] = now
                         updated = True

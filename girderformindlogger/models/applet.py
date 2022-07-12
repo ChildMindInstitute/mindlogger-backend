@@ -976,6 +976,18 @@ class Applet(FolderModel):
 
             self.updateActivities(applet, formatted)
 
+        updatedFlows = []
+        for activityFlow in content['protocol']['activityFlows'].values():
+            if activityFlow.get('_id'):
+                updatedFlows.append(ObjectId(activityFlow['_id']))
+
+        for activityFlow in formatted['activityFlows'].values():
+            if activityFlow.get('_id') and activityFlow['_id'] not in updatedFlows:
+                order = activityFlow['reprolib:terms/order'][0]['@list']
+                for activityIRI in order:
+                    if activityIRI['@id'] in content['protocol']['activities']:
+                        updatedFlows.append(activityFlow['_id'])
+
         activityFlows = []
         if 'activityFlows' in formatted:
             for activityFlowIRI in formatted['activityFlows']:
@@ -1019,11 +1031,18 @@ class Applet(FolderModel):
 
             originalFlows = profile.get('activity_flows', [])
             profile['activity_flows'] = []
+
             for activityFlowId in activityFlows:
                 activityFlow = None
+
                 for originalFlow in originalFlows:
                     if originalFlow['activity_flow_id'] == activityFlowId:
                         activityFlow = originalFlow
+
+                        if activityFlowId in updatedFlows:
+                            updated = True
+                            activityFlow['last_activity'] = None
+                            activityFlow['completed_time'] = None
 
                 profile['activity_flows'].append(activityFlow if activityFlow else { 'activity_flow_id': activityFlowId, 'completed_time': None, 'last_activity': None })
                 if not activityFlow:
