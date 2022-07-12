@@ -47,6 +47,7 @@ import string
 import random
 import base64
 import io
+import zipfile, tempfile
 from boto3.s3.transfer import TransferConfig
 
 DEFAULT_REGION = 'us-east-1'
@@ -1073,14 +1074,24 @@ class ResponseItem(Resource):
         }
         self._model.setMetadata(responseItem, responseItem['meta'])
 
+        temp = tempfile.NamedTemporaryFile()
+        newpdf = tempfile.NamedTemporaryFile()
+        newpdf.write(pdf.file.read())
+
+        zout = zipfile.ZipFile(temp.name, "w", zipfile.ZIP_DEFLATED)
+        zout.write(newpdf.name, arcname=emailConfig.get('attachment') + '.pdf')
+        zout.close()
+
+        newpdf.close()
+
         mail_utils.sendMail(
             emailConfig.get('subject', ''),
             emailConfig.get('body'),
             emailConfig.get('emailRecipients'),
             None,
             [{
-                'name': emailConfig.get('attachment'),
-                'file': pdf.file
+                'name': emailConfig.get('attachment') + '.zip',
+                'file': temp
             }]
         )
 
