@@ -1056,16 +1056,17 @@ class ResponseItem(Resource):
             raise ValidationException('invalid response id')
 
         # upload pdf to s3
-        fileKey=f"reports/{ObjectId(appletId)}/{ObjectId(profile['_id'])}/{emailConfig.get('attachment')}"
+        fileKey=f"{ObjectId(profile['_id'])}/{emailConfig.get('attachment')}.pdf"
         pdfData = pdf.file.read()
 
         self.s3_client.upload_fileobj(
             io.BytesIO(pdfData),
-            os.environ['S3_MEDIA_BUCKET'],
+            os.environ['S3_REPORT_BUCKET'],
             fileKey,
         )
 
-        uri = "s3://{}/{}".format(os.environ['S3_MEDIA_BUCKET'], fileKey)
+
+        uri = "s3://{}/{}".format(os.environ['S3_REPORT_BUCKET'], fileKey)
 
         # update response item with report
         responseItem['meta']['report'] = {
@@ -1074,25 +1075,14 @@ class ResponseItem(Resource):
         }
         self._model.setMetadata(responseItem, responseItem['meta'])
 
-        temp = tempfile.NamedTemporaryFile()
-        newpdf = tempfile.NamedTemporaryFile()
-        newpdf.write(pdf.file.read())
-
-        zout = zipfile.ZipFile(temp.name, "w", zipfile.ZIP_DEFLATED)
-        zout.write(newpdf.name, arcname=emailConfig.get('attachment') + '.pdf')
-        zout.close()
-
-        newpdf.close()
+        url = f"{os.environ['REPORTS_URI']}/{fileKey}"
 
         mail_utils.sendMail(
             emailConfig.get('subject', ''),
-            emailConfig.get('body'),
+            emailConfig.get('body').replace('this link', f"<a href='{url}'>this link</a>"),
             emailConfig.get('emailRecipients'),
             None,
-            [{
-                'name': emailConfig.get('attachment') + '.zip',
-                'file': temp
-            }]
+            []
         )
 
     @access.user(scope=TokenScope.DATA_WRITE)
