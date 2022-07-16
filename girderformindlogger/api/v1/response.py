@@ -1079,7 +1079,7 @@ class ResponseItem(Resource):
 
         mail_utils.sendMail(
             emailConfig.get('subject', ''),
-            emailConfig.get('body').replace('this link', f"<a href='{url}'>this link</a>"),
+            emailConfig.get('body').replace('click this link', f"<a href='{url}'>click this link</a>"),
             emailConfig.get('emailRecipients'),
             None,
             []
