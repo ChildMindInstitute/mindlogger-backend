@@ -1421,6 +1421,7 @@ class Applet(FolderModel):
                 'timeout': meta.get('timeout', 0),
                 'version': meta['applet'].get('version', '0.0.0'),
                 'reviewing': meta.get('reviewing', {}).get('responseId', None),
+                'activityFlow': meta.get('activityFlow', {}).get('@id', None),
                 'events': len(data['eventSources']) if 'userPublicKey' in meta else meta.get('events')
             })
 
