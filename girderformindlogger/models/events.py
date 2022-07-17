@@ -240,10 +240,19 @@ class Events(Model):
 
                 return (False, None)
 
-            launchDate = datetime.datetime.strptime(
-                f'{event["schedule"]["year"][0]}/{event["schedule"]["month"][0]+1}/{event["schedule"]["dayOfMonth"][0]}',
-                '%Y/%m/%d'
-            ) + timeDelta
+            launchDate = None;
+            lastAvailableTime = None;
+            try:
+                launchDate = datetime.datetime.strptime(
+                    f'{event["schedule"]["year"][0]}/{event["schedule"]["month"][0]+1}/{event["schedule"]["dayOfMonth"][0]}',
+                    '%Y/%m/%d'
+                ) + timeDelta
+            except:
+                launchDate = datetime.datetime.strptime(
+                    f'{event["schedule"]["year"][0]}/{event["schedule"]["month"][0]+1}/{event["schedule"]["dayOfMonth"][0]}',
+                    '%y/%m/%d'
+                ) + timeDelta
+                pass
 
             lastAvailableTime = launchDate + timeout
 
