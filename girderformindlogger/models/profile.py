@@ -695,6 +695,10 @@ class Profile(AESEncryption, dict):
             if userActivityUpdate['completed_time'] and (not data['updated'] or data['updated'] < userActivityUpdate['completed_time']):
                 data['updated'] = userActivityUpdate['completed_time']
 
+        for userFlowUpdate in profile.get('activity_flows', []):
+            if userFlowUpdate['completed_time'] and (not data['updated'] or data['updated'] < userFlowUpdate['completed_time']):
+                data['updated'] = userFlowUpdate['completed_time']
+
         if 'roles' in data and 'manager' in data['roles']:
             if 'owner' in data['roles']:
                 data['roles'] = ['owner']
