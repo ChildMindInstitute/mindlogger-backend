@@ -21,6 +21,7 @@ class AccountProfile(Resource):
         self._model = AccountProfileModel()
 
         self.route('GET', ('users',), self.getUsers)
+        self.route('GET', ('permissions', ), self.getPermissions)
         self.route('PUT', (':id',), self.updateAccountDB)
         self.route('PUT', ('manage', 'pin', ), self.updatePin)
         self.route('PUT', ('updateAlertStatus', ':id', ), self.updateAlertStatus)
@@ -49,6 +50,48 @@ class AccountProfile(Resource):
                 'viewed': True
             }
         })
+
+    @access.user(scope=TokenScope.DATA_OWN)
+    @autoDescribeRoute(
+        Description('Get permission on account')
+        .notes(
+            'This endpoint is used for getting permissions of a user on account'
+        )
+        .param(
+            'accountId',
+            'id of account',
+            required=True
+        )
+        .param(
+            'appletId',
+            'id of applet',
+            required=False
+        )
+    )
+    def getPermissions(self, accountId, appletId):
+        viewer = self.getCurrentUser()
+        accountProfile = self.getAccountProfile()
+
+        if accountProfile['accountId'] != ObjectId(accountId):
+            return []
+
+        permissions = []
+        if appletId:
+            profile = ProfileModel().findOne({
+                'userId': viewer['_id'],
+                'appletId': ObjectId(appletId)
+            })
+
+            if not profile:
+                return []
+
+            permissions = profile['roles']
+        else:
+            for permission in ['user', 'coordinator', 'editor', 'manager', 'owner']:
+                if len(accountProfile['applets'].get(permission, [])) > 0:
+                    permissions.append(permission)
+
+        return permissions
 
     @access.user(scope=TokenScope.DATA_OWN)
     @autoDescribeRoute(
