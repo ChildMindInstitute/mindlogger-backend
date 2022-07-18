@@ -1359,11 +1359,11 @@ class Applet(Resource):
             level=AccessType.READ,
             destName='applet'
         )
-        .param(
-            'activityFlowId',
-            'id of activity flow to change visibility',
-            dataType='string',
-            required=True
+        .jsonParam(
+            'activityFlowIds',
+            'list of activity flow ids to change visibility',
+            required=False,
+            dataType='array',
         )
         .param(
             'status',
@@ -1373,7 +1373,7 @@ class Applet(Resource):
             default=True
         )
     )
-    def updateActivityFlowVisibility(self, applet, activityFlowId, status):
+    def updateActivityFlowVisibility(self, applet, activityFlowIds, status):
         profile = self.getAccountProfile()
 
         appletRole = None
@@ -1385,7 +1385,7 @@ class Applet(Resource):
         if appletRole is None:
             raise AccessException("only editor/coordinator/manager can use the endpoint to edit visibility status of activity flow.")
 
-        self._model.updateActivityFlowVisibility(applet, activityFlowId, status)
+        self._model.updateActivityFlowVisibility(applet, activityFlowIds, status)
 
     @access.user(scope=TokenScope.DATA_WRITE)
     @autoDescribeRoute(
