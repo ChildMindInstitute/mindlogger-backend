@@ -696,7 +696,7 @@ class Applet(FolderModel):
 
         return appletName if not n else '%s (%d)' % (appletName, n)
 
-    def updateActivityFlowVisibility(self, applet, activityFlowIds, status):
+    def updateActivityVisibility(self, applet, activityFlowIds, activityIds, status):
         from girderformindlogger.utility import jsonld_expander
         from girderformindlogger.models.protocol import Protocol
 
@@ -706,13 +706,23 @@ class Applet(FolderModel):
             '_id': ObjectId(protocolId)
         })
 
+        activities = FolderModel().find({ '_id': { '$in': [ ObjectId(activityId) for activityId in activityIds ] }, 'meta.protocolId': protocolId })
+
+        for activity in activities:
+            activity['meta']['activity']['reprolib:terms/isVis'][0]['@value'] = not status
+
+            cached = jsonld_expander.loadCache(activity['cached'])
+            cached['activity']['reprolib:terms/isVis'] = activity['meta']['activity']['reprolib:terms/isVis']
+
+            jsonld_expander.createCache(activity, cached, 'activity')
+
         activityFlows = FolderModel().find({ '_id': { '$in': [ ObjectId(flowId) for flowId in activityFlowIds ] }, 'meta.protocolId': protocolId })
 
+        updated = False
         for activityFlow in activityFlows:
             if activityFlow and protocol:
                 flowProperties = protocol['meta']['protocol'].get('reprolib:terms/activityFlowProperties', [])
                 variableName = activityFlow['meta'].get('activityFlow', {}).get('@id')
-                updated = False
 
                 for flowProperty in flowProperties:
                     if flowProperty['reprolib:terms/variableName'][0]['@value'] == variableName:
@@ -720,17 +730,16 @@ class Applet(FolderModel):
                         updated = True
                         break
 
-                if updated:
-                    Protocol().setMetadata(protocol, protocol['meta'])
+        if updated:
+            Protocol().setMetadata(protocol, protocol['meta'])
 
-                    cached = jsonld_expander.loadCache(protocol['cached'])
-                    cached['protocol'].update(protocol['meta']['protocol'])
+            cached = jsonld_expander.loadCache(protocol['cached'])
+            cached['protocol'].update(protocol['meta']['protocol'])
 
-                    jsonld_expander.createCache(protocol, cached, 'protocol')
+            jsonld_expander.createCache(protocol, cached, 'protocol')
 
-                    jsonld_expander.clearCache(applet, 'applet')
-                    jsonld_expander.formatLdObject(applet, 'applet')
-
+            jsonld_expander.clearCache(applet, 'applet')
+            jsonld_expander.formatLdObject(applet, 'applet')
 
     def createAppletFromUrl(
         self,
