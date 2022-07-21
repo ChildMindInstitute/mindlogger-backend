@@ -695,6 +695,10 @@ class Profile(AESEncryption, dict):
             if userActivityUpdate['completed_time'] and (not data['updated'] or data['updated'] < userActivityUpdate['completed_time']):
                 data['updated'] = userActivityUpdate['completed_time']
 
+        for userFlowUpdate in profile.get('activity_flows', []):
+            if userFlowUpdate['completed_time'] and (not data['updated'] or data['updated'] < userFlowUpdate['completed_time']):
+                data['updated'] = userFlowUpdate['completed_time']
+
         if 'roles' in data and 'manager' in data['roles']:
             if 'owner' in data['roles']:
                 data['roles'] = ['owner']
@@ -929,6 +933,13 @@ class Profile(AESEncryption, dict):
                     {
                         'activity_id': activity_id, 'completed_time': None
                     } for activity_id in applet.get('meta', {}).get('protocol', {}).get('activities', [])
+                ],
+                'activity_flows': [
+                    {
+                        'activity_flow_id': activity_flow_id,
+                        'completed_time': None,
+                        'last_activity': None
+                    } for activity_flow_id in applet.get('meta', {}).get('protocol', {}).get('activityFlows', [])
                 ],
                 'accountId': applet.get('accountId', None),
                 'size': 0,

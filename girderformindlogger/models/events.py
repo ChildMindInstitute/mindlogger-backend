@@ -18,6 +18,7 @@ from girderformindlogger.utility.progress import noProgress, setResponseTimeLimi
 from bson import json_util
 from girderformindlogger.models.profile import Profile as ProfileModel
 from dateutil.relativedelta import relativedelta
+import calendar
 
 class Events(Model):
     """
@@ -31,7 +32,8 @@ class Events(Model):
                 'applet_id',
                 'individualized',
                 'data.users',
-                'data.activity_id'
+                'data.activity_id',
+                'data.activity_flow_id'
             )
         )
 
@@ -64,8 +66,10 @@ class Events(Model):
                     }
                 })
 
-            push_notification = PushNotificationModel(event=event)
-            push_notification.remove_schedules()
+            if event.get('data', {}).get('useNotifications', False) and len(event.get('data', {}).get('notifications', [])) > 0:
+                push_notification = PushNotificationModel(event=event)
+                push_notification.remove_schedules()
+
             self.removeWithQuery({'_id': ObjectId(event_id)})
 
     def deleteEventsByAppletId(self, applet_id):
@@ -76,6 +80,12 @@ class Events(Model):
 
     def deleteEventsByActivityId(self, applet_id, activity_id):
         events = self.find({'applet_id': ObjectId(applet_id), 'data.activity_id': ObjectId(activity_id)})
+
+        for event in events:
+            self.deleteEvent(event.get('_id'))
+
+    def deleteEventsByActivityFlowId(self, applet_id, activity_flow_id):
+        events = self.find({'applet_id': ObjectId(applet_id), 'data.activity_flow_id': ObjectId(activity_flow_id)})
 
         for event in events:
             self.deleteEvent(event.get('_id'))
@@ -100,6 +110,9 @@ class Events(Model):
             if 'activity_id' in newEvent['data']:
                 newEvent['data']['activity_id'] = ObjectId(newEvent['data']['activity_id'])
 
+            if 'activity_flow_id' in newEvent['data']:
+                newEvent['data']['activity_flow_id'] = ObjectId(newEvent['data']['activity_flow_id'])
+
             if 'users' in event['data'] and isinstance(event['data']['users'], list):
                 newEvent['individualized'] = True
                 event['data']['users'] = [ObjectId(profile_id) for profile_id in event['data']['users']]
@@ -120,7 +133,7 @@ class Events(Model):
 
     def updateIndividualSchedulesParameter(self, newEvent, oldEvent):
         new = newEvent['data']['users'] if 'users' in newEvent['data'] else []
-        old = newEvent['data']['users'] if oldEvent else []
+        old = oldEvent['data'].get('users', []) if oldEvent else []
 
         dicrementedUsers = list(set(old).difference(set(new)))
         incrementedUsers = list(set(new).difference(set(old)))
@@ -227,10 +240,19 @@ class Events(Model):
 
                 return (False, None)
 
-            launchDate = datetime.datetime.strptime(
-                f'{event["schedule"]["year"][0]}/{event["schedule"]["month"][0]+1}/{event["schedule"]["dayOfMonth"][0]}',
-                '%Y/%m/%d'
-            ) + timeDelta
+            launchDate = None;
+            lastAvailableTime = None;
+            try:
+                launchDate = datetime.datetime.strptime(
+                    f'{event["schedule"]["year"][0]}/{event["schedule"]["month"][0]+1}/{event["schedule"]["dayOfMonth"][0]}',
+                    '%Y/%m/%d'
+                ) + timeDelta
+            except:
+                launchDate = datetime.datetime.strptime(
+                    f'{event["schedule"]["year"][0]}/{event["schedule"]["month"][0]+1}/{event["schedule"]["dayOfMonth"][0]}',
+                    '%y/%m/%d'
+                ) + timeDelta
+                pass
 
             lastAvailableTime = launchDate + timeout
 
@@ -278,7 +300,12 @@ class Events(Model):
                     if endDate.day < event['schedule']['dayOfMonth'][0]:
                         latestScheduledDay = latestScheduledDay - relativedelta(months=1)
                 else:
-                    latestScheduledDay = datetime.datetime(date.year, date.month, event['schedule']['dayOfMonth'][0])
+                    month = date.month
+
+                    while (calendar.monthrange(date.year, month)[1] < event['schedule']['dayOfMonth'][0]):
+                        month = month - 1
+
+                    latestScheduledDay = datetime.datetime(date.year, month, event['schedule']['dayOfMonth'][0])
 
                     if date.day < event['schedule']['dayOfMonth'][0]:
                         latestScheduledDay = latestScheduledDay - relativedelta(months=1)
@@ -292,6 +319,12 @@ class Events(Model):
             # daily schedule
             lastAvailableTime = endDate + timeDelta + timeout if endDate else None
             return ( (not endDate or lastAvailableTime >= date), lastAvailableTime )
+
+    def getIdentifier(self, event):
+        activityId = event.get('data', {}).get('activity_id', None)
+        activityFlowId = event.get('data', {}).get('activity_flow_id', None)
+
+        return activityId or activityFlowId
 
     def getScheduleForUser(self, applet_id, user_id, eventFilter=None):
         profile = Profile().findOne({'appletId': ObjectId(applet_id), 'userId': ObjectId(user_id)})
@@ -317,25 +350,25 @@ class Events(Model):
 
                 for i in range(0, eventFilter[1]):
                     lastEvent = {}
-                    activityEvents = {}
+                    availableEvents = {}
 
                     for event in events:
                         event['valid'], lastAvailableTime = self.dateMatch(event, dayFilter)
 
-                        activityId = event.get('data', {}).get('activity_id', None)
+                        identifier = self.getIdentifier(event)
 
-                        if not activityId:
+                        if not identifier:
                             event['valid'] = False
                             continue
 
                         if not event['valid']:
                             if lastAvailableTime:
-                                if activityId not in lastEvent or (lastEvent[activityId] and lastAvailableTime > lastEvent[activityId][0]):
-                                    lastEvent[activityId] = (lastAvailableTime, event)
+                                if identifier not in lastEvent or (lastEvent[identifier] and lastAvailableTime > lastEvent[identifier][0]):
+                                    lastEvent[identifier] = (lastAvailableTime, event)
                         else:
-                            lastEvent[activityId] = None
+                            lastEvent[identifier] = None
 
-                        activityEvents[activityId] = event
+                        availableEvents[identifier] = event
 
                     data = []
                     for event in events:
@@ -346,16 +379,16 @@ class Events(Model):
                         if value and (value[1]['data'].get('completion', False) or not value[1]['data'].get('availability', False)):
                             data.append(value[1])
 
-                        activityId = event.get('data', {}).get('activity_id', None)
-                        if activityId in activityEvents:
-                            activityEvents.pop(activityId)
+                        identifier = self.getIdentifier(event)
+                        if identifier in availableEvents:
+                            availableEvents.pop(identifier)
 
                     for card in data:
-                        activityId = event.get('data', {}).get('activity_id', None)
-                        if activityId in activityEvents:
-                            activityEvents.pop(activityId)
+                        identifier = self.getIdentifier(event)
+                        if identifier in availableEvents:
+                            availableEvents.pop(identifier)
 
-                    for event in activityEvents.values():
+                    for event in availableEvents.values():
                         event['valid'] = False
                         data.append(event)
 

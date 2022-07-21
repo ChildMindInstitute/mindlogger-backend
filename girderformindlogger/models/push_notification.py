@@ -201,6 +201,7 @@ class PushNotification(Scheduler):
                     "applet_id": self.event.get("applet_id"),
                     "event_id": self.event.get("_id"),
                     "activity_id": self.event["data"].get("activity_id", None),
+                    "activity_flow_id": self.event["data"].get("activity_flow_id", None),
                     "send_time": self.start_time.strftime('%H:%M'),
                     "reminder": isReminder
                 },
@@ -222,6 +223,7 @@ class PushNotification(Scheduler):
                     "applet_id": self.event.get("applet_id"),
                     "event_id": self.event.get("_id"),
                     "activity_id": self.event["data"].get("activity_id", None),
+                    "activity_flow_id": self.event["data"].get("activity_flow_id", None),
                     "send_time": self.start_time.strftime('%H:%M'),
                     "reminder": isReminder
                 },
