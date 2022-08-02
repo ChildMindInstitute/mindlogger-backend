@@ -382,7 +382,7 @@ class ResponseItem(Resource):
                 "created": { "$lte": toDate, "$gt": fromDate },
                 "meta.applet.@id": ObjectId(applet['_id']),
                 "meta.subject.@id": user['_id'],
-                "reviewing": {'$exists': False}
+                "meta.reviewing": {'$exists': False}
             }
             if activities:
                 query["meta.activity.@id"] = { "$in": activities },

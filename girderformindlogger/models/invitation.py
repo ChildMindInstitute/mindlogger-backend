@@ -229,14 +229,14 @@ class Invitation(AESEncryption):
 
         return self.save(invitation, validate=False)
 
-    def acceptInvitation(self, invitation, user, userEmail = ''): # we need to save coordinator/manager's email as plain text
+    def acceptInvitation(self, invitation, user, userEmail = '', validateEmail=True): # we need to save coordinator/manager's email as plain text
         from girderformindlogger.models.applet import Applet
         from girderformindlogger.models.ID_code import IDCode
         from girderformindlogger.models.profile import Profile
         from girderformindlogger.utility import mail_utils
         from girderformindlogger.models.user import User as UserModel
 
-        if not mail_utils.validateEmailAddress(userEmail):
+        if validateEmail and not mail_utils.validateEmailAddress(userEmail):
             raise ValidationException(
                 'Invalid email address.',
                 'email'

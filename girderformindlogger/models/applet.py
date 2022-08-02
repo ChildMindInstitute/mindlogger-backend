@@ -54,6 +54,9 @@ from bson import json_util
 from girderformindlogger.utility import mail_utils, theme
 from girderformindlogger.i18n import t
 from datetime import datetime as dt
+from girderformindlogger.models.response_alerts import ResponseAlerts
+
+USER_ROLE_KEYS = USER_ROLES.keys()
 
 RETENTION_SET = {
     'day': 1,
@@ -353,8 +356,7 @@ class Applet(FolderModel):
 
         return meta
 
-    # users won't use this function, so all emails are plain text (this endpoint is used for owners/managers to get access to new applet automatically)
-    def grantAccessToApplet(self, user, applet, role, inviter):
+    def grantAccessToApplet(self, user, applet, role, inviter, validateEmail=True, MRN=''):
         from girderformindlogger.models.invitation import Invitation
 
         appletProfile = Profile().findOne({'appletId': applet['_id'], 'userId': user['_id']})
@@ -372,11 +374,17 @@ class Applet(FolderModel):
                 lastName=user['lastName'],
                 nickName='',
                 lang='en',
-                MRN='',
+                MRN=MRN,
                 userEmail=user['email']
             )
 
-            appletProfile = Invitation().acceptInvitation(Invitation().load(newInvitation['_id'], force=True), user, user['email'])
+            appletProfile = Invitation().acceptInvitation(
+                Invitation().load(newInvitation['_id'], force=True),
+                user,
+                user['email'],
+                validateEmail=validateEmail
+            )
+
             Invitation().remove(newInvitation)
 
         if role == 'manager':
@@ -1236,7 +1244,7 @@ class Applet(FolderModel):
             refreshCache=True
         )
 
-    def getResponseData(self, appletId, reviewer, users, pagination):
+    def getResponseData(self, appletId, reviewer, users, caseId, entryId, pagination):
         """
         Function to collect response data available to given reviewer.
 
@@ -1320,6 +1328,12 @@ class Applet(FolderModel):
             query['created'] = {
                 '$gte': applet['created']
             }
+
+        if caseId:
+            query['meta.case.caseId'] = ObjectId(caseId)
+
+        if entryId:
+            query['meta.case.entryId'] = ObjectId(entryId)
 
         if pagination.get('allow'):
             offset = RESPONSE_ITEM_PAGINATION * pagination['pageIndex']
@@ -2044,6 +2058,34 @@ class Applet(FolderModel):
 
         return applet['publicLink']
 
+
+    def deleteUserFromApplet(self, applet, profile, deleteResponse=False):
+        for role in USER_ROLE_KEYS:
+            if role != 'user':
+                profile = self.revokeRole(applet, profile, role)
+
+        profile = self.revokeRole(applet, profile, 'user')
+
+        ResponseAlerts().deleteResponseAlerts(profile['_id'])
+
+        if deleteResponse:
+            Profile().remove(profile)
+        else:
+            profile['reviewers'] = []
+            profile['deactivated'] = True
+
+            Profile().save(profile, validate=False)
+
+        if deleteResponse:
+            from girderformindlogger.models.response_folder import ResponseItem
+
+            ResponseItem().removeWithQuery(
+                query={
+                    "baseParentType": 'user',
+                    "baseParentId": profile['userId'],
+                    "meta.applet.@id": applet['_id']
+                }
+            )
 
     def deletePublicLink(self, appletId, coordinator, keep_record=False):
         """"

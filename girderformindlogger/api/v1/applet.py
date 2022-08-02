@@ -683,32 +683,7 @@ class Applet(Resource):
             applet['_id'] not in accountProfile.get('applets', {}).get('coordinator', []):
             raise AccessException('You don\'t have enough permission to perform this action')
 
-        for role in USER_ROLE_KEYS:
-            if role != 'user':
-                profile = self._model.revokeRole(applet, profile, role)
-
-        profile = self._model.revokeRole(applet, profile, 'user')
-
-        ResponseAlerts().deleteResponseAlerts(profile['_id'])
-
-        if deleteResponse:
-            ProfileModel().remove(profile)
-        else:
-            profile['reviewers'] = []
-            profile['deactivated'] = True
-
-            ProfileModel().save(profile, validate=False)
-
-        if deleteResponse:
-            from girderformindlogger.models.response_folder import ResponseItem
-
-            ResponseItem().removeWithQuery(
-                query={
-                    "baseParentType": 'user',
-                    "baseParentId": profile['userId'],
-                    "meta.applet.@id": applet['_id']
-                }
-            )
+        self._model.deleteUserFromApplet(applet, profile, deleteResponse)
 
         return ({
             'message': 'successfully removed user from applet'
@@ -1483,6 +1458,18 @@ class Applet(Resource):
             dataType='array',
             default=''
         )
+        .param(
+            'caseId',
+            'id of case',
+            required=False,
+            default=None
+        )
+        .param(
+            'entryId',
+            'id of entry',
+            required=False,
+            default=None
+        )
         .jsonParam(
             'pagination',
             'pagination info - allow, pageIndex fields are available',
@@ -1491,7 +1478,7 @@ class Applet(Resource):
         )
         .errorResponse('Write access was denied for this applet.', 403)
     )
-    def getAppletData(self, id, users, pagination):
+    def getAppletData(self, id, users, caseId, entryId, pagination):
         from datetime import datetime
         from ..rest import setContentDisposition, setRawResponse, setResponseHeader
 
@@ -1501,7 +1488,8 @@ class Applet(Resource):
             users = users.replace(' ', '').split(",")
 
         users = users if users else []
-        data = AppletModel().getResponseData(id, thisUser, users, pagination)
+
+        data = AppletModel().getResponseData(id, thisUser, users, caseId, entryId, pagination)
 
         setContentDisposition("{}-{}.{}".format(
             str(id),
