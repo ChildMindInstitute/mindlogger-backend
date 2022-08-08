@@ -4,6 +4,7 @@ from girderformindlogger.models.applet import Applet
 from girderformindlogger.models.profile import Profile
 from girderformindlogger.models.folder import Folder as FolderModel
 from girderformindlogger.models.activity import Activity
+from girderformindlogger.models.screen import Screen as ScreenModel
 from girderformindlogger.utility import jsonld_expander
 from bson.objectid import ObjectId
 
@@ -782,6 +783,13 @@ for index, appletId in enumerate(applets, start=1):
                 'activity_flows': profile['activity_flows']
             }
         })
+
+    activities = Activity().find({'meta.protocolId': ObjectId(protocolId), 'meta.activity': {'$exists': True}})
+    for activity in activities:
+        items = ScreenModel().find({'meta.activityId': activity['_id'], 'meta.identifier': {'$exists': False}, 'meta.originalActivityId': {'$exists': False}})
+        for item in items:
+            item['meta']['identifier'] = str(item['meta']['activityId']) + '/' + str(item['_id'])
+            ScreenModel().setMetadata(item, item['meta'])
 
     jsonld_expander.formatLdObject(applet, 'applet', None, refreshCache=True, reimportFromUrl=False)
     print('completed', applet['_id'])
