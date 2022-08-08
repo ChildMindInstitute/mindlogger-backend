@@ -1695,7 +1695,7 @@ def formatLdObject(
             protocolUrl = obj.get('meta', {}).get('protocol', obj).get(
                 'http://schema.org/url',
                 obj.get('meta', {}).get('protocol', obj).get('url')
-            ) if reimportFromUrl else None
+            )
 
             # get protocol data from id
             protocol = None
