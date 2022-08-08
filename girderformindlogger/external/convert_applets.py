@@ -4,14 +4,14 @@ from girderformindlogger.models.applet import Applet
 from girderformindlogger.models.profile import Profile
 from girderformindlogger.models.folder import Folder as FolderModel
 from girderformindlogger.models.activity import Activity
-from girderformindlogger.models.user import User
 from girderformindlogger.utility import jsonld_expander
 from bson.objectid import ObjectId
 
+# '_id': ObjectId('5f0e35523477de8b4a528dd0'),
 applets = Applet().find(query={ 'meta.applet': { '$exists': True } }, fields= {"_id": 1})
 appletsCount = applets.count()
 print('total', appletsCount)
-skipUntil = None # ObjectId("5f175a27cf47283a93eaf7cc")
+skipUntil = None
 for index, appletId in enumerate(applets, start=1):
     if skipUntil == appletId['_id']:
         skipUntil = None
@@ -27,9 +27,7 @@ for index, appletId in enumerate(applets, start=1):
     #     continue
 
 
-    # user = User().load(applet['creatorId'], force=True)
-    user = None
-    formatted = jsonld_expander.formatLdObject(applet, 'applet', user, refreshCache=False)
+    formatted = jsonld_expander.formatLdObject(applet, 'applet', None, refreshCache=False, reimportFromUrl=False)
     if formatted is None or formatted == {}:
         continue
 
@@ -51,11 +49,7 @@ for index, appletId in enumerate(applets, start=1):
         if not activity:
             formatted['activities'].pop(activityIRI)
 
-        formattedActivity = jsonld_expander.formatLdObject(
-            activity,
-            'activity',
-            user
-        )
+        formattedActivity = jsonld_expander.formatLdObject(activity, 'activity', None, refreshCache=False, reimportFromUrl=False)
         if formattedActivity is None or formattedActivity == {}:
             continue
 
@@ -789,5 +783,5 @@ for index, appletId in enumerate(applets, start=1):
             }
         })
 
-    jsonld_expander.formatLdObject(applet, 'applet', user, refreshCache=True)
+    jsonld_expander.formatLdObject(applet, 'applet', None, refreshCache=True, reimportFromUrl=False)
     print('completed', applet['_id'])

@@ -1614,7 +1614,8 @@ def formatLdObject(
     keepUndefined=False,
     dropErrors=False,
     refreshCache=False,
-    responseDates=False
+    responseDates=False,
+    reimportFromUrl=True
 ):
     """
     Function to take a compacted JSON-LD Object within a Girder for Mindlogger
@@ -1636,11 +1637,14 @@ def formatLdObject(
     :type refreshCache: bool
     :param responseDates: Include list of ISO date strings of responses
     :type responseDates: bool
+    :param reimportFromUrl: allows refreshing cache without reimporting
+    :type reimportFromUrl: bool
     :returns: Expanded JSON-LD Object (dict or list)
     """
     from girderformindlogger.models import pluralize
 
     refreshCache = False if refreshCache is None else refreshCache
+    reimportFromUrl = False if reimportFromUrl is None else reimportFromUrl
 
     try:
         if obj is None:
@@ -1691,7 +1695,7 @@ def formatLdObject(
             protocolUrl = obj.get('meta', {}).get('protocol', obj).get(
                 'http://schema.org/url',
                 obj.get('meta', {}).get('protocol', obj).get('url')
-            )
+            ) if reimportFromUrl else None
 
             # get protocol data from id
             protocol = None
@@ -1701,14 +1705,14 @@ def formatLdObject(
                 if cache:
                     protocol = loadCache(cache)
 
-            if protocolUrl is not None and protocolId and not protocol: # handle old schema
+            if protocolUrl is not None and reimportFromUrl and protocolId and not protocol: # handle old schema
                 protocolObj = ProtocolModel().load(ObjectId(protocolId), user, force=True)
 
                 if 'appletId' not in protocolObj.get('meta', {}):
                     protocolObj['meta']['appletId'] = 'None'
                     ProtocolModel().setMetadata(protocolObj, protocolObj['meta'])
 
-            if protocolUrl:
+            if protocolUrl and reimportFromUrl:
                 protocol = ProtocolModel().getFromUrl(
                             protocolUrl,
                             'protocol',
