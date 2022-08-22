@@ -1154,6 +1154,8 @@ class ResponseItem(Resource):
         params
     ):
         from girderformindlogger.models.profile import Profile
+        import urllib.parse
+
         user = self.getCurrentUser()
 
         profile = Profile().findOne({ 'appletId': ObjectId(appletId), 'userId': ObjectId(user['_id']) })
@@ -1184,6 +1186,8 @@ class ResponseItem(Resource):
         }
         self._model.setMetadata(responseItem, responseItem['meta'])
 
+        attachment = urllib.parse.quote_plus(emailConfig.get('attachment'))
+        fileKey=f"{ObjectId(profile['_id'])}/{attachment}.pdf"
         url = f"{os.environ['REPORTS_URI']}/{fileKey}"
 
         mail_utils.sendMail(
