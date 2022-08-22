@@ -1095,7 +1095,7 @@ class ResponseItem(Resource):
                     "Couldn't find owner account for this response"
                 )
             file_path = './girderformindlogger/media/'+key.split('/')[-1]
-            
+
             if isAzure:
                 container_client = ContainerClient.from_connection_string(conn_str=owner_account.get('secretAccessKey', None), container_name=DEFAULT_CONTAINER_NAME)
                 blob_client = container_client.get_blob_client(key)
@@ -1163,6 +1163,8 @@ class ResponseItem(Resource):
         params
     ):
         from girderformindlogger.models.profile import Profile
+        import urllib.parse
+
         user = self.getCurrentUser()
 
         profile = Profile().findOne({ 'appletId': ObjectId(appletId), 'userId': ObjectId(user['_id']) })
@@ -1193,6 +1195,8 @@ class ResponseItem(Resource):
         }
         self._model.setMetadata(responseItem, responseItem['meta'])
 
+        attachment = urllib.parse.quote_plus(emailConfig.get('attachment'))
+        fileKey=f"{ObjectId(profile['_id'])}/{attachment}.pdf"
         url = f"{os.environ['REPORTS_URI']}/{fileKey}"
 
         mail_utils.sendMail(
