@@ -1252,9 +1252,9 @@ def expandOneLevel(obj):
 
                 if '@context' in data:
                     if isinstance(data['@context'], list):
-                        data['@context'][0] = 'https://raw.githubusercontent.com/jj105/reproschema-context/master/context.json'
+                        data['@context'][0] = 'https://raw.githubusercontent.com/ChildMindInstitute/reproschema-context/master/context.json'
                     if isinstance(data['@context'], str):
-                        data['@context'] = 'https://raw.githubusercontent.com/jj105/reproschema-context/master/context.json'
+                        data['@context'] = 'https://raw.githubusercontent.com/ChildMindInstitute/reproschema-context/master/context.json'
 
                 newObj = jsonld.expand(data)
             else:
