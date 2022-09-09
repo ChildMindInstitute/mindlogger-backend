@@ -118,7 +118,7 @@ for index, appletId in enumerate(applets, start=1):
             name = f'flow{flowIndex}'
             data = {
                 "@context": [
-                    "https://raw.githubusercontent.com/jj105/reproschema-context/master/context.json"
+                    "https://raw.githubusercontent.com/ChildMindInstitute/reproschema-context/master/context.json"
                 ],
                 "@id": name,
                 "@type": "reproschema:ActivityFlow",
@@ -133,7 +133,7 @@ for index, appletId in enumerate(applets, start=1):
             }
 
             expanded = jsonld_expander.expandObj({
-                "https://raw.githubusercontent.com/jj105/reproschema-context/master/context.json": {
+                "https://raw.githubusercontent.com/ChildMindInstitute/reproschema-context/master/context.json": {
                     "@version": 1.1,
                     "pav": "http://purl.org/pav/",
                     "prov": "http://www.w3.org/ns/prov#",
