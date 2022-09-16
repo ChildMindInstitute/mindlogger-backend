@@ -1919,13 +1919,13 @@ class Applet(Resource):
         .param(
             'nickName',
             'nickName for user',
-            required=False
+            required=True
         )
         .param(
             'MRN',
             'MRN for user',
             default='',
-            required=False
+            required=True
         )
         .param(
             'lang',
