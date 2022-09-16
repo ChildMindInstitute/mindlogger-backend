@@ -1713,6 +1713,9 @@ class Applet(Resource):
             'id': profile['_id'],
             'MRN': profile.get('MRN', ''),
             'email': profile.get('email', ''),
+            'nickName': profile.get('nickName', ''),
+            'firstName': profile.get('firstName', ''),
+            'lastName': profile.get('lastName', ''),
             'timezone': profile.get('timezone', '')
         }
         if 'publicLink' in applet:
