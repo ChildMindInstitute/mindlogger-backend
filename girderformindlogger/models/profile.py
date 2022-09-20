@@ -556,6 +556,9 @@ class Profile(AESEncryption, dict):
             )
         return(parentType)
 
+    def validate(self, doc):
+        return doc
+
     def createFolder(self, parent, name, description='', parentType='profile',
                      public=None, creator=None, allowRename=False,
                      reuseExisting=False):
