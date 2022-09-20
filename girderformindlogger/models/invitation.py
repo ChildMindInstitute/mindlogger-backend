@@ -91,6 +91,9 @@ class Invitation(AESEncryption):
         if progress:
             progress.update(increment=1, message='Deleted invitation')
 
+    def validate(self, doc):
+        return doc
+
     def createInvitation(
         self,
         applet,
