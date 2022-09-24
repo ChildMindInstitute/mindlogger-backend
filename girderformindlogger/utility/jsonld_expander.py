@@ -1861,13 +1861,18 @@ def formatLdObject(
 
                 for item in items:
                     identifier = item['meta']['identifier']
-                    activity['items'][identifier] = formatLdObject(item, 'screen', user)
+                    itemFormatted = formatLdObject(item, 'screen', user, refreshCache=refreshCache)
+                    activity['items'][identifier] = itemFormatted
 
                     key = '{}/{}'.format(str(item['meta']['activityId']), str(item['_id']))
 
-                    itemIDMapping['{}/{}'.format(str(item['meta']['activityId']), activity['items'][identifier]['@id'])] = key
+                    itemId = activity['items'][identifier]['@id'] if '@id' in activity['items'][identifier] else activity['items'][identifier]['_id']
+                    itemIDMapping['{}/{}'.format(str(item['meta']['activityId']), itemId)] = key
                     if item.get('duplicateOf', None):
                         itemIDMapping['{}/{}'.format(str(item['meta']['activityId']), str(item['duplicateOf']))] = key
+
+                    if refreshCache:
+                        createCache(item, itemFormatted, 'item', user)
 
                 if refreshCache and fixUpList(obj, 'activity', itemIDMapping, 'reprolib:terms/order'):
                     ActivityModel().setMetadata(obj, obj['meta'])
@@ -1887,6 +1892,9 @@ def formatLdObject(
                     refreshCache=refreshCache,
                     meta={'protocolId': obj['meta']['protocolId'], 'activityId': obj['_id']}
                 )
+
+            if refreshCache:
+                createCache(obj, activity, 'activity', user)
 
             return activity
         else:
