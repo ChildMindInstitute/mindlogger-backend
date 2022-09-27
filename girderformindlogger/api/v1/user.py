@@ -788,18 +788,27 @@ class User(Resource):
             'id of next activity',
             default=None,
             required=False,
+        ).param(
+            'numberOfDays',
+            'true only if get today\'s event, valid only if getAllEvents is set to false',
+            required=False,
+            default=0,
+            dataType='integer'
         )
     )
-    def getOwnAppletById(self, applet, role, retrieveSchedule, retrieveAllEvents, nextActivity=None):
+    def getOwnAppletById(self, applet, role, retrieveSchedule, retrieveAllEvents, numberOfDays=0, nextActivity=None):
         reviewer = self.getCurrentUser()
         if reviewer is None:
             raise AccessException("You must be logged in to get user applets.")
 
+        currentUserDate = datetime.datetime.utcnow() + datetime.timedelta(hours=int(reviewer['timezone']))
+        currentUserDate = currentUserDate.replace(hour=0, minute=0, second=0, microsecond=0)
         (nextIRI, data, remaining) = AppletModel().appletFormatted(
                 applet=applet,
                 reviewer=reviewer,
                 role=role,
                 retrieveSchedule=retrieveSchedule,
+                eventFilter=(currentUserDate, numberOfDays) if numberOfDays else None,
                 retrieveAllEvents=retrieveAllEvents,
                 nextActivity=nextActivity,
                 bufferSize=MAX_PULL_SIZE
