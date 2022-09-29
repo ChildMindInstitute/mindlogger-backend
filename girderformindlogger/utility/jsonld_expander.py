@@ -817,6 +817,7 @@ def loadFromSingleFile(document, user, editExisting=False):
 def importAndCompareModelType(model, url, user, modelType, meta={}, existing=None):
     import threading
     from girderformindlogger.utility import firstLower
+    from functools import reduce
 
     if model is None:
         return(None, None)
@@ -870,15 +871,15 @@ def importAndCompareModelType(model, url, user, modelType, meta={}, existing=Non
         if modelClass.name=='folder':
             newModel = modelClass.setMetadata(
                 docFolder,
-                {
-                    modelType: {
+                reduce(merge, [
+                    {modelType: {
                         **model,
                         'schema:url': url,
                         'url': url
-                    },
-                    **meta,
-                    'schema': APPLET_SCHEMA_VERSION
-                }
+                    }},
+                    meta,
+                    {'schema': APPLET_SCHEMA_VERSION}
+                ])
             )
         elif modelClass.name=='item':
             item = None
@@ -909,15 +910,15 @@ def importAndCompareModelType(model, url, user, modelType, meta={}, existing=Non
 
             newModel = modelClass.setMetadata(
                 item,
-                {
-                    modelType: {
+                reduce(merge, [
+                    {modelType: {
                         **model,
                         'schema:url': url,
                         'url': url
-                    },
-                    **meta,
-                    'schema': APPLET_SCHEMA_VERSION
-                }
+                    }},
+                    meta,
+                    {'schema': APPLET_SCHEMA_VERSION}
+                ])
             )
 
         modelClass.update(
@@ -937,6 +938,15 @@ def importAndCompareModelType(model, url, user, modelType, meta={}, existing=Non
     createCache(newModel, formatted, modelType, user)
     return(formatted, modelType)
 
+def merge(a, b, path=None):
+    "merges b into a"
+    if path is None: path = []
+    for key in b:
+        if key in a and isinstance(a[key], dict) and isinstance(b[key], dict):
+            merge(a[key], b[key], path + [str(key)])
+        else:
+            a[key] = b[key]
+    return a
 
 def _createContextForStr(s):
     sp = s.split('/')
@@ -1796,7 +1806,7 @@ def formatLdObject(
 
             modelClasses = {}
 
-            if obj.get('loadedFromSingleFile', False):
+            if obj.get('loadedFromSingleFile', False) or not reimportFromUrl:
                 activities = ActivityModel().find({'meta.protocolId': obj['_id'], 'meta.activity': { '$exists': True }})
 
                 activityIDMapping = {}
@@ -1852,7 +1862,7 @@ def formatLdObject(
             return protocol
         elif mesoPrefix=='activity':
             itemIDMapping = {}
-            if obj.get('loadedFromSingleFile', False):
+            if obj.get('loadedFromSingleFile', False) or not reimportFromUrl:
                 items = ScreenModel().find({'meta.activityId': obj['_id']})
 
                 activity = {
@@ -1860,8 +1870,10 @@ def formatLdObject(
                 }
 
                 for item in items:
+                    if not 'identifier' in item['meta']:
+                        item['meta']['identifier'] = '{}/{}'.format(str(obj['_id']), str(item['_id']))
                     identifier = item['meta']['identifier']
-                    itemFormatted = formatLdObject(item, 'screen', user, refreshCache=refreshCache)
+                    itemFormatted = formatLdObject(item, 'screen', user, refreshCache=refreshCache, reimportFromUrl=reimportFromUrl)
                     activity['items'][identifier] = itemFormatted
 
                     key = '{}/{}'.format(str(item['meta']['activityId']), str(item['_id']))
