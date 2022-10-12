@@ -1,11 +1,11 @@
 import random
-
-import cherrypy
-from redis import Redis
-from rq_scheduler import Scheduler
 from datetime import datetime, timedelta
+
+from rq_scheduler import Scheduler
+
 from girderformindlogger.external.notification import send_push_notification
 from girderformindlogger.models import getRedisConnection
+from girderformindlogger.utility.scheduler import NotificationSchedulerV2
 
 
 class PushNotification(Scheduler):
@@ -49,9 +49,12 @@ class PushNotification(Scheduler):
                 self.event['sendTime'].append(self.start_time.strftime('%H:%M'))
 
                 if event_type == '' or event_type == 'Daily':  # Daily or non-recurrent event.
-                    launch_time = self.first_launch_time()
-                    repeat = self.repeat_time(launch_time)
-                    self.__set_job(launch_time, repeat)
+                    if self._is_for_scheduler_v2_for_daily_with_start_time(self.event):
+                        NotificationSchedulerV2().set_schedules(self.event)
+                    else:
+                        launch_time = self.first_launch_time()
+                        repeat = self.repeat_time(launch_time)
+                        self.__set_job(launch_time, repeat)
 
                 if event_type == 'Weekly':
                     self.__set_cron(self.prepare_weekly_schedule())
@@ -61,6 +64,17 @@ class PushNotification(Scheduler):
 
             except Exception as e:
                 print('notification error', e)
+
+    @staticmethod
+    def _is_for_scheduler_v2_for_daily_with_start_time(event):
+        result = True
+        try:
+            result &= event['data']['eventType'] == 'Daily'
+            result &= event['schedule']['start'] is not None
+            result &= event['schedule']['end'] is None
+        except (KeyError, IndexError):
+            result = False
+        return result
 
     def set_reminders(self):
         event_type = self.event.get('data', {}).get('eventType', '')
