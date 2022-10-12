@@ -44,7 +44,7 @@ class _NotificationService(FCMNotification):
 _notification_service = _NotificationService(
     api_key='AAAAJOyOEz4:APA91bFudM5Cc1Qynqy7QGxDBa-2zrttoRw6ZdvE9PQbfIuAB9SFvPje7DcFMmPuX1IizR1NAa7eHC3qXmE6nmOpgQxXbZ0sNO_n1NITc1sE5NH3d8W9ld-cfN7sXNr6IAOuodtEwQy-',
     proxy_dict={}
-)
+)  # TODO: get from env
 
 if DEBUG:
     _scheduler = Scheduler(connection=Redis(connection_pool=ConnectionPool(**{
