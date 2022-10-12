@@ -97,7 +97,7 @@ class NotificationSchedulerV2:
         event_type = event['data']['eventType']
 
         if event_type == DAILY:
-            event = self._set_daily_schedule(event)
+            self._set_daily_schedule(event)
 
         elif event_type == WEEKLY:
             pass
@@ -185,7 +185,6 @@ class NotificationSchedulerV2:
                 interval=HOUR,
             )
             event['schedulers'].append(sending_notification_job.id)
-        return event
 
     def _get_user_groups_by_timezone(self, applet_id, event_id, activity_id):
         from girderformindlogger.models.events import Events
@@ -313,9 +312,9 @@ def send_activity_notification(
         if not_completed:
             should_be_send_device_ids.append(profile['deviceId'])
 
-    message_title = event['data']['title']
-    message_body = event['data']['description']
     if should_be_send_device_ids:
+        message_title = event['data']['title']
+        message_body = event['data']['description']
         _send_notification(
             registration_ids=should_be_send_device_ids,
             message_title=message_title,
