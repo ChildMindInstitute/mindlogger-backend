@@ -49,8 +49,8 @@ class PushNotification(Scheduler):
                 self.event['sendTime'].append(self.start_time.strftime('%H:%M'))
 
                 if event_type == '' or event_type == 'Daily':  # Daily or non-recurrent event.
-                    if self._is_for_scheduler_v2_for_daily_with_start_time(self.event):
-                        NotificationSchedulerV2().set_schedules(self.event)
+                    if self._is_for_scheduler_v2_for_daily_with_start_time(self.event, notification):
+                        NotificationSchedulerV2().set_schedules(self.event, notification)
                     else:
                         launch_time = self.first_launch_time()
                         repeat = self.repeat_time(launch_time)
@@ -66,12 +66,14 @@ class PushNotification(Scheduler):
                 print('notification error', e)
 
     @staticmethod
-    def _is_for_scheduler_v2_for_daily_with_start_time(event):
+    def _is_for_scheduler_v2_for_daily_with_start_time(event, notification):
         result = True
         try:
             result &= event['data']['eventType'] == 'Daily'
             result &= event['schedule']['start'] is not None
-            result &= event['schedule']['end'] is None
+            result &= event['schedule']['end'] is not None
+            result &= notification['start'] is not None
+            result &= notification['end'] is None
         except (KeyError, IndexError):
             result = False
         return result

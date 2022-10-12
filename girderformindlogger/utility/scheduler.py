@@ -69,7 +69,7 @@ class _Time:
         return self.hour and self.minute
 
     def __str__(self):
-        if not self.hour or not self.minute:
+        if self.hour is None or self.minute is None:
             return ''
         return f'{self.hour}:{self.minute}'
 
@@ -92,12 +92,12 @@ class NotificationSchedulerV2:
     def __init__(self):
         self.utcnow = datetime.datetime.utcnow()
 
-    def set_schedules(self, event):
-        event = self._remove_schedules(event)
+    def set_schedules(self, event, notification):
+        # event = self._remove_schedules(event) # TODO: uncomment when fully moved to this logic
         event_type = event['data']['eventType']
 
         if event_type == DAILY:
-            self._set_daily_schedule(event)
+            self._set_daily_schedule(event, notification)
 
         elif event_type == WEEKLY:
             pass
@@ -106,7 +106,7 @@ class NotificationSchedulerV2:
         else:
             pass
 
-    def _set_daily_schedule(self, event):
+    def _set_daily_schedule(self, event, notification):
         utc_now = datetime.datetime.utcnow()
         schedule = event['schedule']
         start_date = datetime.datetime.fromtimestamp(schedule['start'] / 1000).date()
@@ -117,7 +117,6 @@ class NotificationSchedulerV2:
         if schedule.get('end'):
             end_date = datetime.datetime.fromtimestamp(schedule['end'] / 1000).date()
 
-        [notification] = event['data']['notifications']
         start_time = _Time(notification['start'])
         end_time = _Time(notification.get('end'))
 
