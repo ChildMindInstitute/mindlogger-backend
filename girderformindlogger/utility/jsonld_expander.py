@@ -1679,6 +1679,7 @@ def formatLdObject(
                     o,
                     mesoPrefix,
                     refreshCache=refreshCache,
+                    reimportFromUrl=reimportFromUrl,
                     user=user
                 ) for o in obj if o is not None
             ]))
@@ -1741,7 +1742,8 @@ def formatLdObject(
                     protocolObj,
                     'protocol',
                     user,
-                    refreshCache=refreshCache
+                    refreshCache=refreshCache,
+                    reimportFromUrl=reimportFromUrl
                 )
 
             applet = {}
@@ -1812,7 +1814,7 @@ def formatLdObject(
                 activityIDMapping = {}
 
                 for activity in activities:
-                    formatted = formatLdObject(activity, 'activity', user, refreshCache=refreshCache)
+                    formatted = formatLdObject(activity, 'activity', user, refreshCache=refreshCache, reimportFromUrl=reimportFromUrl)
                     if refreshCache:
                         createCache(activity, formatted, 'activity', user, modelClasses)
 
@@ -1828,7 +1830,7 @@ def formatLdObject(
 
                 activityFlowIdMapping = {}
                 for activityFlow in activityFlows:
-                    formatted = formatLdObject(activityFlow, 'activityFlow', user, refreshCache=refreshCache)
+                    formatted = formatLdObject(activityFlow, 'activityFlow', user, refreshCache=refreshCache, reimportFromUrl=reimportFromUrl)
                     if refreshCache:
                         createCache(activityFlow, formatted, 'activityFlow', user, modelClasses)
 
@@ -1920,6 +1922,7 @@ def formatLdObject(
                 keepUndefined,
                 dropErrors,
                 refreshCache=True,
+                reimportFromUrl=reimportFromUrl,
                 responseDates=responseDates
             )))
         import sys, traceback
