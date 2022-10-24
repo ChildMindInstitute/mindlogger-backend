@@ -7,6 +7,7 @@ import six
 from girderformindlogger import _attachFileLogHandlers
 from girderformindlogger.utility import server
 from girderformindlogger.constants import ServerMode
+from girderformindlogger.utility.redis import cache
 
 
 @click.command(name='serve', short_help='Run the Girder server.', help='Run the Girder server.')
@@ -42,6 +43,7 @@ def main(dev, mode, database, host, port):
 
     _attachFileLogHandlers()
     server.setup(mode)
+    cache.create(**cherrypy.config['redis'])
 
     cherrypy.engine.start()
     cherrypy.engine.block()
