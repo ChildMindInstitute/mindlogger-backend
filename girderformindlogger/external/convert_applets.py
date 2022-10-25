@@ -8,11 +8,12 @@ from girderformindlogger.models.screen import Screen as ScreenModel
 from girderformindlogger.utility import jsonld_expander
 from bson.objectid import ObjectId
 
-# '_id': ObjectId('5f0e35523477de8b4a528dd0'),
-applets = Applet().find(query={ 'meta.applet': { '$exists': True } }, fields= {"_id": 1})
+# '_id': ObjectId('633fc958b7ee9765ba5447a6')
+# github: 'meta.protocol.url': {'$exists': True}, 'meta.applet': {'$exists': True}, 'meta.applet.deleted': {'$exists': False}, 'parentId': ObjectId('5ea689a286d25a5dbb14e82c')
+applets = Applet().find(query={'_id': ObjectId('633fc958b7ee9765ba5447a6')}, fields= {"_id": 1})
 appletsCount = applets.count()
 print('total', appletsCount)
-skipUntil = None
+skipUntil = None # ObjectId('60a398c9acd96cf825f7679d')
 for index, appletId in enumerate(applets, start=1):
     if skipUntil == appletId['_id']:
         skipUntil = None
@@ -43,8 +44,18 @@ for index, appletId in enumerate(applets, start=1):
     g = []
     activityIRIs = dict.keys(formatted['activities'].copy())
     for activityIRI in activityIRIs:
+        activityLink = formatted['activities'][activityIRI];
+        if isinstance(activityLink, ObjectId):
+            activityId = activityLink
+        elif isinstance(activityLink, str):
+            activityId = ObjectId(activityLink)
+        elif '_id' in activityLink:
+            activityId = ObjectId(activityLink['_id'].split('/').pop())
+        else:
+            continue
+
         activity = Activity().findOne({
-            '_id': ObjectId(formatted['activities'][activityIRI])
+            '_id': activityId
         })
 
         if not activity:

@@ -8,7 +8,7 @@ from girderformindlogger.utility import jsonld_expander
 from bson.objectid import ObjectId
 
 
-items = Item().find(query={'meta.activityId': ObjectId('628e3d6be50eef3353e63813'), 'meta.screen.@type.0': 'reprolib:schemas/Field'}, fields= {"_id": 1})
+items = Item().find(query={'meta.activityId': ObjectId('62837282e50eef7782f6c41c'), 'meta.screen.@type.0': 'reprolib:schemas/Field'}, fields= {"_id": 1})
 itemsCount = items.count()
 print('total', itemsCount)
 skipUntil = None
@@ -24,6 +24,7 @@ for index, itemId in enumerate(items, start=1):
     affectedActivityIds.append(item['meta']['activityId'])
 
     item['meta']['screen']['url'] = 'https://raw.githubusercontent.com/ChildMindInstitute/mindlogger-flanker-applet/master/activities/Flanker/items/{}'.format(item['meta']['screen']['@id'])
+    item['meta']['identifier'] = '{}/{}'.format(str(item['meta']['activityId']), str(itemId['_id'])) #after import
     Item().setMetadata(item, item['meta'])
 
 
@@ -39,11 +40,13 @@ for activityId in affectedActivityIds:
     print('Refreshing affected activity id=' + str(activityId))
     activity = Folder().findOne(query={'_id': activityId})
     activity['meta']['activity']['url'] = activityUrl
+    activity['meta']['activity']['_id'] = "activity/{}".format(str(activityId)) #after import
+
     Folder().setMetadata(folder=activity, metadata=activity['meta'])
     protocolId = activity['meta']['protocolId']
 
     user = User().findOne({'_id': activity['creatorId']})
-    res = Activity().getFromUrl(activityUrl, 'activity', user, refreshCache=True, thread=False, meta={'identifier': activityId, 'protocolId': protocolId}) # meta.activity._id=activity/628e3d6be50eef3353e63813
+    # res = Activity().getFromUrl(activityUrl, 'activity', user, refreshCache=True, thread=False, meta={'identifier': activityId, 'protocolId': protocolId}) # comment out after first run
 
     jsonld_expander.formatLdObject(activity, 'activity', None, refreshCache=True, reimportFromUrl=False)
 
