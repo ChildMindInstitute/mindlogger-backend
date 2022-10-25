@@ -1666,7 +1666,12 @@ def formatLdObject(
                 oc is not None
             ]):
                 if mesoPrefix == 'item' or mesoPrefix == 'screen' or obj.get('meta', {}).get('schema', '') == APPLET_SCHEMA_VERSION:
-                    return(loadCache(oc))
+                    cached = loadCache(oc)
+                    if cached is not None:
+                        return cached
+                    else:
+                        refreshCache=True
+                        reimportFromUrl=False
                 else:
                     return {}
 

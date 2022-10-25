@@ -1943,6 +1943,9 @@ class Applet(FolderModel):
                 activity,
                 'activity'
             )
+            if not formattedActivity:
+                print('formattedActivity is empty. ActivityId=' + str(activity['_id']))
+                continue
 
             buffer['activities'][activityIRI] = formattedActivity['activity']
             buffer['items'].update(formattedActivity['items'])
