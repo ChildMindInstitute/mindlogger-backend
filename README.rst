@@ -16,10 +16,10 @@ Contents
 Requirements
 ------------
 
-- MongoDB >= 3.6
-- Python >= 3.5
+- MongoDB >= 4.2
+- Python == 3.7
   - CherryPy <=11.0.0
-- Node >= 8.0
+- Node >= 16.0
 - Redis
 
 Installation
@@ -152,7 +152,7 @@ The first time this command is run will take a few minutes as the images are dow
 
       docker-compose -f docker-compose.local.yml restart girderformindlogger
 
-or  
+or
 
    .. code-block:: shell
 
@@ -405,34 +405,34 @@ theme
 allows admins to manage themes for styling applets.
 themes are saved in a collection called themes, with a folder for each theme.
 
-**adding a new theme**  
+**adding a new theme**
 
 Viewing saved themes (get request) is possible without logging in, but only database administrators for the girderformindlogger instance can add, change or delete themes (i.e.: to use the post, put and delete endpoints). By default the first person to create an account in a girder instance is an admin.
 
 1. To add a theme, log in to giderformindlogger's GUI with an admin account. https://api.mindlogger.org/#?dialog=login
 
-As a site admin, you should see an Admin console link in the left-side navigation bar ( refer to [girder docs](https://girder.readthedocs.io/en/latest/deployment.html#create-a-site-admin-user) ). 
+As a site admin, you should see an Admin console link in the left-side navigation bar ( refer to [girder docs](https://girder.readthedocs.io/en/latest/deployment.html#create-a-site-admin-user) ).
 
 **Important:** The **1st theme** added to the database is selected as the default theme for all new applets.
 
-2. Using the API GUI, you can add themes with different logos, colors etc. (see fields here https://api.mindlogger.org/api/v1#/theme ). Make sure to manually check before posting a new theme that the image urls are publicly accessible and that the image's format is compatible with the appearance in the app.  
+2. Using the API GUI, you can add themes with different logos, colors etc. (see fields here https://api.mindlogger.org/api/v1#/theme ). Make sure to manually check before posting a new theme that the image urls are publicly accessible and that the image's format is compatible with the appearance in the app.
 
-See an example of the logo, background image and colors applied in the app here: https://github.com/ChildMindInstitute/mindlogger-app/issues/1864  
+See an example of the logo, background image and colors applied in the app here: https://github.com/ChildMindInstitute/mindlogger-app/issues/1864
 
 
 Below is the mindlogger theme as an example:
 
-name: mindlogger  
+name: mindlogger
 
-logo: https://mindlogger.org/assets/logos/mindlogger-logo-transparent.png   
+logo: https://mindlogger.org/assets/logos/mindlogger-logo-transparent.png
 
-backgroundImage: https://mindlogger.org/assets/img/bg0.jpg  
+backgroundImage: https://mindlogger.org/assets/img/bg0.jpg
 
-primaryColor: #0067A0  
+primaryColor: #0067A0
 
-secondaryColor: #FFFFFF   
+secondaryColor: #FFFFFF
 
-tertiaryColor: #404040  
+tertiaryColor: #404040
 
 setting
 #######
