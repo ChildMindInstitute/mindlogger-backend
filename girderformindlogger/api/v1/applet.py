@@ -1644,6 +1644,7 @@ class Applet(Resource):
 
         return message
 
+    @access.user(scope=TokenScope.DATA_READ)
     @autoDescribeRoute(
         Description('Request id')
         .param(
