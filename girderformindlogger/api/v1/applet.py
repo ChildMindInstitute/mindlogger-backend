@@ -52,7 +52,7 @@ from girderformindlogger.utility import jsonld_expander, mail_utils
 from girderformindlogger.utility.validate import validator, email_validator, symbol_validator
 from ..describe import Description, autoDescribeRoute
 from ..rest import Resource
-from ...utility.redis import cache
+from girderformindlogger.utility.redis import cache
 
 USER_ROLE_KEYS = USER_ROLES.keys()
 
