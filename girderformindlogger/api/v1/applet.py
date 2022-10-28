@@ -1655,15 +1655,11 @@ class Applet(Resource):
     )
     def check_state(self, request_id):
         cache.create()
-        # TODO: change to notification style
-        while True:
-            value = cache.get(request_id)
-            if value is None:
-                time.sleep(5)
-                continue
-
-            cache.stop()
-            return json.loads(value)
+        value = cache.get(request_id)
+        cache.stop()
+        if value is None:
+            value = dict()
+        return json.loads(value)
 
     @access.user(scope=TokenScope.DATA_READ)
     @autoDescribeRoute(
