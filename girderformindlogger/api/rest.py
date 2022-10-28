@@ -710,6 +710,7 @@ def endpoint(fun):
             if config.getServerMode() == ServerMode.PRODUCTION:
                 # Sanitize errors in production mode
                 val['message'] = 'An unexpected error occurred on the server.'
+                val['exception'] = str(e)
             else:
                 # Provide error details in non-production modes
                 t, value, tb = sys.exc_info()
