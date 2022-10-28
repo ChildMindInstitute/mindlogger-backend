@@ -711,6 +711,7 @@ def endpoint(fun):
                 # Sanitize errors in production mode
                 val['message'] = 'An unexpected error occurred on the server.'
                 val['exception'] = str(e)
+                val['traceback'] = traceback.format_exc()
             else:
                 # Provide error details in non-production modes
                 t, value, tb = sys.exc_info()
