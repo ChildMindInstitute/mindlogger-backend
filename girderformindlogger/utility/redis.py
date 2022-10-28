@@ -29,5 +29,9 @@ class _RedisCache:
         assert self._redis is not None, 'redis is not initialized'
         return self._redis.get(key)
 
+    def stop(self):
+        if self._redis:
+            self._redis.close()
+
 
 cache = _RedisCache()
