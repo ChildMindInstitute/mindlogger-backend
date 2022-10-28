@@ -1654,6 +1654,7 @@ class Applet(Resource):
         )
     )
     def check_state(self, request_id):
+        cache.create()
         # TODO: change to notification style
         while True:
             value = cache.get(request_id)
@@ -1661,6 +1662,7 @@ class Applet(Resource):
                 time.sleep(5)
                 continue
 
+            cache.stop()
             return json.loads(value)
 
     @access.user(scope=TokenScope.DATA_READ)
