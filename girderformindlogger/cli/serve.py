@@ -43,7 +43,6 @@ def main(dev, mode, database, host, port):
 
     _attachFileLogHandlers()
     server.setup(mode)
-    cache.create(**cherrypy.config['redis'])
 
     cherrypy.engine.start()
     cherrypy.engine.block()

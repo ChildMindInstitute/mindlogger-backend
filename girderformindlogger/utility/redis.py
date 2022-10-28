@@ -1,4 +1,5 @@
 import json
+import os
 import time
 
 import redis
@@ -7,11 +8,13 @@ import redis
 class _RedisCache:
     _redis: redis.Redis
     _config: dict
-    host: str
-    port: int
 
-    def create(self, **kwargs):
-        self._config = kwargs
+    def create(self):
+        self._config = {
+            'host': os.environ.get('REDIS_URI', 'localhost'),
+            'port': os.environ.get('REDIS_PORT', 6379),
+            'password': os.environ.get('REDIS_PASSWORD', '')
+        }
         self._start()
 
     def _start(self):

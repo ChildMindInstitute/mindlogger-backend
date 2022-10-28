@@ -902,7 +902,9 @@ class Applet(FolderModel):
             is_success = False
             message = str(e)
 
+        cache.create()
         cache.set(request_guid, dict(is_success=is_success, applet_id=applet_id, message=message))
+        cache.stop()
         if 'email' in user and not user.get('email_encrypted', True):
             from girderformindlogger.utility.mail_utils import sendMail
             sendMail(
