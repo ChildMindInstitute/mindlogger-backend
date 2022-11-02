@@ -1658,7 +1658,7 @@ class Applet(Resource):
         value = cache.get(request_id)
         cache.stop()
         if value is None:
-            value = dict()
+            return dict()
         return json.loads(value)
 
     @access.user(scope=TokenScope.DATA_READ)
