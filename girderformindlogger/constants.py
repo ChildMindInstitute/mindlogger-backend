@@ -105,7 +105,7 @@ DEFINED_RELATIONS = {
     }
 }
 
-PREFERRED_NAMES = ["skos:prefLabel", "skos:altLabel", "name", "@id", "url"]
+PREFERRED_NAMES = ["skos:prefLabel", "skos:altLabel", "name", "schema:name", "@id", "url"]
 
 HIERARCHY = ['applet', 'protocol', 'activity', 'screen', 'item']
 

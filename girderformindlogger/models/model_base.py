@@ -557,7 +557,10 @@ class Model(object):
         nameOptions = [
             doc.get(key) for key in PREFERRED_NAMES if doc.get(key) is not None
         ]
-        return(nameOptions[0] if len(nameOptions) else "")
+        if len(nameOptions) == 0:
+            return ""
+        name = nameOptions[0]
+        return name[0]['@value'] if isinstance(name, list) and len(name) == 1 and '@value' in name[0] else name
 
     def prefixSearch(self, query, offset=0, limit=0, sort=None, fields=None,
                      filters=None, prefixSearchFields=None, **kwargs):
