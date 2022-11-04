@@ -1,16 +1,88 @@
----
-mongodb:
-  image: mongo:3.4
-  ports:
-    - "27017"
-  volumes:
-    - "/data/db"
+version: "3.7"
 
-girderformindlogger:
-  build: .
-  dockerfile: Dockerfile
-  ports:
-    - "8080:8080"
-  links:
-    - "mongodb:mongodb"
-  command: --host 0.0.0.0 --database mongodb://mongodb:27017/girderformindlogger
+services:
+  mongodb:
+    image: mongo:4.2
+    ports:
+      - "27017"
+
+  redis:
+    restart: always
+    image: redis:latest
+    ports:
+      - "6379"
+
+  mind_logger:
+    build: .
+    ports:
+      - "8080:8080"
+    links:
+      - mongodb:mongodb
+      - redis:redis
+    environment:
+      APP: mind_logger
+
+      GIRDER_HOST: 0.0.0.0
+      MONGO_HOST: mongodb
+      MONGO_PORT: 27017
+      MONGO_DB_NAME: mind_logger
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      SENTRY_DNS: https://f63bc109e2ea4e618e036a9a0eb6dece@o414302.ingest.sentry.io/5313181
+      FIREBASE_KEY: AAAAJOyOEz4:APA91bFudM5Cc1Qynqy7QGxDBa-2zrttoRw6ZdvE9PQbfIuAB9SFvPje7DcFMmPuX1IizR1NAa7eHC3qXmE6nmOpgQxXbZ0sNO_n1NITc1sE5NH3d8W9ld-cfN7sXNr6IAOuodtEwQy-
+
+      SECRET_ACCESS_KEY: 1
+      ACCESS_KEY_ID: 1co
+      LC_ALL: C.UTF-8
+      LANG: C.UTF-8
+
+  worker:
+    build: .
+    deploy:
+      mode: replicated
+      replicas: 2
+    links:
+      - mongodb:mongodb
+      - redis:redis
+    environment:
+      APP: worker
+
+      GIRDER_HOST: 0.0.0.0
+      MONGO_HOST: mongodb
+      MONGO_PORT: 27017
+      MONGO_DB_NAME: mind_logger
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      SENTRY_DNS: https://f63bc109e2ea4e618e036a9a0eb6dece@o414302.ingest.sentry.io/5313181
+      FIREBASE_KEY: AAAAJOyOEz4:APA91bFudM5Cc1Qynqy7QGxDBa-2zrttoRw6ZdvE9PQbfIuAB9SFvPje7DcFMmPuX1IizR1NAa7eHC3qXmE6nmOpgQxXbZ0sNO_n1NITc1sE5NH3d8W9ld-cfN7sXNr6IAOuodtEwQy-
+      REPORTS_URI:
+      S3_MEDIA_BUCKET:
+      S3_REPORT_BUCKET:
+      AES_KEY: b69cebd5efac6208d7817787471b4eee
+
+      SECRET_ACCESS_KEY: 1
+      ACCESS_KEY_ID: 1co
+      LC_ALL: C.UTF-8
+      LANG: C.UTF-8
+
+  scheduler:
+    build: .
+    links:
+      - mongodb:mongodb
+      - redis:redis
+    environment:
+      APP: scheduler
+
+      GIRDER_HOST: 0.0.0.0
+      MONGO_HOST: mongodb
+      MONGO_PORT: 27017
+      MONGO_DB_NAME: mind_logger
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      SENTRY_DNS: https://f63bc109e2ea4e618e036a9a0eb6dece@o414302.ingest.sentry.io/5313181
+      FIREBASE_KEY: AAAAJOyOEz4:APA91bFudM5Cc1Qynqy7QGxDBa-2zrttoRw6ZdvE9PQbfIuAB9SFvPje7DcFMmPuX1IizR1NAa7eHC3qXmE6nmOpgQxXbZ0sNO_n1NITc1sE5NH3d8W9ld-cfN7sXNr6IAOuodtEwQy-
+
+      SECRET_ACCESS_KEY: 1
+      ACCESS_KEY_ID: 1co
+      LC_ALL: C.UTF-8
+      LANG: C.UTF-8

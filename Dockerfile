@@ -1,26 +1,26 @@
-FROM node:8-stretch
-LABEL maintainer="Kitware, Inc. <kitware@kitware.com>"
+FROM python:3.7.11
+ENV PYTHONUNBUFFERED 1
+ENV PROJECT_NAME app
+ENV PROJECT_PATH /$PROJECT_NAME
 
-EXPOSE 8080
+RUN mkdir -p $PROJECT_PATH
 
-RUN mkdir /girderformindlogger
+ADD requirements.txt $PROJECT_PATH/requirements.txt
 
-RUN apt-get update && apt-get install -qy \
-    gcc \
-    libpython2.7-dev \
-    git \
+RUN apt-get update && apt-get install -y \
+    git  \
+    g++  \
+    python3-dev  \
     libldap2-dev \
-    libsasl2-dev && \
-  apt-get clean && rm -rf /var/lib/apt/lists/*
+    libsasl2-dev \
+    && pip3 install --no-cache-dir -r $PROJECT_PATH/requirements.txt \
+    && apt-get clean && rm -rf /var/lib/apt/lists/*
 
-RUN wget https://bootstrap.pypa.io/get-pip.py && python get-pip.py
+WORKDIR $PROJECT_PATH
+COPY . $PROJECT_PATH/
 
-WORKDIR /girderformindlogger
-COPY . /girderformindlogger/
-
-# TODO: Do we want to create editable installs of plugins as well?  We
-# will need a plugin only requirements file for this.
 RUN pip install --upgrade --upgrade-strategy eager --editable .
-RUN girderformindlogger build
 
-ENTRYPOINT ["girderformindlogger", "serve"]
+COPY ./docker-entrypoint.sh /
+
+ENTRYPOINT ["/docker-entrypoint.sh"]

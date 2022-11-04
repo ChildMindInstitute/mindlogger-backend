@@ -50,40 +50,30 @@ def _loadConfigsByPrecedent():
 
 
 def loadConfig():
-
     _loadConfigsByPrecedent()
 
     if 'GIRDER_PORT' in os.environ:
         port = int(os.environ['GIRDER_PORT'])
         cherrypy.config['server.socket_port'] = port
 
-    if 'database' not in cherrypy.config:
-        cherrypy.config['database'] = {}
+    if 'GIRDER_HOST' in os.environ:
+        host = os.environ['GIRDER_HOST']
+        cherrypy.config['server.socket_host'] = host
 
-    if 'GIRDER_MONGO_URI' in os.environ:
-        cherrypy.config['database']['uri'] = os.getenv('GIRDER_MONGO_URI')
+    cherrypy.config['database'] = _get_database()
 
     if 'GIRDER_TEST_DB' in os.environ:
-        cherrypy.config['database']['uri'] =\
+        cherrypy.config['database']['uri'] = \
             os.environ['GIRDER_TEST_DB'].replace('.', '_')
+
+    cherrypy.config['sentry']['backend_dsn'] = os.environ.get('SENTRY_DNS', None)
+    cherrypy.config['firebase_key'] = os.environ.get('FIREBASE_KEY', None)
 
     if 'AES_KEY' in os.environ:
         cherrypy.config['aes_key'] = bytes(os.getenv('AES_KEY'), 'utf8')
 
-    cherrypy.config['redis'] = {
-        'host': 'localhost',
-        'port': 6379,
-        'password': ''
-    }
+    cherrypy.config['redis'] = _get_redis()
 
-    redisConf = {
-        'host': 'REDIS_URI', 'port': 'REDIS_PORT', 'password': 'REDIS_PASSWORD'
-    }
-    for key in redisConf.keys():
-        if redisConf[key] in os.environ:
-            cherrypy.config['redis'].update({
-                key: os.getenv(redisConf[key])
-            })
 
 def getConfig():
     if 'database' not in cherrypy.config:
@@ -94,3 +84,21 @@ def getConfig():
 
 def getServerMode():
     return getConfig()['server']['mode']
+
+
+def _get_database():
+    host = os.environ.get('MONGO_HOST', '')
+    port = os.environ.get('MONGO_PORT', '')
+    name = os.environ.get('MONGO_DB_NAME', '')
+    uri = f"{host}:{port}/{name}"
+    if uri != '':
+        return dict(uri=f'mongodb://{uri}')
+    return dict()
+
+
+def _get_redis():
+    return dict(
+        host=os.environ.get('REDIS_HOST', 'localhost'),
+        port=os.environ.get('REDIS_PORT', 6379),
+        password=os.environ.get('REDIS_PASSWORD', '')
+    )
