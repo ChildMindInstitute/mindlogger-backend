@@ -707,6 +707,8 @@ def endpoint(fun):
             cherrypy.response.status = 500
             val = dict(type='internal', uid=cherrypy.request.girderRequestUid)
 
+            val['exception'] = str(e)
+            val['traceback'] = traceback.format_exc()
             if config.getServerMode() == ServerMode.PRODUCTION:
                 # Sanitize errors in production mode
                 val['message'] = 'An unexpected error occurred on the server.'

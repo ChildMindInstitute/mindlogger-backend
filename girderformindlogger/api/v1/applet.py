@@ -17,43 +17,42 @@
 #  limitations under the License.
 ###############################################################################
 
-import itertools
-import os
-import re
-import threading
-import uuid
 import datetime
-from ..describe import Description, autoDescribeRoute
-from ..rest import Resource, rawResponse
+import json
+import os
+import threading
+import time
+import uuid
+
+from bson import json_util
 from bson.objectid import ObjectId
-from girderformindlogger.constants import AccessType, SortDir, TokenScope,     \
-    DEFINED_INFORMANTS, REPROLIB_CANONICAL, SPECIAL_SUBJECTS, USER_ROLES, MAX_PULL_SIZE
+from pymongo import DESCENDING
+
 from girderformindlogger.api import access
+from girderformindlogger.constants import AccessType, TokenScope, \
+    DEFINED_INFORMANTS, SPECIAL_SUBJECTS, USER_ROLES, MAX_PULL_SIZE
 from girderformindlogger.exceptions import AccessException, ValidationException
+from girderformindlogger.i18n import t
+from girderformindlogger.models.account_profile import AccountProfile
 from girderformindlogger.models.activity import Activity as ActivityModel
 from girderformindlogger.models.applet import Applet as AppletModel
+from girderformindlogger.models.applet_library import AppletLibrary
 from girderformindlogger.models.collection import Collection as CollectionModel
+from girderformindlogger.models.events import Events as EventsModel
 from girderformindlogger.models.folder import Folder as FolderModel
 from girderformindlogger.models.group import Group as GroupModel
+from girderformindlogger.models.invitation import Invitation as InvitationModel
 from girderformindlogger.models.item import Item as ItemModel
+from girderformindlogger.models.profile import Profile as ProfileModel
 from girderformindlogger.models.protocol import Protocol as ProtocolModel
+from girderformindlogger.models.response_alerts import ResponseAlerts
 from girderformindlogger.models.roles import getCanonicalUser, getUserCipher
 from girderformindlogger.models.user import User as UserModel
-from girderformindlogger.models.events import Events as EventsModel
-from girderformindlogger.utility import config, jsonld_expander, mail_utils
-from girderformindlogger.models.setting import Setting
-from girderformindlogger.settings import SettingKey
-from girderformindlogger.models.profile import Profile as ProfileModel
-from girderformindlogger.models.account_profile import AccountProfile
-from girderformindlogger.models.invitation import Invitation as InvitationModel
-from girderformindlogger.models.applet_library import AppletLibrary
-from girderformindlogger.i18n import t
-from girderformindlogger.models.response_alerts import ResponseAlerts
-from dateutil.relativedelta import relativedelta
-from pymongo import ASCENDING, DESCENDING
-from bson import json_util
-from pyld import jsonld
+from girderformindlogger.utility import jsonld_expander, mail_utils
 from girderformindlogger.utility.validate import validator, email_validator, symbol_validator
+from ..describe import Description, autoDescribeRoute
+from ..rest import Resource
+from girderformindlogger.utility.redis import cache
 
 USER_ROLE_KEYS = USER_ROLES.keys()
 
@@ -65,6 +64,7 @@ class Applet(Resource):
         self.resourceName = 'applet'
         self._model = AppletModel()
         self.route('GET', (':id',), self.getApplet)
+        self.route('GET', ('check_state', ':request_id',), self.check_state)
         self.route('GET', (':id', 'data'), self.getAppletData)
         self.route('GET', (':id', 'groups'), self.getAppletGroups)
         self.route('POST', (), self.createApplet)
@@ -1219,6 +1219,7 @@ class Applet(Resource):
         .errorResponse('Write access was denied for this applet.', 403)
     )
     def createAppletFromProtocolData(self, protocol, email='', name=None, informant=None, encryption={}, themeId=None):
+        request_guid = str(uuid.uuid4())
         accountProfile = AccountProfile()
 
         thisUser = self.getCurrentUser()
@@ -1246,12 +1247,14 @@ class Applet(Resource):
                 'appletRole': appletRole,
                 'accountId': profile['accountId'],
                 'encryption': encryption,
-                'themeId':str(themeId)
+                'themeId': str(themeId),
+                'request_guid': request_guid
             }
         )
         thread.start()
         return({
-            "message": "The applet is building. We will send you an email in 10 min or less when it has been successfully created or failed."
+            "message": "The applet is building. We will send you an email in 10 min or less when it has been successfully created or failed.",
+            "request_guid": request_guid
         })
 
     @access.user(scope=TokenScope.DATA_WRITE)
@@ -1640,6 +1643,23 @@ class Applet(Resource):
             Description().errorResponse(message, 403)
 
         return message
+
+    @access.user(scope=TokenScope.DATA_READ)
+    @autoDescribeRoute(
+        Description('Request id')
+        .param(
+            'request_id',
+            'Request id for applet creation',
+            required=True
+        )
+    )
+    def check_state(self, request_id):
+        cache.create()
+        value = cache.get(request_id)
+        cache.stop()
+        if value is None:
+            return dict()
+        return json.loads(value)
 
     @access.user(scope=TokenScope.DATA_READ)
     @autoDescribeRoute(

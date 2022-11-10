@@ -17,43 +17,32 @@
 #  limitations under the License.
 ###############################################################################
 
-import copy
 import datetime
-import itertools
-import json
 import os
-import six
-import threading
 import re
-import pytz
-import ijson
+import threading
 from uuid import uuid4
 
+import ijson
+from bson import json_util
 from bson.objectid import ObjectId
-from girderformindlogger import events
+
 from girderformindlogger.api.rest import getCurrentUser
-from girderformindlogger.constants import AccessType, SortDir, USER_ROLES, TokenScope, RESPONSE_ITEM_PAGINATION
-from girderformindlogger.exceptions import AccessException, GirderException, \
-    ValidationException
+from girderformindlogger.constants import AccessType, USER_ROLES, RESPONSE_ITEM_PAGINATION
+from girderformindlogger.exceptions import AccessException, ValidationException
+from girderformindlogger.i18n import t
+from girderformindlogger.models.account_profile import AccountProfile
+from girderformindlogger.models.activity import Activity as ActivityModel
+from girderformindlogger.models.applet_library import AppletLibrary
 from girderformindlogger.models.collection import Collection as CollectionModel
+from girderformindlogger.models.events import Events as EventsModel
 from girderformindlogger.models.folder import Folder as FolderModel
 from girderformindlogger.models.group import Group as GroupModel
-from girderformindlogger.models.protoUser import ProtoUser as ProtoUserModel
-from girderformindlogger.models.user import User as UserModel
-from girderformindlogger.models.applet_library import AppletLibrary
-from girderformindlogger.utility.progress import noProgress,                   \
-    setResponseTimeLimit
-from girderformindlogger.models.account_profile import AccountProfile
-from girderformindlogger.models.profile import Profile
-from girderformindlogger.models.events import Events as EventsModel
 from girderformindlogger.models.item import Item as ItemModel
-from girderformindlogger.models.activity import Activity as ActivityModel
-from girderformindlogger.models.token import Token
-from girderformindlogger.external.notification import send_applet_update_notification
-from bson import json_util
+from girderformindlogger.models.profile import Profile
+from girderformindlogger.models.user import User as UserModel
 from girderformindlogger.utility import mail_utils, theme
-from girderformindlogger.i18n import t
-from datetime import datetime as dt
+from girderformindlogger.utility.redis import cache
 
 RETENTION_SET = {
     'day': 1,
@@ -569,7 +558,7 @@ class Applet(FolderModel):
         return successed
 
     def receiveOwnerShip(self, applet, thisUser, email, invitationId):
-        from girderformindlogger.utility import mail_utils, jsonld_expander
+        from girderformindlogger.utility import mail_utils
         from girderformindlogger.models.group import Group
         from girderformindlogger.models.response_folder import ResponseItem
         from girderformindlogger.models.invitation import Invitation
@@ -841,12 +830,16 @@ class Applet(FolderModel):
         appletRole='editor',
         accountId=None,
         encryption={},
-        themeId=None
+        themeId=None,
+        request_guid=None
     ):
         from girderformindlogger.models.protocol import Protocol
         from girderformindlogger.utility import mail_utils
 
         subject = 'applet upload success!'
+        is_success = True
+        applet_id = None
+        message = subject
         try:
             # we have cases to show manager's email to users
             if mail_utils.validateEmailAddress(email) and \
@@ -899,14 +892,19 @@ class Applet(FolderModel):
             })
 
             subject = t('applet_upload_sucess', user.get('lang', 'en'))
-
+            applet_id = applet['applet']['_id'].split('/')[1]
         except Exception as e:
             html = mail_utils.renderTemplate(f'appletUploadFailed.{user.get("lang", "en")}.mako', {
                 'userName': user['firstName'],
                 'appletName': name
             })
             subject = t('applet_upload_failed', user.get('lang', 'en'))
+            is_success = False
+            message = str(e)
 
+        cache.create()
+        cache.set(request_guid, dict(is_success=is_success, applet_id=applet_id, message=message))
+        cache.stop()
         if 'email' in user and not user.get('email_encrypted', True):
             from girderformindlogger.utility.mail_utils import sendMail
             sendMail(
@@ -1246,9 +1244,7 @@ class Applet(FolderModel):
         :type reviewer: dict
         :reutrns: TBD
         """
-        from girderformindlogger.models.ID_code import IDCode
         from girderformindlogger.models.response_folder import ResponseItem
-        from girderformindlogger.models.user import User
         from girderformindlogger.models.protocol import Protocol
         from pymongo import DESCENDING
         import moment
@@ -1717,7 +1713,7 @@ class Applet(FolderModel):
         bufferSize=None
     ):
         from girderformindlogger.utility import jsonld_expander
-        from girderformindlogger.utility.response import responseDateList, last7Days
+        from girderformindlogger.utility.response import last7Days
         from girderformindlogger.models.protocol import Protocol
 
         formatted = {}
