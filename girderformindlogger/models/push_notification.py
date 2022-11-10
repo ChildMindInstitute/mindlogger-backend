@@ -297,7 +297,7 @@ class PushNotification(Scheduler):
         self.event['schedulers'] = []
         self.event['sendTime'] = []
 
-    def deleteJob(job):
+    def deleteJob(self, job):
         id = job.id if isinstance(job, self.job_class) else job
         self.connection.zrem('rq:scheduler:scheduled_jobs', id)
         self.connection.lrem('rq:queue:default', 0, id)
