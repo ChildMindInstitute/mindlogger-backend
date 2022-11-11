@@ -1868,6 +1868,10 @@ def formatLdObject(
 
             return protocol
         elif mesoPrefix=='activity':
+            if refreshCache and 'activity' in obj['meta'] and not '_id' in obj['meta']['activity']:
+                obj['meta']['activity']['_id'] = "activity/{}".format(str(obj['_id']))
+                ActivityModel().setMetadata(obj, obj['meta'])
+
             itemIDMapping = {}
             if obj.get('loadedFromSingleFile', False) or not reimportFromUrl:
                 items = ScreenModel().find({'meta.activityId': obj['_id']})
