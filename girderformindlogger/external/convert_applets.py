@@ -44,7 +44,7 @@ for index, appletId in enumerate(applets, start=1):
     g = []
     activityIRIs = dict.keys(formatted['activities'].copy())
     for activityIRI in activityIRIs:
-        activityLink = formatted['activities'][activityIRI];
+        activityLink = formatted['activities'][activityIRI]
         if isinstance(activityLink, ObjectId):
             activityId = activityLink
         elif isinstance(activityLink, str):
