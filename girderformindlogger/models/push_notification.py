@@ -195,7 +195,7 @@ class PushNotification(Scheduler):
             return
 
         job = self.schedule(
-                scheduled_time=first_launch,  # Time for the first execution.
+                scheduled_time=datetime.utcnow(),  # Time for the first execution.
                 func=send_push_notification,  # Function to be executed.
                 kwargs={
                     "applet_id": self.event.get("applet_id"),
@@ -206,7 +206,7 @@ class PushNotification(Scheduler):
                     "reminder": isReminder
                 },
                 interval=900,  # Time before the function is called again (in seconds).
-                repeat=repeat,  # Repeat the event this number of times.
+                repeat=1,  # Repeat the event this number of times.
             )
         self.event["schedulers"].append(job.id)
 
