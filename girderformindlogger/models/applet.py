@@ -244,6 +244,8 @@ class Applet(FolderModel):
                     "Only coordinators and managers can get all events."
                 )
             schedule = EventsModel().getSchedule(applet['_id'])
+            events = schedule.get('events', {})
+            schedule['actual_events'] = dict(events)
 
         return schedule
 
