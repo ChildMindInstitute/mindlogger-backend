@@ -13,7 +13,7 @@ AMOUNT_MESSAGES_PER_REQUEST = 1000
 
 
 # this handles notifications for activities
-def send_push_notification(applet_id, event_id, activity_id=None, activity_flow_id=None, send_time=None, reminder=False):
+def send_push_notification(applet_id, event_id, activity_id=None, activity_flow_id=None, send_time=None, reminder=False ,type_="event-alert"):
     from girderformindlogger.models.events import Events
     from girderformindlogger.models.profile import Profile
 
@@ -115,7 +115,7 @@ def send_push_notification(applet_id, event_id, activity_id=None, activity_flow_
                 "applet_id": str(applet_id),
                 "activity_id": str(activity_id),
                 "activity_flow_id": str(activity_flow_id),
-                "type": 'event-alert',
+                "type": type_,
                 "is_server": True
             },
             extra_kwargs={"apns_expiration": "0"},

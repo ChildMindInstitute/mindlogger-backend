@@ -28,6 +28,8 @@ from girderformindlogger.models import getRedisConnection
 from rq_scheduler import Scheduler
 
 # If no timeout param is passed to stream, we default to this value
+from girderformindlogger.models.notification_log import NotificationLog
+
 DEFAULT_STREAM_TIMEOUT = 300
 # When new events are seen, we will poll at the minimum interval
 MIN_POLL_INTERVAL = 0.5
@@ -58,6 +60,8 @@ class Notification(Resource):
         self.resourceName = 'notification'
         self.route('GET', ('stream',), self.stream)
         self.route('GET', ('send-push-notifications',), self.sendPushNotifications)
+        self.route('POST', ('logs',), self.add_log)
+        self.route('GET', ('logs',), self.get_logs)
         self.route('GET', (), self.listNotifications)
 
     @disableAuditLog
@@ -152,6 +156,37 @@ class Notification(Resource):
         self.error = 0
 
         return result
+
+    @access.public
+    @autoDescribeRoute(
+        Description('Create notification log')
+        .jsonParam('userId', description='Body', paramType='body')
+    )
+    def add_log(
+        self,
+        userId,
+    ):
+        NotificationLog().create_log(**userId)
+
+    @access.public
+    @autoDescribeRoute(
+        Description('Create notification log')
+        .param('userId', dataType='string', description='User email', required=True)
+        .param('deviceId', dataType='string', description='Device id', required=True)
+        .param('limit', paramType='query', dataType='integer', description='Limit', default=1)
+    )
+    def get_logs(
+        self,
+        userId,
+        deviceId,
+        limit,
+    ):
+        logs = NotificationLog().get_logs(
+            userId,
+            deviceId,
+            limit,
+        )
+        return logs
 
     def get_notifications_by_type(self, notification_type=1):
         return list(PushNotificationModel().find(

@@ -230,6 +230,7 @@ class Applet(FolderModel):
         if not getAllEvents:
             schedule = EventsModel().getScheduleForUser(applet['_id'], user['_id'], eventFilter)
             events = schedule.get('events', {})
+            schedule['actual_events'] = dict(events)
 
             for localEvent in localEvents:
                 eventId = localEvent.get('id', None)
@@ -243,6 +244,8 @@ class Applet(FolderModel):
                     "Only coordinators and managers can get all events."
                 )
             schedule = EventsModel().getSchedule(applet['_id'])
+            events = schedule.get('events', {})
+            schedule['actual_events'] = dict(events)
 
         return schedule
 
