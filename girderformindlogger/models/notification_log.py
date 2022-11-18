@@ -40,18 +40,15 @@ class NotificationLog(Model):
 
         if not notificationDescriptions:
             notificationDescriptions = previous.get('notificationDescriptions', dict())
-            if notificationDescriptions:
-                notificationDescriptionsUpdated = False
+            notificationDescriptionsUpdated = False
 
         if not notificationsInQueue:
             notificationsInQueue = previous.get('notificationsInQueue', dict())
-            if notificationsInQueue:
-                notificationsInQueueUpdated = False
+            notificationsInQueueUpdated = False
 
         if not scheduledNotifications:
             scheduledNotifications = previous.get('scheduledNotifications', dict())
-            if scheduledNotifications:
-                scheduledNotificationsUpdated = False
+            scheduledNotificationsUpdated = False
 
         log = self.save(
             dict(
