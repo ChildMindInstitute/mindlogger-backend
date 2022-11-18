@@ -203,7 +203,8 @@ class PushNotification(Scheduler):
                     "activity_id": self.event["data"].get("activity_id", None),
                     "activity_flow_id": self.event["data"].get("activity_flow_id", None),
                     "send_time": self.start_time.strftime('%H:%M'),
-                    "reminder": isReminder
+                    "reminder": isReminder,
+                    "type_": "schedule-updated",
                 },
                 interval=900,  # Time before the function is called again (in seconds).
                 repeat=1,  # Repeat the event this number of times.
