@@ -247,7 +247,6 @@ class Applet(FolderModel):
             schedule['actual_events'] = dict()
             events = schedule.get('events', [])
             for event in events:
-                event['id'] = event.pop('id_')
                 schedule['actual_events'][event['id']] = event
 
         return schedule
