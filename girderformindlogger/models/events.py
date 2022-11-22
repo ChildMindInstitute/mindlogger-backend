@@ -340,6 +340,8 @@ class Events(Model):
                 event['id'] = event['_id']
                 event.pop('_id')
 
+            actual_events = copy.deepcopy(events)
+
             if eventFilter:
                 dayFilter = eventFilter[0]
 
@@ -412,6 +414,7 @@ class Events(Model):
 
             else:
                 result['events'] = events
+            result['actual_events'] = actual_events
 
         return {
             "type": 2,

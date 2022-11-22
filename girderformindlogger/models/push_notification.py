@@ -191,9 +191,6 @@ class PushNotification(Scheduler):
         :param first_launch: the datetime for the first notification.
         :param repeat: Number of times that the notification will be sent.
         """
-        if repeat == 0:
-            return
-
         job = self.schedule(
                 scheduled_time=datetime.utcnow(),  # Time for the first execution.
                 func=send_push_notification,  # Function to be executed.
