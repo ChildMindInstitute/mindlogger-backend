@@ -230,7 +230,7 @@ class Applet(FolderModel):
         if not getAllEvents:
             schedule = EventsModel().getScheduleForUser(applet['_id'], user['_id'], eventFilter)
             events = schedule.get('events', {})
-            schedule['actual_events'] = dict(events)
+            actual_events = schedule.get('actual_events', [])
 
             for localEvent in localEvents:
                 eventId = localEvent.get('id', None)
@@ -245,9 +245,10 @@ class Applet(FolderModel):
                 )
             schedule = EventsModel().getSchedule(applet['_id'])
             schedule['actual_events'] = dict()
-            events = schedule.get('events', [])
-            for event in events:
-                schedule['actual_events'][str(event['id'])] = event
+            actual_events = schedule.get('events', [])
+
+        for event in actual_events:
+            schedule['actual_events'][str(event['id'])] = event
 
         return schedule
 
