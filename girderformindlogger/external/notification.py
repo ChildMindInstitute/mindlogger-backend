@@ -14,6 +14,7 @@ AMOUNT_MESSAGES_PER_REQUEST = 1000
 
 # this handles notifications for activities
 def send_push_notification(applet_id, event_id, activity_id=None, activity_flow_id=None, send_time=None, reminder=False ,type_="event-alert"):
+    return
     from girderformindlogger.models.events import Events
     from girderformindlogger.models.profile import Profile
 
@@ -137,6 +138,25 @@ def send_push_notification(applet_id, event_id, activity_id=None, activity_flow_
         #     eventsModel.save(event)
 
 
+def send_notification(title:str, body:str, type_:str, device_ids:list):
+    result = push_service.notify_multiple_devices(
+        registration_ids=device_ids,
+        message_title=title,
+        message_body=body,
+        time_to_live=0,
+        data_message={
+            "type": type_,
+            "is_server": True
+        },
+        extra_kwargs={
+            "apns_expiration": str(
+                int((datetime.datetime.utcnow() + datetime.timedelta(hours=8)).microsecond / 1000)
+            )
+        },
+    )
+
+    print(f'Notifications with failure status - {str(result["failure"])}')
+    print(f'Notifications with success status - {str(result["success"])}')
 # this handles other custom notifications
 def send_custom_notification(notification):
     from girderformindlogger.models.user import User as UserModel

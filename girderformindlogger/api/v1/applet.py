@@ -2540,9 +2540,19 @@ class Applet(Resource):
 
         if 'events' in schedule:
             # insert and update events/notifications
+            events = list(schedule['events'])
+            previous_device_ids = EventsModel().get_applet_device_ids(applet['_id'])
             for event in schedule['events']:
                 savedEvent = EventsModel().upsertEvent(event, applet, event.get('id', None))
                 event['id'] = savedEvent['_id']
+            if events:
+                EventsModel().notify_user_about_event_changes(schedule['events'], applet)
+            else:
+                EventsModel().notify_user_about_event_changes(
+                    schedule['events'],
+                    applet,
+                    previous_device_ids
+                )
 
         return schedule if rewrite else EventsModel().getSchedule(applet['_id'])
 
