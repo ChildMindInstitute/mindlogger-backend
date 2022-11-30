@@ -43,10 +43,10 @@ for activityId in affectedActivityIds:
     activity['meta']['activity']['_id'] = "activity/{}".format(str(activityId)) #after import
 
     Folder().setMetadata(folder=activity, metadata=activity['meta'])
-    protocolId = activity['meta']['protocolId']
 
     user = User().findOne({'_id': activity['creatorId']})
-    # res = Activity().getFromUrl(activityUrl, 'activity', user, refreshCache=True, thread=False, meta={'identifier': activityId, 'protocolId': protocolId}) # comment out after first run
+    searchCriteria = {'identifier': activity['meta']['identifier'], 'protocolId': activity['meta']['protocolId']}
+    res = Activity().getFromUrl(activityUrl, 'activity', user, refreshCache=True, thread=False, meta=searchCriteria) # comment out after first run
 
     jsonld_expander.formatLdObject(activity, 'activity', None, refreshCache=True, reimportFromUrl=False)
 
