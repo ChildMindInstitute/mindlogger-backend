@@ -979,7 +979,7 @@ class Applet(FolderModel):
 
                 EventsModel().update({ 'data.activity_id': activityId }, {
                     '$set': {
-                        'data.title': self.preferredName(activity['meta'].get('activity', {})),
+                        'data.title': activity["name"],
                     },
                 })
 
@@ -1006,7 +1006,7 @@ class Applet(FolderModel):
 
                 EventsModel().update({ 'data.activity_flow_id': activityFlowId }, {
                     '$set': {
-                        'data.title': self.preferredName(activityFlow)
+                        'data.title': activityFlow["@id"]
                     }
                 })
 
