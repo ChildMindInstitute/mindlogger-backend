@@ -399,8 +399,9 @@ class Events(Model):
                 for i in range(0, eventFilter[1]):
                     lastEvent = {}
                     availableEvents = {}
+                    duplicate_events = copy.deepcopy(events)
 
-                    for event in events:
+                    for event in duplicate_events:
                         event['valid'], lastAvailableTime = self.dateMatch(event, dayFilter)
 
                         identifier = self.getIdentifier(event)
@@ -419,7 +420,7 @@ class Events(Model):
                         availableEvents[identifier] = event
 
                     data = []
-                    for event in events:
+                    for event in duplicate_events:
                         if event['valid']:
                             data.append(event)
 
@@ -427,12 +428,14 @@ class Events(Model):
                         if value and (value[1]['data'].get('completion', False) or not value[1]['data'].get('availability', False)):
                             data.append(value[1])
 
-                        identifier = self.getIdentifier(event)
-                        if identifier in availableEvents:
-                            availableEvents.pop(identifier)
+                        if value:
+                            _, last_event = value
+                            identifier = self.getIdentifier(last_event)
+                            if identifier in availableEvents:
+                                availableEvents.pop(identifier)
 
                     for card in data:
-                        identifier = self.getIdentifier(event)
+                        identifier = self.getIdentifier(card)
                         if identifier in availableEvents:
                             availableEvents.pop(identifier)
 
@@ -453,7 +456,6 @@ class Events(Model):
                     dayFilter = dayFilter + relativedelta(days=1)
 
                 for event in events:
-                    event.pop('valid')
 
                     if usedEventCards.get(str(event["id"]), False):
                         result["events"][str(event["id"])] = event
