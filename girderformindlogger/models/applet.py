@@ -249,7 +249,21 @@ class Applet(FolderModel):
             actual_events = schedule.get('events', [])
 
         for event in actual_events:
+            is_hidden = False
+            if event['data'].get('activity_id'):
+                activity = FolderModel().findOne({
+                    '_id': event['data']['activity_id']
+                })
+                if activity:
+                    is_hidden = activity['meta']['activity']['reprolib:terms/isVis'][0]['@value']
+            elif event['data'].get('activity_flow_id'):
+                activity_flow = FolderModel().findOne({
+                    '_id': event['data']['activity_flow_id']
+                })
+                if activity_flow:
+                    is_hidden = not activity_flow['meta']['activityFlow']['reprolib:terms/isVis'][0]['@value']
             schedule['actual_events'][str(event['id'])] = event
+            event['isHidden'] = is_hidden
 
         return schedule
 
