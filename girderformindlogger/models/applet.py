@@ -255,13 +255,15 @@ class Applet(FolderModel):
                     '_id': event['data']['activity_id']
                 })
                 if activity:
-                    is_hidden = activity['meta']['activity']['reprolib:terms/isVis'][0]['@value']
+                    is_vis = activity['meta']['activity'].get('reprolib:terms/isVis', [{}])
+                    is_hidden = is_vis[0].get('@value', False)
             elif event['data'].get('activity_flow_id'):
                 activity_flow = FolderModel().findOne({
                     '_id': event['data']['activity_flow_id']
                 })
                 if activity_flow:
-                    is_hidden = not activity_flow['meta']['activityFlow']['reprolib:terms/isVis'][0]['@value']
+                    is_vis = activity_flow['meta']['activityFlow'].get('reprolib:terms/isVis', [{}])
+                    is_hidden = not is_vis[0].get('@value', False)
             schedule['actual_events'][str(event['id'])] = event
             event['isHidden'] = is_hidden
 
