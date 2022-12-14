@@ -6,6 +6,7 @@ from girderformindlogger.models.item import Item
 from girderformindlogger.models.activity import Activity
 from girderformindlogger.models.folder import Folder
 from girderformindlogger.models.user import User
+from girderformindlogger.models.cache import Cache
 from girderformindlogger.utility import jsonld_expander
 from bson.objectid import ObjectId
 
@@ -14,14 +15,8 @@ def prepare_items(activityId):
     items = Item().find(query={'meta.activityId': activityId, 'meta.screen.@type.0': 'reprolib:schemas/Field'}, fields= {"_id": 1})
     itemsCount = items.count()
     print('total', itemsCount)
-    skipUntil = None
     affectedActivityIds = []
     for index, itemId in enumerate(items, start=1):
-        if skipUntil == itemId['_id']:
-            skipUntil = None
-        if skipUntil is not None:
-            continue
-
         item = Item().findOne(itemId)
         print('processing', item['_id'], index, '/', itemsCount)
         affectedActivityIds.append(item['meta']['activityId'])
@@ -41,28 +36,36 @@ def prepare_items(activityId):
 def findInput(name, inputs):
     return next((i for i in inputs if i['schema:name'][0]['@value'] == name), None)
 
+def fix_q1_issue_in_json(id, model):
+    if not 'reprolib:terms/inputs' in model:
+        return False
+    inputs = model['reprolib:terms/inputs']
+    trials = findInput('trials', inputs)
+    if trials is None or not 'schema:itemListElement' in trials:
+        return False
+    print('processing item:', id, model['@id'])
+    itemChanged = False
+    for trial in trials['schema:itemListElement']:
+        if 'q1' == trial['schema:name'][0]['@value']:
+            trial['schema:name'][0]['@value'] = trial['schema:image']
+            trial['schema:image'] = ''
+            itemChanged = True
+
+    return itemChanged
 
 def fix_q1_issue(activityId):
     activityChanged = False
     items = Item().find(query={'meta.activityId': activityId, 'meta.screen': {'$exists': True}})
     for item in items:
-        if not 'reprolib:terms/inputs' in item['meta']['screen']:
-            continue
-        inputs = item['meta']['screen']['reprolib:terms/inputs']
-        trials = findInput('trials', inputs)
-        if trials is None or not 'schema:itemListElement' in trials:
-            continue
-        print('processing item:', item['_id'], item['meta']['screen']['@id'])
-        # trialsIdx = inputs.index(trials)
-        itemChanged = False
-        for trial in trials['schema:itemListElement']:
-            if 'q1' == trial['schema:name'][0]['@value']:
-                trial['schema:name'][0]['@value'] = trial['schema:image']
-                trial['schema:image'] = ''
-                itemChanged = True
-                activityChanged = True
-        if itemChanged:
+        if fix_q1_issue_in_json(item['_id'], item['meta']['screen']):
             Item().setMetadata(item, item['meta'], validate=False)
+            activityChanged = True
+
+        if 'cached' in item:
+            cache = Cache().getFromSourceID('item', item['_id'])
+            if cache is not None and fix_q1_issue_in_json(item['_id'], cache):
+                Cache().updateCache(item['cached'], 'item', item['_id'], 'screen', cache)
+
     return activityChanged
 
 
@@ -75,9 +78,7 @@ def fix_q1_issue_in_versions(activityId):
     print('Fixing ' + str(hCount) + ' historical version(s) of the activity id=' + str(activityId))
     for hActivity in hActivities:
         print('processing activity: ', hActivity['_id'])
-        if fix_q1_issue(hActivity['_id']):
-            print('refreshig activity: ', hActivity['_id'])
-            jsonld_expander.formatLdObject(hActivity, 'activity', None, refreshCache=True, reimportFromUrl=False)
+        fix_q1_issue(hActivity['_id'])
 
 
 def fix_flankers(activityId, reImport = True):
