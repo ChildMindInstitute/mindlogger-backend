@@ -869,13 +869,20 @@ class User(Resource):
             required=True,
             default=None
         )
+        .param(
+            'directoryMode',
+            'Eliminate folders\' applet',
+            required=False,
+            default='true',
+            lower=True
+        )
         .errorResponse('ID was invalid.')
         .errorResponse(
             'You do not have permission to see this account.',
             403
         )
     )
-    def switchAccount(self, accountId = None):
+    def switchAccount(self, accountId = None, directoryMode = 'true'):
         from bson.objectid import ObjectId
         try:
             token = self.getCurrentToken()
@@ -891,7 +898,8 @@ class User(Resource):
 
                 parent = ModelImporter.model(parentType).load(
                     parentId, user=user, level=AccessType.READ, exc=True)
-                folders=FolderModel().childFolders(parentType=parentType,parent=parent,user=user)
+                if directoryMode == 'true':
+                    folders=FolderModel().childFolders(parentType=parentType,parent=parent,user=user)
 
             if not user or not account:
                 raise Exception('error.')
