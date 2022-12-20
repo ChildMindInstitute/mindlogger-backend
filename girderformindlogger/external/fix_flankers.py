@@ -6,6 +6,8 @@ from girderformindlogger.models.item import Item
 from girderformindlogger.models.activity import Activity
 from girderformindlogger.models.folder import Folder
 from girderformindlogger.models.user import User
+from girderformindlogger.models.applet import Applet
+from girderformindlogger.models.account_profile import AccountProfile
 from girderformindlogger.models.cache import Cache
 from girderformindlogger.utility import jsonld_expander
 from bson.objectid import ObjectId
@@ -115,6 +117,34 @@ def main(activityId):
     for activityId in affectedActivityIds:
         fix_flankers(activityId, False)
 
+def get_activities_for_account(email):
+    print('get_activities_for_account for', email)
+    user = User().findOne({'email': User().hash(email), 'email_encrypted': True})
+
+    if user is None:
+        user = User().findOne({'email': email, 'email_encrypted': {'$ne': True}})
+
+    if user is None:
+        raise AccessException('user not found')
+
+    activities = []
+    applets = Applet().getAppletsForUser('manager', user, active=True)
+    for applet in applets:
+        for activityId in applet['meta']['protocol']['activities']:
+            activity = Activity().findOne({'_id': activityId})
+            if activity is None or not 'url' in activity['meta']['activity']:
+                continue
+            url = activity['meta']['activity']['url']
+            if 'mtg137/Flanker_applet' in url or 'ChildMindInstitute/mindlogger-flanker-applet' in url:
+                print('applet', applet['name'], applet['_id'], 'activity', activity['name'], activity['_id'])
+                activities.append(activity)
+    print('activities to process', len(activities))
+    return activities
+
+
 if __name__ == '__main__':
-    activityId = ObjectId('6290ed45e50eef5716db579c')
-    main(activityId)
+    activities = get_activities_for_account('jeligi9407@zneep.com')
+    for activity in activities:
+        main(activity['_id'])
+    # activityId = ObjectId('6290ed45e50eef5716db579c')
+    # main(activityId)
