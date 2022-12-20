@@ -9,6 +9,7 @@ from bson.objectid import ObjectId
 from girderformindlogger import events
 from girderformindlogger.constants import AccessType
 from girderformindlogger.exceptions import ValidationException, GirderException
+from girderformindlogger.external.notification import send_notification
 from girderformindlogger.models.model_base import AccessControlledModel, Model
 from girderformindlogger.models.push_notification import PushNotification as PushNotificationModel
 from girderformindlogger.models.profile import Profile
@@ -130,6 +131,51 @@ class Events(Model):
         newEvent = self.save(newEvent)
 
         return newEvent
+
+    def notify_user_about_event_changes(self, event_list, applet, previous_device_ids=None):
+        if previous_device_ids is None:
+            previous_device_ids = []
+        device_ids = set()
+        if event_list:
+            for event in event_list:
+                if event['data'].get('users'):
+                    device_ids.update(
+                        self.get_applet_device_ids(applet['_id'], event['data']['users'])
+                    )
+                else:
+                    device_ids.update(self.get_applet_device_ids(applet['_id']))
+        else:
+            current_device_ids = self.get_applet_device_ids(applet['_id'])
+            for current_device_id in current_device_ids:
+                device_ids.add(current_device_id)
+        if device_ids:
+            send_notification(
+                'Tap to update the schedule.',
+                'Your schedule has been changed, tap to update.',
+                'schedule-updated',
+                list(device_ids)
+            )
+
+    @staticmethod
+    def get_applet_device_ids(applet_id, users=None) -> list:
+        if not users:
+            profiles = ProfileModel().find(
+                query=dict(appletId=applet_id, profile=True), fields=['deviceId']
+            )
+        else:
+            profiles = ProfileModel().find(
+                query=dict(
+                    appletId=applet_id,
+                    profile=True,
+                    _id={'$in': users}
+                ), fields=['deviceId']
+            )
+
+        device_ids = set()
+        for profile in profiles:
+            if profile['deviceId']:
+                device_ids.add(str(profile['deviceId']))
+        return list(device_ids)
 
     def updateIndividualSchedulesParameter(self, newEvent, oldEvent):
         new = newEvent['data']['users'] if 'users' in newEvent['data'] else []
@@ -340,6 +386,8 @@ class Events(Model):
                 event['id'] = event['_id']
                 event.pop('_id')
 
+            actual_events = copy.deepcopy(events)
+
             if eventFilter:
                 dayFilter = eventFilter[0]
 
@@ -414,6 +462,7 @@ class Events(Model):
 
             else:
                 result['events'] = events
+            result['actual_events'] = actual_events
 
         return {
             "type": 2,

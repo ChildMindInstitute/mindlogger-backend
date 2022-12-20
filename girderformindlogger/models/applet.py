@@ -230,6 +230,8 @@ class Applet(FolderModel):
         if not getAllEvents:
             schedule = EventsModel().getScheduleForUser(applet['_id'], user['_id'], eventFilter)
             events = schedule.get('events', {})
+            actual_events = schedule.pop('actual_events', [])
+            schedule['actual_events'] = dict()
 
             for localEvent in localEvents:
                 eventId = localEvent.get('id', None)
@@ -243,6 +245,27 @@ class Applet(FolderModel):
                     "Only coordinators and managers can get all events."
                 )
             schedule = EventsModel().getSchedule(applet['_id'])
+            schedule['actual_events'] = dict()
+            actual_events = schedule.get('events', [])
+
+        for event in actual_events:
+            is_hidden = False
+            if event['data'].get('activity_id'):
+                activity = FolderModel().findOne({
+                    '_id': event['data']['activity_id']
+                })
+                if activity:
+                    is_vis = activity['meta']['activity'].get('reprolib:terms/isVis', [{}])
+                    is_hidden = is_vis[0].get('@value', False)
+            elif event['data'].get('activity_flow_id'):
+                activity_flow = FolderModel().findOne({
+                    '_id': event['data']['activity_flow_id']
+                })
+                if activity_flow:
+                    is_vis = activity_flow['meta']['activityFlow'].get('reprolib:terms/isVis', [{}])
+                    is_hidden = not is_vis[0].get('@value', False)
+            schedule['actual_events'][str(event['id'])] = event
+            event['isHidden'] = is_hidden
 
         return schedule
 

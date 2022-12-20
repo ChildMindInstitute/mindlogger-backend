@@ -191,11 +191,8 @@ class PushNotification(Scheduler):
         :param first_launch: the datetime for the first notification.
         :param repeat: Number of times that the notification will be sent.
         """
-        if repeat == 0:
-            return
-
         job = self.schedule(
-                scheduled_time=first_launch,  # Time for the first execution.
+                scheduled_time=datetime.utcnow(),  # Time for the first execution.
                 func=send_push_notification,  # Function to be executed.
                 kwargs={
                     "applet_id": self.event.get("applet_id"),
@@ -203,10 +200,11 @@ class PushNotification(Scheduler):
                     "activity_id": self.event["data"].get("activity_id", None),
                     "activity_flow_id": self.event["data"].get("activity_flow_id", None),
                     "send_time": self.start_time.strftime('%H:%M'),
-                    "reminder": isReminder
+                    "reminder": isReminder,
+                    "type_": "schedule-updated",
                 },
                 interval=900,  # Time before the function is called again (in seconds).
-                repeat=repeat,  # Repeat the event this number of times.
+                repeat=1,  # Repeat the event this number of times.
             )
         self.event["schedulers"].append(job.id)
 

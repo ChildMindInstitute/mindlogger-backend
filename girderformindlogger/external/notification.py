@@ -5,7 +5,6 @@ from pyfcm import FCMNotification
 from girderformindlogger.utility.notification import FirebaseNotification
 from collections import defaultdict
 
-
 push_service = FirebaseNotification(
         api_key='AAAAJOyOEz4:APA91bFudM5Cc1Qynqy7QGxDBa-2zrttoRw6ZdvE9PQbfIuAB9SFvPje7DcFMmPuX1IizR1NAa7eHC3qXmE6nmOpgQxXbZ0sNO_n1NITc1sE5NH3d8W9ld-cfN7sXNr6IAOuodtEwQy-',
         proxy_dict={})
@@ -14,7 +13,8 @@ AMOUNT_MESSAGES_PER_REQUEST = 1000
 
 
 # this handles notifications for activities
-def send_push_notification(applet_id, event_id, activity_id=None, activity_flow_id=None, send_time=None, reminder=False):
+def send_push_notification(applet_id, event_id, activity_id=None, activity_flow_id=None, send_time=None, reminder=False ,type_="event-alert"):
+    return
     from girderformindlogger.models.events import Events
     from girderformindlogger.models.profile import Profile
 
@@ -98,48 +98,65 @@ def send_push_notification(applet_id, event_id, activity_id=None, activity_flow_
 
         profiles = list(Profile().find(query=query, fields=['deviceId', 'badge', 'userId']))
 
-        print('profiles ', profiles)
         # ordered by badge
-        message_requests = defaultdict(list)
+        device_ids = []
         for profile in profiles:
-            message_requests[profile["badge"]].append(profile["deviceId"])
+            device_ids.append(profile["deviceId"])
 
-        for badge in message_requests:
-            message_title = event['data']['title']
-            message_body  = event['data']['description']
+        title = 'Tap to update the schedule.'
+        body = 'Your schedule has been changed, tap to update.'
 
-            if reminder:
-                message_title = f'This is a reminder to take {message_title}.'
+        result = push_service.notify_multiple_devices(
+            registration_ids=device_ids,
+            message_title=title,
+            message_body=body,
+            time_to_live=0,
+            data_message={
+                "event_id": str(event_id),
+                "applet_id": str(applet_id),
+                "activity_id": str(activity_id),
+                "activity_flow_id": str(activity_flow_id),
+                "type": type_,
+                "is_server": True
+            },
+            extra_kwargs={"apns_expiration": "0"},
+        )
 
-            result = push_service.notify_multiple_devices(
-                registration_ids=message_requests[badge],
-                message_title=message_title,
-                message_body=message_body,
-                time_to_live=0,
-                data_message={
-                    "event_id": str(event_id),
-                    "applet_id": str(applet_id),
-                    "activity_id": str(activity_id),
-                    "activity_flow_id": str(activity_flow_id),
-                    "type": 'event-alert'
-                },
-                extra_kwargs={"apns_expiration": "0"},
-                badge=int(badge) +1
-            )
-
-            print(f'Notifications with failure status - {str(result["failure"])}')
-            print(f'Notifications with success status - {str(result["success"])}')
+        print(f'Notifications with failure status - {str(result["failure"])}')
+        print(f'Notifications with success status - {str(result["success"])}')
 
         Profile().updateProfileBadgets(profiles)
 
         # if random time we will reschedule it in time between 23:45 and 23:59
-        if not reminder and event['data']['notifications'][0]['random'] and now.hour == 23 and 59 >= now.minute >= 45:
-            eventsModel.rescheduleRandomNotifications(event)
-        elif abs(diff-timezone) * 30 >= 1: # reschedule notification if difference is larger than 2 min
-            print('rescheduling event ...')
-            eventsModel.setSchedule(event)
-            eventsModel.save(event)
+        # if not reminder and event['data']['notifications'][0][
+        #     'random'] and now.hour == 23 and 59 >= now.minute >= 45:
+        #     eventsModel.rescheduleRandomNotifications(event)
+        # elif abs(
+        #     diff - timezone) * 30 >= 1:  # reschedule notification if difference is larger than 2 min
+        #     print('rescheduling event ...')
+        #     eventsModel.setSchedule(event)
+        #     eventsModel.save(event)
 
+
+def send_notification(title:str, body:str, type_:str, device_ids:list):
+    result = push_service.notify_multiple_devices(
+        registration_ids=device_ids,
+        message_title=title,
+        message_body=body,
+        time_to_live=0,
+        data_message={
+            "type": type_,
+            "is_server": True
+        },
+        extra_kwargs={
+            "apns_expiration": str(
+                int((datetime.datetime.utcnow() + datetime.timedelta(hours=8)).microsecond / 1000)
+            )
+        },
+    )
+
+    print(f'Notifications with failure status - {str(result["failure"])}')
+    print(f'Notifications with success status - {str(result["success"])}')
 # this handles other custom notifications
 def send_custom_notification(notification):
     from girderformindlogger.models.user import User as UserModel
@@ -159,11 +176,13 @@ def send_custom_notification(notification):
                 }
             )
 
+
 def send_applet_update_notification(applet, isDeleted=False, profiles=[]):
     from girderformindlogger.models.profile import Profile
 
     applet_id = applet['_id']
-    appletName = applet['meta']['applet'].get('displayName', applet.get('displayName', 'new applet'))
+    appletName = applet['meta']['applet'].get('displayName',
+                                              applet.get('displayName', 'new applet'))
 
     profiles = Profile().get_profiles_by_applet_id(applet_id) if not profiles else profiles
 
@@ -173,9 +192,9 @@ def send_applet_update_notification(applet, isDeleted=False, profiles=[]):
         if (isDeleted or not profile.get('deactivated', False)) and profile.get('deviceId', None):
             message_requests[profile['badge']].append(profile['deviceId'])
 
-    message_title='Applet Update',
-    message_body= f'Content of your applet ({appletName}) was updated by editor.',
-    data_message={
+    message_title = 'Applet Update',
+    message_body = f'Content of your applet ({appletName}) was updated by editor.',
+    data_message = {
         "applet_id": str(applet_id),
         "type": 'applet-update-alert'
     }
@@ -189,10 +208,10 @@ def send_applet_update_notification(applet, isDeleted=False, profiles=[]):
         result = push_service.notify_multiple_devices(
             registration_ids=message_requests[badge],
             message_title=message_title,
-            message_body= message_body,
+            message_body=message_body,
             time_to_live=0,
             data_message=data_message,
-            badge=int(badge) +1
+            badge=int(badge) + 1
         )
 
     Profile().updateProfileBadgets(profiles)
