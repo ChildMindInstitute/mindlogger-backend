@@ -132,10 +132,9 @@ def get_activities_for_account(email):
     for applet in applets:
         for activityId in applet['meta']['protocol']['activities']:
             activity = Activity().findOne({'_id': activityId})
-            if activity is None or not 'url' in activity['meta']['activity']:
+            if activity is None or not '@id' in activity['meta']['activity']:
                 continue
-            url = activity['meta']['activity']['url']
-            if 'mtg137/Flanker_applet' in url or 'ChildMindInstitute/mindlogger-flanker-applet' in url:
+            if activity['meta']['activity']['@id'] == 'Flanker_360':
                 print('applet', applet['name'], applet['_id'], 'activity', activity['name'], activity['_id'])
                 activities.append(activity)
     print('activities to process', len(activities))
