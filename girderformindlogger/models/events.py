@@ -372,6 +372,29 @@ class Events(Model):
 
         return activityId or activityFlowId
 
+    def _get_actual_events(self, events_: list):
+        actual_events = []
+        today = datetime.date.today()
+        for event in events_:
+            data = event.get('data', dict())
+            eventType = data.get('eventType')
+            schedule = event.get('schedule', dict())
+            selectedDate = datetime.date(
+                year=schedule.get('year', [1996])[0],
+                month=schedule.get('month', [0])[0] + 1,
+                day=schedule.get('dayOfMonth', [1])[0],
+            )
+            if eventType in ['Daily', 'Weekly', 'Monthly']:
+                actual_events.append(event)
+                continue
+            elif selectedDate < today - datetime.timedelta(days=8):
+                continue
+            elif selectedDate > today + datetime.timedelta(days=14):
+                continue
+
+            actual_events.append(event)
+        return actual_events
+
     def getScheduleForUser(self, applet_id, user_id, eventFilter=None):
         profile = Profile().findOne({'appletId': ObjectId(applet_id), 'userId': ObjectId(user_id)})
         result = {
@@ -386,7 +409,7 @@ class Events(Model):
                 event['id'] = event['_id']
                 event.pop('_id')
 
-            actual_events = copy.deepcopy(events)
+            actual_events = self._get_actual_events(copy.deepcopy(events))
 
             if eventFilter:
                 dayFilter = eventFilter[0]
