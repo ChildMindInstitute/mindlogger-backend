@@ -11,7 +11,7 @@ from girderformindlogger.models.account_profile import AccountProfile
 from girderformindlogger.models.cache import Cache
 from girderformindlogger.utility import jsonld_expander
 from bson.objectid import ObjectId
-
+import json
 
 def prepare_items(activityId):
     items = Item().find(query={'meta.activityId': activityId, 'meta.screen.@type.0': 'reprolib:schemas/Field'}, fields= {"_id": 1})
@@ -38,6 +38,7 @@ def prepare_items(activityId):
 def findInput(name, inputs):
     return next((i for i in inputs if i['schema:name'][0]['@value'] == name), None)
 
+
 def fix_q1_issue_in_json(id, model):
     if not 'reprolib:terms/inputs' in model:
         return False
@@ -54,6 +55,7 @@ def fix_q1_issue_in_json(id, model):
             itemChanged = True
 
     return itemChanged
+
 
 def fix_q1_issue(activityId):
     activityChanged = False
@@ -83,6 +85,12 @@ def fix_q1_issue_in_versions(activityId):
         fix_q1_issue(hActivity['_id'])
 
 
+def find_applet_by_activity(activity):
+    protocolId = activity['meta']['protocolId']
+    applet = Folder().findOne(query={'meta.applet': {'$exists': True}, 'meta.applet.deleted': {'$exists': False}, 'meta.protocol._id': "protocol/{}".format(str(protocolId))})
+    return applet
+
+
 def fix_flankers(activityId, reImport = True):
     activityUrl = 'https://raw.githubusercontent.com/ChildMindInstitute/mindlogger-flanker-applet/master/activities/Flanker/Flanker_schema'
     print('Refreshing affected activity id=' + str(activityId))
@@ -98,9 +106,11 @@ def fix_flankers(activityId, reImport = True):
     searchCriteria = {'identifier': activity['meta']['identifier'], 'protocolId': activity['meta']['protocolId']}
     if reImport:
         res = Activity().getFromUrl(activityUrl, 'activity', user, refreshCache=True, thread=False, meta=searchCriteria) # comment out after first run
-    # refresh cache for the affected activities
+    # refresh cache for the affected activity
     jsonld_expander.formatLdObject(activity, 'activity', None, refreshCache=True, reimportFromUrl=False)
-
+    applet = find_applet_by_activity(activity)
+    print('Refreshing affected applet id:', str(applet['_id']))
+    jsonld_expander.formatLdObject(applet, 'applet', None, refreshCache=True, reimportFromUrl=False)
 
 
 def main(activityId):
