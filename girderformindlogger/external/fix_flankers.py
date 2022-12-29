@@ -91,6 +91,14 @@ def find_applet_by_activity(activity):
     return applet
 
 
+def fix_editing(applet):
+    if 'editing' in applet['meta']['applet'] and applet['meta']['applet']['editing']:
+        applet['meta']['applet']['editing'] = False
+        Folder().setMetadata(folder=applet, metadata=applet['meta'])
+        return True
+    return False
+
+
 def fix_flankers(activityId, reImport = True):
     activityUrl = 'https://raw.githubusercontent.com/ChildMindInstitute/mindlogger-flanker-applet/master/activities/Flanker/Flanker_schema'
     print('Refreshing affected activity id=' + str(activityId))
@@ -110,6 +118,7 @@ def fix_flankers(activityId, reImport = True):
     jsonld_expander.formatLdObject(activity, 'activity', None, refreshCache=True, reimportFromUrl=False)
     applet = find_applet_by_activity(activity)
     print('Refreshing affected applet id:', str(applet['_id']))
+    fix_editing(applet)
     jsonld_expander.formatLdObject(applet, 'applet', None, refreshCache=True, reimportFromUrl=False)
 
 
@@ -157,3 +166,7 @@ if __name__ == '__main__':
         main(activity['_id'])
     # activityId = ObjectId('6290ed45e50eef5716db579c')
     # main(activityId)
+    # fix_editing for applet
+    # applet = Folder().findOne(query={'_id': ObjectId('627d1e2de50eef3d5567ee55')})
+    # if fix_editing(applet):
+    #     jsonld_expander.formatLdObject(applet, 'applet', None, refreshCache=True, reimportFromUrl=False)

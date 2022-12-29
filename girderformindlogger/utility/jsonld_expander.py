@@ -1819,7 +1819,7 @@ def formatLdObject(
                 activityIDMapping = {}
 
                 for activity in activities:
-                    formatted = formatLdObject(activity, 'activity', user, refreshCache=refreshCache, reimportFromUrl=reimportFromUrl)
+                    formatted = formatLdObject(activity, 'activity', user, refreshCache=refreshCache, reimportFromUrl=False)
                     if refreshCache:
                         createCache(activity, formatted, 'activity', user, modelClasses)
 
@@ -1835,7 +1835,7 @@ def formatLdObject(
 
                 activityFlowIdMapping = {}
                 for activityFlow in activityFlows:
-                    formatted = formatLdObject(activityFlow, 'activityFlow', user, refreshCache=refreshCache, reimportFromUrl=reimportFromUrl)
+                    formatted = formatLdObject(activityFlow, 'activityFlow', user, refreshCache=refreshCache, reimportFromUrl=False)
                     if refreshCache:
                         createCache(activityFlow, formatted, 'activityFlow', user, modelClasses)
 
@@ -1884,7 +1884,7 @@ def formatLdObject(
                     if not 'identifier' in item['meta']:
                         item['meta']['identifier'] = '{}/{}'.format(str(obj['_id']), str(item['_id']))
                     identifier = item['meta']['identifier']
-                    itemFormatted = formatLdObject(item, 'screen', user, refreshCache=refreshCache, reimportFromUrl=reimportFromUrl)
+                    itemFormatted = formatLdObject(item, 'screen', user, refreshCache=refreshCache, reimportFromUrl=False)
                     activity['items'][identifier] = itemFormatted
 
                     key = '{}/{}'.format(str(item['meta']['activityId']), str(item['_id']))
