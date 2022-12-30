@@ -2699,7 +2699,8 @@ def authorizeReviewers(assignment):
 
 
 def _convert_to_utc(timestamp, tz):
-    return timestamp + tz.utcoffset(datetime.datetime.fromtimestamp(timestamp/1000)).seconds*1000
+    offset = tz.utcoffset(datetime.datetime.fromtimestamp(timestamp / 1000))
+    return timestamp + (offset.days*24*3600 + offset.seconds)*1000
 
 
 def _invite(applet, user, role, rsvp, subject):
