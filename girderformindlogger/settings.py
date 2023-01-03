@@ -69,7 +69,7 @@ class SettingDefault(object):
         # changes to the CORS origin
         SettingKey.CORS_ALLOW_HEADERS:
             'Accept-Encoding, Authorization, Content-Disposition, '
-            'Content-Type, Cookie, Girder-Authorization, Girder-OTP, Girder-Token',
+            'Content-Type, Cookie, Girder-Authorization, Girder-OTP, Girder-Token, Timezone',
         SettingKey.CORS_ALLOW_METHODS: 'GET, POST, PUT, HEAD, DELETE',
         SettingKey.CORS_ALLOW_ORIGIN: '',
         SettingKey.CORS_EXPOSE_HEADERS: 'Girder-Total-Count',

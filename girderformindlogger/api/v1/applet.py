@@ -23,10 +23,12 @@ import os
 import threading
 import time
 import uuid
+import cherrypy
 
 from bson import json_util
 from bson.objectid import ObjectId
 from pymongo import DESCENDING
+import pytz
 
 from girderformindlogger.api import access
 from girderformindlogger.constants import AccessType, TokenScope, \
@@ -2511,6 +2513,7 @@ class Applet(Resource):
         .errorResponse('Read access was denied for this applet.', 403)
     )
     def setSchedule(self, applet, rewrite, deleted, schedule, **kwargs):
+        tz = pytz.timezone(cherrypy.request.headers.get('Timezone'))
         thisUser = self.getCurrentUser()
         if not AppletModel().isCoordinator(applet['_id'], thisUser):
             raise AccessException(
@@ -2524,6 +2527,11 @@ class Applet(Resource):
             if 'id' in event:
                 event['id'] = ObjectId(event['id'])
                 assigned[event['id']] = True
+            if 'schedule' in event:
+                if 'start' in event['schedule']:
+                    event.get('schedule')['start'] = _convert_to_utc(event['schedule']['start'], tz)
+                if 'end' in event['schedule']:
+                    event.get('schedule')['end'] = _convert_to_utc(event['schedule']['end'], tz)
 
         if rewrite:
             original = EventsModel().getSchedule(applet['_id'])
@@ -2688,6 +2696,11 @@ def authorizeReviewers(assignment):
             user
         ) for user in allUsers]
     return(None)
+
+
+def _convert_to_utc(timestamp, tz):
+    offset = tz.utcoffset(datetime.datetime.fromtimestamp(timestamp / 1000))
+    return timestamp + (offset.days*24*3600 + offset.seconds)*1000
 
 
 def _invite(applet, user, role, rsvp, subject):
