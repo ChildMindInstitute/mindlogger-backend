@@ -572,12 +572,13 @@ def cacheProtocolContent(protocol, document, user, editExisting=False):
 
         cacheModel = CacheModel()
 
-        if editExisting and 'baseVersion' in document:
-            latestItem = ItemModel().findOne({
-                'folderId': contentFolder['_id'],
-                'version': document['baseVersion']
-            })
+        latestItem = ItemModel().findOne({
+            'folderId': contentFolder['_id'],
+            'version': document['baseVersion'],
+            'content': {'$exists': True}
+        }) if editExisting and 'baseVersion' in document else None
 
+        if latestItem is not None:
             latestDocument = json_util.loads(latestItem['content'])
 
             for key in dict.keys(latestDocument['protocol']['activities']):

@@ -627,6 +627,7 @@ class Applet(Resource):
 
         items = list(ItemModel().find({
             'folderId': protocol['meta'].get('contentId', None),
+            'version': {'$exists': True},
         }, fields=['version', 'created'], sort=[("created", DESCENDING)])) if 'contentId' in protocol['meta'] else []
 
         if retrieveDate:
