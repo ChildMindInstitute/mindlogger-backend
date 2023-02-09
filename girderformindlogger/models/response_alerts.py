@@ -134,7 +134,7 @@ class ResponseAlerts(AESEncryption):
                 else:
                     viewerProfile = viewerProfiles[appletId]
 
-                data = Profile().getProfileData(profile, viewerProfile)
+                data = Profile().getProfileData(profile, viewerProfile) if viewerProfile is not None else None
 
                 if data:
                     userProfiles[str(alert['profileId'])] = data
