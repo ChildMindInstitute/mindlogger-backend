@@ -74,7 +74,7 @@ def accounts_sheet_row(main_account, admins_ids):
             diff_months = diff_month(datetime.now(), tokens[0]['created'])
             if diff_months <= 6:
                 loggedLast6 = loggedLast6 + 1
-            elif diff_months <= 12:
+            if diff_months <= 12:
                 loggedLast12 = loggedLast12 + 1
 
     owner = UserModel().load(main_account['userId'], force=True)
@@ -94,9 +94,9 @@ def accounts_sheet_row(main_account, admins_ids):
             diff_months = diff_month(datetime.now(), responses[0]['created'])
             if diff_months <= 6:
                 appletsLast6 = appletsLast6 + 1
-            elif diff_months <= 12:
+            if diff_months <= 12:
                 appletsLast12 = appletsLast12 + 1
-            elif diff_months <= 24:
+            if diff_months <= 24:
                 appletsLast24 = appletsLast24 + 1
 
             responsesWithinAccount = responsesWithinAccount + responses.count()
