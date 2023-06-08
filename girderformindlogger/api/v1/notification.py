@@ -23,6 +23,7 @@ from girderformindlogger.models.setting import Setting
 from girderformindlogger.settings import SettingKey
 from girderformindlogger.utility import JsonEncoder
 from girderformindlogger.api import access
+from girderformindlogger.exceptions import ValidationException
 
 from girderformindlogger.models import getRedisConnection
 from rq_scheduler import Scheduler
@@ -166,6 +167,9 @@ class Notification(Resource):
         self,
         userId,
     ):
+        for field in ['userId', 'deviceId', 'actionType']:
+            if field not in userId:
+                raise ValidationException('Missing required field', field)
         NotificationLog().create_log(**userId)
 
     @access.public
