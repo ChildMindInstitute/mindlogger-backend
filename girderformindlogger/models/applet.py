@@ -1563,6 +1563,9 @@ class Applet(FolderModel):
     def isManager(self, appletId, user):
         return self._hasRole(appletId, user, 'manager')
 
+    def isUser(self, appletId, user):
+        return self._hasRole(appletId, user, 'user')
+
     def isReviewer(self, appletId, user):
         return self._hasRole(appletId, user, 'reviewer')
 
