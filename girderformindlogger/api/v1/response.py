@@ -32,12 +32,14 @@ from girderformindlogger.models.applet import Applet as AppletModel
 from girderformindlogger.models.folder import Folder
 from girderformindlogger.models.response_folder import ResponseFolder as \
     ResponseFolderModel, ResponseItem as ResponseItemModel
+from girderformindlogger.models.account_profile import AccountProfile
 from girderformindlogger.models.response_tokens import ResponseTokens
 from girderformindlogger.models.item import Item as ItemModel
 from girderformindlogger.models.response_alerts import ResponseAlerts
 from girderformindlogger.models.upload import Upload as UploadModel
 from girderformindlogger.models.note import Note as NoteModel
 from girderformindlogger.utility import mail_utils
+from girderformindlogger.utility import file_storage
 from bson import json_util
 from pymongo import DESCENDING
 from bson import ObjectId
@@ -68,6 +70,8 @@ class ResponseItem(Resource):
                         use_threads=False)
 
         self._model = ResponseItemModel()
+        self.route('GET', (':applet', 'checkFileUploaded'), self.checkFileUploaded)
+        self.route('GET', (':applet', 'checkResponseExists'), self.checkResponseExists)
         self.route('GET', (':applet',), self.getResponsesForApplet)
         self.route('GET', ('last7Days', ':applet'), self.getLast7Days)
         self.route('GET', ('tokens', ':applet'), self.getResponseTokens)
@@ -675,6 +679,108 @@ class ResponseItem(Resource):
                 tokenId=updateInfo['changes'].get('id')
             )
 
+
+    @access.user(scope=TokenScope.DATA_READ)
+    @autoDescribeRoute(
+        Description('Check if file exists in db and s3')
+        .modelParam(
+            'applet',
+            model=AppletModel,
+            level=AccessType.READ,
+            destName='applet',
+            description='The ID of the applet'
+        )
+        .param('fileIds', 'comma-separated file ids',
+               required=True, default=None)
+        .errorResponse('The applet ID was invalid.')
+        .errorResponse(
+            'Read access was denied for this applet for this user.',
+            403
+        )
+    )
+    def checkFileUploaded(
+        self,
+        applet,
+        fileIds
+    ):
+        thisUser = self.getCurrentUser()
+        if not AppletModel().isUser(applet['_id'], thisUser):
+            raise AccessException('Read access was denied for this applet for this user.')
+
+        owner_account = AccountProfile().findOne({
+            'applets.owner': applet.get('_id')
+        })
+        if owner_account and owner_account.get('db', None):
+            self._model.reconnectToDb(db_uri=owner_account.get('db', None))
+
+        owner_client = owner_account and owner_account.get('s3Bucket', None) and owner_account.get('accessKeyId', None)
+        storage_client = file_storage.resolve_from_account(owner_account) if owner_client else file_storage.resolve_default()
+
+        result = []
+        for fileId in fileIds.split(','):
+            exists = False
+            item = self._model.findOne(query={'meta.fileIds': fileId, 'meta.applet.@id': applet['_id']})
+            if item:
+                fileResponses = item['meta'].get('responses', {})
+                for key, fileResponse in fileResponses.items():
+                    fileValue = fileResponse.get('value', {})
+                    if fileId == fileValue.get('fileId'):
+                        uri = fileValue.get('uri', '')
+                        if storage_client and storage_client.checkPathExists(uri):
+                            exists = True
+
+            result.append({'fileId': fileId, 'exists': exists})
+
+        return result
+
+
+    @access.user(scope=TokenScope.DATA_READ)
+    @autoDescribeRoute(
+        Description('Check if response exists in db')
+        .modelParam(
+            'applet',
+            model=AppletModel,
+            level=AccessType.READ,
+            destName='applet',
+            description='The ID of the applet'
+        )
+        .modelParam(
+            'activity',
+            model=ActivityModel,
+            level=AccessType.READ,
+            destName='activity',
+            description='The ID of the Activity this response is to.'
+        )
+        .param('activityStartedAt', 'timestamp',
+               required=True, default=None, dataType='integer')
+        .errorResponse('The applet ID was invalid.')
+        .errorResponse(
+            'Read access was denied for this applet for this user.',
+            403
+        )
+    )
+    def checkResponseExists(
+        self,
+        applet,
+        activity,
+        activityStartedAt
+    ):
+        thisUser = self.getCurrentUser()
+        if not AppletModel().isUser(applet['_id'], thisUser):
+            raise AccessException('Read access was denied for this applet for this user.')
+
+        owner_account = AccountProfile().findOne({
+            'applets.owner': applet.get('_id')
+        })
+        if owner_account and owner_account.get('db', None):
+            self._model.reconnectToDb(db_uri=owner_account.get('db', None))
+
+        item = self._model.findOne(query={'meta.responseStarted': activityStartedAt, 'meta.applet.@id': applet['_id'], 'meta.activity.@id': activity['_id']})
+        return {
+            'exists': item is not None
+        }
+
+
     @access.public
     @autoDescribeRoute(
         Description('Create a new user response item.')
@@ -859,6 +965,7 @@ class ResponseItem(Resource):
 
             # for each blob in the parameter, upload it to a File under the item.
             for key, value in params.items():
+                fileId = value.filename
                 # upload the value (a blob)
                 um = UploadModel()
                 filename = "{}.{}".format(
@@ -888,9 +995,12 @@ class ResponseItem(Resource):
 
 
                 value={}
+                if fileId is not None:
+                    value['fileId']=fileId
                 value['filename']=filename
                 value['fromLibrary']=False
                 value['size']=metadata['responses'][key]['size']
+                value['type']=metadata['responses'][key]['type']
                 value['type']=metadata['responses'][key]['type']
                 if owner_account and owner_account.get('s3Bucket', None):
                     if bucketType and 'GCP' in bucketType or 'gcp' in bucketType:
@@ -905,6 +1015,12 @@ class ResponseItem(Resource):
                 metadata['responses'][key]['value'] = value
                 del metadata['responses'][key]['size']
                 del metadata['responses'][key]['type']
+
+                if fileId is not None:
+                    fileIds = metadata.get('fileIds', [])
+                    if not fileId in fileIds:
+                        fileIds.append(fileId)
+                        metadata['fileIds'] = fileIds
 
             if metadata:
                 if metadata.get('dataSource', None):
