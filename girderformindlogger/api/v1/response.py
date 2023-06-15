@@ -28,6 +28,7 @@ from girderformindlogger.constants import AccessType, TokenScope
 from girderformindlogger.exceptions import AccessException, ValidationException
 from girderformindlogger.api import access
 from girderformindlogger.models.activity import Activity as ActivityModel
+from girderformindlogger.models.response_log import ResponseLog as ResponseLogModel
 from girderformindlogger.models.applet import Applet as AppletModel
 from girderformindlogger.models.folder import Folder
 from girderformindlogger.models.response_folder import ResponseFolder as \
@@ -690,8 +691,16 @@ class ResponseItem(Resource):
             destName='applet',
             description='The ID of the applet'
         )
-        .param('fileIds', 'comma-separated file ids',
-               required=True, default=None)
+        .param('fileIds', 'comma-separated file ids', required=True, default=None)
+        .modelParam(
+            'activityId',
+            model=ActivityModel,
+            level=AccessType.READ,
+            destName='activity',
+            description='The ID of the Activity this response is to.'
+        )
+        .param('activityStartedAt', 'timestamp', required=True, default=None, dataType='integer')
+        .param('deviceId', 'The mobile device identifier', required=False)
         .errorResponse('The applet ID was invalid.')
         .errorResponse(
             'Read access was denied for this applet for this user.',
@@ -701,8 +710,18 @@ class ResponseItem(Resource):
     def checkFileUploaded(
         self,
         applet,
-        fileIds
+        fileIds,
+        activity,
+        activityStartedAt,
+        deviceId
     ):
+        log = None
+        try:
+            log = ResponseLogModel().addCheckFileUploadedLog(applet['_id'], activity['_id'], fileIds, activityStartedAt, self.getCurrentUser(), deviceId)
+        except Exception as ex:
+            print('Response Log Exception:')
+            print(ex)
+
         thisUser = self.getCurrentUser()
         if not AppletModel().isUser(applet['_id'], thisUser):
             raise AccessException('Read access was denied for this applet for this user.')
@@ -731,6 +750,10 @@ class ResponseItem(Resource):
 
             result.append({'fileId': fileId, 'exists': exists})
 
+        if log is not None:
+            log['result'] = result
+            ResponseLogModel().markSuccess(log)
+
         return result
 
 
@@ -745,14 +768,14 @@ class ResponseItem(Resource):
             description='The ID of the applet'
         )
         .modelParam(
-            'activity',
+            'activityId',
             model=ActivityModel,
             level=AccessType.READ,
             destName='activity',
             description='The ID of the Activity this response is to.'
         )
-        .param('activityStartedAt', 'timestamp',
-               required=True, default=None, dataType='integer')
+        .param('activityStartedAt', 'timestamp', required=True, default=None, dataType='integer')
+        .param('deviceId', 'The mobile device identifier', required=False)
         .errorResponse('The applet ID was invalid.')
         .errorResponse(
             'Read access was denied for this applet for this user.',
@@ -763,8 +786,16 @@ class ResponseItem(Resource):
         self,
         applet,
         activity,
-        activityStartedAt
+        activityStartedAt,
+        deviceId
     ):
+        log = None
+        try:
+            log = ResponseLogModel().addCheckResponseExistsLog(applet['_id'], activity['_id'], activityStartedAt, self.getCurrentUser(), deviceId)
+        except Exception as ex:
+            print('Response Log Exception:')
+            print(ex)
+
         thisUser = self.getCurrentUser()
         if not AppletModel().isUser(applet['_id'], thisUser):
             raise AccessException('Read access was denied for this applet for this user.')
@@ -776,9 +807,14 @@ class ResponseItem(Resource):
             self._model.reconnectToDb(db_uri=owner_account.get('db', None))
 
         item = self._model.findOne(query={'meta.responseStarted': activityStartedAt, 'meta.applet.@id': applet['_id'], 'meta.activity.@id': activity['_id']})
-        return {
-            'exists': item is not None
-        }
+
+        result = {'exists': item is not None}
+
+        if log is not None:
+            log['result'] = result
+            ResponseLogModel().markSuccess(log)
+
+        return result
 
 
     @access.public
@@ -810,8 +846,9 @@ class ResponseItem(Resource):
             'Boolean, is this response in-progress rather than complete. '
             '(_not yet implemented_)',
             required=False, default=False)
-        .jsonParam('metadata',
-                   'A JSON object containing the metadata keys to add.',
+        .param('deviceId', 'The mobile device identifier', paramType='formData', required=False)
+        .param('activityStartedAt', 'timestamp', required=False, default=None, dataType='integer')
+        .jsonParam('metadata', 'A JSON object containing the metadata keys to add.',
                    paramType='form', requireObject=True, required=True)
         .errorResponse()
         .errorResponse('Write access was denied on the parent folder.', 403)
@@ -822,9 +859,19 @@ class ResponseItem(Resource):
         activity,
         metadata,
         subject_id,
+        deviceId,
+        activityStartedAt,
         pending,
         params
     ):
+        log = None
+        try:
+            log = ResponseLogModel().addResponseLog(applet['_id'], activity['_id'], metadata, params,
+                                                    self.getCurrentUser(), deviceId, activityStartedAt)
+        except Exception as ex:
+            print('Response Log Exception:')
+            print(ex)
+
         from girderformindlogger.models.profile import Profile
         from girderformindlogger.models.account_profile import AccountProfile
         try:
@@ -1001,7 +1048,6 @@ class ResponseItem(Resource):
                 value['fromLibrary']=False
                 value['size']=metadata['responses'][key]['size']
                 value['type']=metadata['responses'][key]['type']
-                value['type']=metadata['responses'][key]['type']
                 if owner_account and owner_account.get('s3Bucket', None):
                     if bucketType and 'GCP' in bucketType or 'gcp' in bucketType:
                         value['uri']="gs://{}/{}".format(owner_account.get('s3Bucket', None),_file_obj_key)
@@ -1150,12 +1196,16 @@ class ResponseItem(Resource):
             data['updated'] = now
             profile.save(data, validate=False)
 
+            if log is not None:
+                ResponseLogModel().markSuccess(log)
+
             return(newItem)
         except:
             import sys, traceback
             print(sys.exc_info())
             print(traceback.print_tb(sys.exc_info()[2]))
             return(str(traceback.print_tb(sys.exc_info()[2])))
+
 
     @access.public
     @autoDescribeRoute(
