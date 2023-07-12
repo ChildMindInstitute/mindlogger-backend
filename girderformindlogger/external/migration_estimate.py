@@ -104,6 +104,8 @@ def accounts_sheet_row(main_account, admins_ids):
                 lastResponseDateWithinAccount = responses[0]['created']
 
     diff_weeks = diff_week(datetime.now(), owner['created'])
+    if diff_weeks < 1:
+        diff_weeks = 1
     responsesPerWeekAvg = responsesWithinAccount/diff_weeks
 
     respondentsProfiles = ProfileModel().find(query={'accountId': main_account['_id'], 'profile': True, '$and': [ {'roles': {'$in': ["user"]}}, {'roles': {'$size': 1}} ], '_id': {'$nin': admins_ids}}, fields=['_id', 'userId'])
