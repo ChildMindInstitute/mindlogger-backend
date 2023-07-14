@@ -33,7 +33,7 @@ def accounts_sheet():
 
 def applets_sheet():
     rows = []
-    applets = FolderModel().find(query={'meta.applet': {'$exists': True}, 'meta.applet.deleted': {'$ne': True}, 'accountId': {'$nin': accountsBlackList}}, fields={"_id": 1, "name": 1, "meta": 1, "created": 1})
+    applets = FolderModel().find(query={'meta.applet': {'$exists': True}, 'meta.applet.deleted': {'$ne': True}, 'accountId': {'$nin': accountsBlackList}}, fields={"_id": 1, "name": 1, "meta": 1, "created": 1, "creatorId": 1})
     print('applets: ', applets.count())
     for idx, applet in enumerate(applets, start=1):
         rows.append(applets_sheet_row(applet))
@@ -83,6 +83,7 @@ def accounts_sheet_row(main_account, admins_ids):
 
     allApplets = get_applets_in_profile(main_account)
     appletsAmount = len(allApplets)
+    responsesAmount = 0
     appletsLast6 = 0
     appletsLast12 = 0
     appletsLast24 = 0
@@ -90,6 +91,7 @@ def accounts_sheet_row(main_account, admins_ids):
     lastResponseDateWithinAccount = None
     for _applet_id in allApplets:
         responses = ItemModel().find(query={'meta.applet.@id': _applet_id}, limit=1, fields=['created'], sort=[("created", DESCENDING)])
+        responsesAmount = responsesAmount + responses.count()
         if responses.count() > 0:
             diff_months = diff_month(datetime.now(), responses[0]['created'])
             if diff_months <= 6:
@@ -124,6 +126,7 @@ def accounts_sheet_row(main_account, admins_ids):
         'admins amount': usersAmount,
         'admins logged in within 6 months': loggedLast6,
         'admins logged in within 12 months': loggedLast12,
+        'responses amount': responsesAmount,
         'respondents amount': respondentsAmount,
         'applets amount': appletsAmount,
         'applets responded within 6 months': appletsLast6,
@@ -161,8 +164,14 @@ def applets_sheet_row(applet):
     protocolId = ObjectId(applet['meta']['protocol'].get('_id').split('/').pop())
     activities = FolderModel().find(query={'meta.protocolId': protocolId, '$or': [ {'meta.activity.reprolib:terms/baseAppletId.0.@id': {'$exists': True}}, {'meta.activity.reprolib:terms/baseActivityId.0.@id': {'$exists': True}} ]}, fields=['_id'])
 
+    try:
+        owner = UserModel().load(applet['creatorId'], force=True)
+    except:
+        owner = None
+
     return {
         'id': str(applet['_id']),
+        # 'owner email': owner['email'] if user_email_valid(owner) else '-',
         'name': escape_for_excel(applet['name']),
         'creation date': applet['created'].strftime("%Y-%m-%d"),
         'amount of admins': adminsAmount,
