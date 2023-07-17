@@ -30,6 +30,21 @@ def accounts_sheet():
 
     to_csv(rows, os.getcwd() + '/accounts.csv')
 
+def users_sheet():
+    rows = []
+    ids = get_admins_groupped_by_user_id()
+    users = list(UserModel().find(query={}, fields={"_id": 1}))
+    print('users: ', len(users))
+    for idx, user in enumerate(users, start=1):
+        row = users_sheet_row(user, ids)
+        if not row:
+            continue
+        rows.append(row)
+        if idx % 1000 == 0: print(idx)
+        elif idx % 100 == 0: print('.', end='')
+
+    to_csv(rows, os.getcwd() + '/users.csv')
+
 
 def applets_sheet():
     rows = []
@@ -134,6 +149,20 @@ def accounts_sheet_row(main_account, admins_ids):
         'applets responded within 24 months': appletsLast24,
         'responses per week avg': "{:.2f}".format(responsesPerWeekAvg),
         'last response date': lastResponseDateWithinAccount.strftime("%Y-%m-%d") if lastResponseDateWithinAccount is not None else '-',
+    }
+
+
+def users_sheet_row(user, admins_ids):
+    user = UserModel().load(user['_id'], force=True)
+    is_admin = user['_id'] in admins_ids
+
+    return {
+        'id': user['_id'],
+        'admin': 'yes' if is_admin else 'no',
+        'displayName': user['displayName'],
+        'firstName': user['firstName'],
+        'lastName': user['lastName'],
+        'created': user['created'],
     }
 
 
@@ -344,7 +373,8 @@ def get_admins_groupped_by_user_id():
     admins = []
     adminProfiles = ProfileModel().find(query={'profile': True, 'roles': {'$in': ["editor"]}, 'appletId': {'$nin': blAppletsIds}}, fields=['_id', 'userId'])
     for profile in adminProfiles:
-        admins.append(profile['userId'])
+        if profile and 'userId' in profile:
+            admins.append(profile['userId'])
     admins = list(set(admins))
     return admins
 
@@ -358,3 +388,4 @@ if __name__ == '__main__':
     # growth_line(2022)
     # growth_line(2023)
     # cohort_sheet()
+    # users_sheet()
