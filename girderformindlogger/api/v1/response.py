@@ -1071,9 +1071,12 @@ class ResponseItem(Resource):
             if metadata:
                 if metadata.get('dataSource', None):
                     for item in metadata.get('responses', {}):
+                        ptr = metadata['responses'][item]
+                        if isinstance(ptr, dict) and 'index' in ptr:
+                            ptr = ptr['index']
                         metadata['responses'][item] = {
                             'src': newItem['_id'],
-                            'ptr': metadata['responses'][item]
+                            'ptr': ptr
                         }
 
                 if metadata.get('subScaleSource', None):
