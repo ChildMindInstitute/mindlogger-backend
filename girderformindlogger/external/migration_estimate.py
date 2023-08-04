@@ -156,6 +156,28 @@ def users_sheet_row(user, admins_ids):
     user = UserModel().load(user['_id'], force=True)
     is_admin = user['_id'] in admins_ids
 
+    responses_sizes = list(ItemModel().aggregate([
+        {
+            "$match": {
+                "creatorId": user['_id'],
+                "meta.dataSource": {"$exists": True, "$type": "string"},
+                "meta.events": {"$exists": True, "$type": "string"},
+            }
+        },
+        {
+            "$project": {
+                "dataSource_size_bytes": {"$strLenCP": "$meta.dataSource"},
+                "events_size_bytes": {"$strLenCP": "$meta.events"},
+            }
+        }
+    ]))
+    responses_size_bytes = 0
+    for a in responses_sizes:
+        responses_size_bytes = responses_size_bytes + a['dataSource_size_bytes'] + a['events_size_bytes']
+
+    accounts = list(AccountProfile().find(query={'userId': user['_id']}))
+    account_names = ", ".join([acc['accountName'] for acc in accounts])
+
     return {
         'id': user['_id'],
         'admin': 'yes' if is_admin else 'no',
@@ -163,6 +185,8 @@ def users_sheet_row(user, admins_ids):
         'firstName': user['firstName'],
         'lastName': user['lastName'],
         'created': user['created'],
+        'account_names': account_names,
+        'responses size in bytes': responses_size_bytes,
     }
 
 
@@ -380,7 +404,7 @@ def get_admins_groupped_by_user_id():
 
 
 if __name__ == '__main__':
-    accounts_sheet()
+    # accounts_sheet()
     # applets_sheet()
     # library_sheet()
     # growth_line(2020)
@@ -388,4 +412,4 @@ if __name__ == '__main__':
     # growth_line(2022)
     # growth_line(2023)
     # cohort_sheet()
-    # users_sheet()
+    users_sheet()
