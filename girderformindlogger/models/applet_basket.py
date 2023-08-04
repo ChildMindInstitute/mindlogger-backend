@@ -119,7 +119,7 @@ class AppletBasket(AccessControlledModel):
         basket = {}
         for applet in applets:
             appletId = str(applet['appletId'])
-
-            basket[appletId] = applet['selection']
+            if 'selection' in applet:
+                basket[appletId] = applet['selection']
 
         return basket
