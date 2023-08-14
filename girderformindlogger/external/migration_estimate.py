@@ -222,10 +222,11 @@ def applets_sheet_row(applet):
     except:
         owner = None
 
+    name = applet['meta']['applet'].get('name', applet['meta']['protocol'].get('name', applet['name']))
     return {
         'id': str(applet['_id']),
         # 'owner email': owner['email'] if user_email_valid(owner) else '-',
-        'name': escape_for_excel(applet['name']),
+        'name': escape_for_excel(name),
         'creation date': applet['created'].strftime("%Y-%m-%d"),
         'amount of admins': adminsAmount,
         'amount of respondents': respondentsAmount,
