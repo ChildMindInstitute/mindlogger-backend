@@ -118,6 +118,8 @@ class Applet(Resource):
         self.route('GET', (':id', 'libraryUrl'), self.getAppletLibraryUrl)
         self.route('POST', (':id', 'setTheme', ), self.setAppletTheme)
 
+        self.route('GET', ('mobile-upgrade-info',), self.getMobileUpgradeInfo)
+
     @access.user(scope=TokenScope.DATA_WRITE)
     @autoDescribeRoute(
         Description('Retentions settings for particular applet.')
@@ -2598,6 +2600,26 @@ class Applet(Resource):
 
         return
 
+    @access.public
+    @autoDescribeRoute(
+        Description('Get the mobile upgrade information.')
+    )
+    def getMobileUpgradeInfo(self):
+        # TODO: uncomment this to switch to the refactored app
+        # return {
+        #     'links': {
+        #         'ios': 'https://apps.apple.com/jm/app/mindlogger-pilot/id1301092229',
+        #         'android': 'https://play.google.com/store/apps/details?id=com.childmindinstitute.exposuretherapy',
+        #     },
+        #     'version': '0.22.0'
+        # }
+        return {
+            "links": {
+                "android": None,
+                "ios": None
+            },
+            "version": "0.21.92"
+        }
 
 def authorizeReviewer(applet, reviewer, user):
     thisUser = Applet().getCurrentUser()
