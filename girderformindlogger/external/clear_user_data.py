@@ -31,28 +31,30 @@ for applet in applets:
 
     if owner_account and not owner_account.get('db', None):
         _item.reconnectToDb(db_uri=owner_account.get('db', None))
+    try:
+        retentionSettings = applet['meta'].get('retentionSettings', None)
 
-    retentionSettings = applet['meta'].get('retentionSettings', None)
+        retention = retentionSettings.get('retention', 'year')
+        period = retentionSettings.get('period', 5)
 
-    retention = retentionSettings.get('retention', 'year')
-    period = retentionSettings.get('period', 5)
+        if retention == 'indefinitely':
+            continue
 
-    if retention == 'indefinitely':
-        continue
+        timedelta_in_days = int(period) * int(RETENTION_SET[retention])
 
-    timedelta_in_days = int(period) * int(RETENTION_SET[retention])
+        items = _item.find(query={
+            'baseParentType': 'user',
+            'meta.applet.@id': ObjectId(applet['_id']),
+            'created': {
+                '$lte': datetime.datetime.now() - datetime.timedelta(days=timedelta_in_days)
+            }
+        })
 
-    items = _item.find(query={
-        'baseParentType': 'user',
-        'meta.applet.@id': ObjectId(applet['_id']),
-        'created': {
-            '$lte': datetime.datetime.now() - datetime.timedelta(days=timedelta_in_days)
-        }
-    })
+        if items:
+            _item.remove({'_id': {
+                '$in': [ObjectId(item['_id']) for item in items]
+            }})
 
-    if items:
-        _item.remove({'_id': {
-            '$in': [ObjectId(item['_id']) for item in items]
-        }})
-
-    print(f'Responses were removed for applet id - {applet.get("_id")}')
+        print(f'Responses were removed for applet id - {applet.get("_id")}')
+    finally:
+        _item.reconnectToDb()
