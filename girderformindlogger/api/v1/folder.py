@@ -173,7 +173,7 @@ class Folder(Resource):
                     '_id': ObjectId(_applet['_id']),
                 })
 
-                if applet.get('meta', {}).get('applet', {}).get('deleted'):
+                if applet is None or applet.get('meta', {}).get('applet', {}).get('deleted'):
                     continue
 
                 formatted = jsonld_expander.formatLdObject(
