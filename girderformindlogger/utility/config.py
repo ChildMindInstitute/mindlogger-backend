@@ -70,6 +70,9 @@ def loadConfig():
     if 'AES_KEY' in os.environ:
         cherrypy.config['aes_key'] = bytes(os.getenv('AES_KEY'), 'utf8')
 
+    if 'SENTRY_DSN' in os.environ:
+        cherrypy.config['sentry']['backend_dsn'] = os.getenv('SENTRY_DSN')
+
     cherrypy.config['redis'] = {
         'host': 'localhost',
         'port': 6379,
