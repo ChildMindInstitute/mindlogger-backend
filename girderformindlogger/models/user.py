@@ -38,7 +38,7 @@ class User(AESEncryption):
         }, language='none')
         self.exposeFields(level=AccessType.READ, fields=(
             '_id', 'login', 'public', 'displayName', 'firstName', 'lastName',
-            'admin', 'email', 'created'))
+            'admin', 'email', 'created', 'displayEmail'))
         self.exposeFields(level=AccessType.ADMIN, fields=(
             'size', 'status', 'emailVerified', 'creatorId'))
 
@@ -55,7 +55,8 @@ class User(AESEncryption):
         self.initAES([
             ('firstName', 64),
             ('lastName', 64),
-            ('displayName', 64)
+            ('displayName', 64),
+            ('displayEmail', 64)
         ])
 
         events.bind('model.user.save.created',
@@ -508,7 +509,9 @@ class User(AESEncryption):
                 } for gi in list(Group().find(query={"queue": email}))
             ] if len(email) else [],
             'email_encrypted': encryptEmail,
-            'accountName': ''
+            'accountName': '',
+            'displayEmail': email,
+
         }
         if encryptEmail:
             if len(email) == 0 or not mail_utils.validateEmailAddress(email):
@@ -847,3 +850,4 @@ class User(AESEncryption):
                 'timezone', 'deviceId'
             ]
         )
+
