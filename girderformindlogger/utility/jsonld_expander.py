@@ -572,12 +572,13 @@ def cacheProtocolContent(protocol, document, user, editExisting=False):
 
         cacheModel = CacheModel()
 
-        if editExisting and 'baseVersion' in document:
-            latestItem = ItemModel().findOne({
-                'folderId': contentFolder['_id'],
-                'version': document['baseVersion']
-            })
+        latestItem = ItemModel().findOne({
+            'folderId': contentFolder['_id'],
+            'version': document['baseVersion'],
+            'content': {'$exists': True}
+        }) if editExisting and 'baseVersion' in document else None
 
+        if latestItem is not None:
             latestDocument = json_util.loads(latestItem['content'])
 
             for key in dict.keys(latestDocument['protocol']['activities']):
@@ -817,6 +818,7 @@ def loadFromSingleFile(document, user, editExisting=False):
 def importAndCompareModelType(model, url, user, modelType, meta={}, existing=None):
     import threading
     from girderformindlogger.utility import firstLower
+    from functools import reduce
 
     if model is None:
         return(None, None)
@@ -870,15 +872,15 @@ def importAndCompareModelType(model, url, user, modelType, meta={}, existing=Non
         if modelClass.name=='folder':
             newModel = modelClass.setMetadata(
                 docFolder,
-                {
-                    modelType: {
+                reduce(merge, [
+                    {modelType: {
                         **model,
                         'schema:url': url,
                         'url': url
-                    },
-                    **meta,
-                    'schema': APPLET_SCHEMA_VERSION
-                }
+                    }},
+                    meta,
+                    {'schema': APPLET_SCHEMA_VERSION}
+                ])
             )
         elif modelClass.name=='item':
             item = None
@@ -909,15 +911,15 @@ def importAndCompareModelType(model, url, user, modelType, meta={}, existing=Non
 
             newModel = modelClass.setMetadata(
                 item,
-                {
-                    modelType: {
+                reduce(merge, [
+                    {modelType: {
                         **model,
                         'schema:url': url,
                         'url': url
-                    },
-                    **meta,
-                    'schema': APPLET_SCHEMA_VERSION
-                }
+                    }},
+                    meta,
+                    {'schema': APPLET_SCHEMA_VERSION}
+                ])
             )
 
         modelClass.update(
@@ -937,6 +939,15 @@ def importAndCompareModelType(model, url, user, modelType, meta={}, existing=Non
     createCache(newModel, formatted, modelType, user)
     return(formatted, modelType)
 
+def merge(a, b, path=None):
+    "merges b into a"
+    if path is None: path = []
+    for key in b:
+        if key in a and isinstance(a[key], dict) and isinstance(b[key], dict):
+            merge(a[key], b[key], path + [str(key)])
+        else:
+            a[key] = b[key]
+    return a
 
 def _createContextForStr(s):
     sp = s.split('/')
@@ -1656,7 +1667,12 @@ def formatLdObject(
                 oc is not None
             ]):
                 if mesoPrefix == 'item' or mesoPrefix == 'screen' or obj.get('meta', {}).get('schema', '') == APPLET_SCHEMA_VERSION:
-                    return(loadCache(oc))
+                    cached = loadCache(oc)
+                    if cached is not None:
+                        return cached
+                    else:
+                        refreshCache=True
+                        reimportFromUrl=False
                 else:
                     return {}
 
@@ -1669,6 +1685,7 @@ def formatLdObject(
                     o,
                     mesoPrefix,
                     refreshCache=refreshCache,
+                    reimportFromUrl=reimportFromUrl,
                     user=user
                 ) for o in obj if o is not None
             ]))
@@ -1731,7 +1748,8 @@ def formatLdObject(
                     protocolObj,
                     'protocol',
                     user,
-                    refreshCache=refreshCache
+                    refreshCache=refreshCache,
+                    reimportFromUrl=reimportFromUrl
                 )
 
             applet = {}
@@ -1796,13 +1814,13 @@ def formatLdObject(
 
             modelClasses = {}
 
-            if obj.get('loadedFromSingleFile', False):
+            if obj.get('loadedFromSingleFile', False) or not reimportFromUrl:
                 activities = ActivityModel().find({'meta.protocolId': obj['_id'], 'meta.activity': { '$exists': True }})
 
                 activityIDMapping = {}
 
                 for activity in activities:
-                    formatted = formatLdObject(activity, 'activity', user, refreshCache=refreshCache)
+                    formatted = formatLdObject(activity, 'activity', user, refreshCache=refreshCache, reimportFromUrl=False)
                     if refreshCache:
                         createCache(activity, formatted, 'activity', user, modelClasses)
 
@@ -1818,7 +1836,7 @@ def formatLdObject(
 
                 activityFlowIdMapping = {}
                 for activityFlow in activityFlows:
-                    formatted = formatLdObject(activityFlow, 'activityFlow', user, refreshCache=refreshCache)
+                    formatted = formatLdObject(activityFlow, 'activityFlow', user, refreshCache=refreshCache, reimportFromUrl=False)
                     if refreshCache:
                         createCache(activityFlow, formatted, 'activityFlow', user, modelClasses)
 
@@ -1851,8 +1869,12 @@ def formatLdObject(
 
             return protocol
         elif mesoPrefix=='activity':
+            if refreshCache and 'activity' in obj['meta'] and not '_id' in obj['meta']['activity']:
+                obj['meta']['activity']['_id'] = "activity/{}".format(str(obj['_id']))
+                ActivityModel().setMetadata(obj, obj['meta'])
+
             itemIDMapping = {}
-            if obj.get('loadedFromSingleFile', False):
+            if obj.get('loadedFromSingleFile', False) or not reimportFromUrl:
                 items = ScreenModel().find({'meta.activityId': obj['_id']})
 
                 activity = {
@@ -1860,14 +1882,21 @@ def formatLdObject(
                 }
 
                 for item in items:
+                    if not 'identifier' in item['meta']:
+                        item['meta']['identifier'] = '{}/{}'.format(str(obj['_id']), str(item['_id']))
                     identifier = item['meta']['identifier']
-                    activity['items'][identifier] = formatLdObject(item, 'screen', user)
+                    itemFormatted = formatLdObject(item, 'screen', user, refreshCache=refreshCache, reimportFromUrl=False)
+                    activity['items'][identifier] = itemFormatted
 
                     key = '{}/{}'.format(str(item['meta']['activityId']), str(item['_id']))
 
-                    itemIDMapping['{}/{}'.format(str(item['meta']['activityId']), activity['items'][identifier]['@id'])] = key
+                    itemId = activity['items'][identifier]['@id'] if '@id' in activity['items'][identifier] else activity['items'][identifier]['_id']
+                    itemIDMapping['{}/{}'.format(str(item['meta']['activityId']), itemId)] = key
                     if item.get('duplicateOf', None):
                         itemIDMapping['{}/{}'.format(str(item['meta']['activityId']), str(item['duplicateOf']))] = key
+
+                    if refreshCache:
+                        createCache(item, itemFormatted, 'item', user)
 
                 if refreshCache and fixUpList(obj, 'activity', itemIDMapping, 'reprolib:terms/order'):
                     ActivityModel().setMetadata(obj, obj['meta'])
@@ -1888,6 +1917,9 @@ def formatLdObject(
                     meta={'protocolId': obj['meta']['protocolId'], 'activityId': obj['_id']}
                 )
 
+            if refreshCache:
+                createCache(obj, activity, 'activity', user)
+
             return activity
         else:
             return (_fixUpFormat(newObj))
@@ -1900,6 +1932,7 @@ def formatLdObject(
                 keepUndefined,
                 dropErrors,
                 refreshCache=True,
+                reimportFromUrl=reimportFromUrl,
                 responseDates=responseDates
             )))
         import sys, traceback

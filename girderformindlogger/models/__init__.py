@@ -136,6 +136,9 @@ def pluralize(modelType):
 
 
 def cycleModels(IRIset, modelType=None, meta={}):
+    # import pandas as pd
+    from pandas.io.json import json_normalize
+
     from girderformindlogger.constants import REPROLIB_TYPES
     from girderformindlogger.models.folder import Folder as FolderModel
     from girderformindlogger.models.item import Item as ItemModel
@@ -164,8 +167,9 @@ def cycleModels(IRIset, modelType=None, meta={}):
         }
     }
 
-    for key in meta:
-        query['meta.{}'.format(key)] = meta[key]
+    flattenedMeta = json_normalize(meta).to_dict(orient='records')[0]
+    for key in flattenedMeta:
+        query['meta.{}'.format(key)] = flattenedMeta[key]
 
     cachedDoc = ItemModel().findOne(query) if modelType == 'screen' else FolderModel().findOne(query)
 
@@ -189,10 +193,13 @@ def smartImport(IRI, user=None, refreshCache=False, modelType=None, meta={}):
         reprolibCanonize
 
     MODELS = MODELS()
-    mt1 = "screen" if modelType in [
-        None,
-        "external JSON-LD document"
-    ] else modelType
+    if modelType in [None, "external JSON-LD document"]:
+        mt1 = "screen"
+        if '/' in IRI:
+            meta['screen'] = {'@id': IRI.split('/')[-1]}
+    else:
+        mt1 = modelType
+
     model, modelType = MODELS[mt1]().getFromUrl(
         IRI,
         user=user,
