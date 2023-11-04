@@ -2605,21 +2605,20 @@ class Applet(Resource):
         Description('Get the mobile upgrade information.')
     )
     def getMobileUpgradeInfo(self):
-        # TODO: uncomment this to switch to the refactored app
-        # return {
-        #     'links': {
-        #         'ios': 'https://apps.apple.com/jm/app/mindlogger-pilot/id1301092229',
-        #         'android': 'https://play.google.com/store/apps/details?id=com.childmindinstitute.exposuretherapy',
-        #     },
-        #     'version': '0.22.0'
-        # }
         return {
-            "links": {
-                "android": None,
-                "ios": None
+            'links': {
+                'ios': 'https://apps.apple.com/app/mindlogger/id1299242097',
+                'android': 'https://play.google.com/store/apps/details?id=lab.childmindinstitute.data',
             },
-            "version": "0.21.92"
+            'version': '1.0.1'
         }
+        # return {
+        #     "links": {
+        #         "android": None,
+        #         "ios": None
+        #     },
+        #     "version": "0.21.92"
+        # }
 
 def authorizeReviewer(applet, reviewer, user):
     thisUser = Applet().getCurrentUser()
