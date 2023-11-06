@@ -383,42 +383,42 @@ class ResponseItem(Resource):
         })
         if owner_account and owner_account.get('db', None):
             self._model.reconnectToDb(db_uri=owner_account.get('db', None))
+        try:
+            for user in users:
+                query = {
+                    "created": { "$lte": toDate, "$gt": fromDate },
+                    "meta.applet.@id": ObjectId(applet['_id']),
+                    "meta.subject.@id": user['_id'],
+                    "reviewing": {'$exists': False}
+                }
+                if activities:
+                    query["meta.activity.@id"] = { "$in": activities },
 
-        for user in users:
-            query = {
-                "created": { "$lte": toDate, "$gt": fromDate },
-                "meta.applet.@id": ObjectId(applet['_id']),
-                "meta.subject.@id": user['_id'],
-                "reviewing": {'$exists': False}
-            }
-            if activities:
-                query["meta.activity.@id"] = { "$in": activities },
-
-            responses = self._model.find(
-                query=query,
-                force=True,
-                sort=[("created", DESCENDING)]
-            )
-
-            # we need this to handle old responses
-            for response in responses:
-                response['meta']['subject']['userTime'] = response["created"].replace(tzinfo=pytz.timezone("UTC")).astimezone(
-                    timezone(
-                        timedelta(
-                            hours=user["timezone"] if 'timezone' not in response['meta']['subject'] else response['meta']['subject']['timezone']
-                        )
-                    )
+                responses = self._model.find(
+                    query=query,
+                    force=True,
+                    sort=[("created", DESCENDING)]
                 )
 
-            tokens = ResponseTokens().getResponseTokens(user, retrieveUserKeys=True)
+                # we need this to handle old responses
+                for response in responses:
+                    response['meta']['subject']['userTime'] = response["created"].replace(tzinfo=pytz.timezone("UTC")).astimezone(
+                        timezone(
+                            timedelta(
+                                hours=user["timezone"] if 'timezone' not in response['meta']['subject'] else response['meta']['subject']['timezone']
+                            )
+                        )
+                    )
 
-            add_latest_daily_response(data, responses, tokens)
+                tokens = ResponseTokens().getResponseTokens(user, retrieveUserKeys=True)
 
-        self._model.reconnectToDb()
+                add_latest_daily_response(data, responses, tokens)
 
-        data.update(getOldVersions(data['responses'], applet))
+            data.update(getOldVersions(data['responses'], applet))
 
-        return data
+            return data
+        finally:
+            self._model.reconnectToDb()
 
     @access.user(scope=TokenScope.DATA_READ)
     @autoDescribeRoute(
@@ -732,29 +732,32 @@ class ResponseItem(Resource):
         if owner_account and owner_account.get('db', None):
             self._model.reconnectToDb(db_uri=owner_account.get('db', None))
 
-        owner_client = owner_account and owner_account.get('s3Bucket', None) and owner_account.get('accessKeyId', None)
-        storage_client = file_storage.resolve_from_account(owner_account) if owner_client else file_storage.resolve_default()
+        try:
+            owner_client = owner_account and owner_account.get('s3Bucket', None) and owner_account.get('accessKeyId', None)
+            storage_client = file_storage.resolve_from_account(owner_account) if owner_client else file_storage.resolve_default()
 
-        result = []
-        for fileId in fileIds.split(','):
-            exists = False
-            item = self._model.findOne(query={'meta.fileIds': fileId, 'meta.applet.@id': applet['_id']})
-            if item:
-                fileResponses = item['meta'].get('responses', {})
-                for key, fileResponse in fileResponses.items():
-                    fileValue = fileResponse.get('value', {})
-                    if fileId == fileValue.get('fileId'):
-                        uri = fileValue.get('uri', '')
-                        if storage_client and storage_client.checkPathExists(uri):
-                            exists = True
+            result = []
+            for fileId in fileIds.split(','):
+                exists = False
+                item = self._model.findOne(query={'meta.fileIds': fileId, 'meta.applet.@id': applet['_id']})
+                if item:
+                    fileResponses = item['meta'].get('responses', {})
+                    for key, fileResponse in fileResponses.items():
+                        fileValue = fileResponse.get('value', {})
+                        if fileId == fileValue.get('fileId'):
+                            uri = fileValue.get('uri', '')
+                            if storage_client and storage_client.checkPathExists(uri):
+                                exists = True
 
-            result.append({'fileId': fileId, 'exists': exists})
+                result.append({'fileId': fileId, 'exists': exists})
 
-        if log is not None:
-            log['result'] = result
-            ResponseLogModel().markSuccess(log)
+            if log is not None:
+                log['result'] = result
+                ResponseLogModel().markSuccess(log)
 
-        return result
+            return result
+        finally:
+            self._model.reconnectToDb()
 
 
     @access.user(scope=TokenScope.DATA_READ)
@@ -805,16 +808,18 @@ class ResponseItem(Resource):
         })
         if owner_account and owner_account.get('db', None):
             self._model.reconnectToDb(db_uri=owner_account.get('db', None))
+        try:
+            item = self._model.findOne(query={'meta.responseStarted': activityStartedAt, 'meta.applet.@id': applet['_id'], 'meta.activity.@id': activity['_id']})
 
-        item = self._model.findOne(query={'meta.responseStarted': activityStartedAt, 'meta.applet.@id': applet['_id'], 'meta.activity.@id': activity['_id']})
+            result = {'exists': item is not None}
 
-        result = {'exists': item is not None}
+            if log is not None:
+                log['result'] = result
+                ResponseLogModel().markSuccess(log)
 
-        if log is not None:
-            log['result'] = result
-            ResponseLogModel().markSuccess(log)
-
-        return result
+            return result
+        finally:
+            self._model.reconnectToDb()
 
 
     @access.public
@@ -1144,7 +1149,6 @@ class ResponseItem(Resource):
 
             if not pending:
                 newItem['readOnly'] = True
-            #self._model.reconnectToDb()
 
             # update profile activity
             profile = Profile()
@@ -1208,6 +1212,8 @@ class ResponseItem(Resource):
             print(sys.exc_info())
             print(traceback.print_tb(sys.exc_info()[2]))
             return(str(traceback.print_tb(sys.exc_info()[2])))
+        finally:
+            self._model.reconnectToDb()
 
 
     @access.public
@@ -1423,53 +1429,54 @@ class ResponseItem(Resource):
         if owner_account and owner_account.get('db', None):
             self._model.reconnectToDb(db_uri=owner_account.get('db', None))
 
-        for responseId in responses['dataSources']:
-            query = {
-                "meta.applet.@id": applet['_id'],
-                "_id": ObjectId(responseId)
-            }
-            if my_response:
-                query["meta.subject.@id"] = profile['_id']
+        try:
+            for responseId in responses['dataSources']:
+                query = {
+                    "meta.applet.@id": applet['_id'],
+                    "_id": ObjectId(responseId)
+                }
+                if my_response:
+                    query["meta.subject.@id"] = profile['_id']
 
-            self._model.update(
-                query,
-                {
-                    '$set': {
-                        'meta.dataSource': responses['dataSources'][responseId],
-                        'meta.userPublicKey': responses['userPublicKey'],
-                        'updated': now
-                    }
-                },
-                multi=False
-            )
+                self._model.update(
+                    query,
+                    {
+                        '$set': {
+                            'meta.dataSource': responses['dataSources'][responseId],
+                            'meta.userPublicKey': responses['userPublicKey'],
+                            'updated': now
+                        }
+                    },
+                    multi=False
+                )
 
-        responseTokenModel = ResponseTokens()
+            responseTokenModel = ResponseTokens()
 
-        for tokenUpdateId in responses['tokenUpdates']:
-            query = {
-                'appletId': applet['_id'],
-                '_id': ObjectId(tokenUpdateId),
-                'userId': profile['userId']
-            }
+            for tokenUpdateId in responses['tokenUpdates']:
+                query = {
+                    'appletId': applet['_id'],
+                    '_id': ObjectId(tokenUpdateId),
+                    'userId': profile['userId']
+                }
 
-            tokenUpdate = responseTokenModel.findOne(query)
-            tokenUpdate.update({
-                'data': responses['tokenUpdates'][tokenUpdateId],
-                'userPublicKey': responses['userPublicKey'],
-                'updated': now
+                tokenUpdate = responseTokenModel.findOne(query)
+                tokenUpdate.update({
+                    'data': responses['tokenUpdates'][tokenUpdateId],
+                    'userPublicKey': responses['userPublicKey'],
+                    'updated': now
+                })
+
+                responseTokenModel.save(tokenUpdate)
+
+            if profile.get('refreshRequest', None):
+                profile.pop('refreshRequest')
+                Profile().save(profile, validate=False)
+
+            return ({
+                "message": "responses are updated successfully."
             })
-
-            responseTokenModel.save(tokenUpdate)
-
-        self._model.reconnectToDb()
-
-        if profile.get('refreshRequest', None):
-            profile.pop('refreshRequest')
-            Profile().save(profile, validate=False)
-
-        return ({
-            "message": "responses are updated successfully."
-        })
+        finally:
+            self._model.reconnectToDb()
 
 def save():
     return(lambda x: x)
